@@ -25,6 +25,4 @@ El documento se encuentra organizado en múltiples secciones y capítulos, con s
 │   ├── 3-Metodología/           # Imágenes de metodología
 │   ├── 4-Resultados_Discusión/  # Imágenes de resultados y discusiones
 │   ├── 6-Anexos/                # Material complementario y anexos
-│   ├── 05_Conclusiones.tex
-│   └── 06_Anexos.tex
 └── library.bib                  # Archivo BibTeX con referencias
