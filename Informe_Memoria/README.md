@@ -1,5 +1,7 @@
 # 📄 Informe de Memoria de Título
 
+## "Implementación de Algoritmos de Reconocimiento de Objetos para la Identificación de Fallas en Correas Transportadoras"
+
 Este repositorio contiene el **informe de memoria de título** desarrollado en formato **LaTeX**.  
 El documento se encuentra organizado en múltiples secciones y capítulos, con su respectiva bibliografía y anexos.
 
