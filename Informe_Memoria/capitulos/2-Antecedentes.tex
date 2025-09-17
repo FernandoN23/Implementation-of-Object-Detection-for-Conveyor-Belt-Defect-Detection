@@ -1,0 +1,178 @@
+\chapter{Antecedentes}
+
+\section{Estado del arte en la identificación de fallas en correas transportadoras}
+
+\par El aprendizaje profundo (Deep Learning) se ha consolidado como una herramienta clave en el \textit{procesamiento de imágenes, visión computacional y reconocimiento de patrones}, debido a su capacidad para aprender representaciones de alto nivel desde datos masivos. A través de enfoques supervisados, no supervisados y semi-supervisados, estos algoritmos han superado a los métodos tradicionales, particularmente en tareas de clasificación y segmentación. El aprendizaje por transferencia (transfer learning) ha sido especialmente útil en entornos con escasez de datos etiquetados, permitiendo la reutilización de modelos preentrenados para mejorar el rendimiento en nuevas tareas \cite{gupta2022deep}. \\
+
+\par La detección de fallas en correas transportadoras se aborda como un problema de detección de objetos mediante aprendizaje supervisado. Existen dos enfoques principales: los modelos de dos etapas, como la familia R-CNN (red neuronal convolucional basada en regiones), que emplean redes de propuestas regionales seguidas de refinamiento, y los modelos de una etapa, como YOLO y SSD, que realizan predicciones por regresión directa, optimizados para aplicaciones en tiempo real \cite{zhang2021deep}. \\
+
+\par La detección de objetos ha sido uno de los problemas centrales en visión por computadora, tradicionalmente abordado mediante arquitecturas basadas en redes neuronales convolucionales (CNN). Estos modelos dominaron el campo durante más de una década, impulsando desarrollos significativos en precisión y eficiencia. Sin embargo, alcanzar un balance óptimo entre velocidad y exactitud ha requerido explorar estructuras más allá del marco convencional de las CNN. Los modelos basados en transformers, originalmente desarrollados para procesamiento de lenguaje natural (Natural Language Processing), han demostrado ser altamente efectivos al capturar relaciones espaciales globales en imágenes, lo que los convierte en una propuesta a considerar para la implementación de nuevos modelos de detección de objetos \cite{arkin2023survey}. \\
+
+\par Una memoria de título desarrollada en la Universidad de Chile \cite{angulo2024deteccion} implementa visión computacional y técnicas de aprendizaje profundo (Deep Learning) para la detección temprana de fallas en correas transportadoras, utilizando una de las versiones del modelo YOLO (You Only Look Once). El estudio describe detalladamente la implementación y calibración del modelo, además de proporcionar información técnica sobre redes neuronales convolucionales, métricas de evaluación, pruebas experimentales y resultados ilustrativos.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Fallas en correas transportadoras}
+
+\par Las correas transportadoras operan en condiciones que las exponen a diversos tipos de daños, los cuales pueden generar costosos tiempos de inactividad. Para cada condición de falla, se han revisado exhaustivamente sus tipos y causas, así como los métodos adecuados para su mitigación, contribuyendo a mejorar la confiabilidad del sistema \cite{khanna2022types}. \\
+
+\par Entre las fallas más comunes en correas transportadoras se identifican el \textbf{daño por impacto}, que puede provocar \textbf{perforaciones o roturas locales}; la \textbf{delaminación}, generada por esfuerzos cíclicos y fatiga; y la \textbf{desalineación de la banda}, que causa \textbf{desgaste anómalo en los bordes}. Además, se reporta \textbf{desgaste abrasivo} en la cubierta superior por efecto de partículas duras, \textbf{rotura de cables de acero} en correas reforzadas, y \textbf{cortes longitudinales y transversales}, todos los cuales afectan directamente la vida útil y seguridad operativa del sistema.
+
+
+\begin{figure}[H]
+    \centering
+    \subfloat[Desgasta abrasivo banda]{
+        \includegraphics[width=0.23\textwidth]{img/Fallas fotos/Desgaste_abrasivo_banda.png}
+    }
+    \hfill
+    \subfloat[Desgaste abrasivo bordes banda]{
+        \includegraphics[width=0.23\textwidth]{img/Fallas fotos/Desgaste_abrasivo_banda_bordes.png}
+    }
+    \hfill
+    \subfloat[Perforación de banda]{
+        \includegraphics[width=0.23\textwidth]{img/Fallas fotos/Perforacion_banda.png}
+    }
+    \hfill
+    \subfloat[Rotura de banda]{
+        \includegraphics[width=0.23\textwidth]{img/Fallas fotos/Rotura_banda.png}
+    }
+    \hfill
+    \subfloat[Corte longitudinal ó Desgarro]{
+        \includegraphics[width=0.4\textwidth]{img/Fallas fotos/Corte_longitudinal.png}
+    }
+    \caption{Tipos de falla comunes en correas transportadoras, imágenes adaptadas de \cite{khanna2022types}.}
+    \label{fig:falla_correas}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Arquitectura Redes Neuronales Convolucionales (CNN) y Transfer Learning (TL)}
+
+\par La detección de objetos en visión computacional consiste en identificar automáticamente instancias presentes en una imagen o secuencia, localizándolas mediante cajas delimitadoras y clasificándolas correctamente. Esta tarea combina elementos de clasificación, localización y, en algunos casos, segmentación \cite{kaur2022tools}. \\
+
+\par Los modelos de detección de objetos que solamente realizan una captura (single shot), poseen una arquitectura basada en redes neuronales convolucionales (CNN) y sus variantes, como por ejemplo R-CNN (CNN basado en la región) o Faster R-CNN (R-CNN más rapido). \\
+
+\par Las redes neuronales convolucionales (CNN) están inspiradas en el funcionamiento de la corteza visual del cerebro humano, emulando la capacidad de identificar objetos mediante características como bordes, formas y colores. Estas redes operan sobre imágenes 2D o 3D y se estructuran típicamente en tres etapas: capas de convolución, capas de reducción (pooling) y capas densas. Este enfoque permite que las CNN reconozcan patrones visuales de forma progresiva, desde rasgos simples hasta representaciones complejas \cite{lubinus2023redes}.
+\\
+
+\par El aprendizaje por transferencia (transfer-learning) es una metodología eficaz cuando la disponibilidad de datos etiquetados es limitada, ya que aprovecha el conocimiento previamente aprendido por un modelo entrenado en un dominio específico para aplicarlo a una tarea distinta, lo que permite acelerar el proceso de entrenamiento y mejorar el desempeño del modelo \cite{iman2023review}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Arquitectura Encoder-Decoder y Destilación de Conocimiento en Deep Learning}
+
+\par Los modelos encoder-decoder basados en transformers, como DETR y DINO, utilizan un codificador que transforma la imagen en embeddings (vectores matemáticos) mediante auto-atención, y un decodificador que cruza estas representaciones con un conjunto fijo de consultas para predecir directamente clases y localización de objetos. \\
+
+\par Debido a la complejidad de estos mecanismos de atención, han surgido métodos de explicabilidad que permiten visualizar la relevancia de cada token de entrada en la inferencia. Entre ellos, se propone un enfoque general aplicable a arquitecturas bi-modales y encoder-decoder, que genera mapas de atención interpretables. Estas capacidades son especialmente útiles en detección basada en transformers, donde también se integran estrategias como la destilación de conocimiento y el aprendizaje auto-supervisado para mejorar el rendimiento con datos limitados \cite{chefer2021generic}. \\
+
+\par La destilación de conocimiento (knowledge-distillation) es una estrategia de aprendizaje profundo que permite transferir la capacidad representacional de modelos visuales de gran escala (teacher) hacia arquitecturas más livianas y eficientes (student), reduciendo significativamente el costo computacional durante la inferencia. En el contexto de tareas como la detección de objetos, esta técnica ha demostrado ser efectiva al extraer y condensar el conocimiento de modelos preentrenados en clasificación \cite{li2024distilling}.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{YOLO (You Only Look Once) y SSD (Single Shot Multibox Detector)}
+
+
+\subsection{Arquitecturas}
+
+
+\par YOLO y SSD son modelos de detección de objetos de tipo single-shot, es decir, realizan la detección y clasificación en una única pasada de la red. Ambos están basados en redes neuronales convolucionales (CNN). \\
+
+\par YOLO (You Only Look Once) es un enfoque de detección de objetos de una sola etapa que destaca por su alta velocidad y eficiencia, al predecir directamente las clases y ubicaciones de objetos en una sola pasada por la red. A diferencia de métodos de dos etapas como R-CNN o Faster R-CNN, YOLO evita la generación de propuestas de regiones, lo que lo hace apto para aplicaciones en tiempo real. Su arquitectura unificada lo convierte en una opción balanceada entre precisión y velocidad \cite{terven2023comprehensive}.
+\\
+\par SSD (Single Shot Multibox Detector) es otro enfoque en la detección de objetos, caracterizado por su capacidad de realizar clasificación y regresión de cajas delimitadoras en una única pasada de la red, sin requerir etapas de propuesta de regiones. SSD utiliza múltiples mapas de características de diferentes escalas para detectar objetos de diversos tamaños, lo que mejora la precisión especialmente en objetos pequeños \cite{liu2016ssd}.
+  
+
+
+\subsection{Hiperparámetros}
+
+\par Los hiperparámetros son valores que controlan el proceso de aprendizaje y condicionan los parámetros internos que el modelo ajusta durante el entrenamiento. Se denominan así por encontrarse en un nivel superior, ya que no forman parte del modelo aprendido, sino que guían su optimización. Al finalizar el entrenamiento, el modelo resultante contiene únicamente los parámetros ajustados, mientras que los hiperparámetros utilizados permanecen externos a dicha estructura \cite{nyuytiymbiy2020parameters}.
+\\
+
+\par El ajuste de hiperparámetros en los modelos de detección de objetos basados en redes neuronales convolucionales, es un proceso iterativo el cual está destinado a optimizar las métricas de evaluación utilizadas en visión computacional \cite{ultralytics2025hyperparam}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{DETR (DEtection TRansformer) y DINO}
+
+\subsection{Arquitecturas}
+
+\par DETR y DINO son modelos de detección de objetos basados en la arquitectura de transformers, originalmente desarrollada para procesamiento de lenguaje natural, pero adaptada para visión por computadora. 
+\\
+
+%DETR
+\par DETR (DEtection TRansformer) es un modelo de aprendizaje profundo (deep-learning), compuesta por tres elementos principales: un backbone convolucional (CNN backbone) que extrae las representaciones visuales, un transformador encoder-decoder (encoder-decoder transformer) que modela relaciones globales en la imagen, y una red neuronal completamente conectada (feed forward network, FFN) que realiza las predicciones finales. DETR no requiere componentes manuales ni estructuras complejas, lo que permite su implementación en frameworks de aprendizaje profundo estándar con pocas líneas de código \cite{carion2020end}. \\
+
+%DINO
+
+\par DINO es un modelo basado en DETR que incluye un backbone, un encoder y decoder multi-capa de Transformer, y múltiples cabezas de predicción (prediction heads). Emplea extractores de características multiescala que se procesan con embeddings posicionales (positional embeddings) en el encoder. Su innovación principal. respecto a DETR, es la selección mixta de queries (solicitudes) para inicializar anclas posicionales (positional anchors) en el decoder, mientras que las queries de contenido (content queries) permanecen aprendibles. Utiliza atención deformable (deformable attention) para actualizar características capa a capa y cuenta con una rama de desruido (denoising) con entrenamiento contrastivo, mejorando la gestión de muestras difíciles \cite{zhang2022dino}.
+
+
+
+\subsection{Hiperparámetros}
+
+\par En el modelo DETR, los hiperparámetros incluyen configuraciones específicas del número de \textit{layers} (capas) en la arquitectura, tasas de \textit{regularization} (regularización), tipo de \textit{optimizer} (optimizador) y esquemas de \textit{data augmentation} (aumento de datos) \cite{carion2020end}.
+\\
+
+\par En el modelo DINO, los hiperparámetros comparten similitudes con DETR, incluyendo el uso del optimizador AdamW con regularización por decaimiento de peso (weight decay) y ajustes en la tasa de aprendizaje mediante un programador dinámico (learning rate scheduler). Además, DINO incorpora un conjunto fijo y ampliado de consultas para el decoder (decoder queries), optimizando el equilibrio entre desempeño y costo computacional durante el entrenamiento \cite{zhang2022dino}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Métricas}
+
+\par Con el fin de validar la implementación de los modelos de detección de objetos para la clasificación de fallas, se emplean métricas cuantitativas estándar en visión por computador. El uso de estas métricas otorgan las herramientas esenciales para evaluar críticamente y de forma fiable los modelos implementados \cite{schlosser2024overview}.
+
+\subsection{Precisión, Exhaustividad y F-Score}
+
+\par La \textbf{precisión} (\textit{precision}) mide la proporción de verdaderos positivos entre todas las predicciones positivas. El \textbf{recall} o \textit{exhaustividad} mide la proporción de verdaderos positivos detectados sobre los positivos reales. 
+
+\[
+\text{Precision} = \frac{TP}{TP + FP} \quad \quad \text{Recall} = \frac{TP}{TP + FN}
+\]
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|c|c|}
+        \hline
+         \textbf{Abreviación} & \textbf{Significado}  \\
+         \hline
+         T & Total \\
+         \hline
+         P & Positivos \\
+         \hline
+         N & Negativos \\
+         \hline
+         TP & Verdaderos Positivos \\
+         \hline
+         TN & Verdaderos Negativos \\
+         \hline
+         FP & Falsos Negativos \\
+         \hline
+         n & Número de Clases \\
+         \hline
+    \end{tabular}
+    \caption{Definiciones generales \textit{Machine Learning} \cite{schlosser2024overview}}
+    \label{tab:2-def_metricas}
+\end{table}
+
+
+\par El \textbf{F-Score} ($F_{\beta}$) es la media ponderada entre precisión y recall, ajustada por el parámetro $\beta$. Un caso particular es el \textbf{F1-Score} ($F_{1}$), donde $\beta = 1$.
+
+\[
+F_{\beta} = (1 + \beta^2) \cdot \frac{\text{Precision} \cdot \text{Recall}}{\beta^2 \cdot \text{Precision} + \text{Recall}} \quad \quad F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
+\]
+
+\subsection{IoU y Confianza}
+
+\par El \textbf{IoU (Intersection over Union)} evalúa el solapamiento entre la predicción y la verdad de terreno:
+\\
+\[
+\text{IoU} = \frac{\text{Área de Intersección}}{\text{Área de Unión}}
+\]
+
+\par La \textbf{confianza} asigna una probabilidad a la predicción, y el \textbf{umbral de confianza} define el valor mínimo para aceptar una detección.
+
+\subsection{AP y mAP}
+
+\par La \textbf{Average Precision (AP)} corresponde al área bajo la curva precisión-recall para una clase. El \textbf{mean Average Precision (mAP)} es el promedio del AP para todas las clases. \\
+
+\par El \textbf{mAP@50} utiliza un umbral IoU fijo de 0{,}5. \textbf{mAP@50-95} promedia el AP en umbrales de IoU entre 0{,}5 y 0{,}95 (paso de 0{,}05), reflejando un criterio más exigente y robusto.
+
+\subsection{Matriz de Confusión}
+
+\par Representa los aciertos y errores del clasificador mediante los conteos de verdaderos/falsos positivos y negativos por clase, permitiendo un análisis detallado del comportamiento del modelo.

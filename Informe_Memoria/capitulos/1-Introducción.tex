@@ -1,0 +1,47 @@
+\counterwithin{figure}{section}
+\counterwithin{table}{section}
+\counterwithin{equation}{section}
+\chapter{Introducción}
+
+\par Las correas transportadoras son esenciales en minería e industria para trasladar grandes volúmenes de material, pero están expuestas a desgaste que puede causar fallas y detenciones no programadas. La detección temprana es crucial para evitar pérdidas. Frente a las limitaciones de métodos manuales, los modelos de inteligencia artificial permiten una detección precisa y en tiempo real. Ante esto, la visión computacional se posiciona como herramienta clave para el mantenimiento predictivo \cite{zhang2021deep}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Objetivo General}
+
+\par Implementar y evaluar algoritmos
+de detección de objetos, basados en
+inteligencia artificial, para la identificación automática de
+fallas en correas transportadoras.
+
+
+
+\section{Objetivos Específicos}
+
+
+\par Para lograr el objetivo general en este futuro trabajo de memoria de título, se propone cumplir con los siguientes
+objetivos específicos:
+
+\begin{enumerate}
+    \item Implementar modelos de detección de objetos basados en redes convolucionales, tales como YOLO (You Only Look Once) y sus variantes, y SSD (Single Shot Multibox Detector).
+
+    \item Implementar modelos de detección de objetos basados en redes neuronales artificiales con arquitectura tipo transformer, tales como DETR (DEtection TRansformer) y DINO.
+
+    \item Entrenar algoritmos de detección utilizando bases de datos con registros de fallas en correas transportadoras.
+
+    \item Comparar el desempeño de los modelos en la detección de distintos tipos de fallas mediante el uso de métricas de evaluación cuantitativas.
+
+    
+\end{enumerate}
+
+
+\section{Alcances}
+
+\begin{itemize}
+    \item El entrenamiento de los algoritmos de detección se realizará exclusivamente con bases de datos públicas disponibles en la web que contengan registros de fallas en correas transportadoras.
+
+    \item Considerar el uso de datos sin etiquetar, los cuales serán procesados mediante estrategias de etiquetado manual o mediante técnicas no supervisadas y/o auto-supervisadas, según su aplicabilidad.
+
+    \item Evaluar el rendimiento de los modelos seleccionados (YOLO, SSD, DETR y DINO) en la detección y clasificación de fallas, utilizando una misma base de datos con partición en conjuntos de entrenamiento, validación y prueba. Posteriormente se evaluarán utilizando métricas estándar de evaluación.
+    
+\end{itemize}
