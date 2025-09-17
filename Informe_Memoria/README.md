@@ -8,16 +8,23 @@ El documento se encuentra organizado en múltiples secciones y capítulos, con s
 ## 📂 Estructura del Proyecto
 
 ```text
-├── main.tex               # Archivo principal de compilación del informe
-├── preambulo/             # Paquetes, estilos y comandos personalizados
-├── capitulos/             # Secciones y capítulos del informe
-│   ├── 01_Introduccion.tex
-│   ├── 02_Marco_Teorico.tex
-│   ├── 03_Metodologia.tex
-│   ├── 04_Resultados.tex
-│   ├── 05_Discusion.tex
-│   └── 06_Conclusiones.tex
-├── anexos/                # Material complementario y anexos
-├── figuras/               # Imágenes y diagramas
-├── tablas/                # Tablas en formato .tex o .csv
-└── referencias.bib        # Archivo BibTeX con referencias
+├── main.tex                     # Archivo principal de compilación del informe
+├── template.tex                 # Paquetes, estilos y comandos personalizados
+├── template_config.tex          # Configuraciones del template
+├── natnumurl.bst                #Archivo de estilos simple numerados + url
+├── capitulos/                   # Secciones y capítulos del informe
+│   ├── 1-Introducción.tex
+│   ├── 2-Antecedentes.tex
+│   ├── 3-Metodología.tex
+│   ├── 4-Resultados_Discusión.tex
+│   ├── 5-Conclusiones.tex
+│   └── 6-Anexos.tex
+├── img/                         # Carpetas con imágenes por capítulo
+│   ├── departamentos/           # Logos de departamentos en formato PDF
+│   ├── 2-Antecedentes/          # Imágenes de antecedentes
+│   ├── 3-Metodología/           # Imágenes de metodología
+│   ├── 4-Resultados_Discusión/  # Imágenes de resultados y discusiones
+│   ├── 6-Anexos/                # Material complementario y anexos
+│   ├── 05_Conclusiones.tex
+│   └── 06_Anexos.tex
+└── library.bib                  # Archivo BibTeX con referencias
