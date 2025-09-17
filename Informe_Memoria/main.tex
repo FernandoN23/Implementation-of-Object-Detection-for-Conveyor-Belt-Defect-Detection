@@ -1,0 +1,118 @@
+% Template:     Tesis LaTeX
+% Documento:    Archivo principal
+% Versión:      3.4.2 (07/02/2025)
+% Codificación: UTF-8
+%
+% Autor: Pablo Pizarro R.
+%        pablo@ppizarror.com
+%
+% Manual template: [https://latex.ppizarror.com/tesis]
+% Licencia MIT:    [https://opensource.org/licenses/MIT]
+
+% CREACIÓN DEL DOCUMENTO
+\documentclass[
+	spanish, % Idioma: spanish, english, etc.	
+	letterpaper, oneside
+]{book}
+
+% INFORMACIÓN DEL DOCUMENTO
+\def\documenttitle {Implementación de Algoritmos de Reconocimiento de Objetos para la Identificación de Fallas en Correas Transportadoras}
+\def\documentsubtitle {}
+\def\degreetitle {
+	MEMORIA DE TÍTULO PARA OPTAR AL TÍTULO DE INGENIERO CIVIL MECÁNICO
+}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ingeniería Mecánica}
+\def\universitydepartmentimage {departamentos/uchile2}
+\def\universitydepartmentimagecfg {height=3cm}
+\def\universitylocation {Santiago de Chile}
+
+% INTEGRANTES, PROFESORES Y FECHAS
+\def\documentauthor {FERNANDO IGNACIO NAVARRETE URRUTIA}
+\def\documentdate {\the\year}
+
+\def\portrait {
+	\begin{center}
+	\vspace{1.5cm} ~ \\
+	\MakeUppercase{\textbf{\documenttitle}} ~ \\
+	\vspace{1.5cm}
+	\MakeUppercase{\degreetitle} ~ \\
+    \vspace{1.5cm}
+	\begin{tabular}{c}\MakeUppercase{\textbf{\documentauthor}} \\ \\
+		\vspace{1.0cm} \\
+		PROFESOR GUÍA: \\
+		VIVIANA MERUANE NARANJO \\
+		\vspace{0.5cm} \\
+        PROFESOR CO-GUÍA: \\
+        HAROLD VALENZUELA COLOMA\\
+        \vspace{0.5cm} \\
+		% COMISIÓN: \\
+		% PROFESOR 2 \\
+		% PROFESOR 3 \\
+		% \vspace{0.5cm} \\
+		% Este trabajo ha sido parcialmente financiado por: \\
+		% NOMBRE INSTITUCIÓN \\
+		% \vspace{0.5cm} \\
+		\MakeUppercase{\universitylocation} \\
+		\MakeUppercase{\documentdate}
+	\end{tabular}
+	\end{center}
+}
+\def\abstracttable {
+	\begin{tabular}{l}
+		RESUMEN EJECUTIVO DEL INFORME FINAL \\ PARA OPTAR AL TÍTULO DE \\ INGENIERO CIVIL MECÁNICO \\
+        POR: \MakeUppercase{\documentauthor} \\
+		FECHA: \MakeUppercase{\documentdate} \\
+		PROF. GUÍA: VIVIANA MERUANE NARANJO \\
+        PROF. CO-GUÍA: HAROLD VALENZUELA COLOMA
+	\end{tabular}
+}
+
+% IMPORTACIÓN DEL TEMPLATE
+\input{template}
+
+% INICIO DE LAS PÁGINAS
+\begin{document}
+
+% PORTADA
+\templatePortrait
+
+% CONFIGURACIÓN DE PÁGINA Y ENCABEZADOS
+\templatePagecfg
+
+% RESUMEN O ABSTRACT
+\begin{abstractd}
+	\input{Abstracto}
+\end{abstractd}
+
+% DEDICATORIA / AGRADECIMIENTOS
+\begin{dedicatory}
+	A mi querido gato, \\ que no hace nada por nadie, \\ pero incluso así, \\ se ganó un espacio en esta sección. 
+\end{dedicatory}
+
+% % AGRADECIMIENTOS
+% \begin{acknowledgments}
+% 	\lipsum[1]
+% \end{acknowledgments}
+
+% TABLA DE CONTENIDOS - ÍNDICE
+\templateIndex
+
+% CONFIGURACIONES FINALES
+\templateFinalcfg
+
+% ======================= INICIO DEL DOCUMENTO =======================
+
+\input{Tex/1-Introducción}
+\input{Tex/2-Antecedentes}
+\input{Tex/3-Metodología}
+\input{Tex/4-Resultados_Discusión}
+\input{Tex/5-Conclusiones}
+\bibliography{library}
+\input{Tex/6-Anexos}
+
+
+% FIN DEL DOCUMENTO
+\end{document}
