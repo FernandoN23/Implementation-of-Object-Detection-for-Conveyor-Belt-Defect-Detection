@@ -1,0 +1,20 @@
+# --- Núcleo PyTorch + ROCm ---
+torch==2.7.0+rocm6.4
+torchvision==0.18.0+rocm6.4
+torchaudio==2.7.0+rocm6.4
+# extra-index para ROCm (añadir al pip install):
+# --extra-index-url https://download.pytorch.org/whl/rocm6.4
+
+# --- Visualización y análisis ---
+tensorboard>=2.16.0         # Visualización de métricas
+torch-tb-profiler>=0.4.1    # Perfilado de PyTorch en TensorBoard
+matplotlib>=3.9.0           # Gráficos
+seaborn>=0.13.2             # Gráficos estadísticos
+pandas>=2.2.2               # Manejo de datos tabulares
+numpy>=1.26.4               # Operaciones numéricas
+scipy>=1.14.0               # Funciones científicas
+
+# --- Preprocesamiento / utilidades ---
+scikit-learn>=1.5.0         # Métricas, splitting datasets
+opencv-python>=4.10.0       # Procesamiento de imágenes
+Pillow>=10.2.0              # Imágenes básicas (ya requerida por torchvision)
