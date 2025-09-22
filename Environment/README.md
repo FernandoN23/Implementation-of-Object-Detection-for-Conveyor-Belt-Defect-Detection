@@ -1,32 +1,31 @@
-
 # ⚙️ Configuración de entorno para ejecución de modelos  
 ## 🐍 Entorno Python 3.11 + PyTorch 2.7.0 (ROCm 6.4)
 
 Este entorno permite ejecutar proyectos Python en GPU AMD usando **PyTorch 2.7.0** con soporte **ROCm/HIP SDK 6.4**, gestionando dependencias con `pip` y ejecutándose en **Git Bash** sobre Windows o WSL.  
 Incluye librerías esenciales para **Deep Learning**, **CNNs** y análisis/visualización de resultados (TensorBoard, scikit-learn, OpenCV, etc.).
 
+---
 
 ## 📋 Requisitos previos
 
 - **Git Bash** instalado ([descargar aquí](https://gitforwindows.org/)).
 - **Python 3.11** instalado y accesible desde Git Bash (`python3.11 --version`).
 - **pip** actualizado (`pip --version`).
-- **ROCm/HIP SDK 6.4** configurado en el sistema (en Linux/WSL).  
-  Verificar con:
-  ```bash
-  hipcc --version
-
+- **ROCm/HIP SDK 6.4** configurado en el sistema (Linux/WSL recomendado).  
+  **Nota:** Solo realizar este último paso en caso de contar con GPU AMD Radeon
+- Link repositorio: https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git
 ## 🚀 Crear y activar el entorno virtual
 
 En Git Bash:
-
 ```bash
 # Clonar repositorio
-git clone https://tu-repo.git
-cd tu-repo
+git clone https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git
+#Dirigirse a ruta del repositorio (modificar)
+cd ../Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection
 
 # Crear entorno virtual
 python3.11 -m venv .venv
+
 
 # Activar entorno virtual
 source .venv/Scripts/activate  # En Git Bash Windows
@@ -35,68 +34,46 @@ source .venv/Scripts/activate  # En Git Bash Windows
 
 # Actualizar pip
 pip install --upgrade pip
-```
 
----
+Nota: si se trabaja con Pycharm, basta con seleccionar el intérprete una vez instalado python 3.11, de esta forma, se creará el entorno virtual dentro de la carpeta del repositorio.
+``` 
 
 ## 📦 Instalación de dependencias
+### 1️⃣ Instalar PyTorch con soporte HIP SDK (ROCm)
 
-### 1. Instalar PyTorch con soporte ROCm:
+**Precaución: build no oficial**
 
-```bash
-bash install_pytorch.sh
-```
-
-*(el script ya contiene los flags para ROCm 6.4).*
-
-### 2. Instalar librerías adicionales (Deep Learning, análisis, CNN):
+Ejecutar cada línea de código en el orden mostrado a continuación:
 
 ```bash
-pip install -r environment.txt \
-  --extra-index-url https://download.pytorch.org/whl/rocm6.4
+pip install Environment/pytorch-wheels/torch-*.whl
+pip install Environment/pytorch-wheels/torchvision-*.whl
+pip install Environment/pytorch-wheels/torchaudio-*.whl
 ```
 
----
+### 2️⃣ Instalar librerías adicionales (Deep Learning, análisis, CNN):
 
-## 📑 Archivos incluidos
-
-* **`environment.txt`**: lista de librerías Python adicionales (ej. numpy, pandas, matplotlib, scikit-learn, tensorboard, opencv, etc.).
-* **`install_pytorch.sh`**: script para instalar PyTorch 2.7.0 + ROCm 6.4.
-* **`src/`**: carpeta para tu código fuente y notebooks.
-
----
+```bash
+pip install -r Environment/environment.txt
+``` 
 
 ## 🧪 Verificación de instalación
 
-Ejecutar dentro del entorno virtual:
+Ejecutar dentro del entorno virtual en el siguiente orden:
 
 ```bash
 python -c "import torch; print('PyTorch:', torch.__version__, ' HIP:', torch.version.hip)"
 python -c "import torchvision, torchaudio; print('vision', torchvision.__version__, 'audio', torchaudio.__version__)"
 python -c "import tensorboard; print('tensorboard OK')"
 ```
-
-Deberías ver `2.7.0` para PyTorch, la versión ROCm en uso, y confirmación de TensorBoard.
-
----
+Se debe verificar las versiones instaladas, correspondientes a los nombres de los wheels.
 
 ## 🗑️ Eliminar entorno virtual
+
+Tras usar el ambiente, ejecutar el siguiente comando para eliminarlo/salir:
 
 ```bash
 deactivate
 rm -rf .venv
 ```
 
----
-
-## 💡 Notas
-
-* En Windows puro sin WSL, PyTorch ROCm no está soportado oficialmente; se recomienda usar WSL2 con ROCm configurado o un sistema Linux nativo.
-* Ejecuta siempre `source .venv/Scripts/activate` (Windows) o `source .venv/bin/activate` (Linux/WSL) antes de trabajar en este proyecto.
-
-```
-
----
-
-¿Quieres que también te ponga aquí, en formato Markdown, el contenido sugerido para `install_pytorch.sh` y `environment.txt`? (para que copies y pegues todo de una vez)
-```

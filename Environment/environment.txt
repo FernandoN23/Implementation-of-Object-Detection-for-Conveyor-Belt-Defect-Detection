@@ -1,9 +1,13 @@
-# --- Núcleo PyTorch + ROCm ---
-torch==2.7.0+rocm6.4
-torchvision==0.18.0+rocm6.4
-torchaudio==2.7.0+rocm6.4
-# extra-index para ROCm (añadir al pip install):
-# --extra-index-url https://download.pytorch.org/whl/rocm6.4
+## 📄 Librerias y dependencias
+
+# Incluye dependencias clave para YOLO (ultralytics) y DETR (transformers, timm).
+# Todos los comentarios se pueden dejar porque pip los ignora.
+
+
+# --- PyTorch (instalar wheels ROCm manualmente antes de esto) ---
+# torch==<versión ROCm>
+# torchvision==<versión ROCm>
+# torchaudio==<versión ROCm>
 
 # --- Visualización y análisis ---
 tensorboard>=2.16.0         # Visualización de métricas
@@ -17,4 +21,15 @@ scipy>=1.14.0               # Funciones científicas
 # --- Preprocesamiento / utilidades ---
 scikit-learn>=1.5.0         # Métricas, splitting datasets
 opencv-python>=4.10.0       # Procesamiento de imágenes
-Pillow>=10.2.0              # Imágenes básicas (ya requerida por torchvision)
+Pillow>=10.2.0              # Imágenes básicas
+
+# --- Modelos / frameworks ---
+ultralytics>=8.2.0          # YOLOv8 (detecta y entrena fácilmente)
+transformers>=4.44.0        # DETR y otros modelos de HuggingFace
+timm>=1.0.8                 # Backbones eficientes
+pycocotools>=2.0.7          # Métricas COCO para detección
+
+# --- Utilidades adicionales ---
+albumentations>=1.4.6       # Augmentaciones de imágenes
+hydra-core>=1.3.2           # Configuración jerárquica
+rich>=13.7.1                # Salida colorida en consola
