@@ -10,7 +10,7 @@ Incluye librerías esenciales para **Deep Learning**, **CNNs** y análisis/visua
 
 - **Git Bash** instalado ([descargar aquí](https://gitforwindows.org/)).
 - **Python 3.11** instalado y accesible desde Git Bash (`python3.11 --version`).
-- **pip** actualizado (`pip --version`).
+- **pip** actualizado (`python.exe -m pip install --upgrade pip`) (`pip --version`)
 - **ROCm/HIP SDK 6.4** configurado en el sistema (Linux/WSL recomendado).  
   **Nota:** Solo realizar este último paso en caso de contar con GPU AMD Radeon
 - Link repositorio: https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git
@@ -41,7 +41,7 @@ Nota: si se trabaja con Pycharm, basta con seleccionar el intérprete una vez in
 ## 📦 Instalación de dependencias
 ### 1️⃣ Instalar PyTorch con soporte HIP SDK (ROCm)
 
-**Precaución: build no oficial**
+⚠️**Precaución: build no oficial**⚠️
 
 Descargar los 3 archivos en formato wheel (.whl) de releases:
 
@@ -60,11 +60,12 @@ Luego, copiar y pegar en la carpeta `pytorch-wheels` en la siguiente ruta relati
 Ejecutar cada línea de código en el orden mostrado a continuación:
 
 ```bash
-pip install Environment/pytorch-wheels/torch-*.whl
-pip install Environment/pytorch-wheels/torchvision-*.whl
-pip install Environment/pytorch-wheels/torchaudio-*.whl
+pip install Environment/pytorch-wheels/torch-2.7.0a0+rocm_git3f903c3-cp311-cp311-win_amd64.whl
+pip install Environment/pytorch-wheels/torchaudio-2.7.0a0+52638ef-cp311-cp311-win_amd64.whl
+pip install Environment/pytorch-wheels/torchvision-0.22.0+9eb57cd-cp311-cp311-win_amd64.whl
 ```
 
+⚠️En caso de error debido al largo de la ruta (Long Path), habilitar long path en windows mediante el siguiente [Link](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry)
 ### 2️⃣ Instalar librerías adicionales (Deep Learning, análisis, CNN):
 
 ```bash
@@ -80,8 +81,7 @@ python -c "import torch; print('PyTorch:', torch.__version__, ' HIP:', torch.ver
 python -c "import torchvision, torchaudio; print('vision', torchvision.__version__, 'audio', torchaudio.__version__)"
 python -c "import tensorboard; print('tensorboard OK')"
 ```
-Se debe verificar las versiones instaladas, correspondientes a los nombres de los wheels.
-
+Se debe verificar las versiones instaladas,donde deberías ver 2.7.0 para PyTorch, la versión ROCm en uso, y confirmación de TensorBoard.
 ## 🗑️ Eliminar entorno virtual
 
 Tras usar el ambiente, ejecutar el siguiente comando para eliminarlo/salir:
