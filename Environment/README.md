@@ -82,6 +82,14 @@ python -c "import torchvision, torchaudio; print('vision', torchvision.__version
 python -c "import tensorboard; print('tensorboard OK')"
 ```
 Se debe verificar las versiones instaladas,donde deberías ver 2.7.0 para PyTorch, la versión ROCm en uso, y confirmación de TensorBoard.
+
+⚠️Por último, ejecutar el script de test `test_rocm_pytorch.py` en la terminal mediante el siguiente comando:
+
+```bash
+python Environment/test_rocm_pytorch.py  
+```
+Este código permite verificar el uso de CPU/GPU a la hora de utilizar Pytorch.
+
 ## 🗑️ Eliminar entorno virtual
 
 Tras usar el ambiente, ejecutar el siguiente comando para eliminarlo/salir:
