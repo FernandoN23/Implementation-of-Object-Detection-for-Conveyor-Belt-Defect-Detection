@@ -43,6 +43,20 @@ Nota: si se trabaja con Pycharm, basta con seleccionar el intérprete una vez in
 
 **Precaución: build no oficial**
 
+Descargar los 3 archivos en formato wheel (.whl) de releases:
+
+```bash
+torch-2.7.0a0+rocm_git3f903c3-cp311-cp311-win_amd64.whl
+torchaudio-2.7.0a0+52638ef-cp311-cp311-win_amd64.whl
+torchvision-0.22.0+9eb57cd-cp311-cp311-win_amd64.whl
+```
+
+[Descargar aquí](https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/releases).
+
+Luego, copiar y pegar en la carpeta `pytorch-wheels` en la siguiente ruta relativa del repositorio: 
+
+`..\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\Environment\pytorch-wheels`
+
 Ejecutar cada línea de código en el orden mostrado a continuación:
 
 ```bash
