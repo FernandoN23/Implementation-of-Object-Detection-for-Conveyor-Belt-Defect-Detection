@@ -15,12 +15,12 @@ torch-tb-profiler>=0.4.1    # Perfilado de PyTorch en TensorBoard
 matplotlib>=3.9.0           # Gráficos
 seaborn>=0.13.2             # Gráficos estadísticos
 pandas>=2.2.2               # Manejo de datos tabulares
-numpy>=1.26.4               # Operaciones numéricas
+numpy<2.0,>=1.26.4          # Operaciones numéricas (compatibilidad PyTorch ROCm)
 scipy>=1.14.0               # Funciones científicas
 
 # --- Preprocesamiento / utilidades ---
 scikit-learn>=1.5.0         # Métricas, splitting datasets
-opencv-python>=4.10.0       # Procesamiento de imágenes
+opencv-python<4.10.0        # Última versión con soporte NumPy 1.x
 Pillow>=10.2.0              # Imágenes básicas
 
 # --- Modelos / frameworks ---
