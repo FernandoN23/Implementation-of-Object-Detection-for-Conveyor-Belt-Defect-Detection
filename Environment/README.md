@@ -72,7 +72,7 @@ pip install Environment/pytorch-wheels/torchvision-0.22.0+9eb57cd-cp311-cp311-wi
 pip install -r Environment/environment.txt
 ``` 
 
-## 🧪 Verificación de instalación
+## 🧪 Verificación de instalación 
 
 Ejecutar dentro del entorno virtual en el siguiente orden:
 
@@ -81,7 +81,7 @@ python -c "import torch; print('PyTorch:', torch.__version__, ' HIP:', torch.ver
 python -c "import torchvision, torchaudio; print('vision', torchvision.__version__, 'audio', torchaudio.__version__)"
 python -c "import tensorboard; print('tensorboard OK')"
 ```
-Se debe verificar las versiones instaladas,donde deberías ver 2.7.0 para PyTorch, la versión ROCm en uso, y confirmación de TensorBoard.
+Se debe verificar las versiones instaladas, donde deberías ver 2.7.0 para PyTorch, la versión ROCm en uso, y confirmación de TensorBoard.
 
 ⚠️Por último, ejecutar el script de test `test_rocm_pytorch.py` en la terminal mediante el siguiente comando:
 

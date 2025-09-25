@@ -11,7 +11,7 @@
 
 # --- Visualización y análisis ---
 tensorboard>=2.16.0         # Visualización de métricas
-torch-tb-profiler>=0.4.1    # Perfilado de PyTorch en TensorBoard
+torch-tb-profiler    # Perfilado de PyTorch en TensorBoard
 matplotlib>=3.9.0           # Gráficos
 seaborn>=0.13.2             # Gráficos estadísticos
 pandas>=2.2.2               # Manejo de datos tabulares
