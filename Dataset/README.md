@@ -5,8 +5,11 @@ Descripción breve del dataset (conjunto de datos) utilizado:
 - Carpeta de imágenes y etiquetas basados en formato YOLO v11.
 - Estructura de carpetas (train, val, test)  
 
-Link de dataset en Roboflow: https://app.roboflow.com/u-rcs0d/conveyor-belt-damage-detection-y6dxf/browse?queryText=&pageSize=50&startingIndex=0&browseQuery=true
+🔍Para visualizar el dataset mediante una interfaz de opencv, ejecutar el siguiente script en la terminal:
 
+```bash
+python Dataset/view_dataset.py
+```
 ## 📂 Estructura de datos (basado en YOLO v11)
 
 El dataset sigue el formato estándar de YOLO v11, organizado en dos carpetas principales:
@@ -17,10 +20,11 @@ dataset/
 │   ├── train/
 │   ├── val/
 │   └── test/
-└── labels/
-    ├── train/
-    ├── val/
-    └── test/
+├── labels/
+│   ├── train/
+│   ├── val/
+│   └── test/
+└── data.yaml
 ```
 ## 📂 Etiquetado de datos (labels)
 
@@ -29,6 +33,8 @@ Las clases a utilizar (fallas) se describen en el siguiente vector de clases:
 Standard_Classes: ['Hole', 'Impact Damage', 'Puncture', 'Tear', 'Wear']
 Null == Good (considerando que la ausencia de fallas es estado sano)
 ```
+Estas se encuentran dentro del archivo `data.yaml`.
+
 ## 📦 Formato de Etiquetado (YOLO v11)
 
 Este proyecto utiliza etiquetado en formato YOLO v11 para detección de objetos.
