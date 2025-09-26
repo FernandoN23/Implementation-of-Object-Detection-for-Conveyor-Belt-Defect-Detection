@@ -61,6 +61,8 @@ writer.close()
 # --- INSTRUCCIONES AL USUARIO ---
 print("\nListo. Para visualizar en TensorBoard, en otra terminal ejecuta:")
 print("  tensorboard --logdir=runs")
+print("\nListo. Para visualizar en TensorBoard con intervalos de actualización de 5s, en otra terminal ejecuta:")
+print("  tensorboard --logdir=runs --reload_interval 5")
 print("y abre el navegador en la URL indicada (por defecto http://localhost:6006).")
 print("="*60)
 
