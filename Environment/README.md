@@ -90,6 +90,12 @@ python Environment/test_rocm_pytorch.py
 ```
 Este código permite verificar el uso de CPU/GPU a la hora de utilizar Pytorch.
 
+Además, comprobar la compatibilidad con Tensorboard mediante el siguiente script:
+
+```bash
+python Environment/test_tensorboard.py  
+```
+
 ## 🗑️ Eliminar entorno virtual
 
 Tras usar el ambiente, ejecutar el siguiente comando para eliminarlo/salir:
@@ -99,3 +105,4 @@ deactivate
 rm -rf .venv
 ```
 
+Nota: esto permite realizar una limpieza del ambiente sin necesidad de eliminar todo el repositorio.
