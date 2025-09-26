@@ -1,13 +1,6 @@
-train: ../train/images
-val: ../valid/images
-test: ../test/images
+train: /train/images
+val: /valid/images
+test: /test/images
 
 nc: 5
 names: ['Hole', 'Impact Damage', 'Puncture', 'Tear', 'Wear']
-
-roboflow:
-  workspace: u-rcs0d
-  project: conveyor-belt-damage-detection-y6dxf
-  version: 1
-  license: MIT
-  url: https://universe.roboflow.com/u-rcs0d/conveyor-belt-damage-detection-y6dxf/dataset/1
