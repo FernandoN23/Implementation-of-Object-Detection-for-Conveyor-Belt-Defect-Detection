@@ -10,6 +10,12 @@ Descripción breve del dataset (conjunto de datos) utilizado:
 ```bash
 python Dataset/view_dataset.py
 ```
+
+📝(Opcional) Se recomienda ejecutar el siguiente script en la terminal para estandarizar el nombre de las imágenes y etiquetas:
+
+```bash
+python Dataset/rename_dataset.py
+```
 ## 📂 Estructura de datos (basado en YOLO v11)
 
 El dataset sigue el formato estándar de YOLO v11, organizado en dos carpetas principales:
