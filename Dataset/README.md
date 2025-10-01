@@ -16,22 +16,26 @@ python Dataset/view_dataset.py
 ```bash
 python Dataset/rename_dataset.py
 ```
-## 📂 Estructura de datos (basado en YOLO v11)
+## 📂 Estructura de datos
 
-El dataset sigue el formato estándar de YOLO v11, organizado en dos carpetas principales:
+El dataset sigue el formato estándar de YOLO v11, organizado en tres carpetas principales:
 
 ```bash
 dataset/
-├── images/
-│   ├── train/
-│   ├── val/
-│   └── test/
-├── labels/
-│   ├── train/
-│   ├── val/
-│   └── test/
+├── test/
+│   ├── images/
+│   └── labels/
+├── train/
+│   ├── images/
+│   └── labels/
+├── valid/
+│   ├── images/
+│   └── labels/
 └── data.yaml
+
 ```
+
+La carpeta `ìmages` contiene imágenes con registros de fallas de correas transportadoras, mientras que la carpeta `labels` contiene las etiquetas correspondientes con las clases presentes en la imagen de mismo nombre.
 ## 📂 Etiquetado de datos (labels)
 
 Las clases a utilizar (fallas) se describen en el siguiente vector de clases:
@@ -41,9 +45,9 @@ Null == Good (considerando que la ausencia de fallas es estado sano)
 ```
 Estas se encuentran dentro del archivo `data.yaml`.
 
-## 📦 Formato de Etiquetado (YOLO v11)
+## 📦 Formato de Etiquetado
 
-Este proyecto utiliza etiquetado en formato YOLO v11 para detección de objetos.
+Este proyecto utiliza por simplicidad el etiquetado en formato YOLO v11 para detección de objetos.
 Las etiquetas de cada imagen se almacenan en archivos .txt con el mismo nombre que la imagen y contienen, por línea, la información de cada objeto detectado.
 
 ### 📝 Vector de etiquetado  
