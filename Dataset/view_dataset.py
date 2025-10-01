@@ -39,7 +39,7 @@ def load_images(split):
 image_files, labels_path = load_images(split)
 
 # === 3. GENERAR PALETA DE COLORES PARA BBOX ===
-np.random.seed(42)
+np.random.seed(45)
 colors = [tuple(int(c) for c in np.random.randint(0, 255, size=3)) for _ in range(len(class_names))]
 
 # === 4. FUNCIÓN PARA DIBUJAR BOXES Y RETORNAR CONTADOR POR CLASE ===
@@ -71,17 +71,25 @@ def draw_boxes(img, label_file):
             y2 = int(y_c + bh / 2)
 
             color = colors[cls_id % len(colors)]
-            cv2.rectangle(img, (x1, y1), (x2, y2), color, 1)
+            cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)  # bbox más delgado
 
             label_text = class_names[cls_id] if cls_id < len(class_names) else str(cls_id)
             font = cv2.FONT_HERSHEY_SIMPLEX
             font_scale = 0.6
             thickness = 1
             (text_w, text_h), baseline = cv2.getTextSize(label_text, font, font_scale, thickness)
+
+            # Intentar colocar arriba del bbox
             text_x1 = x1
-            text_y1 = max(0, y1 - text_h - baseline - 3)
+            text_y1 = y1 - text_h - baseline - 3
             text_x2 = x1 + text_w + 4
             text_y2 = y1
+
+            # Si se sale arriba, colocarlo debajo del bbox
+            if text_y1 < 0:
+                text_y1 = y2 + 3
+                text_y2 = y2 + text_h + baseline + 3
+
             cv2.rectangle(img, (text_x1, text_y1), (text_x2, text_y2), color, -1)
             cv2.putText(img, label_text, (text_x1 + 2, text_y2 - 4),
                         font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
@@ -89,7 +97,7 @@ def draw_boxes(img, label_file):
     return img, class_counts
 
 # === 5. FUNCIÓN PARA DIBUJAR LEYENDA ===
-def add_legend(split, idx, num_images, class_names, class_counts):
+def draw_legend(split, idx, num_images, class_names, class_counts):
     legend_width = 300
     legend_height = 600  # ajusta según tu ventana
     canvas = np.zeros((legend_height, legend_width, 3), dtype=np.uint8)
@@ -122,12 +130,15 @@ def add_legend(split, idx, num_images, class_names, class_counts):
         cv2.putText(canvas, line, (10, y), font, font_scale, color, thickness, cv2.LINE_AA)
         y += line_height
 
-    # Mostrar cantidad por clase
+    # Mostrar cantidad por clase con círculo del color de la clase
     for i, cls_name in enumerate(class_names):
         count = class_counts.get(i, 0)
-        txt = f"- {cls_name}: {count}"
-        color = (200, 255, 255) if count > 0 else (180, 180, 180)
-        cv2.putText(canvas, txt, (15, y), font, font_scale, color, thickness, cv2.LINE_AA)
+        txt = f"{cls_name}: {count}"
+        color = colors[i % len(colors)]
+
+        cv2.circle(canvas, (20, y - 8), 6, color, -1)  # círculo
+        cv2.putText(canvas, txt, (40, y), font, font_scale,
+                    (255, 255, 255), thickness, cv2.LINE_AA)
         y += line_height
 
     return canvas
@@ -153,7 +164,7 @@ while True:
         continue
 
     img, class_counts = draw_boxes(img, label_file)
-    legend = add_legend(split, idx, num_images, class_names, class_counts)
+    legend = draw_legend(split, idx, num_images, class_names, class_counts)
 
     if legend.shape[0] != img.shape[0]:
         legend = cv2.resize(legend, (legend.shape[1], img.shape[0]))
