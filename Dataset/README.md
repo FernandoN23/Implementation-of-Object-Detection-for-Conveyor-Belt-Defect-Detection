@@ -2,8 +2,9 @@
 Descripción breve del dataset (conjunto de datos) utilizado:  
 - Origen: público
 - Cantidad de imágenes totales: 2312
-- Carpeta de imágenes y etiquetas basados en formato YOLO v11.
-- Estructura de carpetas (train, val, test)  
+- Resolución de imágenes: 640x640px
+- N° de clases (N° de fallas): 5
+- Partición de datos: entrenamiento (train), validación (valid) y testeo (test)
 
 🔍Para visualizar el dataset mediante una interfaz de opencv, ejecutar el siguiente script en la terminal:
 
@@ -57,7 +58,7 @@ Cada línea representa **un objeto** con el vector:
 <class_id> <x_center> <y_center> <width> <height>
 ```
 
-- `class_id` → Entero (0,1,2,3,4). Cada `class_id` corresponde a la línea (index) en `Standard_classes` (empezando en 0).  
+- `class_id` → Entero (0,1,2,3,4). Cada `class_id` corresponde a la línea (index) en `Standard_Classes` (empezando en 0).  
 - `x_center`, `y_center`, `width`, `height` → Valores normalizados en [0,1]. `x_center` e `y_center` indican las coordenadas del centro del cuadro delimitador en el plano X-Y, mientras que `width` y `height` representan su ancho y alto relativos al tamaño total de la imagen respecto al punto central (`x_center`, `y_center`).
 
 
