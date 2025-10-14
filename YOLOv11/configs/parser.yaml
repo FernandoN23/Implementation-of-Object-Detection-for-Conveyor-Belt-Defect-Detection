@@ -1,0 +1,40 @@
+# configs/parser.yaml
+Conv:
+  import: models.blocks
+  class: Conv
+  description: "Bloque convolucional estándar (Conv2d + BN + SiLU)"
+
+C3k2:
+  import: models.blocks
+  class: C3k2
+  description: "Bloque CSP optimizado de YOLOv11"
+
+SPPF:
+  import: models.blocks
+  class: SPPF
+  description: "Spatial Pyramid Pooling Fast"
+
+C2PSA:
+  import: models.blocks
+  class: C2PSA
+  description: "Partial Self-Attention Block"
+
+Concat:
+  import: models.blocks
+  class: Concat
+  description: "Concatenación de tensores en dimensión de canales"
+
+Detect:
+  import: models.blocks
+  class: Detect
+  description: "Cabeza de detección final YOLOv11"
+
+nn.Upsample:
+  import: torch.nn
+  class: Upsample
+  description: "Interpolación ascendente"
+
+nn.Conv2d:
+  import: torch.nn
+  class: Conv2d
+  description: "Convolución 2D pura"
