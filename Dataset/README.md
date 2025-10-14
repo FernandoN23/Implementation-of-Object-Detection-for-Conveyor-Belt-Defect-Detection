@@ -73,35 +73,35 @@ Cada línea representa **un objeto** con el vector:
 
 ## 🖼️ Ejemplos de fallas que contiene el dataset
 
-El dataset filtrado y post-procesado, contiene 6 tipos de clases: 5 fallas y una sana. A continuación se muestran ejemplos de cada falla que contiene el dataset.
+El dataset filtrado y post-procesado, contiene 5 tipos de clases: 5 fallas y condición sana (Null). A continuación se muestran ejemplos de cada falla que contiene el dataset.
 
 <table align="center">
   <tr>
     <td align="center">
       <b>Hole (Agujero)</b><br>
-      <img src="train/images/000769_jpg.rf.7870606bb8cfd8dddf852f2d578dfb35.jpg" alt="Hole" width="150">
+      <img src="train/images/0864.jpg" alt="Hole" width="150">
     </td>
     <td align="center">
       <b>Impact Damage (Daño por impacto)</b><br>
-      <img src="train/images/000370_jpg.rf.464d26a480da7cf0a973559d6be927a6.jpg" alt="Impact Damage" width="150">
+      <img src="train/images/0451.jpg" alt="Impact Damage" width="150">
     </td>
     <td align="center">
       <b>Puncture (Perforación(es))</b><br>
-      <img src="train/images/000422_jpg.rf.d4dbd9f20c88220e34afaec9222b214b.jpg" alt="Puncture" width="150">
+      <img src="train/images/0297.jpg" alt="Puncture" width="150">
     </td>
   </tr>
   <tr>
     <td align="center">
       <b>Tear (Desgarro)</b><br>
-      <img src="train/images/001099_jpg.rf.db618932b57d448a3617451f88bc6ee1.jpg" alt="Tear" width="150">
+      <img src="train/images/0128.jpg" alt="Tear" width="210">
     </td>
     <td align="center">
       <b>Wear (Abrasión)</b><br>
-      <img src="train/images/001463_jpg.rf.38912063e9bc84eb8a98c7af85a02954.jpg" alt="Wear" width="150">
+      <img src="train/images/0393.jpg" alt="Wear" width="150">
     </td>
     <td align="center">
-      <b>Sin fallas (Saludable)</b><br>
-      <img src="train/images/000804_jpg.rf.0028c0162f4875eca697aecfbd8a6daf.jpg" alt="Sin fallas" width="150">
+      <b>Healthy (Sin fallas)</b><br>
+      <img src="train/images/1382.jpg" alt="Sin fallas" width="160">
     </td>
   </tr>
 </table>
