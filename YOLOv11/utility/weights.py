@@ -1,5 +1,5 @@
 """
-checkpoints.py
+weights.py
 ---------------------------------
 Gestión de checkpoints (guardado y carga de pesos del modelo YOLOv11).
 Permite reanudar entrenamiento, guardar mejores modelos y manejar directorios.
