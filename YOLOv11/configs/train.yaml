@@ -39,3 +39,17 @@ project: runs/train
 name: yolov11_exp
 save_period: 5
 exist_ok: false
+
+
+# DataLoader Configuration
+# ================================
+dataloader:
+  path: "data/train/images"     # ruta base del dataset
+  batch_size: 16                # tamaño de lote; ajustable según VRAM
+  img_size: 640                 # resolución estándar YOLOv11
+  num_workers: 8                # alto, aprovechando 95 GB RAM
+  shuffle: True                 # mezcla los datos en cada epoch
+  pin_memory: True              # mejora rendimiento de transferencia CPU→GPU
+  persistent_workers: True      # mantiene hilos activos entre epochs
+  cache_images: False           # opcional: precargar en RAM (True si SSD es lento)
+  precision: "float16"          # mixed precision (AMD ROCm compatible)
