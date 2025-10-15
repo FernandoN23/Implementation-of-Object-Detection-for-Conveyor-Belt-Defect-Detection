@@ -1,74 +1,57 @@
-# models/yolo11.py
-"""
-YOLOv11 - Modelo ensamblado dinámicamente a partir de YAMLs.
-Carga:
-  - yolo11.yaml  -> define arquitectura (backbone, neck, head)
-  - parser.yaml  -> define reglas de mapeo a clases Python
-"""
-
 import torch
 import torch.nn as nn
-from parser_yaml import ModelParser
 
+from .backbone import YOLOv11Backbone
+from .neck import YOLOv11Neck
+from .head import YOLOv11Head
+from .parser_yaml import ModelParser
 
 class YOLOv11(nn.Module):
     """
-    Clase principal del modelo YOLOv11.
-    Crea toda la arquitectura a partir de archivos YAML modulares.
+    YOLOv11 Full Model
+    ------------------
+    Combina Backbone, Neck y Head para detección multi-escala.
+    Estructura modular compatible con parser YAML y entrenamiento Ultralytics-like.
     """
 
-    def __init__(self, model_cfg="configs/yolo11.yaml", parser_cfg="configs/parser.yaml", nc=80, ch_input=3):
+    def __init__(self, cfg_path=None, num_classes=80):
         super().__init__()
 
-        # 🧩 Construye el modelo usando el parser universal
-        parser = ModelParser(model_yaml=model_cfg, parser_yaml=parser_cfg, ch_input=ch_input, nc=nc)
-        self.model = parser.build()
+        # Cargar configuración YAML (si se proporciona)
+        if cfg_path:
+            parser = ModelParser(cfg_path)
+            cfg = parser.parse_model_config()
+            base_channels = cfg.get('base_channels', 64)
+            anchors = cfg.get('anchors', 3)
+        else:
+            base_channels = 64
+            anchors = 3
 
-        # Extrae submódulos
-        self.backbone = self.model.backbone
-        self.neck = getattr(self.model, "neck", None)
-        self.head = self.model.head
+        # Definir submódulos principales
+        self.backbone = YOLOv11Backbone(in_channels=3, base_channels=base_channels)
+        self.neck = YOLOv11Neck(base_channels=base_channels)
+        self.head = YOLOv11Head(num_classes=num_classes, base_channels=base_channels, anchors=anchors)
 
-        # Guarda información básica
-        self.nc = nc
-        self.ch_input = ch_input
-
-        print("✅ YOLOv11 inicializado correctamente desde YAML.")
-
-    # -------------------------------------------------------------------------
-    # 🔁 Forward completo
-    # -------------------------------------------------------------------------
     def forward(self, x):
         """
-        Pasa un tensor de entrada por backbone → neck → head.
+        Forward completo del modelo:
+        1. Extrae features (backbone)
+        2. Fusiona escalas (neck)
+        3. Predice bounding boxes (head)
         """
-        # 🔹 Backbone: extracción jerárquica
-        features = []
-        out = x
-        for layer in self.backbone:
-            out = layer(out)
-            features.append(out)
-
-        # Selecciona los últimos 3 mapas como [P3, P4, P5]
-        feats = features[-3:]
-
-        # 🔹 Neck: fusión multi-escala (si existe)
-        if self.neck is not None:
-            feats = self.neck(feats)
-
-        # 🔹 Head: detección final
-        preds = self.head(feats)
-
-        return preds
+        x3, x4, x5 = self.backbone(x)
+        p3, n4, n5 = self.neck(x3, x4, x5)
+        outputs = self.head(p3, n4, n5)
+        return outputs
 
 
-# -------------------------------------------------------------------------
-# 🧠 Prueba rápida
-# -------------------------------------------------------------------------
 if __name__ == "__main__":
-    model = YOLOv11("configs/yolo11.yaml", "configs/parser.yaml", nc=80, ch_input=3)
-    x = torch.randn(1, 3, 640, 640)
-    preds = model(x)
-    print("\nTamaños de salida por nivel:")
-    for p in preds:
-        print(p.shape)
+    """
+    Prueba rápida de forward pass para verificar la estructura.
+    """
+    model = YOLOv11(cfg_path="configs/yolo11.yaml", num_classes=10)
+    dummy_input = torch.randn(1, 3, 640, 640)
+    out = model(dummy_input)
+    print("Número de salidas:", len(out))
+    for i, o in enumerate(out):
+        print(f"Salida {i+1}: {list(o.shape)}")

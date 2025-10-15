@@ -1,44 +1,38 @@
-# models/head.py
-"""
-Head de detección del modelo YOLOv11.
-Toma los mapas multi-escala del Neck y produce predicciones anchor-free.
-"""
-
 import torch
 import torch.nn as nn
-from blocks import DWConv, Conv
+from .blocks import Conv
 
+class YOLOv11Head(nn.Module):
+    """
+    YOLOv11 Detection Head
+    ----------------------
+    Encargado de generar las predicciones finales (bounding boxes, clase y confianza).
+    Cada nivel (P3, P4, P5) predice objetos de diferente tamaño.
+    """
 
-class Detect(nn.Module):
-    """
-    Módulo de detección YOLOv11 (anchor-free).
-    Produce una salida por nivel de escala.
-    """
-    def __init__(self, ch, nc=80):
-        """
-        ch: lista de canales [P3, P4, P5]
-        nc: número de clases
-        """
+    def __init__(self, num_classes=80, base_channels=64, anchors=3):
         super().__init__()
-        self.nc = nc
-        self.no = nc + 5  # 4 coordenadas + objectness + clases
-        self.stride = [8, 16, 32]
+        out_channels = anchors * (num_classes + 5)  # 5 = (x, y, w, h, obj)
 
-        # Por cada nivel de escala: bloque depthwise + conv + salida final
-        self.m = nn.ModuleList(
-            [nn.Sequential(
-                DWConv(c, c, 3),
-                Conv(c, c, 3),
-                nn.Conv2d(c, self.no, 1)
-            ) for c in ch]
+        # Tres cabezas (multi-escala)
+        self.detect3 = nn.Sequential(
+            Conv(base_channels * 4, base_channels * 4, k=3, s=1),
+            nn.Conv2d(base_channels * 4, out_channels, 1)
+        )
+        self.detect4 = nn.Sequential(
+            Conv(base_channels * 8, base_channels * 8, k=3, s=1),
+            nn.Conv2d(base_channels * 8, out_channels, 1)
+        )
+        self.detect5 = nn.Sequential(
+            Conv(base_channels * 16, base_channels * 16, k=3, s=1),
+            nn.Conv2d(base_channels * 16, out_channels, 1)
         )
 
-    def forward(self, feats):
+    def forward(self, p3, n4, n5):
         """
-        feats: [P3, P4, P5]
-        return: lista de tensores [(B, nc+5, H, W), ...]
+        Devuelve los mapas de detección por nivel.
         """
-        outputs = []
-        for i, f in enumerate(feats):
-            outputs.append(self.m[i](f))
-        return outputs
+        y3 = self.detect3(p3)
+        y4 = self.detect4(n4)
+        y5 = self.detect5(n5)
+        return [y3, y4, y5]

@@ -1,61 +1,55 @@
-# models/backbone.py
-"""
-Backbone del modelo YOLOv11.
-Encargado de la extracción jerárquica de características visuales.
-Basado en los bloques: Conv, C3k2, SPPF y C2PSA.
-"""
-
 import torch
 import torch.nn as nn
-from blocks import Conv, C3k2, SPPF, C2PSA
-
+from .blocks import Conv, C3k2
 
 class YOLOv11Backbone(nn.Module):
     """
-    Backbone compuesto por:
-      - Etapas convolucionales de downsampling (Conv stride=2)
-      - Bloques C3k2 repetidos
-      - Bloque SPPF para contexto global
-      - Módulo C2PSA (Partial Self Attention)
+    YOLOv11 Backbone
+    ----------------
+    Extrae características jerárquicas a múltiples escalas.
+    Se basa en bloques convolucionales y módulos C3k2 para un
+    balance entre eficiencia y poder de representación.
     """
 
-    def __init__(self, depth_multiple=1.0, width_multiple=1.0):
+    def __init__(self, in_channels=3, base_channels=64):
         super().__init__()
-        # Escalado de canales
-        def c(ch): return max(16, int(ch * width_multiple))
+        # Etapa 1: reducción de resolución (stride=2)
+        self.stage1 = nn.Sequential(
+            Conv(in_channels, base_channels, k=3, s=2),   # 640 -> 320
+            Conv(base_channels, base_channels, k=3, s=1)
+        )
 
-        # ------------------------------
-        # Definición de etapas (según YAML de YOLO11)
-        # ------------------------------
-        self.layer0 = Conv(3, c(64), 3, 2)        # P1/2
-        self.layer1 = Conv(c(64), c(128), 3, 2)   # P2/4
-        self.layer2 = C3k2(c(128), c(256), n=2)   # Bloque C3k2
-        self.layer3 = Conv(c(256), c(256), 3, 2)  # P3/8
-        self.layer4 = C3k2(c(256), c(512), n=2)
-        self.layer5 = Conv(c(512), c(512), 3, 2)  # P4/16
-        self.layer6 = C3k2(c(512), c(512), n=2, c3k_flag=True)
-        self.layer7 = Conv(c(512), c(1024), 3, 2) # P5/32
-        self.layer8 = C3k2(c(1024), c(1024), n=2, c3k_flag=True)
-        self.layer9 = SPPF(c(1024), k=5)
-        self.layer10 = C2PSA(c(1024))             # Atención parcial
+        # Etapa 2: segunda reducción + C3k2
+        self.stage2 = nn.Sequential(
+            Conv(base_channels, base_channels * 2, k=3, s=2),  # 320 -> 160
+            C3k2(base_channels * 2, base_channels * 2)
+        )
 
-        # Lista de canales de salida (útil para Neck)
-        self.out_channels = [c(256), c(512), c(1024)]
+        # Etapa 3: tercera reducción + C3k2
+        self.stage3 = nn.Sequential(
+            Conv(base_channels * 2, base_channels * 4, k=3, s=2),  # 160 -> 80
+            C3k2(base_channels * 4, base_channels * 4)
+        )
+
+        # Etapa 4: cuarta reducción + C3k2
+        self.stage4 = nn.Sequential(
+            Conv(base_channels * 4, base_channels * 8, k=3, s=2),  # 80 -> 40
+            C3k2(base_channels * 8, base_channels * 8)
+        )
+
+        # Etapa 5: salida de mayor profundidad (P5)
+        self.stage5 = nn.Sequential(
+            Conv(base_channels * 8, base_channels * 16, k=3, s=2),  # 40 -> 20
+            C3k2(base_channels * 16, base_channels * 16)
+        )
 
     def forward(self, x):
         """
-        Retorna los mapas de características de tres escalas:
-        P3 (pequeño), P4 (mediano), P5 (grande)
+        Devuelve mapas de características multi-escala.
         """
-        x = self.layer0(x)
-        x = self.layer1(x)
-        x = self.layer2(x)
-        p3 = self.layer3(x)
-        p3 = self.layer4(p3)
-        p4 = self.layer5(p3)
-        p4 = self.layer6(p4)
-        p5 = self.layer7(p4)
-        p5 = self.layer8(p5)
-        p5 = self.layer9(p5)
-        p5 = self.layer10(p5)
-        return [p3, p4, p5]
+        x1 = self.stage1(x)  # P1
+        x2 = self.stage2(x1) # P2
+        x3 = self.stage3(x2) # P3
+        x4 = self.stage4(x3) # P4
+        x5 = self.stage5(x4) # P5
+        return x3, x4, x5     # Se usan en el neck
