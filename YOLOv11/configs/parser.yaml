@@ -1,40 +1,27 @@
-# configs/parser.yaml
-Conv:
-  import: models.blocks
-  class: Conv
-  description: "Bloque convolucional estándar (Conv2d + BN + SiLU)"
+# parser.yaml
+# Configuration file for YOLOv11 project paths and runtime parameters
 
-C3k2:
-  import: models.blocks
-  class: C3k2
-  description: "Bloque CSP optimizado de YOLOv11"
+project_name: yolov11
+task: detect
+model: configs/yolo11.yaml
+dataset: configs/dataset.yaml
 
-SPPF:
-  import: models.blocks
-  class: SPPF
-  description: "Spatial Pyramid Pooling Fast"
+# Paths
+paths:
+  root_dir: ${oc.env:PROJECT_ROOT, .}
+  data_dir: ${paths.root_dir}/data
+  runs_dir: ${paths.root_dir}/runs
+  weights_dir: ${paths.root_dir}/weights
+  log_dir: ${paths.root_dir}/logs
+  results_dir: ${paths.root_dir}/results
 
-C2PSA:
-  import: models.blocks
-  class: C2PSA
-  description: "Partial Self-Attention Block"
+# Training setup
+device: 0
+imgsz: 640
+batch: 16
+epochs: 100
+workers: 8
+seed: 42
 
-Concat:
-  import: models.blocks
-  class: Concat
-  description: "Concatenación de tensores en dimensión de canales"
-
-Detect:
-  import: models.blocks
-  class: Detect
-  description: "Cabeza de detección final YOLOv11"
-
-nn.Upsample:
-  import: torch.nn
-  class: Upsample
-  description: "Interpolación ascendente"
-
-nn.Conv2d:
-  import: torch.nn
-  class: Conv2d
-  description: "Convolución 2D pura"
+# Model scale
+scale: n  # options: [n, s, m, l, x]

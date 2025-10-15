@@ -1,0 +1,20 @@
+# configs/dataset.yaml
+# YOLOv11 dataset configuration
+
+path: C:\\Users\\memorista\\Desktop\\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\\Dataset
+
+
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: Hole
+  1: Impact Damage
+  2: Puncture
+  3: Tear
+  4: Wear
+
+download: false
+format: yolo
+imgsz: 640
