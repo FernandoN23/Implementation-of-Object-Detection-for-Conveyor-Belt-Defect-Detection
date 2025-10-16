@@ -7,7 +7,7 @@ path: C:\\Users\\memorista\\Desktop\\Implementation-of-Object-Recognition-Algori
 train: images/train
 val: images/val
 test: images/test
-
+nc: 5
 names:
   0: Hole
   1: Impact Damage

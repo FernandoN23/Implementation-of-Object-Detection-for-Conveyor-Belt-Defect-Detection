@@ -1,3 +1,12 @@
+# yolo11.py
+"""
+YOLOv11 Full Model
+------------------
+Combina Backbone, Neck y Head para detección multi-escala.
+Compatible con configuración YAML y selección dinámica de normalización:
+BatchNorm, GroupNorm, InstanceNorm o Identity.
+"""
+
 import torch
 import torch.nn as nn
 
@@ -6,32 +15,57 @@ from .neck import YOLOv11Neck
 from .head import YOLOv11Head
 from .parser_yaml import ModelParser
 
-class YOLOv11(nn.Module):
-    """
-    YOLOv11 Full Model
-    ------------------
-    Combina Backbone, Neck y Head para detección multi-escala.
-    Estructura modular compatible con parser YAML y entrenamiento Ultralytics-like.
-    """
 
-    def __init__(self, cfg_path=None, num_classes=80):
+class YOLOv11(nn.Module):
+    def __init__(self, cfg_path=None, num_classes=5):
         super().__init__()
 
-        # Cargar configuración YAML (si se proporciona)
+        # -------------------------
+        # 1. Cargar configuración YAML
+        # -------------------------
         if cfg_path:
             parser = ModelParser(cfg_path)
             cfg = parser.parse_model_config()
             base_channels = cfg.get('base_channels', 64)
             anchors = cfg.get('anchors', 3)
+            # nuevos parámetros de normalización
+            norm_type = cfg.get('norm', 'bn')
+            gn_groups = cfg.get('gn_groups', 32)
         else:
             base_channels = 64
             anchors = 3
+            norm_type = 'bn'
+            gn_groups = 32
 
-        # Definir submódulos principales
-        self.backbone = YOLOv11Backbone(in_channels=3, base_channels=base_channels)
-        self.neck = YOLOv11Neck(base_channels=base_channels)
-        self.head = YOLOv11Head(num_classes=num_classes, base_channels=base_channels, anchors=anchors)
+        # -------------------------
+        # 2. Construcción de submódulos
+        # -------------------------
+        self.backbone = YOLOv11Backbone(
+            in_channels=3,
+            base_channels=base_channels,
+            norm_type=norm_type,
+            gn_groups=gn_groups
+        )
 
+        self.neck = YOLOv11Neck(
+            base_channels=base_channels,
+            norm_type=norm_type,
+            gn_groups=gn_groups
+        )
+
+        self.head = YOLOv11Head(
+            num_classes=num_classes,
+            base_channels=base_channels,
+            anchors=anchors,
+            norm_type=norm_type,
+            gn_groups=gn_groups
+        )
+
+        print(f"[YOLOv11] Modelo inicializado con norm='{norm_type}', grupos GN={gn_groups}")
+
+    # -------------------------
+    # 3. Forward completo
+    # -------------------------
     def forward(self, x):
         """
         Forward completo del modelo:
@@ -45,10 +79,10 @@ class YOLOv11(nn.Module):
         return outputs
 
 
+# ============================
+# Test de verificación rápida
+# ============================
 if __name__ == "__main__":
-    """
-    Prueba rápida de forward pass para verificar la estructura.
-    """
     model = YOLOv11(cfg_path="configs/yolo11.yaml", num_classes=10)
     dummy_input = torch.randn(1, 3, 640, 640)
     out = model(dummy_input)

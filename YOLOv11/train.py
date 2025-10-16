@@ -18,15 +18,6 @@ import os, sys
 # ========= Forzar UTF-8 en consola Windows =========
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
-# ========= Parche AMD ROCm / MIOpen (ANTES de torch) =========
-os.environ["MIOPEN_DISABLE_CACHE"] = "1"
-os.environ["MIOPEN_DEBUG_DISABLE_FIND_DB"] = "1"
-os.environ["MIOPEN_DEBUG_CONV_FFT"] = "0"
-os.environ["MIOPEN_DEBUG_CONV_IMPLICIT_GEMM"] = "0"
-os.environ["MIOPEN_DEBUG_CONV_DIRECT"] = "0"
-os.environ["MIOPEN_DEBUG_CONV_WINOGRAD"] = "0"
-os.environ["HSA_FORCE_FINE_GRAIN_PCIE"] = "1"
-
 # ========= Rutas para ejecución desde la raíz =========
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
@@ -38,10 +29,6 @@ import torch.nn as nn
 import torch.optim as optim
 from omegaconf import OmegaConf
 from tqdm import tqdm
-
-# Desactivar backends que disparan kernels problemáticos
-torch.backends.cudnn.enabled = False
-torch.backends.cudnn.benchmark = False
 
 # -------------------- Importar utilidades --------------------
 from models.yolo11 import YOLOv11
@@ -77,19 +64,26 @@ import traceback
 # =============================================================
 # 🔩 Funciones auxiliares para GPUs AMD ROCm
 # =============================================================
-def _replace_batchnorm_with_identity(model: nn.Module):
-    """Reemplaza todas las capas BatchNorm2d por nn.Identity()"""
-    replaced = 0
+# --- en train.py: reemplaza el parche BN->Identity por BN->GroupNorm ---
+def _replace_batchnorm_with_groupnorm(model: nn.Module, groups: int = 32):
+    count = 0
     for module in model.modules():
         for name, child in list(module.named_children()):
             if isinstance(child, nn.BatchNorm2d):
-                setattr(module, name, nn.Identity())
-                replaced += 1
-    print(f"🩹 {replaced} capas BatchNorm2d reemplazadas por Identity (compatibilidad ROCm).")
-    return replaced
+                num_channels = child.num_features
+                groups_eff = min(groups, num_channels) or 1
+                if num_channels % groups_eff != 0:
+                    # ajusta groups a un divisor de num_channels
+                    for g in (32, 16, 8, 4, 2, 1):
+                        if num_channels % g == 0:
+                            groups_eff = g
+                            break
+                setattr(module, name, nn.GroupNorm(groups_eff, num_channels, affine=True))
+                count += 1
+    print(f"🩹 {count} capas BatchNorm2d reemplazadas por GroupNorm (compatibilidad ROCm).")
+    return count
 
 def try_model_forward_safe(model, dummy, device):
-    """Intenta un forward seguro; si falla MIOpen, reemplaza BN y reintenta."""
     try:
         model.eval()
         with torch.no_grad():
@@ -98,14 +92,15 @@ def try_model_forward_safe(model, dummy, device):
     except Exception as e:
         msg = str(e).lower()
         print("❌ Error detectado en forward inicial.")
-        traceback.print_exc(limit=2)
-        if "miopen" in msg or "inline asm" in msg:
-            print("🩹 Parcheando modelo → reemplazando BatchNorm2d por Identity...")
-            _replace_batchnorm_with_identity(model)
+        if "miopen" in msg:
+            print("🩹 Parcheando modelo → reemplazando BatchNorm2d por GroupNorm...")
+            _replace_batchnorm_with_groupnorm(model)
             model.eval()
             with torch.no_grad():
                 _ = model(dummy)
             print("✅ Forward corregido y validado en GPU.")
+        else:
+            raise
 # =============================================================
 #                 CONFIGURACIÓN DEL MODELO
 # =============================================================
