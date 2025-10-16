@@ -1,55 +1,61 @@
+# ============================================================
 # train.yaml
-# Training hyperparameters for YOLOv11
+# Training configuration for YOLOv11
+# ============================================================
 
-# Dataset and model configs
-model: configs/yolo11.yaml
-data: configs/dataset.yaml
+# -------------------------------
+# Dataset and model paths
+# -------------------------------
+model: YOLOv11/configs/yolo11.yaml
+data: YOLOv11/configs/dataset.yaml
 
+# -------------------------------
 # Training setup
+# -------------------------------
 epochs: 100
-batch: 16
-imgsz: 640
-device: 0
-workers: 8
-patience: 20
-optimizer: AdamW
-lr0: 0.001
-lrf: 0.01
+validate_every: 5
+resume: false
+checkpoint_path: "YOLOv11/checkpoints/yolo11_epoch_10.pt"
+
+optimizer:
+  type: "AdamW"
+  lr: 0.001
+  weight_decay: 0.0005
+
+# -------------------------------
+# Learning rate and scheduler
+# -------------------------------
 momentum: 0.937
-weight_decay: 0.0005
 warmup_epochs: 3
 warmup_momentum: 0.8
 warmup_bias_lr: 0.1
+lrf: 0.01        # final learning rate fraction
 
-# Augmentation
-hsv_h: 0.015
-hsv_s: 0.7
-hsv_v: 0.4
-degrees: 0.0
-translate: 0.1
-scale: 0.5
-shear: 0.0
-flipud: 0.0
-fliplr: 0.5
-mosaic: 1.0
-mixup: 0.1
+# -------------------------------
+# Device and workers
+# -------------------------------
+device: 0
+workers: 8
+patience: 20
 
-# Logging and saving
-project: runs/train
+# -------------------------------
+# Logging and checkpoints
+# -------------------------------
+project: YOLOv11/runs/train
 name: yolov11_exp
 save_period: 5
 exist_ok: false
 
-
-# DataLoader Configuration
-# ================================
+# -------------------------------
+# DataLoader configuration
+# -------------------------------
 dataloader:
-  path: "data/train/images"     # ruta base del dataset
-  batch_size: 16                # tamaño de lote; ajustable según VRAM
-  img_size: 640                 # resolución estándar YOLOv11
-  num_workers: 8                # alto, aprovechando 95 GB RAM
-  shuffle: True                 # mezcla los datos en cada epoch
-  pin_memory: True              # mejora rendimiento de transferencia CPU→GPU
-  persistent_workers: True      # mantiene hilos activos entre epochs
-  cache_images: False           # opcional: precargar en RAM (True si SSD es lento)
-  precision: "float16"          # mixed precision (AMD ROCm compatible)
+  path: "YOLOv11/data/train/images"   # ruta base del dataset
+  batch_size: 16                      # tamaño de lote ajustable según VRAM
+  img_size: 640                       # resolución estándar YOLOv11
+  num_workers: 8                      # aprovecha 95 GB RAM
+  shuffle: true                       # mezcla los datos en cada epoch
+  pin_memory: true                    # mejora transferencia CPU→GPU
+  persistent_workers: true            # mantiene hilos activos
+  cache_images: false                 # precarga opcional (activar si SSD lento)
+  precision: "float16"                # mixed precision (AMD ROCm compatible)
