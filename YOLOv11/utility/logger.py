@@ -1,30 +1,27 @@
-"""
-logger.py
----------------------------------
-Logger simple para entrenamiento y validación.
-Guarda métricas, pérdidas y eventos importantes.
-"""
-
 import logging
 import os
-from datetime import datetime
+import io
+import sys
 
-def get_logger(log_dir="logs", name="yolo11"):
+def get_logger(log_dir, name="yolo11"):
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"{name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    log_path = os.path.join(log_dir, f"{name}.log")
 
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
-    fh = logging.FileHandler(log_file)
-    ch = logging.StreamHandler()
+    # Archivo de log
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 
-    formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] - %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
+    # Consola
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter("%(message)s"))
 
-    logger.addHandler(fh)
-    logger.addHandler(ch)
+    # ✅ Fix de codificación para emojis y caracteres extendidos
+    if isinstance(console_handler, logging.StreamHandler):
+        console_handler.stream = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-    logger.info("🚀 Logger iniciado correctamente")
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
     return logger

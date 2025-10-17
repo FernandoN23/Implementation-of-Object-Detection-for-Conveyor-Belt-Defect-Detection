@@ -51,7 +51,7 @@ exist_ok: false
 # -------------------------------
 dataloader:
   path: "YOLOv11/data/train/images"   # ruta base del dataset
-  batch_size: 16                      # tamaño de lote ajustable según VRAM
+  batch_size: 8                      # tamaño de lote ajustable según VRAM
   img_size: 640                       # resolución estándar YOLOv11
   num_workers: 8                      # aprovecha 95 GB RAM
   shuffle: true                       # mezcla los datos en cada epoch

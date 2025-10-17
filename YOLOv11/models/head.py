@@ -39,4 +39,9 @@ class YOLOv11Head(nn.Module):
         y3 = self.detect_p3(p3)
         y4 = self.detect_n4(n4)
         y5 = self.detect_n5(n5)
+        # === Debug shapes ===
+        #if not torch.jit.is_scripting():
+        #    print(f"[HEAD DEBUG] y3={list(y3.shape)}, y4={list(y4.shape)}, y5={list(y5.shape)}")
+        #    total_preds = sum(y.shape[2] * y.shape[3] for y in [y3, y4, y5])
+        #    print(f"[HEAD DEBUG] Total cells per image: {total_preds}")
         return [y3, y4, y5]

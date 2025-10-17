@@ -135,10 +135,23 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
 
         # Forward
         outputs = model(images)
-        targets = torch.zeros_like(outputs[0])  # Dummy hasta integrar etiquetas reales
+
+        # 🔧 Dummy targets adaptados a cada escala del modelo (sin réplica de anchors)
+        targets = []
+        if isinstance(outputs, (list, tuple)):
+            for o in outputs:
+                # Salida: [B, C, H, W] → convertir a [B, H, W, C]
+                if o.ndim == 4:
+                    t = o.permute(0, 2, 3, 1).contiguous() * 0
+                else:
+                    t = torch.zeros_like(o, dtype=o.dtype, device=o.device)
+                targets.append(t)
+        else:
+            t = outputs.permute(0, 2, 3, 1).contiguous() * 0
+            targets = [t]
 
         # Loss
-        loss, loss_items = criterion(outputs[0], targets)
+        loss, loss_items = criterion(outputs, targets)
 
         # Backward
         optimizer.zero_grad()
