@@ -22,4 +22,4 @@ optimizer:
   lr: 0.001
   weight_decay: 0.0005
 
-resume: false        # Reanudar desde checkpoint previo
+resume: true        # Reanudar desde checkpoint previo

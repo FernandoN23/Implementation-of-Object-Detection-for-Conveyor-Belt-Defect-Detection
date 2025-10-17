@@ -36,6 +36,8 @@ evaluación del modelo YOLOv11.
 import os
 import torch
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Evita Tkinter, usa backend no interactivo
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time

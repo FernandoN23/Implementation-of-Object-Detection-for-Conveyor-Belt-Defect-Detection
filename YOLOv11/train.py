@@ -15,6 +15,8 @@ desde configs/*.yaml sin modificar este script.
 import os, sys, torch, torch.nn as nn, torch.optim as optim, traceback
 from omegaconf import OmegaConf
 from tqdm import tqdm
+import matplotlib
+matplotlib.use('Agg')  # 🔹 Evita conflictos de Tkinter en entornos sin GUI
 
 # -------------------- Importar módulos --------------------
 from models.yolo11 import YOLOv11
@@ -25,6 +27,7 @@ from utility.logger import get_logger
 from utility.visualization import TensorboardVisualizer
 from utility.weights import save_checkpoint, load_checkpoint
 from utility.metrics import evaluate_model, measure_fps
+
 
 # =============================================================
 #          CONFIGURACIÓN DE ENTORNO Y LOGS
@@ -50,8 +53,6 @@ def setup_environment(model_variant="n"):
     logger.info(f"🧩 Logs y checkpoints configurados para YOLOv11-{variant.upper()}")
 
     return device, logger, tb
-
-
 
 
 # =============================================================
@@ -107,11 +108,9 @@ def load_model_and_configs():
     if variant_name not in variants_cfg.variants:
         raise ValueError(f"⚠️ Variante '{variant_name}' no existe en model_variants.yaml")
 
-    # Obtener parámetros de la variante
     variant_params = variants_cfg.variants[variant_name]
     print(f"🧩 Configuración de variante YOLOv11-{variant_name.upper()}: {variant_params}")
 
-    # Cargar estructura base del modelo
     model_cfg_path = "YOLOv11/configs/yolo11.yaml"
     parser = ModelParser(model_cfg_path)
     model_cfg = parser.parse_model_config()
@@ -128,6 +127,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
     model.train()
     epoch_loss = 0.0
     progress = tqdm(dataloader, desc=f"Epoch {epoch+1}", leave=False)
+
     for i, (images, labels) in enumerate(progress):
         images = images.to(device)
         outputs = model(images)
@@ -168,33 +168,32 @@ def validate_model(model, device, logger, model_variant="n"):
 def main():
     device, logger, tb = setup_environment()
 
-    # Cargar modelo + configs
     model, train_cfg, model_variant = load_model_and_configs()
     model.to(device)
 
-    # Mostrar tipo de modelo elegido
     print(f"🚀 Entrenando variante YOLOv11-{model_variant.upper()}")
     logger.info(f"🚀 Entrenando variante YOLOv11-{model_variant.upper()}")
 
-    # Verificación ROCm
     dummy = torch.randn(1, 3, 640, 640).to(device)
     try_model_forward_safe(model, dummy, device)
 
-    # Crear DataLoader
     train_loader = create_dataloader(train_cfg)
 
-    # Pérdida y optimizador
     criterion = YoloLoss()
     opt_params = train_cfg.optimizer
     optimizer = optim.AdamW(model.parameters(), lr=opt_params.lr, weight_decay=opt_params.weight_decay)
 
+    # === 🔧 FIX: Reanudación y guardado por variante ===
     start_epoch = 0
+    ckpt_dir = f"YOLOv11/checkpoints/{model_variant}"
+    os.makedirs(ckpt_dir, exist_ok=True)
+
     if train_cfg.resume:
         try:
-            start_epoch = load_checkpoint(model, optimizer, path="YOLOv11/checkpoints", device=device)
+            start_epoch = load_checkpoint(model, optimizer, path=ckpt_dir, device=device)
             logger.info(f"🔁 Reanudando entrenamiento desde la época {start_epoch}")
         except FileNotFoundError:
-            logger.warning("⚠️ No se encontró ningún checkpoint previo.")
+            logger.warning(f"⚠️ No se encontró checkpoint previo en {ckpt_dir}.")
 
     num_epochs = train_cfg.epochs
     logger.info(f"🚀 Iniciando entrenamiento por {num_epochs} épocas...")
@@ -205,9 +204,13 @@ def main():
             metrics = validate_model(model, device, logger, model_variant)
             tb.log_metrics(metrics, epoch, phase="valid")
 
-        save_checkpoint(model, optimizer, epoch + 1,
-                        path="YOLOv11/checkpoints",
-                        filename=f"yolo11_{model_variant}_epoch_{epoch+1}.pt")
+        save_checkpoint(
+            model,
+            optimizer,
+            epoch + 1,
+            path=ckpt_dir,
+            filename=f"yolo11_{model_variant}_epoch_{epoch+1}.pt"
+        )
 
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
     logger.info(f"⚡ FPS promedio del modelo ({model_variant.upper()}): {fps:.2f}")
