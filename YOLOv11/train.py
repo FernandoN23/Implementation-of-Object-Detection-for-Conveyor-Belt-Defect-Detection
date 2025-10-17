@@ -29,18 +29,29 @@ from utility.metrics import evaluate_model, measure_fps
 # =============================================================
 #          CONFIGURACIÓN DE ENTORNO Y LOGS
 # =============================================================
-def setup_environment():
-    os.makedirs("YOLOv11/logs", exist_ok=True)
-    os.makedirs("YOLOv11/runs", exist_ok=True)
-    os.makedirs("YOLOv11/checkpoints", exist_ok=True)
-    os.makedirs("YOLOv11/metrics", exist_ok=True)
+def setup_environment(model_variant="n"):
+    """Inicializa entorno, logs, checkpoints y TensorBoard para la variante YOLOv11."""
+    base_dir = "YOLOv11"
+    variant = model_variant.lower()
+
+    # Crear estructura de carpetas por variante
+    os.makedirs(os.path.join(base_dir, "logs", variant), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "runs", variant), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "checkpoints", variant), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "metrics", variant), exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger = get_logger(log_dir="YOLOv11/logs", name="train_yolo11")
-    tb = TensorboardVisualizer(log_dir="YOLOv11/runs/yolo11_train")
+
+    # Logger y TensorBoard por variante
+    logger = get_logger(log_dir=f"{base_dir}/logs/{variant}", name=f"train_yolo11_{variant}")
+    tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/yolo11_train")
 
     logger.info(f"📦 Dispositivo en uso: {device}")
+    logger.info(f"🧩 Logs y checkpoints configurados para YOLOv11-{variant.upper()}")
+
     return device, logger, tb
+
+
 
 
 # =============================================================

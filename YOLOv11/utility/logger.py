@@ -3,25 +3,25 @@ import os
 import io
 import sys
 
-def get_logger(log_dir, name="yolo11"):
+def get_logger(log_dir="YOLOv11/logs", name="train_yolo11"):
+    import logging
+    import os
     os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, f"{name}.log")
 
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
-    # Archivo de log
-    file_handler = logging.FileHandler(log_path, encoding="utf-8")
-    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    fh = logging.FileHandler(os.path.join(log_dir, f"{name}.log"), mode="a", encoding="utf-8")
+    ch = logging.StreamHandler()
 
-    # Consola
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter("%(message)s"))
+    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
 
-    # ✅ Fix de codificación para emojis y caracteres extendidos
-    if isinstance(console_handler, logging.StreamHandler):
-        console_handler.stream = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if not logger.handlers:
+        logger.addHandler(fh)
+        logger.addHandler(ch)
 
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
     return logger
+
+
