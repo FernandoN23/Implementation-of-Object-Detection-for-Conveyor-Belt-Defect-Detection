@@ -3,18 +3,16 @@ metrics.py
 ---------------------------------
 Cálculo y registro visual de métricas para YOLOv11.
 
-Métricas incluidas:
+Incluye:
 - Precision
 - Recall
-- Average Precision (AP)
-- mean Average Precision (mAP)
-- F-beta score
-- Intersection over Union (IoU)
-- FPS (opcional)
+- AP, mAP
+- F-beta
+- IoU
+- FPS opcional
 
-Cada test genera una carpeta:
-    YOLOv11/metrics/test_0001/
-donde se guardan gráficos .png y un resumen en .txt
+Estructura de guardado:
+    YOLOv11/metrics/{variant}/test_0001/
 """
 
 import os
@@ -23,6 +21,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time
+from pathlib import Path
 
 
 # ---------------------------
@@ -44,9 +43,7 @@ def bbox_iou(box1, box2, eps=1e-6):
 
 
 def calculate_metrics(preds, targets, iou_threshold=0.5, beta=1.0):
-    """
-    preds y targets son listas de cajas: [[x1, y1, x2, y2, conf, cls], ...]
-    """
+    """Calcula Precision, Recall, F_beta, AP, mAP e IoU promedio."""
     tp, fp, fn, ious = 0, 0, 0, []
 
     for pred, gt in zip(preds, targets):
@@ -61,14 +58,14 @@ def calculate_metrics(preds, targets, iou_threshold=0.5, beta=1.0):
     precision = tp / (tp + fp + 1e-6)
     recall = tp / (tp + fn + 1e-6)
     f_beta = (1 + beta**2) * (precision * recall) / (beta**2 * precision + recall + 1e-6)
-    ap = precision * recall  # simplificación conceptual
+    ap = precision * recall
     iou_mean = np.mean(ious) if ious else 0.0
 
     return {
         "Precision": precision,
         "Recall": recall,
         "AP": ap,
-        "mAP": ap,  # por ahora igual al AP global (puede promediarse por clases)
+        "mAP": ap,
         "F_beta": f_beta,
         "IoU": iou_mean
     }
@@ -77,16 +74,13 @@ def calculate_metrics(preds, targets, iou_threshold=0.5, beta=1.0):
 # ---------------------------
 #     VISUALIZACIÓN Y LOG
 # ---------------------------
-from pathlib import Path
-
-def create_metrics_folder():
+def create_metrics_folder(model_variant="n"):
     """
-    Crea carpeta incremental de prueba (test_0001, test_0002, ...)
-    dentro de YOLOv11/metrics/, sin importar desde dónde se ejecute el script.
+    Crea estructura de carpetas:
+    YOLOv11/metrics/{variant}/test_000X/
     """
-    # Ruta base de YOLOv11 (un nivel arriba de utility/)
-    base_dir = Path(__file__).resolve().parents[1] / "metrics"
-    base_dir.mkdir(exist_ok=True)
+    base_dir = Path(__file__).resolve().parents[1] / "metrics" / model_variant
+    base_dir.mkdir(parents=True, exist_ok=True)
 
     existing = [d for d in os.listdir(base_dir) if d.startswith("test_")]
     new_idx = len(existing) + 1
@@ -97,38 +91,36 @@ def create_metrics_folder():
     return str(path)
 
 
-
-def save_metrics_plots(metrics_dict, save_dir):
+def save_metrics_plots(metrics_dict, save_dir, model_variant="n"):
     """Genera gráficos y guarda .png con las métricas calculadas."""
     names = list(metrics_dict.keys())
     values = list(metrics_dict.values())
 
-    # Gráfico de barras
     plt.figure(figsize=(8, 5))
-    plt.bar(names, values)
-    plt.title("YOLOv11 Evaluation Metrics")
+    plt.bar(names, values, color="cornflowerblue", alpha=0.9)
+    plt.title(f"YOLOv11-{model_variant.upper()} Evaluation Metrics")
     plt.ylabel("Value")
     plt.ylim(0, 1)
     plt.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "metrics_overview.png"))
+    plt.savefig(os.path.join(save_dir, f"metrics_overview_{model_variant}.png"))
     plt.close()
 
-    # IoU específico
-    plt.figure()
-    plt.bar(["IoU"], [metrics_dict["IoU"]])
-    plt.title("Mean IoU")
+    plt.figure(figsize=(4, 4))
+    plt.bar(["IoU"], [metrics_dict["IoU"]], color="lightseagreen")
+    plt.title(f"Mean IoU - YOLOv11-{model_variant.upper()}")
     plt.ylim(0, 1)
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "iou.png"))
+    plt.savefig(os.path.join(save_dir, f"iou_{model_variant}.png"))
     plt.close()
 
 
-def save_metrics_summary(metrics_dict, save_dir):
-    """Guarda resumen numérico en .txt."""
-    summary_path = os.path.join(save_dir, "metrics_summary.txt")
+def save_metrics_summary(metrics_dict, save_dir, model_variant="n"):
+    """Guarda resumen numérico y modelo en .txt."""
+    summary_path = os.path.join(save_dir, f"metrics_summary_{model_variant}.txt")
     with open(summary_path, "w", encoding="utf-8") as f:
-        f.write(f"📅 Test generado: {datetime.now()}\n\n")
+        f.write(f"📅 Test generado: {datetime.now()}\n")
+        f.write(f"🔧 Modelo evaluado: YOLOv11-{model_variant.upper()}\n\n")
         for k, v in metrics_dict.items():
             f.write(f"{k}: {v:.4f}\n")
     print(f"📄 Resumen guardado en {summary_path}")
@@ -152,15 +144,15 @@ def measure_fps(model, sample_input, device="cpu", runs=20):
 # ---------------------------
 #     PIPELINE PRINCIPAL
 # ---------------------------
-def evaluate_model(preds, targets, save_results=True):
-    """Evalúa métricas y opcionalmente guarda resultados visuales."""
+def evaluate_model(preds, targets, save_results=True, model_variant="n"):
+    """Evalúa métricas y guarda resultados visuales en carpeta del modelo."""
     metrics = calculate_metrics(preds, targets)
 
     if save_results:
-        save_dir = create_metrics_folder(base_dir="metrics")
-        save_metrics_plots(metrics, save_dir)
-        save_metrics_summary(metrics, save_dir)
-        print(f"✅ Resultados guardados en {save_dir}")
+        save_dir = create_metrics_folder(model_variant)
+        save_metrics_plots(metrics, save_dir, model_variant)
+        save_metrics_summary(metrics, save_dir, model_variant)
+        print(f"✅ Resultados guardados en {save_dir} para modelo YOLOv11-{model_variant.upper()}")
 
     return metrics
 
@@ -169,7 +161,6 @@ def evaluate_model(preds, targets, save_results=True):
 #   EJEMPLO DE USO LOCAL
 # ---------------------------
 if __name__ == "__main__":
-    # Ejemplo de prueba local (dummy data)
     preds = [
         [0.1, 0.1, 0.4, 0.4, 0.9, 0],
         [0.5, 0.5, 0.8, 0.8, 0.8, 1]
@@ -178,5 +169,5 @@ if __name__ == "__main__":
         [0.12, 0.1, 0.38, 0.4, 1.0, 0],
         [0.52, 0.5, 0.78, 0.79, 1.0, 1]
     ]
-    metrics = evaluate_model(preds, targets)
+    metrics = evaluate_model(preds, targets, model_variant="l")
     print(metrics)

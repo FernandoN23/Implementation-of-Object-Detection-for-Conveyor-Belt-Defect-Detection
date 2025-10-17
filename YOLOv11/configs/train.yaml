@@ -1,61 +1,27 @@
-# ============================================================
-# train.yaml
-# Training configuration for YOLOv11
-# ============================================================
+# configs/train.yaml
 
-# -------------------------------
-# Dataset and model paths
-# -------------------------------
-model: YOLOv11/configs/yolo11.yaml
-data: YOLOv11/configs/dataset.yaml
+# ==============================================================
+# CONFIGURACIÓN DE ENTRENAMIENTO - YOLOv11
+# ==============================================================
 
-# -------------------------------
-# Training setup
-# -------------------------------
+# Tipo de modelo a entrenar (n, s, m, l, x)
+model_variant: n
+
+# Número total de épocas
 epochs: 100
-validate_every: 5
-resume: false
-checkpoint_path: "YOLOv11/checkpoints/yolo11_epoch_10.pt"
 
+# Cada cuántas épocas validar
+validate_every: 5
+
+# Dataset y batch
+batch_size: 8
+img_size: 640
+
+# Optimizador
 optimizer:
-  type: "AdamW"
   lr: 0.001
   weight_decay: 0.0005
+  type: AdamW
 
-# -------------------------------
-# Learning rate and scheduler
-# -------------------------------
-momentum: 0.937
-warmup_epochs: 3
-warmup_momentum: 0.8
-warmup_bias_lr: 0.1
-lrf: 0.01        # final learning rate fraction
-
-# -------------------------------
-# Device and workers
-# -------------------------------
-device: 0
-workers: 8
-patience: 20
-
-# -------------------------------
-# Logging and checkpoints
-# -------------------------------
-project: YOLOv11/runs/train
-name: yolov11_exp
-save_period: 5
-exist_ok: false
-
-# -------------------------------
-# DataLoader configuration
-# -------------------------------
-dataloader:
-  path: "YOLOv11/data/train/images"   # ruta base del dataset
-  batch_size: 8                      # tamaño de lote ajustable según VRAM
-  img_size: 640                       # resolución estándar YOLOv11
-  num_workers: 8                      # aprovecha 95 GB RAM
-  shuffle: true                       # mezcla los datos en cada epoch
-  pin_memory: true                    # mejora transferencia CPU→GPU
-  persistent_workers: true            # mantiene hilos activos
-  cache_images: false                 # precarga opcional (activar si SSD lento)
-  precision: "float16"                # mixed precision (AMD ROCm compatible)
+# Reanudar entrenamiento previo
+resume: false
