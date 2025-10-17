@@ -43,19 +43,30 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         path = self.image_paths[idx]
+        img = Image.open(path).convert("RGB")
+        img = self.transform(img)
 
-        # Si está cacheado, lo toma desde memoria
-        if self.cache_images and path in self.cached:
-            img = self.cached[path]
+        # Buscar etiqueta correspondiente
+        label_path = path.replace("images", "labels").rsplit(".", 1)[0] + ".txt"
+        boxes = []
+        classes = []
+
+        if os.path.exists(label_path):
+            with open(label_path, "r") as f:
+                for line in f.readlines():
+                    cls, x, y, w, h = map(float, line.strip().split())
+                    boxes.append([x, y, w, h])
+                    classes.append(int(cls))
         else:
-            img = Image.open(path).convert("RGB")
-            img = self.transform(img)
+            print(f"[WARN] No label found for: {path}")
 
-        # Si existieran etiquetas, aquí se cargarían
-        # e.g., label = self.get_label(path)
-        label = torch.tensor(0)  # placeholder
+        # Si no hay etiquetas, crea tensor vacío (0,5)
+        targets = torch.zeros((len(boxes), 5))
+        if len(boxes):
+            targets[:, 0] = torch.tensor(classes)
+            targets[:, 1:] = torch.tensor(boxes)
 
-        return img, label
+        return img, targets
 
 
 def create_dataloader(cfg):

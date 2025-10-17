@@ -77,15 +77,25 @@ def calculate_metrics(preds, targets, iou_threshold=0.5, beta=1.0):
 # ---------------------------
 #     VISUALIZACIÓN Y LOG
 # ---------------------------
-def create_metrics_folder(base_dir="metrics"):
-    """Crea carpeta incremental de prueba (test_0001, test_0002, ...)."""
-    os.makedirs(base_dir, exist_ok=True)
+from pathlib import Path
+
+def create_metrics_folder():
+    """
+    Crea carpeta incremental de prueba (test_0001, test_0002, ...)
+    dentro de YOLOv11/metrics/, sin importar desde dónde se ejecute el script.
+    """
+    # Ruta base de YOLOv11 (un nivel arriba de utility/)
+    base_dir = Path(__file__).resolve().parents[1] / "metrics"
+    base_dir.mkdir(exist_ok=True)
+
     existing = [d for d in os.listdir(base_dir) if d.startswith("test_")]
     new_idx = len(existing) + 1
     folder_name = f"test_{new_idx:04d}"
-    path = os.path.join(base_dir, folder_name)
-    os.makedirs(path, exist_ok=True)
-    return path
+    path = base_dir / folder_name
+    path.mkdir(exist_ok=True)
+
+    return str(path)
+
 
 
 def save_metrics_plots(metrics_dict, save_dir):
