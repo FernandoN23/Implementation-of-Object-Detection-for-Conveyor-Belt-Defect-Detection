@@ -1,4 +1,31 @@
-# neck.py
+"""
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título: "Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: neck.py
+YOLOv11 Neck
+Combina FPN (arriba-abajo) y PAN (abajo-arriba) para fusionar
+características multiescala provenientes del backbone.
+-------------------------------------------------------------
+"""
+
+# -------------------------------------------------------------
+# FPN (Feature Pyramid Network):
+#   - Reduce canales y propaga de p5→p3 mediante upsampling y concat.
+#   - C3k2 refina las fusiones inter-escala.
+#
+# PAN (Path Aggregation Network):
+#   - Reinvierte el flujo: p3→p5 usando downsampling.
+#   - Genera salidas refinadas n4 y n5.
+#
+# Conexiones:
+#   (x3, x4, x5) → backbone outputs
+#   (p3, n4, n5) → salidas hacia el head.
+# -------------------------------------------------------------
+
 import torch
 import torch.nn as nn
 from .blocks import Conv, C3k2

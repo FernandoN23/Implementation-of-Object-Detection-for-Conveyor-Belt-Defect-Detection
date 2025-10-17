@@ -1,10 +1,31 @@
 """
-prepare_dataset.py
----------------------------------
-Copia solo las carpetas relevantes del dataset (train/, valid/, test/)
-y el archivo data.yaml hacia la carpeta local 'data/' del proyecto YOLOv11.
-También copia el script 'view_dataset.py' si existe en el dataset original.
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: prepare_dataset.py
+Prepara el dataset local copiando las carpetas train/, valid/,
+test/ y data.yaml al directorio YOLOv11/data/.
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Funciones principales:
+#   - load_dataset_path(): lee la ruta del dataset desde configs/dataset.yaml.
+#   - copy_selected_items(): copia carpetas y archivos esenciales.
+#
+# Características:
+#   • Copia segura con verificación de existencia.
+#   • Incluye script view_dataset.py si existe.
+#
+# Conexión:
+#   Se usa previo al entrenamiento para asegurar que la
+#   estructura de datos esté disponible en YOLOv11/data/.
+# -------------------------------------------------------------
+
 
 import os
 import shutil

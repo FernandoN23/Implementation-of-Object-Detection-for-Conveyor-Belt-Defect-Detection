@@ -1,9 +1,30 @@
 """
-weights.py
----------------------------------
-Gestión de checkpoints (guardado y carga de pesos del modelo YOLOv11).
-Permite reanudar entrenamiento, guardar mejores modelos y manejar directorios.
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: weights.py
+Manejo de checkpoints del modelo YOLOv11.
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Funciones principales:
+#   - save_checkpoint(): guarda pesos y estado del optimizador.
+#   - load_checkpoint(): restaura entrenamiento desde último punto.
+#
+# Características:
+#   • Guarda 'latest.pt' automáticamente para reanudación rápida.
+#   • Permite manejo de múltiples checkpoints por época.
+#
+# Conexión:
+#   Usado directamente por train.py durante entrenamiento
+#   y recuperación de pesos para validación o testeo.
+# -------------------------------------------------------------
+
 
 import os
 import torch

@@ -1,9 +1,35 @@
 """
-losses.py (versión corregida YOLOv11)
--------------------------------------
-Compatibilidad completa con DataLoader multiclase (listas de tensores [N_i,5]).
-Convierte automáticamente las etiquetas en formato [img_idx, cls, x, y, w, h].
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: losses.py
+Define la función de pérdida principal de YOLOv11.
+Soporta formato multiclase y predicciones multi-escala.
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Clase: YoloLoss
+#   - Integra tres términos ponderados:
+#       λ_box → pérdida de regresión de caja (SmoothL1)
+#       λ_obj → pérdida de confianza (BCE)
+#       λ_cls → pérdida de clasificación (MSE)
+#
+# Flujo interno:
+#   1. Unifica targets de lista → tensor [N,6]
+#   2. Normaliza predicciones → [B, N, C]
+#   3. Genera targets simulados (dummy) para prueba funcional
+#   4. Calcula pérdidas y devuelve total + desglose
+#
+# Uso:
+#   Llamado en train.py dentro del bucle principal
+#   junto a las salidas del modelo (head).
+# -------------------------------------------------------------
+
 
 import torch
 import torch.nn as nn

@@ -1,32 +1,35 @@
 """
-===============================================================
-  Trabajo de Memoria de Título
-  Memorista: Fernando Navarrete
-  Modelo actual: YOLOv11
-  Código actual: clean_checkpoints.py
-===============================================================
-Descripción:
-Script automático para limpiar la carpeta de checkpoints del
-modelo YOLOv11. Permite eliminar todos los checkpoints o
-conservar los N más recientes según configuración del usuario.
-Adicionalmente, soporta la limpieza selectiva por variante del
-modelo (n, s, m, l, xl), permitiendo mantener los entrenamientos
-ordenados por arquitectura.
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
 
-Características:
- - Soporta limpieza global o por variante (--variant n|s|m|l|xl).
- - Modo 'all' elimina todos los checkpoints existentes.
- - Modo 'keep' conserva los N más recientes (--keep N).
- - Detecta automáticamente la estructura YOLOv11/checkpoints/.
- - Protege de errores si la carpeta no existe.
- - Mensajes claros y detallados en consola.
-
-Uso:
-    python clean_checkpoints.py --mode all
-    python clean_checkpoints.py --mode keep --keep 3
-    python clean_checkpoints.py --variant s --keep 2
-===============================================================
+-------------------------------------------------------------
+Archivo: clean_checkpoints.py
+Herramienta de limpieza de checkpoints de YOLOv11.
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Función principal: clean_checkpoints()
+#   - Elimina archivos de checkpoints (.pt) según el modo elegido.
+#   - Modo 'all': borra todos los archivos.
+#   - Modo 'keep': conserva los N más recientes.
+#
+# Características:
+#   • Soporta limpieza por variante (n, s, m, l, xl)
+#   • Ordena automáticamente por fecha de modificación
+#   • Evita errores si la carpeta no existe
+#
+# Uso típico:
+#   python clean_checkpoints.py --mode keep --keep 3 --variant s
+#
+# Conexión:
+#   Utilizado fuera del flujo de entrenamiento para mantener
+#   la estructura de YOLOv11/checkpoints/ organizada.
+# -------------------------------------------------------------
+
 
 import os
 import argparse

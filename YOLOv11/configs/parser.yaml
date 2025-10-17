@@ -1,12 +1,20 @@
-# parser.yaml
-# Configuration file for YOLOv11 project paths and runtime parameters
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: parser.yaml
+# Configuración global del proyecto YOLOv11 para la lectura de
+# rutas, recursos y parámetros de ejecución.
+# ==============================================================
 
 project_name: yolov11
 task: detect
 model: configs/yolo11.yaml
 dataset: configs/dataset.yaml
 
-# Paths
 paths:
   root_dir: ${oc.env:PROJECT_ROOT, .}
   data_dir: ${paths.root_dir}/data
@@ -15,13 +23,12 @@ paths:
   log_dir: ${paths.root_dir}/logs
   results_dir: ${paths.root_dir}/results
 
-# Training setup
 device: 0
 imgsz: 640
-batch: 16
+batch: 8
 epochs: 100
 workers: 8
 seed: 42
 
-# Model scale
-scale: n  # options: [n, s, m, l, x]
+# Variante base del modelo YOLOv11
+scale: n  # opciones: [n, s, m, l, x]

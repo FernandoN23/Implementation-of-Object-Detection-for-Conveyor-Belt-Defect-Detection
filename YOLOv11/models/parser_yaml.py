@@ -1,3 +1,34 @@
+"""
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: parser_yaml.py
+Módulo auxiliar de configuración para YOLOv11.
+Permite la lectura, validación y carga dinámica de parámetros
+definidos en archivos YAML (modelo y dataset).
+-------------------------------------------------------------
+"""
+
+# -------------------------------------------------------------
+# Clase ModelParser:
+#  - Carga y valida la estructura del archivo YAML principal.
+#  - Permite el acceso a hiperparámetros, arquitectura,
+#    rutas de dataset y variantes del modelo.
+#
+# Funciones:
+#   • parse_model_config(): lee y valida yolo11.yaml
+#   • parse_dataset_config(): lee dataset.yaml (train/val/test)
+#
+# Conexión en el proyecto:
+#   Es utilizada en yolo11.py y train.py para construir el
+#   modelo de forma parametrizada desde YAML.
+# -------------------------------------------------------------
+
+
 import yaml
 from pathlib import Path
 

@@ -1,12 +1,28 @@
-# blocks.py
 """
-Bloques base para YOLOv11 (PyTorch)
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título: "Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
 
-Contiene:
-- Conv: Conv2d + Normalization + Activation
-- DWConv: Depthwise separable conv (Conv DW + PW)
-- Bottleneck, C3, C3k2, Concat, Upsample, SPPF, Focus
+-------------------------------------------------------------
+Archivo: blocks.py
+Bloques base de construcción para YOLOv11.
+Incluye los módulos convolucionales y de conexión empleados
+por el backbone, neck y head.
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# BLOQUES FUNDAMENTALES
+# -------------------------------------------------------------
+# Conv: bloque Conv2d + Normalización + Activación (base para todo el modelo)
+# DWConv: convolución separable en profundidad (reduce cómputo)
+# Bottleneck: estructura residual tipo CSP
+# C3 / C3k2: concatenaciones de 3 caminos con 2 Bottlenecks (core YOLO)
+# SPPF: Spatial Pyramid Pooling rápido (agrega contexto espacial)
+# Focus: reorganiza espacialmente canales (reducción temprana eficiente)
+# Concat y Upsample: operaciones estructurales de conexión
+# -------------------------------------------------------------
 
 from typing import Callable, Optional
 import torch

@@ -1,11 +1,42 @@
 # yolo11.py
 """
-YOLOv11 Full Model
-------------------
-Combina Backbone, Neck y Head para detección multi-escala.
-Compatible con configuración YAML y selección dinámica de normalización:
-BatchNorm, GroupNorm, InstanceNorm o Identity.
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: yolo11.py
+Definición del modelo completo YOLOv11.
+Integra las tres partes principales del detector:
+Backbone (extracción), Neck (fusión FPN+PAN) y Head (detección).
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Estructura general del modelo:
+#   1. Se carga el archivo YAML (parser_yaml.py)
+#      → Se extraen parámetros como base_channels, anchors,
+#        tipo de normalización (BatchNorm, GroupNorm, etc.)
+#
+#   2. Se construyen los submódulos:
+#        • Backbone  → extracción de features jerárquicas
+#        • Neck      → fusión de características multiescala
+#        • Head      → salida de predicciones (bbox + clases)
+#
+#   3. En el forward():
+#        x → backbone → neck → head → [y3, y4, y5]
+#
+# Conexiones entre módulos:
+#   Backbone produce (x3, x4, x5)
+#   Neck combina → (p3, n4, n5)
+#   Head entrega las salidas finales del detector.
+#
+# Compatibilidad:
+#   Permite variar tipo de normalización y número de clases
+#   directamente desde el archivo YAML de configuración.
+# -------------------------------------------------------------
 
 import torch
 import torch.nn as nn

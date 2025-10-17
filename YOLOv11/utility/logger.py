@@ -1,3 +1,31 @@
+"""
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: logger.py
+Gestor de registro de eventos y entrenamiento para YOLOv11.
+-------------------------------------------------------------
+"""
+
+# -------------------------------------------------------------
+# Función principal: get_logger()
+#   - Crea un logger con salida dual (consola + archivo .log)
+#   - Formato estándar: [fecha | nivel | mensaje]
+#   - Se utiliza durante entrenamiento y validación
+#
+# Directorio de salida:
+#   YOLOv11/logs/
+#
+# Conexión:
+#   Usado en train.py para registrar métricas, pérdidas y
+#   estados de checkpoints por cada variante del modelo.
+# -------------------------------------------------------------
+
+
 import logging
 import os
 import io

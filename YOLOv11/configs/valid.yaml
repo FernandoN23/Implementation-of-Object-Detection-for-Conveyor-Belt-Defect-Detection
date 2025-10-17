@@ -1,28 +1,31 @@
-# valid.yaml
-# YOLOv11 validation configuration file
-# -----------------------------------------------------------
-# Used for evaluating model performance on the validation set
-# Compatible with custom data_loader.py and valid.py scripts
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: valid.yaml
+# Configuración de validación e inferencia para YOLOv11.
+# Define los parámetros de evaluación, umbrales y métricas.
+# ==============================================================
 
-# Dataset and model configuration
 model: configs/yolo11.yaml
 data: configs/dataset.yaml
-weights: weights/best.pt   # Ruta del modelo entrenado
-imgsz: 640                 # Tamaño de imagen para inferencia
-batch: 8                   # Tamaño de batch para validación
-device: 0                  # GPU (0) o CPU ('cpu')
-workers: 4                 # Hilos de carga de datos
+weights: weights/best.pt
+imgsz: 640
+batch: 8
+device: 0
+workers: 4
 
-# Evaluation parameters
-conf_thres: 0.25           # Umbral de confianza para predicciones
-iou_thres: 0.6             # IOU mínimo para considerar detección correcta
-max_det: 300               # Máximo de detecciones por imagen
-save_json: true            # Guardar resultados en formato COCO (.json)
-save_txt: false            # Guardar resultados en txt estilo YOLO
-save_images: true          # Guardar imágenes con detecciones
-plots: true                # Generar gráficos de métricas
+conf_thres: 0.25
+iou_thres: 0.6
+max_det: 300
+save_json: true
+save_txt: false
+save_images: true
+plots: true
 
-# Metrics to compute
 metrics:
   - precision
   - recall
@@ -30,13 +33,11 @@ metrics:
   - mAP50-95
   - confusion_matrix
 
-# Logging and output
 project: runs/val
 name: yolov11_validation
 exist_ok: false
 verbose: true
 
-# Optional: integration with your data_loader.py
 loader:
   shuffle: false
   pin_memory: true

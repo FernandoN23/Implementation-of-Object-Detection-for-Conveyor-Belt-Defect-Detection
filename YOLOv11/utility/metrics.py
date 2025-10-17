@@ -1,19 +1,37 @@
 """
-metrics.py
----------------------------------
-Cálculo y registro visual de métricas para YOLOv11.
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
 
-Incluye:
-- Precision
-- Recall
-- AP, mAP
-- F-beta
-- IoU
-- FPS opcional
-
-Estructura de guardado:
-    YOLOv11/metrics/{variant}/test_0001/
+-------------------------------------------------------------
+Archivo: metrics.py
+Cálculo, almacenamiento y visualización de métricas de
+evaluación del modelo YOLOv11.
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Métricas calculadas:
+#   • Precision, Recall, AP, mAP
+#   • F_beta, IoU medio
+#   • FPS opcional (rendimiento)
+#
+# Estructura de guardado:
+#   YOLOv11/metrics/{variant}/test_XXXX/
+#
+# Funciones principales:
+#   - calculate_metrics(): evalúa IoU y métricas básicas
+#   - save_metrics_plots(): guarda gráficos .png
+#   - save_metrics_summary(): exporta resumen .txt
+#   - evaluate_model(): pipeline completo de evaluación
+#
+# Conexión:
+#   Invocado tras validación o test final, genera registros
+#   visuales por variante del modelo (N, S, M, L, X).
+# -------------------------------------------------------------
+
 
 import os
 import torch

@@ -1,4 +1,32 @@
 # head.py
+"""
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título: "Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: head.py
+YOLOv11 Head
+Genera las predicciones multiescala (p3, n4, n5)
+para bounding boxes, clases e información de objeto.
+-------------------------------------------------------------
+"""
+
+# -------------------------------------------------------------
+# Estructura:
+#   - Tres detectores independientes (p3, n4, n5)
+#   - Cada uno produce (B, anchors*(5+num_classes), H, W)
+#       5 → (x, y, w, h, conf)
+#   - Conv3x3 + Conv1x1 por escala
+#
+# Conexiones:
+#   p3 ← salida de FPN
+#   n4, n5 ← salidas del PAN
+# Salida final:
+#   lista [y3, y4, y5] → entrada al post-procesamiento (NMS)
+# -------------------------------------------------------------
+
 import torch
 import torch.nn as nn
 from .blocks import Conv

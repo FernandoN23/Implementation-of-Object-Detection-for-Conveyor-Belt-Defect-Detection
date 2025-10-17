@@ -1,17 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-=============================================================
- Trabajo de Memoria de Título
- Memorista: Fernando Navarrete
- Modelo actual: YOLOv11
- Código actual: visualization.py
-=============================================================
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
 
-Módulo de visualización de métricas y pérdidas en TensorBoard.
-Ahora soporta separación automática de runs por variante de modelo
-(n, s, m, l, xl), evitando mezclar registros entre versiones.
-=============================================================
+-------------------------------------------------------------
+Archivo: visualization.py
+Módulo de visualización TensorBoard para YOLOv11.
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Clase: TensorboardVisualizer
+#   - Lanza un servidor TensorBoard dedicado por variante (n,s,m,l,xl)
+#   - Registra métricas e imágenes en tiempo real.
+#
+# Métodos:
+#   • log_metrics()  → guarda valores escalares
+#   • log_images()   → registra ejemplos visuales
+#   • flush() / close()
+#
+# Conexión:
+#   Usado durante entrenamiento (train.py) para seguimiento
+#   en tiempo real de pérdidas y métricas por variante.
+# -------------------------------------------------------------
+
 
 import os
 import time

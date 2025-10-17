@@ -1,16 +1,33 @@
 # -*- coding: utf-8 -*-
 """
-=============================================================
- Trabajo de Memoria de Título
- Memorista: Fernando Navarrete
- Modelo actual: YOLOv11
- Código actual: plot_tensorboard_metrics.py
-=============================================================
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
 
-Lee los registros de TensorBoard (runs/*.tfevents) y genera
-gráficos comparativos de las métricas de entrenamiento/validación.
-=============================================================
+-------------------------------------------------------------
+Archivo: plot_tensorboard_metrics.py
+Analiza los archivos de TensorBoard (.tfevents) y genera
+gráficos de evolución de métricas (loss, mAP, precisión, etc.)
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Función: plot_tensorboard_scalars()
+#   - Lee eventos de runs/ con event_accumulator.
+#   - Extrae las métricas registradas (tags).
+#   - Genera gráficos .png organizados en metrics/plots.
+#
+# Uso:
+#   python plot_tensorboard_metrics.py
+#
+# Conexión:
+#   No se ejecuta durante entrenamiento.
+#   Es una herramienta analítica para comparar variantes o
+#   analizar resultados finales.
+# -------------------------------------------------------------
+
 
 import os
 import matplotlib.pyplot as plt

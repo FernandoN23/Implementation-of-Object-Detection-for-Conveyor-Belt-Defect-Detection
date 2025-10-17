@@ -1,15 +1,34 @@
 # backbone.py
+"""
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título: "Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: backbone.py
+YOLOv11 Backbone
+Extrae características jerárquicas de la imagen a distintas
+escalas (piramidales). Es la base para FPN+PAN en el Neck.
+-------------------------------------------------------------
+"""
+
+# -------------------------------------------------------------
+# Estructura:
+#  - Stage1: extracción inicial y reducción espacial
+#  - Stage2–5: incrementa profundidad y número de canales
+#               integrando bloques C3k2 (residuals)
+# Salidas:
+#   x3 -> características medias (1/8 resolución)
+#   x4 -> características profundas (1/16)
+#   x5 -> características muy profundas (1/32)
+# Estas tres salidas se conectan directamente al Neck.
+# -------------------------------------------------------------
 import torch
 import torch.nn as nn
 from .blocks import Conv, C3k2
 
 class YOLOv11Backbone(nn.Module):
-    """
-    YOLOv11 Backbone
-    ----------------
-    Extrae características jerárquicas a múltiples escalas.
-    Ahora admite normalización configurable (bn, gn, in, id).
-    """
 
     def __init__(self, in_channels=3, base_channels=64,
                  norm_type="bn", gn_groups=32):

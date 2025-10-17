@@ -1,9 +1,32 @@
 """
-utility/data_loader.py
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
 
-Cargador de datos para detección de objetos multiclase (formato YOLO).
-Compatible con Dataset/data.yaml y estructura de carpetas train/valid/test.
+-------------------------------------------------------------
+Archivo: data_loader.py
+Cargador de datos (Dataset y DataLoader) para YOLOv11.
+Compatible con estructuras de dataset tipo YOLOv8
+(train/valid/test + data.yaml).
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Estructura principal:
+#   • CustomDataset: lee imágenes y etiquetas YOLO (x_c, y_c, w, h)
+#   • collate_fn: apila lotes con targets de tamaño variable
+#   • create_dataloader(): crea DataLoader configurable
+#
+# Compatibilidad:
+#   - Permite cacheo en RAM (opcional)
+#   - Admite lectura directa de "data.yaml" para nombres de clases
+#
+# Conexión:
+#   Usado por train.py y valid.py para construir los loaders
+#   según las rutas definidas en train.yaml.
+# -------------------------------------------------------------
 
 import os
 from torch.utils.data import Dataset, DataLoader

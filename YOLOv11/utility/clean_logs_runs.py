@@ -1,29 +1,35 @@
-#!/usr/bin/env python3
 """
-===============================================================
-  Trabajo de Memoria de Título
-  Memorista: Fernando Navarrete
-  Modelo actual: YOLOv11
-  Código actual: clean_logs_runs.py
-===============================================================
-Descripción:
-Script automático para limpiar las carpetas de logs y runs del
-modelo YOLOv11. Permite eliminar registros globales o específicos
-de una variante del modelo (n, s, m, l, xl).
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
 
-Características:
- - Puede operar sobre logs, runs o ambos.
- - Soporta selección de variante (--variant n|s|m|l|xl).
- - Permite conservar las N carpetas más recientes (--keep-last).
- - Admite limpieza por antigüedad (--older-than DAYS).
- - Incluye modo de simulación (--dry-run) y confirmación opcional (--yes).
-
-Uso:
-    python clean_logs_runs.py --target both
-    python clean_logs_runs.py --target runs --variant s --keep-last 2
-    python clean_logs_runs.py --target logs --variant l --older-than 7
-===============================================================
+-------------------------------------------------------------
+Archivo: clean_logs_runs.py
+Script de mantenimiento que limpia carpetas de logs y runs
+(TensorBoard) de cada variante YOLOv11.
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Funciones principales:
+#   - safe_iter_delete(): elimina logs/runs antiguos o en exceso.
+#   - confirm(): confirma acción del usuario.
+#   - is_safe_base(): evita ejecuciones fuera de carpetas YOLOv11.
+#
+# Opciones:
+#   --target logs|runs|both
+#   --variant n|s|m|l|xl
+#   --keep-last N
+#   --older-than DAYS
+#   --dry-run (simula sin eliminar)
+#
+# Conexión:
+#   Utilidad post-entrenamiento para mantener ordenadas las
+#   carpetas YOLOv11/logs y YOLOv11/runs.
+# -------------------------------------------------------------
+
 import argparse
 import shutil
 import sys

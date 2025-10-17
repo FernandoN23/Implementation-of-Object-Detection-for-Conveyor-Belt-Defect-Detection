@@ -1,27 +1,25 @@
-# configs/train.yaml
-
 # ==============================================================
-# CONFIGURACIÓN DE ENTRENAMIENTO - YOLOv11
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: train.yaml
+# Configuración de entrenamiento del modelo YOLOv11.
+# Controla el tipo de variante, hiperparámetros y validaciones.
 # ==============================================================
 
-# Tipo de modelo a entrenar (n, s, m, l, x)
-model_variant: n
+model_variant: n     # Variante (n, s, m, l, x)
+epochs: 100          # Número total de épocas
+validate_every: 5    # Frecuencia de validación
 
-# Número total de épocas
-epochs: 100
-
-# Cada cuántas épocas validar
-validate_every: 5
-
-# Dataset y batch
 batch_size: 8
 img_size: 640
 
-# Optimizador
 optimizer:
+  type: AdamW
   lr: 0.001
   weight_decay: 0.0005
-  type: AdamW
 
-# Reanudar entrenamiento previo
-resume: false
+resume: false        # Reanudar desde checkpoint previo

@@ -1,10 +1,29 @@
 """
-test_model.py
----------------------------------
-Script de testeo rápido para verificar la correcta ejecución de un modelo YOLOv11.
-Permite comprobar estructura, dimensiones y forward pass sin errores.
-Incluye manejo de errores MIOpen en GPUs AMD (ROCm).
+Departamento de Ingeniería Mecánica - Universidad de Chile
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
+para la identificación de fallas en correas transportadoras"
+Autor: Fernando N.
+
+-------------------------------------------------------------
+Archivo: test_model.py
+Prueba rápida del modelo YOLOv11 para verificar ejecución,
+estructura y compatibilidad con GPU ROCm (AMD).
+-------------------------------------------------------------
 """
+
+# -------------------------------------------------------------
+# Bloques principales:
+#   - Parche de entorno MIOpen (evita errores ROCm en Radeon)
+#   - _replace_batchnorm_with_identity(): parchea BatchNorm2d
+#   - _try_gpu_then_cpu_forward(): prueba GPU y fallback a CPU
+#   - test_model(): realiza forward con input simulado
+#
+# Conexión:
+#   Script auxiliar para depuración y diagnóstico del modelo
+#   antes del entrenamiento. No modifica pesos ni logs.
+# -------------------------------------------------------------
+
 
 # =====================================================
 # 🔧 BLOQUE DE CONFIGURACIÓN AMD ROCm / MIOpen
