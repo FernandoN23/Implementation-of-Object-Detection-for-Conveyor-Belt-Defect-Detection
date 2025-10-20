@@ -34,7 +34,7 @@ YOLOv11/
 │   └── yolo11.py                   ← Integración de la arquitectura de YOLOv11
 │
 ├── utility/                   
-│   ├── clean_ckeckpoints.py        ← Script de limpieza de checkpoints
+│   ├── clean_weights.py            ← Script de limpieza de pesos registrados
 │   ├── clean_logs_runs.py          ← Script de limpieza de logs y runs
 │   ├── data_loader.py              ← Cargador de datos para YOLOv11
 │   ├── logger.py                   ← Script para registrar eventos

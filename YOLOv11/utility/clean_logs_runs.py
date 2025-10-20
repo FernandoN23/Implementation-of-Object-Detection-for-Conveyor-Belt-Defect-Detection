@@ -1,157 +1,103 @@
 """
 Departamento de Ingeniería Mecánica - Universidad de Chile
-Trabajo de Memoria de Título:
+Memoria de Título:
 "Implementación de algoritmos de reconocimiento de objetos
 para la identificación de fallas en correas transportadoras"
 Autor: Fernando N.
 
 -------------------------------------------------------------
 Archivo: clean_logs_runs.py
-Script de mantenimiento que limpia carpetas de logs y runs
-(TensorBoard) de cada variante YOLOv11.
+Limpieza interactiva de logs y runs en YOLOv11.
+Estructura soportada:
+  YOLOv11/{logs|runs}/<variant>/<train|valid|test>/
 -------------------------------------------------------------
 """
 
-# -------------------------------------------------------------
-# Funciones principales:
-#   - safe_iter_delete(): elimina logs/runs antiguos o en exceso.
-#   - confirm(): confirma acción del usuario.
-#   - is_safe_base(): evita ejecuciones fuera de carpetas YOLOv11.
-#
-# Opciones:
-#   --target logs|runs|both
-#   --variant n|s|m|l|xl
-#   --keep-last N
-#   --older-than DAYS
-#   --dry-run (simula sin eliminar)
-#
-# Conexión:
-#   Utilidad post-entrenamiento para mantener ordenadas las
-#   carpetas YOLOv11/logs y YOLOv11/runs.
-# -------------------------------------------------------------
-
-import argparse
 import shutil
-import sys
 from pathlib import Path
-import time
-import logging
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-logger = logging.getLogger("cleaner")
-
+VARIANTS = ["n", "s", "m", "l", "xl"]
+PHASES = ["train", "valid", "test"]
+TARGETS = ["logs", "runs"]
 
 def confirm(prompt: str) -> bool:
+    return input(f"{prompt} [y/N]: ").lower() in ("y", "yes")
+
+def choose_variant():
+    print("\n📦 Selecciona la variante:")
+    for i, v in enumerate(VARIANTS, 1):
+        print(f"  {i}) {v.upper()}")
+    choice = input("👉 Variante (número): ")
     try:
-        return input(f"{prompt} [y/N]: ").lower() in ("y", "yes")
-    except KeyboardInterrupt:
-        return False
+        return VARIANTS[int(choice) - 1]
+    except (ValueError, IndexError):
+        print("⚠️ Selección inválida.")
+        return None
 
+def choose_phase():
+    print("\n📂 Selecciona el tipo de datos:")
+    for i, p in enumerate(PHASES, 1):
+        print(f"  {i}) {p}")
+    choice = input("👉 Tipo (número): ")
+    try:
+        return PHASES[int(choice) - 1]
+    except (ValueError, IndexError):
+        print("⚠️ Selección inválida.")
+        return None
 
-def is_safe_base(base: Path) -> bool:
-    return any(part.lower() == "yolov11" for part in base.parts)
-
-
-def list_candidates(folder: Path):
-    if not folder.exists():
+def choose_target():
+    print("\n🧭 Selecciona el destino:")
+    for i, t in enumerate(TARGETS, 1):
+        print(f"  {i}) {t}")
+    choice = input("👉 Destino (número o 3 para ambos): ")
+    if choice == "3":
+        return TARGETS
+    try:
+        return [TARGETS[int(choice) - 1]]
+    except (ValueError, IndexError):
+        print("⚠️ Selección inválida.")
         return []
-    return sorted(folder.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
 
-
-def remove_path(path: Path, dry_run: bool = True):
-    if not path.exists():
+def clean_logs_runs():
+    base_dir = Path(__file__).resolve().parents[1]
+    variant = choose_variant()
+    if not variant:
         return
-    if dry_run:
-        logger.info(f"[DRY-RUN] delete: {path}")
+    phase = choose_phase()
+    if not phase:
+        return
+    targets = choose_target()
+    if not targets:
         return
 
-    if path.is_dir():
-        shutil.rmtree(path)
-        logger.info(f"Removed directory: {path}")
-    else:
-        path.unlink()
-        logger.info(f"Removed file: {path}")
+    for target in targets:
+        target_dir = base_dir / target / variant / phase
+        print(f"\n🧩 Carpeta objetivo: {target_dir}")
 
-
-def safe_iter_delete(folder: Path, keep_last: int = 0, older_than_days: int | None = None, dry_run: bool = True):
-    candidates = list_candidates(folder)
-    total = len(candidates)
-    logger.info(f"Found {total} items in {folder}")
-    cutoff_ts = None
-    if older_than_days is not None:
-        cutoff_ts = time.time() - older_than_days * 86400
-
-    for idx, item in enumerate(candidates):
-        name = item.name
-        if name == ".gitkeep":
+        if not target_dir.exists():
+            print("⚠️ No existe esta ruta, se omite.")
             continue
-        if keep_last and idx < keep_last:
+
+        contents = list(target_dir.iterdir())
+        if not contents:
+            print("ℹ️ Carpeta vacía, nada que eliminar.")
             continue
-        if cutoff_ts is not None and item.stat().st_mtime > cutoff_ts:
+
+        print(f"🔍 Se encontraron {len(contents)} elementos en {target_dir}")
+        if not confirm(f"¿Eliminar TODO el contenido de {target}/{variant}/{phase}?"):
+            print("❌ Operación cancelada para esta carpeta.")
             continue
-        remove_path(item, dry_run=dry_run)
 
-
-def parse_args():
-    p = argparse.ArgumentParser(description="Limpia logs y runs de YOLOv11, con soporte por variante.")
-    p.add_argument("--target", choices=("logs", "runs", "both"), default="both",
-                   help="Carpeta a limpiar.")
-    p.add_argument("--base-path", default="..",
-                   help="Ruta base del proyecto YOLOv11 (default: ..).")
-    p.add_argument("--variant", type=str, default=None,
-                   help="Variante del modelo YOLOv11 (n, s, m, l, xl). Si se omite, limpia todo.")
-    p.add_argument("--keep-last", type=int, default=0,
-                   help="Conservar las N carpetas más recientes.")
-    p.add_argument("--older-than", type=int, default=None,
-                   help="Borrar solo carpetas/archivos más antiguos que N días.")
-    p.add_argument("--dry-run", action="store_true", help="No borra nada, solo muestra el plan.")
-    p.add_argument("--yes", action="store_true", help="No pedir confirmación interactiva.")
-    return p.parse_args()
-
-
-def main():
-    args = parse_args()
-
-    script_dir = Path(__file__).resolve().parent
-    base = Path(args.base_path)
-    if not base.is_absolute():
-        base = (script_dir / base).resolve()
-
-    if not is_safe_base(base):
-        logger.error("Ruta base no válida: no contiene 'YOLOv11' en su ruta. Abortando.")
-        sys.exit(1)
-
-    variant = args.variant.lower() if args.variant else None
-    logger.info(f"🧩 Variante seleccionada: {variant or 'todas'}")
-
-    targets = []
-    if args.target in ("logs", "both"):
-        t = base / "logs"
-        if variant:
-            t = t / variant
-        targets.append(t)
-    if args.target in ("runs", "both"):
-        t = base / "runs"
-        if variant:
-            t = t / variant
-        targets.append(t)
-
-    logger.info("Plan de limpieza:")
-    for t in targets:
-        logger.info(f" - {t} (keep_last={args.keep_last}, older_than={args.older_than}, dry_run={args.dry_run})")
-
-    if not args.yes and not confirm("¿Continuar con la limpieza según el plan anterior?"):
-        logger.info("Operación cancelada por el usuario.")
-        sys.exit(0)
-
-    for t in targets:
-        if not t.exists():
-            logger.warning(f"Target inexistente: {t} (omitido)")
-            continue
-        safe_iter_delete(folder=t, keep_last=args.keep_last, older_than_days=args.older_than, dry_run=args.dry_run)
-
-    logger.info("🧹 Limpieza finalizada correctamente.")
+        try:
+            for item in contents:
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+            print(f"✅ Limpieza completada en {target}/{variant}/{phase}")
+        except Exception as e:
+            print(f"⚠️ Error eliminando contenido: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    clean_logs_runs()

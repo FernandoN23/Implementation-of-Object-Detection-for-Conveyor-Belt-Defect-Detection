@@ -22,7 +22,7 @@ Gestor de registro de eventos y entrenamiento para YOLOv11.
 #
 # Conexión:
 #   Usado en train.py para registrar métricas, pérdidas y
-#   estados de checkpoints por cada variante del modelo.
+#   estados de weights por cada variante del modelo.
 # -------------------------------------------------------------
 
 

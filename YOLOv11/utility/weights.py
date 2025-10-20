@@ -7,7 +7,7 @@ Autor: Fernando N.
 
 -------------------------------------------------------------
 Archivo: weights.py
-Manejo de checkpoints del modelo YOLOv11.
+Manejo de weights del modelo YOLOv11.
 -------------------------------------------------------------
 """
 
@@ -18,7 +18,7 @@ Manejo de checkpoints del modelo YOLOv11.
 #
 # Características:
 #   • Guarda 'latest.pt' automáticamente para reanudación rápida.
-#   • Permite manejo de múltiples checkpoints por época.
+#   • Permite manejo de múltiples weights por época.
 #
 # Conexión:
 #   Usado directamente por train.py durante entrenamiento
@@ -30,7 +30,7 @@ import os
 import torch
 import glob
 
-def save_checkpoint(model, optimizer, epoch, path="checkpoints", filename=None):
+def save_checkpoint(model, optimizer, epoch, path="weights", filename=None):
     os.makedirs(path, exist_ok=True)
     if filename is None:
         filename = f"yolo11_epoch_{epoch}.pt"
@@ -53,7 +53,7 @@ def save_checkpoint(model, optimizer, epoch, path="checkpoints", filename=None):
     print(f"✅ Checkpoint guardado en {save_path} y actualizado latest.pt")
 
 
-def load_checkpoint(model, optimizer=None, path="checkpoints", device="cpu"):
+def load_checkpoint(model, optimizer=None, path="weights", device="cpu"):
     """Carga el último checkpoint disponible (latest o el más reciente numérico)."""
     ckpt_path = None
 
