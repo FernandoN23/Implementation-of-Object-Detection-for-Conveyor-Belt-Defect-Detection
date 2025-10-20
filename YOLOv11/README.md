@@ -2,31 +2,53 @@
 
 ---
 
-## 🔧 Entrenamiento — YOLOv11
+## 🔧 Detección de objetos — YOLOv11
 
 ### Descripción General
-El proceso de entrenamiento del modelo **YOLOv11** fue diseñado bajo una estructura modular, garantizando legibilidad, escalabilidad y control experimental por variantes (n, s, m, l, xl).  
+El modelo de detección de objetos **YOLOv11** fue diseñado bajo una estructura modular, garantizando legibilidad, escalabilidad y control experimental por variantes (n, s, m, l, xl).  
 El flujo integra los componentes principales del proyecto: *modelos, configuraciones, utilidades, métricas y gestión de checkpoints.*
 
 ---
 
-### 🧩 Estructura del Flujo de Entrenamiento
+### 🧩 Estructura principal del proyecto
 
 ```text
 YOLOv11/
 │
 ├── configs/
-│   ├── dataset.yaml          ← rutas y clases del dataset
-│   ├── yolo11.yaml           ← definición estructural del modelo
-│   ├── model_variants.yaml   ← parámetros de escalado (depth/width)
-│   ├── train.yaml            ← hiperparámetros de entrenamiento
-│   ├── valid.yaml            ← validación y métricas
-│   └── parser.yaml           ← rutas y opciones globales
+│   ├── dataset.yaml                ← rutas y clases del dataset
+│   ├── yolo11.yaml                 ← definición estructural del modelo
+│   ├── model_variants.yaml         ← parámetros de escalado (depth/width)
+│   ├── train.yaml                  ← hiperparámetros de entrenamiento
+│   ├── valid.yaml                  ← validación y métricas
+│   └── parser.yaml                 ← rutas y opciones globales
 │
-├── models/                   ← Backbone, Neck y Head del detector
-├── utility/                  ← funciones de soporte (losses, logs, métricas, etc.)
-├── train.py                  ← script principal de entrenamiento
-└── runs/, logs/, checkpoints/ ← resultados, registros y pesos
+├── data/                           ← Datos de entrenamiento, validación y pruebas
+│
+├── models/                    
+│   ├── backbone.py                 ← Extracción de características multiescala
+│   ├── neck.py                     ← Fusión de características multiescala
+│   ├── head.py                     ← Predicción y clasificación
+│   ├── blocks.py                   ← Bloques neuronales clave del modelo YOLOv11
+│   ├── parser_yaml.py              ← Módulo auxiliar de configuración y parámetros
+│   └── yolo11.py                   ← Integración de la arquitectura de YOLOv11
+│
+├── utility/                   
+│   ├── clean_ckeckpoints.py        ← Script de limpieza de checkpoints
+│   ├── clean_logs_runs.py          ← Script de limpieza de logs y runs
+│   ├── data_loader.py              ← Cargador de datos para YOLOv11
+│   ├── logger.py                   ← Script para registrar eventos
+│   ├── losses.py                   ← Función de pérdida de YOLOv11
+│   ├── metrics.py                  ← Métricas a utilizar en el modelo
+│   ├── plot_tensorboard_metrics.py ← Analiza métricas de Tensorboard
+│   ├── prepare_dataset.py          ← Prepara el dataset al formato del modelo
+│   ├── test_model.py               ← Script para probar el modelo antes de entrenar
+│   ├── visualization.py            ← Visualización de entrenamiento en Tensorboard
+│   ├── weights.py                  ← Script para el manejo de checkpoints y pesos.
+├── train.py                        ← script principal de entrenamiento
+├── valid.py                        ← script principal de validación
+├── test.py                         ← script principal de pruebas
+└── runs/, logs/, checkpoints/      ← resultados, registros y pesos
 
 
 ```

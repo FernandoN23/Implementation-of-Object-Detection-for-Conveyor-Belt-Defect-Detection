@@ -37,20 +37,20 @@ def setup_environment(model_variant="n"):
     base_dir = "YOLOv11"
     variant = model_variant.lower()
 
-    # Crear estructura de carpetas por variante
-    os.makedirs(os.path.join(base_dir, "logs", variant), exist_ok=True)
-    os.makedirs(os.path.join(base_dir, "runs", variant), exist_ok=True)
-    os.makedirs(os.path.join(base_dir, "checkpoints", variant), exist_ok=True)
-    os.makedirs(os.path.join(base_dir, "metrics", variant), exist_ok=True)
+    # Crear estructura de carpetas por variante y fase (train)
+    os.makedirs(os.path.join(base_dir, "logs", variant, "train"), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "runs", variant, "train"), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "checkpoints", variant, "train"), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "metrics", variant, "train"), exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Logger y TensorBoard por variante
-    logger = get_logger(log_dir=f"{base_dir}/logs/{variant}", name=f"train_yolo11_{variant}")
-    tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/yolo11_train")
+    logger = get_logger(log_dir=f"{base_dir}/logs/{variant}/train", name=f"train_yolo11_{variant}")
+    tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/train")
 
     logger.info(f"📦 Dispositivo en uso: {device}")
-    logger.info(f"🧩 Logs y checkpoints configurados para YOLOv11-{variant.upper()}")
+    logger.info(f"🧩 Logs y checkpoints configurados para YOLOv11-{variant.upper()} (fase: train)")
 
     return device, logger, tb
 
@@ -150,7 +150,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
 
 
 # =============================================================
-#                     VALIDACIÓN
+#                     VALIDACIÓN DURANTE TRAIN
 # =============================================================
 def validate_model(model, device, logger, model_variant="n"):
     model.eval()
@@ -183,9 +183,9 @@ def main():
     opt_params = train_cfg.optimizer
     optimizer = optim.AdamW(model.parameters(), lr=opt_params.lr, weight_decay=opt_params.weight_decay)
 
-    # === 🔧 FIX: Reanudación y guardado por variante ===
+    # === FIX: Reanudación y guardado por variante ===
     start_epoch = 0
-    ckpt_dir = f"YOLOv11/checkpoints/{model_variant}"
+    ckpt_dir = f"YOLOv11/checkpoints/{model_variant}/train"
     os.makedirs(ckpt_dir, exist_ok=True)
 
     if train_cfg.resume:
