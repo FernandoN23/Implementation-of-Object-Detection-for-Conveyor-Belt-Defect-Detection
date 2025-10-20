@@ -18,7 +18,7 @@ Gestor de registro de eventos y entrenamiento para YOLOv11.
 #   - Se utiliza durante entrenamiento y validación
 #
 # Directorio de salida:
-#   YOLOv11/logs/
+#   YOLOv11/logs/(variante)/(train/test/valid)
 #
 # Conexión:
 #   Usado en train.py para registrar métricas, pérdidas y
