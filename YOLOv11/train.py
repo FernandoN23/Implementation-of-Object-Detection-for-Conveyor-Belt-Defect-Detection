@@ -12,11 +12,11 @@ desde configs/*.yaml sin modificar este script.
 =============================================================
 """
 
-import os, sys, torch, torch.nn as nn, torch.optim as optim, traceback
+import os, sys, torch, torch.nn as nn, torch.optim as optim, traceback, subprocess
 from omegaconf import OmegaConf
 from tqdm import tqdm
 import matplotlib
-matplotlib.use('Agg')  # 🔹 Evita conflictos de Tkinter en entornos sin GUI
+matplotlib.use('Agg')
 
 # -------------------- Importar módulos --------------------
 from models.yolo11 import YOLOv11
@@ -45,7 +45,6 @@ def setup_environment(model_variant="n"):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Logger y TensorBoard por variante
     logger = get_logger(log_dir=f"{base_dir}/logs/{variant}/train", name=f"train_yolo11_{variant}")
     tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/train")
 
@@ -99,12 +98,13 @@ def try_model_forward_safe(model, dummy, device):
 # =============================================================
 #            CARGA DE CONFIGS Y CREACIÓN DEL MODELO
 # =============================================================
-def load_model_and_configs():
+def load_model_and_configs(variant_override=None):
     """Carga configs YAML y crea la instancia YOLOv11."""
     train_cfg = OmegaConf.load("YOLOv11/configs/train.yaml")
     variants_cfg = OmegaConf.load("YOLOv11/configs/model_variants.yaml")
 
-    variant_name = train_cfg.get("model_variant", "n")
+    # Permite sobrescribir desde consola
+    variant_name = variant_override or train_cfg.get("model_variant", "n")
     if variant_name not in variants_cfg.variants:
         raise ValueError(f"⚠️ Variante '{variant_name}' no existe en model_variants.yaml")
 
@@ -163,12 +163,36 @@ def validate_model(model, device, logger, model_variant="n"):
 
 
 # =============================================================
+#                 CONSOLA INTERACTIVA PRINCIPAL
+# =============================================================
+def interactive_console():
+    print("====================================================")
+    print("🚀 Entrenamiento YOLOv11 interactivo")
+    print("====================================================")
+    variant = input("Seleccione variante del modelo [n/s/m/l/x]: ").strip().lower()
+    if variant not in ["n", "s", "m", "l", "x"]:
+        print("⚠️ Variante inválida. Se usará 'n' por defecto.")
+        variant = "n"
+
+    ckpt_dir = f"YOLOv11/weights/{variant}/train"
+    if os.path.exists(ckpt_dir) and len(os.listdir(ckpt_dir)) > 0:
+        ans = input(f"⚠️ Ya existe un modelo entrenado en {ckpt_dir}. ¿Desea reemplazarlo? (s/n): ").strip().lower()
+        if ans == "s":
+            for f in os.listdir(ckpt_dir):
+                os.remove(os.path.join(ckpt_dir, f))
+            print("🗑️ Checkpoints anteriores eliminados.")
+        else:
+            print("✅ Se conservarán los modelos existentes.")
+    return variant
+
+
+# =============================================================
 #                     MAIN TRAIN LOOP
 # =============================================================
 def main():
-    device, logger, tb = setup_environment()
-
-    model, train_cfg, model_variant = load_model_and_configs()
+    model_variant = interactive_console()
+    device, logger, tb = setup_environment(model_variant)
+    model, train_cfg, _ = load_model_and_configs(variant_override=model_variant)
     model.to(device)
 
     print(f"🚀 Entrenando variante YOLOv11-{model_variant.upper()}")
@@ -178,7 +202,6 @@ def main():
     try_model_forward_safe(model, dummy, device)
 
     train_loader = create_dataloader(train_cfg)
-
     criterion = YoloLoss()
     opt_params = train_cfg.optimizer
     optimizer = optim.AdamW(model.parameters(), lr=opt_params.lr, weight_decay=opt_params.weight_decay)
@@ -197,6 +220,10 @@ def main():
 
     num_epochs = train_cfg.epochs
     logger.info(f"🚀 Iniciando entrenamiento por {num_epochs} épocas...")
+
+    # 🔹 Lanzar TensorBoard una vez confirmado inicio
+    print("🧠 Iniciando TensorBoard...")
+    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}/train", "--port", "6006"])
 
     for epoch in range(start_epoch, num_epochs):
         avg_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch, logger, tb)

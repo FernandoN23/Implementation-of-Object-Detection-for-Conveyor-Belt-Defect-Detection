@@ -24,38 +24,30 @@ def confirm(prompt: str) -> bool:
     return input(f"{prompt} [y/N]: ").lower() in ("y", "yes")
 
 def choose_variant():
-    print("\n📦 Selecciona la variante:")
-    for i, v in enumerate(VARIANTS, 1):
-        print(f"  {i}) {v.upper()}")
-    choice = input("👉 Variante (número): ")
-    try:
-        return VARIANTS[int(choice) - 1]
-    except (ValueError, IndexError):
-        print("⚠️ Selección inválida.")
+    print("\n📦 Variantes disponibles: " + ", ".join(v.upper() for v in VARIANTS))
+    variant = input("👉 Escribe la letra de la variante: ").lower()
+    if variant not in VARIANTS:
+        print("⚠️ Variante inválida.")
         return None
+    return variant
 
 def choose_phase():
-    print("\n📂 Selecciona el tipo de datos:")
-    for i, p in enumerate(PHASES, 1):
-        print(f"  {i}) {p}")
-    choice = input("👉 Tipo (número): ")
-    try:
-        return PHASES[int(choice) - 1]
-    except (ValueError, IndexError):
-        print("⚠️ Selección inválida.")
+    print("\n📂 Fases disponibles: train / valid / test")
+    phase = input("👉 Escribe la fase: ").lower()
+    if phase not in PHASES:
+        print("⚠️ Fase inválida.")
         return None
+    return phase
 
 def choose_target():
-    print("\n🧭 Selecciona el destino:")
-    for i, t in enumerate(TARGETS, 1):
-        print(f"  {i}) {t}")
-    choice = input("👉 Destino (número o 3 para ambos): ")
-    if choice == "3":
+    print("\n🧭 Destinos disponibles: logs / runs / both")
+    choice = input("👉 Escribe destino: ").lower()
+    if choice == "both":
         return TARGETS
-    try:
-        return [TARGETS[int(choice) - 1]]
-    except (ValueError, IndexError):
-        print("⚠️ Selección inválida.")
+    elif choice in TARGETS:
+        return [choice]
+    else:
+        print("⚠️ Destino inválido.")
         return []
 
 def clean_logs_runs():
@@ -86,18 +78,3 @@ def clean_logs_runs():
         print(f"🔍 Se encontraron {len(contents)} elementos en {target_dir}")
         if not confirm(f"¿Eliminar TODO el contenido de {target}/{variant}/{phase}?"):
             print("❌ Operación cancelada para esta carpeta.")
-            continue
-
-        try:
-            for item in contents:
-                if item.is_dir():
-                    shutil.rmtree(item)
-                else:
-                    item.unlink()
-            print(f"✅ Limpieza completada en {target}/{variant}/{phase}")
-        except Exception as e:
-            print(f"⚠️ Error eliminando contenido: {e}")
-
-
-if __name__ == "__main__":
-    clean_logs_runs()

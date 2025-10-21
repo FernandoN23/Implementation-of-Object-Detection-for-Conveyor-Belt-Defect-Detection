@@ -12,7 +12,7 @@ usando métricas de rendimiento y guardando resultados.
 =============================================================
 """
 
-import os, sys, torch
+import os, sys, torch, subprocess
 from omegaconf import OmegaConf
 from tqdm import tqdm
 import matplotlib
@@ -32,18 +32,18 @@ from utility.visualization import TensorboardVisualizer
 #        CONFIGURACIÓN DE ENTORNO Y LOGS PARA VALIDACIÓN
 # =============================================================
 def setup_environment(model_variant="n"):
-    """Inicializa entorno y logs para la validación externa."""
+    """Inicializa entorno, logs y rutas para validación externa."""
     base_dir = "YOLOv11"
     variant = model_variant.lower()
 
-    os.makedirs(os.path.join(base_dir, "logs", variant), exist_ok=True)
-    os.makedirs(os.path.join(base_dir, "metrics", variant), exist_ok=True)
-    os.makedirs(os.path.join(base_dir, "runs", variant), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "logs", variant, "valid"), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "metrics", variant, "valid"), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "runs", variant, "valid"), exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "weights", variant, "train"), exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    logger = get_logger(log_dir=f"{base_dir}/logs/{variant}", name=f"valid_yolo11_{variant}")
-    tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/yolo11_valid")
+    logger = get_logger(log_dir=f"{base_dir}/logs/{variant}/valid", name=f"valid_yolo11_{variant}")
+    tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/valid")
 
     logger.info(f"📦 Dispositivo en uso: {device}")
     logger.info(f"🧩 Validación configurada para YOLOv11-{variant.upper()}")
@@ -63,7 +63,7 @@ def load_model_and_configs():
         raise ValueError(f"⚠️ Variante '{variant_name}' no existe en model_variants.yaml")
 
     variant_params = variants_cfg.variants[variant_name]
-    print(f"🧩 Configuración de variante YOLOv11-{variant_name.upper()}: {variant_params}")
+    print(f"🧩 Configuración base YOLOv11-{variant_name.upper()}: {variant_params}")
 
     model_cfg_path = "YOLOv11/configs/yolo11.yaml"
     parser = ModelParser(model_cfg_path)
@@ -72,6 +72,34 @@ def load_model_and_configs():
 
     model = YOLOv11(cfg_path=model_cfg_path, num_classes=num_classes)
     return model, valid_cfg, variant_name
+
+
+# =============================================================
+#       FUNCIÓN PARA ELEGIR EL ENTRENAMIENTO A VALIDAR
+# =============================================================
+def select_training_variant():
+    """Permite elegir interactivamente el entrenamiento a validar (por letra)."""
+    base_path = "YOLOv11/weights"
+    if not os.path.exists(base_path):
+        print("⚠️ No se encontró la carpeta 'YOLOv11/weights'.")
+        sys.exit(1)
+
+    variants = sorted([v for v in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, v))])
+    if not variants:
+        print("⚠️ No hay variantes de entrenamiento disponibles en 'weights/'.")
+        sys.exit(1)
+
+    print("\n📂 Variantes disponibles para validación externa:")
+    for v in variants:
+        print(f"  • {v.upper()}")
+
+    while True:
+        choice = input("\n👉 Ingresa la letra de la variante a validar (ej: n, s, m, l, x): ").strip().lower()
+        if choice in variants:
+            print(f"✅ Variante seleccionada: {choice}")
+            return choice
+        else:
+            print("⚠️ Variante no válida. Intenta nuevamente.")
 
 
 # =============================================================
@@ -89,12 +117,10 @@ def run_validation(model, dataloader, device, logger, tb, model_variant):
             all_preds.extend(preds)
             all_targets.extend(labels)
 
-    # Evaluar métricas globales
     metrics = evaluate_model(all_preds, all_targets, save_results=True, model_variant=model_variant)
     logger.info(f"📊 Resultados finales ({model_variant.upper()}): {metrics}")
     tb.log_metrics(metrics, 0, phase="valid")
 
-    # FPS (rendimiento)
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
     logger.info(f"⚡ FPS promedio en validación: {fps:.2f}")
 
@@ -105,22 +131,46 @@ def run_validation(model, dataloader, device, logger, tb, model_variant):
 #                      MAIN LOOP
 # =============================================================
 def main():
-    device, logger, tb = setup_environment()
-    model, valid_cfg, model_variant = load_model_and_configs()
+    model_variant = select_training_variant()
+    device, logger, tb = setup_environment(model_variant)
+    model, valid_cfg, _ = load_model_and_configs()
     model.to(device)
 
-    # === Carga de checkpoint a validar ===
-    ckpt_dir = f"YOLOv11/checkpoints/{model_variant}"
+    # === Carga de pesos ===
+    ckpt_dir = os.path.abspath(os.path.join("YOLOv11", "weights", model_variant, "train"))
     if not os.path.exists(ckpt_dir):
-        raise FileNotFoundError(f"❌ No se encontró la carpeta de checkpoints en: {ckpt_dir}")
+        raise FileNotFoundError(f"❌ No se encontró la carpeta de pesos: {ckpt_dir}")
 
-    last_ckpt = sorted(os.listdir(ckpt_dir))[-1]
-    ckpt_path = os.path.join(ckpt_dir, last_ckpt)
-    load_checkpoint(model, path=ckpt_path, device=device)
-    logger.info(f"✅ Checkpoint cargado desde {ckpt_path}")
+    ckpt_files = sorted([f for f in os.listdir(ckpt_dir) if f.endswith(".pt")])
+    if not ckpt_files:
+        raise FileNotFoundError(f"⚠️ No hay archivos de pesos en {ckpt_dir}")
+
+    print("\n📦 Checkpoints disponibles:")
+    for i, f in enumerate(ckpt_files, 1):
+        print(f"  [{i}] {f}")
+
+    choice = input("Selecciona el número del checkpoint a validar (Enter para el último): ").strip()
+    if choice.isdigit() and 1 <= int(choice) <= len(ckpt_files):
+        ckpt_selected = ckpt_files[int(choice) - 1]
+    else:
+        ckpt_selected = ckpt_files[-1]
+
+    ckpt_path = os.path.normpath(os.path.join(ckpt_dir, ckpt_selected))
+    print(f"\n📁 Cargando checkpoint: {ckpt_path}")
+
+    # 🔧 Cargar desde carpeta base (sin warning)
+    logger.info(f"🧠 Cargando pesos desde carpeta base: {ckpt_dir}")
+    load_checkpoint(model, path=ckpt_dir, device=device)
+    logger.info(f"✅ Pesos cargados correctamente ({ckpt_selected})")
 
     # === Crear dataloader externo ===
     valid_loader = create_dataloader(valid_cfg)
+
+    # 🔹 Lanzar TensorBoard justo antes de iniciar la validación
+    print("🧠 Iniciando TensorBoard...")
+    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}/valid", "--port", "6006"])
+    print("🔗 Visualiza métricas en: http://localhost:6006")
+    logger.info(f"📊 TensorBoard activo y registrando en: YOLOv11/runs/{model_variant}/valid")
 
     # === Ejecutar validación ===
     metrics = run_validation(model, valid_loader, device, logger, tb, model_variant)

@@ -15,7 +15,6 @@ Estructura soportada:
 
 import os
 from pathlib import Path
-import shutil
 
 VARIANTS = ["n", "s", "m", "l", "xl"]
 PHASES = ["train", "valid", "test"]
@@ -24,26 +23,20 @@ def confirm(prompt: str) -> bool:
     return input(f"{prompt} [y/N]: ").lower() in ("y", "yes")
 
 def choose_variant():
-    print("\n📦 Selecciona la variante a limpiar:")
-    for i, v in enumerate(VARIANTS, 1):
-        print(f"  {i}) {v.upper()}")
-    choice = input("👉 Variante (número): ")
-    try:
-        return VARIANTS[int(choice) - 1]
-    except (ValueError, IndexError):
-        print("⚠️ Selección inválida.")
+    print("\n📦 Variantes disponibles: " + ", ".join(v.upper() for v in VARIANTS))
+    variant = input("👉 Escribe la letra de la variante a limpiar: ").lower()
+    if variant not in VARIANTS:
+        print("⚠️ Variante inválida.")
         return None
+    return variant
 
 def choose_phase():
-    print("\n📂 Selecciona el tipo de datos:")
-    for i, p in enumerate(PHASES, 1):
-        print(f"  {i}) {p}")
-    choice = input("👉 Tipo (número): ")
-    try:
-        return PHASES[int(choice) - 1]
-    except (ValueError, IndexError):
-        print("⚠️ Selección inválida.")
+    print("\n📂 Fases disponibles: train / valid / test")
+    phase = input("👉 Escribe la fase: ").lower()
+    if phase not in PHASES:
+        print("⚠️ Fase inválida.")
         return None
+    return phase
 
 def clean_weights():
     base_dir = Path(__file__).resolve().parents[1] / "weights"
