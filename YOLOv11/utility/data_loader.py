@@ -126,57 +126,38 @@ def collate_fn(batch):
 # =============================================================
 # DATALOADER FACTORY
 # =============================================================
-def create_dataloader(cfg):
+def create_dataloader(cfg, phase="train"):
     """
-    Crea un DataLoader usando parámetros desde train.yaml.
-    Soporta tanto:
-        cfg.dataloader.path
-    como directamente:
-        cfg.dataset_path o cfg.batch_size, etc.
+    Crea un DataLoader según la fase: 'train', 'valid' o 'test'.
+    Si no se indica explícitamente, usa 'train' por defecto.
     """
-    # Intentar leer bloque dataloader si existe
-    if hasattr(cfg, "dataloader"):
-        params = cfg.dataloader
-        path = getattr(params, "path", None)
-        img_size = getattr(params, "img_size", 640)
-        batch_size = getattr(params, "batch_size", 8)
-        shuffle = getattr(params, "shuffle", True)
-        num_workers = getattr(params, "num_workers", 2)
-        pin_memory = getattr(params, "pin_memory", True)
-        persistent_workers = getattr(params, "persistent_workers", False)
-        cache_images = getattr(params, "cache_images", False)
-    else:
-        # Fallback a claves directas del train.yaml
-        path = getattr(cfg, "dataset_path", None)
-        if path is None:
-            # Si no se define explícitamente, usa la carpeta train
-            path = "C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/train/images"
-        img_size = getattr(cfg, "img_size", 640)
-        batch_size = getattr(cfg, "batch_size", 8)
-        shuffle = True
-        num_workers = 2
-        pin_memory = True
-        persistent_workers = False
-        cache_images = False
 
-    dataset = CustomDataset(
-        root_dir=path,
-        img_size=img_size,
-        cache_images=cache_images
-    )
+    base_path = "C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset"
 
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=persistent_workers,
-        collate_fn=collate_fn
-    )
+    # Selecciona el subdirectorio correspondiente
+    phase = phase.lower()
+    if phase not in ["train", "valid", "test"]:
+        raise ValueError("phase debe ser 'train', 'valid' o 'test'")
 
-    print(f"[INFO] DataLoader initialized → {len(dataset)} images | Batch size: {batch_size}")
+    path = getattr(cfg, "dataset_path", None)
+    if path is None:
+        path = os.path.join(base_path, phase, "images")
+
+    img_size = getattr(cfg, "img_size", 640)
+    batch_size = getattr(cfg, "batch_size", 8)
+    shuffle = (phase == "train")  # solo barajar en entrenamiento
+    num_workers = 2
+    pin_memory = True
+    cache_images = False
+
+    dataset = CustomDataset(root_dir=path, img_size=img_size, cache_images=cache_images)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
+                        num_workers=num_workers, pin_memory=pin_memory,
+                        collate_fn=collate_fn)
+
+    print(f"[INFO] DataLoader ({phase}) → {len(dataset)} images | Batch size: {batch_size}")
     return loader
+
 
 
 # =============================================================

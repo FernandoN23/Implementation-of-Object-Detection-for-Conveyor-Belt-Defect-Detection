@@ -7,19 +7,47 @@
 # --------------------------------------------------------------
 # Archivo: train.yaml
 # Configuración de entrenamiento del modelo YOLOv11.
-# Controla el tipo de variante, hiperparámetros y validaciones.
+# Controla la variante, hiperparámetros y validaciones.
 # ==============================================================
 
-model_variant: n     # Variante (n, s, m, l, x)
-epochs: 100          # Número total de épocas
-validate_every: 5    # Frecuencia de validación
+# ------------------------------
+# CONFIGURACIÓN GENERAL
+# ------------------------------
+model: configs/yolo11.yaml
+data: configs/dataset.yaml
+model_variant: n          # Variante del modelo (n, s, m, l, x)
 
+# ------------------------------
+# PARÁMETROS DE ENTRENAMIENTO
+# ------------------------------
+epochs: 100               # Número total de épocas
+validate_every: 5         # Frecuencia de validación
 batch_size: 8
 img_size: 640
+device: 0
+workers: 4
 
+# ------------------------------
+# OPTIMIZADOR
+# ------------------------------
 optimizer:
   type: AdamW
   lr: 0.001
   weight_decay: 0.0005
 
-resume: true        # Reanudar desde checkpoint previo
+# ------------------------------
+# OPCIONES DE SESIÓN
+# ------------------------------
+resume: true              # Reanudar desde checkpoint previo
+project: runs/train
+name: yolov11_training
+exist_ok: false
+verbose: true
+
+# ------------------------------
+# PARÁMETROS DEL LOADER
+# ------------------------------
+loader:
+  shuffle: true
+  pin_memory: true
+  drop_last: false

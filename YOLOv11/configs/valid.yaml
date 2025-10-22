@@ -10,9 +10,16 @@
 # Define los parámetros de evaluación, umbrales y métricas.
 # ==============================================================
 
+# ------------------------------
+# CONFIGURACIÓN GENERAL
+# ------------------------------
 model: configs/yolo11.yaml
 data: configs/dataset.yaml
 weights: weights/best.pt
+
+# ------------------------------
+# PARÁMETROS DE VALIDACIÓN
+# ------------------------------
 imgsz: 640
 batch: 8
 device: 0
@@ -21,11 +28,15 @@ workers: 4
 conf_thres: 0.25
 iou_thres: 0.6
 max_det: 300
+
 save_json: true
 save_txt: false
 save_images: true
 plots: true
 
+# ------------------------------
+# MÉTRICAS A EVALUAR
+# ------------------------------
 metrics:
   - precision
   - recall
@@ -33,11 +44,17 @@ metrics:
   - mAP50-95
   - confusion_matrix
 
+# ------------------------------
+# OPCIONES DE SESIÓN
+# ------------------------------
 project: runs/val
 name: yolov11_validation
 exist_ok: false
 verbose: true
 
+# ------------------------------
+# PARÁMETROS DEL LOADER
+# ------------------------------
 loader:
   shuffle: false
   pin_memory: true

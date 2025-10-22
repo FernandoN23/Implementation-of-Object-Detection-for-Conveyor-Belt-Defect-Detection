@@ -12,9 +12,9 @@
 
 path: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\Dataset
 
-train: images/train
-val: images/val
-test: images/test
+train: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/train/images
+val:   C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/valid/images
+test:  C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/test/images
 
 nc: 5
 names:

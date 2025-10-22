@@ -201,7 +201,7 @@ def main():
     dummy = torch.randn(1, 3, 640, 640).to(device)
     try_model_forward_safe(model, dummy, device)
 
-    train_loader = create_dataloader(train_cfg)
+    train_loader = create_dataloader(train_cfg, phase="train")
     criterion = YoloLoss()
     opt_params = train_cfg.optimizer
     optimizer = optim.AdamW(model.parameters(), lr=opt_params.lr, weight_decay=opt_params.weight_decay)

@@ -28,7 +28,6 @@ from utility.visualization import TensorboardVisualizer
 # =============================================================
 #  CONFIGURACIÓN DE ENTORNO Y LOGS
 # =============================================================
-# En setup_environment() — quita la creación del visualizador:
 def setup_environment(model_variant="n"):
     base_dir = "YOLOv11"
     variant = model_variant.lower()
@@ -98,6 +97,12 @@ def select_training_variant():
 # =============================================================
 #        FUNCIÓN DE VALIDACIÓN
 # =============================================================
+def _to_cpu(x):
+    # Asegura que lo que guardamos para métricas está en CPU
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu()
+    return x
+
 def run_validation(model, dataloader, device, logger, tb, model_variant):
     model.eval()
     all_preds, all_targets = [], []
@@ -110,17 +115,22 @@ def run_validation(model, dataloader, device, logger, tb, model_variant):
             if keyboard.is_pressed("esc"):
                 print("\n🛑 Validación interrumpida manualmente (ESC presionado).")
                 logger.info("🛑 Validación interrumpida manualmente por el usuario (ESC).")
-                tb.close()
+                if tb is not None:
+                    tb.close()
                 return None
 
-            images = images.to(device)
+            images = images.to(device, non_blocking=True)
             preds = model(images)
-            all_preds.append(preds)
-            all_targets.append(labels)
 
-    metrics = evaluate_model(all_preds, all_targets, save_results=True, model_variant=model_variant)
+            # 🔸 MOVER A CPU ANTES DE ACUMULAR (evita error al convertir a numpy)
+            all_preds.append(_to_cpu(preds))
+            all_targets.append(_to_cpu(labels))
+
+    metrics = evaluate_model(all_preds, all_targets, save_results=True, model_variant=model_variant, phase="valid")
     logger.info(f"📊 Resultados finales ({model_variant.upper()}): {metrics}")
-    tb.log_metrics(metrics, 0, phase="valid")
+
+    if tb is not None:
+        tb.log_metrics(metrics, 0, phase="valid")
 
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
     logger.info(f"⚡ FPS promedio en validación: {fps:.2f}")
@@ -150,10 +160,11 @@ def main():
 
     ckpt_path = os.path.join(ckpt_dir, ckpt_selected)
     print(f"\n📁 Cargando checkpoint: {ckpt_path}")
-    load_checkpoint(model, path=ckpt_dir, device=device)
+    # 🔸 Cargar exactamente el seleccionado
+    load_checkpoint(model, path=ckpt_path, device=device)
     logger.info(f"✅ Pesos cargados correctamente ({ckpt_selected})")
 
-    valid_loader = create_dataloader(valid_cfg)
+    valid_loader = create_dataloader(valid_cfg, phase="valid")
     metrics = run_validation(model, valid_loader, device, logger, None, model_variant)
 
     if metrics is None:
@@ -162,8 +173,7 @@ def main():
 
     logger.info("✅ Validación externa completada correctamente.")
 
-    # 🔹 Control manual del lanzamiento de TensorBoard
-    from utility.visualization import TensorboardVisualizer
+    # 🔹 Lanzar TensorBoard manualmente si se desea
     launch_tb = input("\n¿Deseas abrir TensorBoard con los resultados? (s/n): ").strip().lower()
     if launch_tb == "s":
         tb = TensorboardVisualizer(log_dir=f"YOLOv11/runs/{model_variant}/valid")
