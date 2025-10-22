@@ -7,8 +7,7 @@
 =============================================================
 
 Validación externa del modelo YOLOv11 con registro de pérdida
-para comparar curvas train vs valid en TensorBoard.
-TensorBoard se lanza solo al final de la validación.
+para comparar curvas train vs valid en TensorBoard y en imagen.
 =============================================================
 """
 
@@ -17,6 +16,7 @@ from omegaconf import OmegaConf
 from tqdm import tqdm
 import matplotlib
 matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 from models.yolo11 import YOLOv11
 from models.parser_yaml import ModelParser
@@ -41,9 +41,7 @@ def setup_environment(model_variant="n"):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger = get_logger(log_dir=f"{base_dir}/logs/{variant}/valid", name=f"valid_yolo11_{variant}")
-
     logger.info(f"📦 Dispositivo en uso: {device}")
-    logger.info(f"🧩 Validación configurada para YOLOv11-{variant.upper()}")
     return device, logger
 
 
@@ -55,9 +53,6 @@ def load_model_and_configs():
     variants_cfg = OmegaConf.load("YOLOv11/configs/model_variants.yaml")
 
     variant_name = valid_cfg.get("model_variant", "n")
-    if variant_name not in variants_cfg.variants:
-        raise ValueError(f"⚠️ Variante '{variant_name}' no existe en model_variants.yaml")
-
     variant_params = variants_cfg.variants[variant_name]
     print(f"🧩 Configuración base YOLOv11-{variant_name.upper()}: {variant_params}")
 
@@ -65,43 +60,14 @@ def load_model_and_configs():
     parser = ModelParser(model_cfg_path)
     model_cfg = parser.parse_model_config()
     num_classes = model_cfg.get("nc", 1)
-
     model = YOLOv11(cfg_path=model_cfg_path, num_classes=num_classes)
     return model, valid_cfg, variant_name
 
 
 # =============================================================
-#   SELECCIÓN INTERACTIVA DE VARIANTE
-# =============================================================
-def select_training_variant():
-    base_path = "YOLOv11/weights"
-    if not os.path.exists(base_path):
-        print("⚠️ No se encontró la carpeta 'YOLOv11/weights'.")
-        sys.exit(1)
-
-    variants = sorted([v for v in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, v))])
-    if not variants:
-        print("⚠️ No hay variantes de entrenamiento disponibles en 'weights/'.")
-        sys.exit(1)
-
-    print("\n📂 Variantes disponibles para validación externa:")
-    for v in variants:
-        print(f"  • {v.upper()}")
-
-    while True:
-        choice = input("\n👉 Ingresa la letra de la variante a validar (ej: n, s, m, l, x): ").strip().lower()
-        if choice in variants:
-            print(f"✅ Variante seleccionada: {choice}")
-            return choice
-        else:
-            print("⚠️ Variante no válida. Intenta nuevamente.")
-
-
-# =============================================================
-#        FUNCIÓN DE VALIDACIÓN (CON LOSS)
+#  FUNCIÓN DE VALIDACIÓN (REGISTRO DE LOSS)
 # =============================================================
 def _to_cpu(x):
-    """Convierte recursivamente tensores o colecciones a CPU."""
     if isinstance(x, torch.Tensor):
         return x.detach().cpu()
     elif isinstance(x, (list, tuple)):
@@ -111,48 +77,48 @@ def _to_cpu(x):
     return x
 
 
-def run_validation(model, dataloader, device, logger, model_variant):
-    """Ejecuta validación externa con cálculo de pérdida."""
+def run_validation(model, dataloader, device, logger, model_variant, tb=None):
     model.eval()
     criterion = YoloLoss()
     all_preds, all_targets = [], []
-    total_loss = 0.0
+    total_loss, val_loss_history = 0.0, []
 
     logger.info("🚀 Iniciando validación externa...")
-    print("\n🧩 Presiona ESC en cualquier momento para detener la validación de forma segura.\n")
-
     with torch.no_grad():
         for i, (images, labels) in enumerate(tqdm(dataloader, desc="Validando")):
             if keyboard.is_pressed("esc"):
-                print("\n🛑 Validación interrumpida manualmente (ESC presionado).")
-                logger.info("🛑 Validación interrumpida manualmente por el usuario (ESC).")
+                logger.info("🛑 Validación interrumpida (ESC).")
                 return None
 
             images = images.to(device, non_blocking=True)
             preds = model(images)
             loss, _ = criterion(preds, labels)
             total_loss += loss.item()
+            val_loss_history.append(loss.item())
 
             all_preds.append(_to_cpu(preds))
             all_targets.append(_to_cpu(labels))
 
-    # === Promedio de pérdida y métricas finales ===
+            if tb:
+                tb.log_metrics({"val_loss": loss.item()}, i, phase="valid")
+
     avg_loss = total_loss / len(dataloader)
-    logger.info(f"📉 Loss promedio validación: {avg_loss:.4f}")
-
     metrics = evaluate_model(all_preds, all_targets, save_results=True, model_variant=model_variant, phase="valid")
-    logger.info(f"📊 Resultados finales ({model_variant.upper()}): {metrics}")
-
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
-    logger.info(f"⚡ FPS promedio en validación: {fps:.2f}")
-    return metrics, avg_loss
+    logger.info(f"📉 Loss validación promedio: {avg_loss:.4f} | ⚡ FPS: {fps:.2f}")
+    return metrics, avg_loss, val_loss_history
 
 
 # =============================================================
-#                    MAIN PRINCIPAL
+#                     MAIN PRINCIPAL
 # =============================================================
 def main():
-    model_variant = select_training_variant()
+    base_train_loss_path = "YOLOv11/metrics/train_loss_history.pt"
+
+    print("\n💡 ¿Deseas reajustar pesos antes de validar?")
+    choice_adj = input("   [s] Sí, cargar checkpoint intermedio  |  [n] No, continuar normal: ").strip().lower()
+
+    model_variant = input("👉 Ingresa la variante a validar (n/s/m/l/x): ").strip().lower()
     device, logger = setup_environment(model_variant)
     model, valid_cfg, _ = load_model_and_configs()
     model.to(device)
@@ -162,43 +128,44 @@ def main():
     if not ckpt_files:
         raise FileNotFoundError(f"⚠️ No hay archivos de pesos en {ckpt_dir}")
 
-    print("\n📦 Checkpoints disponibles:")
-    for i, f in enumerate(ckpt_files, 1):
-        print(f"  [{i}] {f}")
-
-    choice = input("Selecciona el número del checkpoint a validar (Enter para el último): ").strip()
-    ckpt_selected = ckpt_files[int(choice)-1] if choice.isdigit() else ckpt_files[-1]
-
+    ckpt_selected = ckpt_files[-2] if choice_adj == "s" and len(ckpt_files) > 1 else ckpt_files[-1]
     ckpt_path = os.path.join(ckpt_dir, ckpt_selected)
     print(f"\n📁 Cargando checkpoint: {ckpt_path}")
     load_checkpoint(model, path=ckpt_path, device=device)
-    logger.info(f"✅ Pesos cargados correctamente ({ckpt_selected})")
 
     valid_loader = create_dataloader(valid_cfg, phase="valid")
+    tb = TensorboardVisualizer(log_dir=f"YOLOv11/runs/{model_variant}/valid")
 
-    # 🔹 Ejecutar validación sin lanzar TensorBoard todavía
-    results = run_validation(model, valid_loader, device, logger, model_variant)
+    results = run_validation(model, valid_loader, device, logger, model_variant, tb)
     if results is None:
-        print("\n🛑 Validación detenida manualmente.\n")
         sys.exit(0)
 
-    metrics, avg_loss = results
-    logger.info("✅ Validación externa completada correctamente.")
-
-    # 🔹 Registrar métricas y pérdida en TensorBoard al final
-    tb = TensorboardVisualizer(log_dir=f"YOLOv11/runs/{model_variant}/valid")
-    tb.log_metrics({"val_loss": avg_loss}, 0, phase="valid")
-    for k, v in metrics.items():
-        tb.log_metrics({k: v}, 0, phase="valid")
+    metrics, avg_loss, val_loss_history = results
+    tb.log_metrics({"val_loss_final": avg_loss}, 0, phase="valid")
     tb.close()
 
-    # 🔹 Lanzar TensorBoard recién al final
-    print("\n🧠 Iniciando TensorBoard con resultados de validación...")
-    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}", "--port", "6006"])
-    print("🔗 Visualiza resultados en: http://localhost:6006")
+    # === Curva de pérdida entrenamiento vs validación ===
+    save_dir = f"YOLOv11/metrics/{model_variant}/valid"
+    os.makedirs(save_dir, exist_ok=True)
+    train_loss_history = torch.load(base_train_loss_path) if os.path.exists(base_train_loss_path) else []
+
+    plt.figure(figsize=(8, 5))
+    if train_loss_history:
+        plt.plot(train_loss_history, label="Entrenamiento", color="blue")
+    plt.plot(val_loss_history, label="Validación", color="orange")
+    plt.title(f"Curva de pérdida - YOLOv11-{model_variant.upper()}")
+    plt.xlabel("Iteraciones")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, "train_vs_valid_loss.png"))
+    plt.close()
 
     print(f"\n📉 Loss validación promedio: {avg_loss:.4f}")
     print("📊 Métricas:", metrics)
+    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}", "--port", "6006"])
+    print("🔗 Visualiza resultados en: http://localhost:6006")
 
 
 if __name__ == "__main__":
