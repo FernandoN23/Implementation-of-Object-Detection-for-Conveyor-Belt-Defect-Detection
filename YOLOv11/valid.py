@@ -6,7 +6,9 @@
  Código actual: valid.py
 =============================================================
 
-Validación externa del modelo YOLOv11.
+Validación externa del modelo YOLOv11 con registro de pérdida
+para comparar curvas train vs valid en TensorBoard.
+TensorBoard se lanza solo al final de la validación.
 =============================================================
 """
 
@@ -22,6 +24,7 @@ from utility.data_loader import create_dataloader
 from utility.logger import get_logger
 from utility.metrics import evaluate_model, measure_fps
 from utility.weights import load_checkpoint
+from utility.losses import YoloLoss
 from utility.visualization import TensorboardVisualizer
 
 
@@ -95,7 +98,7 @@ def select_training_variant():
 
 
 # =============================================================
-#        FUNCIÓN DE VALIDACIÓN
+#        FUNCIÓN DE VALIDACIÓN (CON LOSS)
 # =============================================================
 def _to_cpu(x):
     """Convierte recursivamente tensores o colecciones a CPU."""
@@ -108,38 +111,41 @@ def _to_cpu(x):
     return x
 
 
-def run_validation(model, dataloader, device, logger, tb, model_variant):
+def run_validation(model, dataloader, device, logger, model_variant):
+    """Ejecuta validación externa con cálculo de pérdida."""
     model.eval()
+    criterion = YoloLoss()
     all_preds, all_targets = [], []
+    total_loss = 0.0
 
     logger.info("🚀 Iniciando validación externa...")
     print("\n🧩 Presiona ESC en cualquier momento para detener la validación de forma segura.\n")
 
     with torch.no_grad():
-        for images, labels in tqdm(dataloader, desc="Validando"):
+        for i, (images, labels) in enumerate(tqdm(dataloader, desc="Validando")):
             if keyboard.is_pressed("esc"):
                 print("\n🛑 Validación interrumpida manualmente (ESC presionado).")
                 logger.info("🛑 Validación interrumpida manualmente por el usuario (ESC).")
-                if tb is not None:
-                    tb.close()
                 return None
 
             images = images.to(device, non_blocking=True)
             preds = model(images)
+            loss, _ = criterion(preds, labels)
+            total_loss += loss.item()
 
-            # 🔸 MOVER A CPU ANTES DE ACUMULAR (evita error al convertir a numpy)
             all_preds.append(_to_cpu(preds))
             all_targets.append(_to_cpu(labels))
+
+    # === Promedio de pérdida y métricas finales ===
+    avg_loss = total_loss / len(dataloader)
+    logger.info(f"📉 Loss promedio validación: {avg_loss:.4f}")
 
     metrics = evaluate_model(all_preds, all_targets, save_results=True, model_variant=model_variant, phase="valid")
     logger.info(f"📊 Resultados finales ({model_variant.upper()}): {metrics}")
 
-    if tb is not None:
-        tb.log_metrics(metrics, 0, phase="valid")
-
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
     logger.info(f"⚡ FPS promedio en validación: {fps:.2f}")
-    return metrics
+    return metrics, avg_loss
 
 
 # =============================================================
@@ -165,30 +171,34 @@ def main():
 
     ckpt_path = os.path.join(ckpt_dir, ckpt_selected)
     print(f"\n📁 Cargando checkpoint: {ckpt_path}")
-    # 🔸 Cargar exactamente el seleccionado
     load_checkpoint(model, path=ckpt_path, device=device)
     logger.info(f"✅ Pesos cargados correctamente ({ckpt_selected})")
 
     valid_loader = create_dataloader(valid_cfg, phase="valid")
-    metrics = run_validation(model, valid_loader, device, logger, None, model_variant)
 
-    if metrics is None:
+    # 🔹 Ejecutar validación sin lanzar TensorBoard todavía
+    results = run_validation(model, valid_loader, device, logger, model_variant)
+    if results is None:
         print("\n🛑 Validación detenida manualmente.\n")
         sys.exit(0)
 
+    metrics, avg_loss = results
     logger.info("✅ Validación externa completada correctamente.")
 
-    # 🔹 Lanzar TensorBoard manualmente si se desea
-    launch_tb = input("\n¿Deseas abrir TensorBoard con los resultados? (s/n): ").strip().lower()
-    if launch_tb == "s":
-        tb = TensorboardVisualizer(log_dir=f"YOLOv11/runs/{model_variant}/valid")
-        tb.log_metrics(metrics, 0, phase="valid")
-        tb.close()
-        print("\n🧠 Iniciando TensorBoard con resultados...")
-        subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}/valid", "--port", "6006"])
-        print("🔗 Visualiza resultados en: http://localhost:6006")
-    else:
-        print("\n✅ Validación completada. TensorBoard no iniciado automáticamente.")
+    # 🔹 Registrar métricas y pérdida en TensorBoard al final
+    tb = TensorboardVisualizer(log_dir=f"YOLOv11/runs/{model_variant}/valid")
+    tb.log_metrics({"val_loss": avg_loss}, 0, phase="valid")
+    for k, v in metrics.items():
+        tb.log_metrics({k: v}, 0, phase="valid")
+    tb.close()
+
+    # 🔹 Lanzar TensorBoard recién al final
+    print("\n🧠 Iniciando TensorBoard con resultados de validación...")
+    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}", "--port", "6006"])
+    print("🔗 Visualiza resultados en: http://localhost:6006")
+
+    print(f"\n📉 Loss validación promedio: {avg_loss:.4f}")
+    print("📊 Métricas:", metrics)
 
 
 if __name__ == "__main__":
