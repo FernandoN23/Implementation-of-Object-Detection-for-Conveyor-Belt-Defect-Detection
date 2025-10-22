@@ -11,12 +11,18 @@ Permite alternar variantes (n, s, m, l, x) y ajustar hiperparámetros
 desde configs/*.yaml sin modificar este script.
 =============================================================
 """
-
+import keyboard
 import os, sys, torch, torch.nn as nn, torch.optim as optim, traceback, subprocess
 from omegaconf import OmegaConf
 from tqdm import tqdm
 import matplotlib
 matplotlib.use('Agg')
+
+# 🔹 Para captura de tecla ESC
+try:
+    import msvcrt  # Solo disponible en Windows
+except ImportError:
+    msvcrt = None
 
 # -------------------- Importar módulos --------------------
 from models.yolo11 import YOLOv11
@@ -103,7 +109,6 @@ def load_model_and_configs(variant_override=None):
     train_cfg = OmegaConf.load("YOLOv11/configs/train.yaml")
     variants_cfg = OmegaConf.load("YOLOv11/configs/model_variants.yaml")
 
-    # Permite sobrescribir desde consola
     variant_name = variant_override or train_cfg.get("model_variant", "n")
     if variant_name not in variants_cfg.variants:
         raise ValueError(f"⚠️ Variante '{variant_name}' no existe en model_variants.yaml")
@@ -123,7 +128,7 @@ def load_model_and_configs(variant_override=None):
 # =============================================================
 #                LOOP DE ENTRENAMIENTO
 # =============================================================
-def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logger, tb):
+def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logger, tb, ckpt_dir):
     model.train()
     epoch_loss = 0.0
     progress = tqdm(dataloader, desc=f"Epoch {epoch+1}", leave=False)
@@ -138,15 +143,26 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
 
         epoch_loss += loss.item()
         progress.set_postfix(loss=loss.item())
+        tb.log_metrics({"loss": loss_items["total_loss"]}, epoch * len(dataloader) + i, phase="train")
 
-        if i % 10 == 0:
-            logger.info(f"[Epoch {epoch+1} | Step {i}] Loss total: {loss_items['total_loss']:.4f}")
-            tb.log_metrics({"loss": loss_items["total_loss"]}, epoch * len(dataloader) + i, phase="train")
+        # 🔹 Detección universal de tecla ESC
+        if keyboard.is_pressed('esc'):
+            print("\n⚠️ Se presionó ESC.")
+            confirm = input("¿Desea detener el entrenamiento? (s/n): ").strip().lower()
+            if confirm == "s":
+                save_checkpoint(
+                    model, optimizer, epoch + 1,
+                    path=ckpt_dir,
+                    filename=f"yolo11_interrupted_epoch_{epoch+1}.pt"
+                )
+                print("🛑 Entrenamiento detenido por el usuario.")
+                return "stop"
 
     avg_loss = epoch_loss / len(dataloader)
     logger.info(f"📉 Epoch {epoch+1} finalizado | Loss promedio: {avg_loss:.4f}")
     tb.log_metrics({"epoch_loss": avg_loss}, epoch, phase="train")
     return avg_loss
+
 
 
 # =============================================================
@@ -206,7 +222,6 @@ def main():
     opt_params = train_cfg.optimizer
     optimizer = optim.AdamW(model.parameters(), lr=opt_params.lr, weight_decay=opt_params.weight_decay)
 
-    # === FIX: Reanudación y guardado por variante ===
     start_epoch = 0
     ckpt_dir = f"YOLOv11/weights/{model_variant}/train"
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -223,18 +238,31 @@ def main():
 
     # 🔹 Lanzar TensorBoard una vez confirmado inicio
     print("🧠 Iniciando TensorBoard...")
-    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}/train", "--port", "6006"])
+    import socket
+
+    def get_free_port(default=6006):
+        sock = socket.socket()
+        sock.bind(('', 0))
+        port = sock.getsockname()[1]
+        sock.close()
+        return port
+
+    port = get_free_port()
+    print(f"📊 Lanzando TensorBoard en puerto {port}...")
+    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}/train", "--port", str(port)])
 
     for epoch in range(start_epoch, num_epochs):
-        avg_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch, logger, tb)
+        result = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch, logger, tb, ckpt_dir)
+        if result == "stop":
+            logger.info("🛑 Entrenamiento detenido manualmente por el usuario.")
+            break
+
         if (epoch + 1) % train_cfg.validate_every == 0:
             metrics = validate_model(model, device, logger, model_variant)
             tb.log_metrics(metrics, epoch, phase="valid")
 
         save_checkpoint(
-            model,
-            optimizer,
-            epoch + 1,
+            model, optimizer, epoch + 1,
             path=ckpt_dir,
             filename=f"yolo11_{model_variant}_epoch_{epoch+1}.pt"
         )
