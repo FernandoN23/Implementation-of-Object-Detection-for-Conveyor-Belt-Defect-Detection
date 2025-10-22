@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 import numpy as np
 import matplotlib
@@ -8,6 +9,16 @@ from datetime import datetime
 import time
 from pathlib import Path
 from omegaconf import OmegaConf
+
+# ============================================================
+#   🔧 Asegurar acceso al paquete raíz YOLOv11
+# ============================================================
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, ".."))
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+
+from utility.visualization import TensorboardVisualizer
 
 
 # ============================================================
@@ -28,7 +39,7 @@ def bbox_iou(box1, box2, eps=1e-6):
 
 
 def _to_numpy(x):
-    """Convierte a numpy de forma segura, manteniendo listas de longitudes variables."""
+    """Convierte a numpy de forma segura."""
     if isinstance(x, torch.Tensor):
         return x.detach().cpu().numpy()
     elif isinstance(x, np.ndarray):
@@ -85,7 +96,8 @@ def calculate_metrics(preds, targets, class_names=None, iou_threshold=0.5, beta=
         for pb in pred_boxes:
             cls = int(pb[5]) if pb.shape[-1] > 5 else 0
             class_name = classes[cls] if cls < len(classes) else f"class_{cls}"
-            ious_local = [(bbox_iou(pb[:4], gb[:4]), i, int(gb[5]) if gb.shape[-1] > 5 else 0) for i, gb in enumerate(gt_boxes)]
+            ious_local = [(bbox_iou(pb[:4], gb[:4]), i, int(gb[5]) if gb.shape[-1] > 5 else 0)
+                          for i, gb in enumerate(gt_boxes)]
             if not ious_local:
                 fp += 1
                 per_class[class_name]["fp"] += 1
@@ -214,6 +226,9 @@ def measure_fps(model, sample_input, device="cpu", runs=20):
     return runs / total
 
 
+# ============================================================
+#            EVALUACIÓN Y REGISTRO EN TENSORBOARD
+# ============================================================
 def evaluate_model(preds, targets, save_results=True, model_variant="n", phase="valid"):
     # Leer nombres de clases desde configs/yolo11.yaml
     try:
@@ -229,5 +244,20 @@ def evaluate_model(preds, targets, save_results=True, model_variant="n", phase="
         save_metrics_plots(global_metrics, per_class_metrics, save_dir, model_variant)
         save_metrics_summary(global_metrics, per_class_metrics, save_dir, model_variant, phase)
         print(f"✅ Resultados guardados en {save_dir} para modelo YOLOv11-{model_variant.upper()}")
+
+    # === Integración con TensorBoard ===
+    try:
+        tb = TensorboardVisualizer(model_variant=model_variant)
+        tb.log_metrics(global_metrics, step=0, phase=phase)
+
+        for class_name, cls_metrics in per_class_metrics.items():
+            tb.log_metrics(cls_metrics, step=0, phase=phase, class_name=class_name)
+
+        tb.log_images_folder(save_dir, step=0, phase=phase)
+        tb.flush()
+        tb.close()
+
+    except Exception as e:
+        print(f"⚠️ Error al registrar métricas en TensorBoard: {e}")
 
     return global_metrics

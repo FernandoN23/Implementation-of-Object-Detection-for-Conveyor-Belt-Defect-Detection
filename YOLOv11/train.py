@@ -137,8 +137,8 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
         tb.log_metrics({"loss": loss_items["total_loss"]}, epoch * len(dataloader) + i, phase="train")
 
         # Interrupción manual
-        if keyboard.is_pressed('esc'):
-            print("\n⚠️ ESC detectado. Deteniendo entrenamiento...")
+        if keyboard.is_pressed('f8'):
+            print("\n⚠️ F8 detectado. Deteniendo entrenamiento...")
             confirm = input("¿Desea detener? (s/n): ").strip().lower()
             if confirm == "s":
                 save_checkpoint(model, optimizer, epoch + 1,

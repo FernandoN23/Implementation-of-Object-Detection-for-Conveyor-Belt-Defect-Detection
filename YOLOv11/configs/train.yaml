@@ -21,7 +21,7 @@ model_variant: n          # Variante del modelo (n, s, m, l, x)
 # PARÁMETROS DE ENTRENAMIENTO
 # ------------------------------
 epochs: 100               # Número total de épocas
-validate_every: 5         # Frecuencia de validación
+validate_every: 1         # Frecuencia de validación
 batch_size: 8
 img_size: 640
 device: 0
