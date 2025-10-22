@@ -7,13 +7,12 @@
 =============================================================
 
 Entrenamiento modular del modelo YOLOv11.
-Permite alternar variantes (n, s, m, l, x) y ajustar hiperparámetros
-desde configs/*.yaml sin modificar este script.
-Guarda histórico de pérdida para graficar curva train vs valid.
+Esta versión entrena exclusivamente el modelo y registra
+únicamente la pérdida (sin validación ni métricas adicionales).
 =============================================================
 """
 import keyboard
-import os, sys, torch, torch.nn as nn, torch.optim as optim, subprocess
+import os, torch, torch.nn as nn, torch.optim as optim, subprocess
 from omegaconf import OmegaConf
 from tqdm import tqdm
 import matplotlib
@@ -31,7 +30,6 @@ from utility.losses import YoloLoss
 from utility.logger import get_logger
 from utility.visualization import TensorboardVisualizer
 from utility.weights import save_checkpoint, load_checkpoint
-from utility.metrics import evaluate_model, measure_fps
 
 
 # =============================================================
@@ -42,10 +40,8 @@ def setup_environment(model_variant="n"):
     variant = model_variant.lower()
     os.makedirs(os.path.join(base_dir, "logs", variant, "train"), exist_ok=True)
     os.makedirs(os.path.join(base_dir, "runs", variant, "train"), exist_ok=True)
-    os.makedirs(os.path.join(base_dir, "runs", variant, "valid"), exist_ok=True)
     os.makedirs(os.path.join(base_dir, "weights", variant, "train"), exist_ok=True)
     os.makedirs(os.path.join(base_dir, "metrics", variant, "train"), exist_ok=True)
-    os.makedirs(os.path.join(base_dir, "metrics", variant, "valid"), exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger = get_logger(log_dir=f"{base_dir}/logs/{variant}/train", name=f"train_yolo11_{variant}")
@@ -136,9 +132,9 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
 
         epoch_loss += loss.item()
         progress.set_postfix(loss=loss.item())
-        tb.log_metrics({"loss": loss_items["total_loss"]}, epoch * len(dataloader) + i, phase="train")
+        tb.log_metrics({"train_loss": loss_items["total_loss"]}, epoch * len(dataloader) + i, phase="train")
 
-        # Interrupción manual con tecla F8
+        # Interrupción manual
         if keyboard.is_pressed('f8'):
             print("\n⚠️ F8 detectado. Deteniendo entrenamiento...")
             confirm = input("¿Desea detener? (s/n): ").strip().lower()
@@ -155,50 +151,16 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
 
 
 # =============================================================
-#  VALIDACIÓN (GENERALIZADA)
-# =============================================================
-def validate_model(model, device, logger, loader, model_variant="n", phase="valid", max_batches=1):
-    """Evalúa el modelo rápidamente sobre max_batches del loader indicado."""
-    model.eval()
-    preds_list, targets_list = [], []
-    with torch.no_grad():
-        for b, (images, labels) in enumerate(loader):
-            images = images.to(device, non_blocking=True)
-            outputs = model(images)
-            preds_list.append(outputs)
-            targets_list.append(labels)
-            if (b + 1) >= max_batches:
-                break
-
-    metrics = evaluate_model(preds_list, targets_list,
-                             save_results=True,
-                             model_variant=model_variant,
-                             phase=phase)
-    logger.info(f"📊 Métricas ({model_variant.upper()} | {phase}): {metrics}")
-    return metrics
-
-
-# =============================================================
 #  CONSOLA INTERACTIVA PRINCIPAL
 # =============================================================
 def interactive_console():
     print("====================================================")
-    print("🚀 Entrenamiento YOLOv11 interactivo")
+    print("🚀 Entrenamiento YOLOv11")
     print("====================================================")
     variant = input("Seleccione variante [n/s/m/l/x]: ").strip().lower()
     if variant not in ["n", "s", "m", "l", "x"]:
         print("⚠️ Variante inválida. Usando 'n' por defecto.")
         variant = "n"
-
-    ckpt_dir = f"YOLOv11/weights/{variant}/train"
-    if os.path.exists(ckpt_dir) and os.listdir(ckpt_dir):
-        ans = input(f"⚠️ Ya existe un modelo en {ckpt_dir}. ¿Reemplazarlo? (s/n): ").strip().lower()
-        if ans == "s":
-            for f in os.listdir(ckpt_dir):
-                os.remove(os.path.join(ckpt_dir, f))
-            print("🗑️ Checkpoints antiguos eliminados.")
-        else:
-            print("✅ Conservando modelos existentes.")
     return variant
 
 
@@ -215,8 +177,6 @@ def main():
     try_model_forward_safe(model, dummy, device)
 
     train_loader = create_dataloader(train_cfg, phase="train")
-    valid_loader = create_dataloader(train_cfg, phase="valid")
-
     criterion = YoloLoss()
     optimizer = optim.AdamW(model.parameters(),
                             lr=train_cfg.optimizer.lr,
@@ -234,10 +194,7 @@ def main():
             logger.warning("⚠️ No se encontró checkpoint previo.")
 
     num_epochs = train_cfg.epochs
-    fast_batches = int(getattr(train_cfg, "fast_eval_batches", 1))
-
-    # Guardar historial de pérdida
-    loss_history_path = "YOLOv11/metrics/train_loss_history.pt"
+    loss_history_path = f"YOLOv11/metrics/{model_variant}/train/train_loss_history.pt"
     train_loss_history = torch.load(loss_history_path) if os.path.exists(loss_history_path) else []
 
     print("🧠 Iniciando TensorBoard...")
@@ -252,31 +209,13 @@ def main():
         train_loss_history.append(avg_loss)
         torch.save(train_loss_history, loss_history_path)
 
-        # 🔹 Métricas de entrenamiento cada época
-        train_metrics = validate_model(model, device, logger, loader=train_loader,
-                                       model_variant=model_variant, phase="train",
-                                       max_batches=fast_batches)
-        tb.log_metrics(train_metrics, epoch, phase="train")
-
-        # 🔹 Métricas de validación cada N épocas
-        if (epoch + 1) % train_cfg.validate_every == 0:
-            valid_metrics = validate_model(model, device, logger, loader=valid_loader,
-                                           model_variant=model_variant, phase="valid",
-                                           max_batches=fast_batches)
-            tb.log_metrics(valid_metrics, epoch, phase="valid")
-
         save_checkpoint(model, optimizer, epoch + 1,
                         path=ckpt_dir,
                         filename=f"yolo11_{model_variant}_epoch_{epoch+1}.pt")
 
-    fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
-    logger.info(f"⚡ FPS promedio ({model_variant.upper()}): {fps:.2f}")
     tb.close()
     logger.info("✅ Entrenamiento finalizado correctamente.")
 
 
-# =============================================================
-#  EJECUCIÓN
-# =============================================================
 if __name__ == "__main__":
     main()

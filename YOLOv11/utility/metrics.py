@@ -85,23 +85,29 @@ def calculate_metrics(preds, targets, class_names=None, iou_threshold=0.5, beta=
             fn += int(getattr(gt_boxes, "shape", [0])[0])
             continue
 
-        # Asegurar formato [x1,y1,x2,y2,score,cls]
+        # Asegurar formato [x1,y1,x2,y2,conf,cls_logits...]
         try:
-            pred_boxes = pred_boxes.reshape(-1, min(6, pred_boxes.shape[-1]))
-            gt_boxes = gt_boxes.reshape(-1, min(6, gt_boxes.shape[-1]))
+            pred_boxes = pred_boxes.reshape(-1, pred_boxes.shape[-1])
+            gt_boxes = gt_boxes.reshape(-1, gt_boxes.shape[-1])
         except Exception:
             continue
 
         matched_gt = set()
         for pb in pred_boxes:
-            cls = int(pb[5]) if pb.shape[-1] > 5 else 0
+            # === Determinar índice de clase desde logits ===
+            if pb.shape[-1] > 6:
+                cls = int(np.argmax(pb[5:]))  # argmax sobre los logits de clase
+            else:
+                cls = 0
             class_name = classes[cls] if cls < len(classes) else f"class_{cls}"
 
-            # 🔧 Asegurar que la clase exista en per_class
+            # Crear entrada si no existe
             if class_name not in per_class:
                 per_class[class_name] = {"tp": 0, "fp": 0, "fn": 0, "ious": []}
 
-            ious_local = [(bbox_iou(pb[:4], gb[:4]), i, int(gb[5]) if gb.shape[-1] > 5 else 0)
+            # Calcular IoUs contra todas las GT
+            ious_local = [(bbox_iou(pb[:4], gb[:4]), i,
+                           int(gb[5]) if gb.shape[-1] > 5 else 0)
                           for i, gb in enumerate(gt_boxes)]
             if not ious_local:
                 fp += 1
@@ -120,16 +126,14 @@ def calculate_metrics(preds, targets, class_names=None, iou_threshold=0.5, beta=
                 fp += 1
                 per_class[class_name]["fp"] += 1
 
+        # === Contar falsos negativos ===
         fn += max(0, len(gt_boxes) - len(matched_gt))
         for gb in gt_boxes:
             cls = int(gb[5]) if gb.shape[-1] > 5 else 0
             class_name = classes[cls] if cls < len(classes) else f"class_{cls}"
-
-            # 🔧 Asegurar que la clase exista también aquí
             if class_name not in per_class:
                 per_class[class_name] = {"tp": 0, "fp": 0, "fn": 0, "ious": []}
-
-            if cls not in [int(pb[5]) for pb in pred_boxes]:
+            if cls not in [int(np.argmax(pb[5:])) if pb.shape[-1] > 6 else 0 for pb in pred_boxes]:
                 per_class[class_name]["fn"] += 1
 
     # ==== MÉTRICAS GLOBALES ====
