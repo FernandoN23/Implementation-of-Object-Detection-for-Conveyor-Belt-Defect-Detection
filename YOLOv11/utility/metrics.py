@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 from pathlib import Path
+from omegaconf import OmegaConf
 
 
 # ============================================================
@@ -33,7 +34,6 @@ def _to_numpy(x):
     elif isinstance(x, np.ndarray):
         return x
     elif isinstance(x, (list, tuple)):
-        # No forzar np.array() en listas con longitudes distintas
         return [_to_numpy(i) for i in x]
     elif isinstance(x, dict):
         return {k: _to_numpy(v) for k, v in x.items()}
@@ -41,67 +41,83 @@ def _to_numpy(x):
         return x
 
 
-
-
-def calculate_metrics(preds, targets, iou_threshold=0.5, beta=1.0):
-    """Calcula Precision, Recall, AP, mAP, F_beta e IoU promedio."""
-    tp, fp, fn, ious = 0, 0, 0, []
-
+# ============================================================
+#        MÉTRICAS GENERALES Y POR CLASE (MULTICLASE)
+# ============================================================
+def calculate_metrics(preds, targets, class_names=None, iou_threshold=0.5, beta=1.0):
+    """Calcula métricas globales y por clase."""
     preds = [_to_numpy(p) for p in preds]
     targets = [_to_numpy(t) for t in targets]
+    classes = class_names or []
 
-    # 🔹 Aplanar en caso de listas anidadas (por batch)
+    # Inicializar estructura por clase
+    per_class = {c: {"tp": 0, "fp": 0, "fn": 0, "ious": []} for c in classes}
+
+    tp, fp, fn, ious = 0, 0, 0, []
+
+    # Aplanar listas anidadas
     flat_preds, flat_targets = [], []
     for p in preds:
-        if isinstance(p, (list, tuple)):
-            flat_preds.extend(p)
-        else:
-            flat_preds.append(p)
+        flat_preds.extend(p if isinstance(p, (list, tuple)) else [p])
     for t in targets:
-        if isinstance(t, (list, tuple)):
-            flat_targets.extend(t)
-        else:
-            flat_targets.append(t)
+        flat_targets.extend(t if isinstance(t, (list, tuple)) else [t])
     preds, targets = flat_preds, flat_targets
 
     for pred_boxes, gt_boxes in zip(preds, targets):
         if pred_boxes is None or gt_boxes is None:
             continue
-
+        if isinstance(pred_boxes, (float, int)) or isinstance(gt_boxes, (float, int)):
+            continue
+        if not hasattr(pred_boxes, "shape") or not hasattr(gt_boxes, "shape"):
+            continue
         if pred_boxes.size == 0 or gt_boxes.size == 0:
-            # Si no hay predicciones o GT en la muestra actual, contar FNs en bloque
-            fn += int(gt_boxes.shape[0])
+            fn += int(getattr(gt_boxes, "shape", [0])[0])
             continue
 
-        # Normalizar a [x1,y1,x2,y2,score,cls] si vienen con extras; limitar a 6 cols mín.
-        pred_boxes = pred_boxes.reshape(-1, min(6, pred_boxes.shape[-1]))
-        gt_boxes   = gt_boxes.reshape(-1, min(6, gt_boxes.shape[-1]))
+        # Asegurar formato [x1,y1,x2,y2,score,cls]
+        try:
+            pred_boxes = pred_boxes.reshape(-1, min(6, pred_boxes.shape[-1]))
+            gt_boxes = gt_boxes.reshape(-1, min(6, gt_boxes.shape[-1]))
+        except Exception:
+            continue
 
         matched_gt = set()
         for pb in pred_boxes:
-            ious_local = [(bbox_iou(pb[:4], gb[:4]), i) for i, gb in enumerate(gt_boxes)]
+            cls = int(pb[5]) if pb.shape[-1] > 5 else 0
+            class_name = classes[cls] if cls < len(classes) else f"class_{cls}"
+            ious_local = [(bbox_iou(pb[:4], gb[:4]), i, int(gb[5]) if gb.shape[-1] > 5 else 0) for i, gb in enumerate(gt_boxes)]
             if not ious_local:
                 fp += 1
+                per_class[class_name]["fp"] += 1
                 continue
 
-            best_iou, best_idx = max(ious_local, key=lambda x: x[0])
+            best_iou, best_idx, gt_cls = max(ious_local, key=lambda x: x[0])
             ious.append(best_iou)
+            per_class[class_name]["ious"].append(best_iou)
 
-            if best_iou >= iou_threshold and best_idx not in matched_gt:
+            if best_iou >= iou_threshold and best_idx not in matched_gt and cls == gt_cls:
                 tp += 1
+                per_class[class_name]["tp"] += 1
                 matched_gt.add(best_idx)
             else:
                 fp += 1
+                per_class[class_name]["fp"] += 1
 
         fn += max(0, len(gt_boxes) - len(matched_gt))
+        for gb in gt_boxes:
+            cls = int(gb[5]) if gb.shape[-1] > 5 else 0
+            class_name = classes[cls] if cls < len(classes) else f"class_{cls}"
+            if cls not in [int(pb[5]) for pb in pred_boxes]:
+                per_class[class_name]["fn"] += 1
 
+    # ==== MÉTRICAS GLOBALES ====
     precision = tp / (tp + fp + 1e-6)
     recall = tp / (tp + fn + 1e-6)
     f_beta = (1 + beta**2) * (precision * recall) / (beta**2 * precision + recall + 1e-6)
     ap = precision * recall
     iou_mean = float(np.mean(ious)) if ious else 0.0
 
-    return {
+    global_metrics = {
         "Precision": float(precision),
         "Recall": float(recall),
         "AP": float(ap),
@@ -109,6 +125,27 @@ def calculate_metrics(preds, targets, iou_threshold=0.5, beta=1.0):
         "F_beta": float(f_beta),
         "IoU": iou_mean
     }
+
+    # ==== MÉTRICAS POR CLASE ====
+    per_class_metrics = {}
+    for cls, data in per_class.items():
+        c_tp, c_fp, c_fn = data["tp"], data["fp"], data["fn"]
+        c_ious = data["ious"]
+        c_prec = c_tp / (c_tp + c_fp + 1e-6)
+        c_rec = c_tp / (c_tp + c_fn + 1e-6)
+        c_f = (1 + beta**2) * (c_prec * c_rec) / (beta**2 * c_prec + c_rec + 1e-6)
+        c_ap = c_prec * c_rec
+        c_iou = float(np.mean(c_ious)) if c_ious else 0.0
+
+        per_class_metrics[cls] = {
+            "Precision": c_prec,
+            "Recall": c_rec,
+            "AP": c_ap,
+            "F_beta": c_f,
+            "IoU": c_iou
+        }
+
+    return global_metrics, per_class_metrics
 
 
 # ============================================================
@@ -124,34 +161,45 @@ def create_metrics_folder(model_variant="n", phase="valid"):
     return str(path)
 
 
-def save_metrics_plots(metrics_dict, save_dir, model_variant="n"):
-    names, values = list(metrics_dict.keys()), list(metrics_dict.values())
+def save_metrics_plots(global_metrics, per_class_metrics, save_dir, model_variant="n"):
+    # === Gráfico global ===
+    names, values = list(global_metrics.keys()), list(global_metrics.values())
     plt.figure(figsize=(8, 5))
     plt.bar(names, values, alpha=0.9)
-    plt.title(f"YOLOv11-{model_variant.upper()} Evaluation Metrics")
+    plt.title(f"YOLOv11-{model_variant.upper()} Global Metrics")
     plt.ylabel("Value")
     plt.ylim(0, 1)
-    plt.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, f"metrics_overview_{model_variant}.png"))
+    plt.savefig(os.path.join(save_dir, f"global_metrics_{model_variant}.png"))
     plt.close()
 
-    plt.figure(figsize=(4, 4))
-    plt.bar(["IoU"], [metrics_dict.get("IoU", 0.0)])
-    plt.title(f"Mean IoU - YOLOv11-{model_variant.upper()}")
-    plt.ylim(0, 1)
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, f"iou_{model_variant}.png"))
-    plt.close()
+    # === Gráfico por clase ===
+    for cls, cls_metrics in per_class_metrics.items():
+        plt.figure(figsize=(6, 4))
+        plt.bar(cls_metrics.keys(), cls_metrics.values(), alpha=0.85)
+        plt.title(f"{cls} - Metrics ({model_variant.upper()})")
+        plt.ylim(0, 1)
+        plt.tight_layout()
+        plt.savefig(os.path.join(save_dir, f"{cls}_metrics_{model_variant}.png"))
+        plt.close()
 
 
-def save_metrics_summary(metrics_dict, save_dir, model_variant="n"):
+def save_metrics_summary(global_metrics, per_class_metrics, save_dir, model_variant="n", phase="valid"):
     summary_path = os.path.join(save_dir, f"metrics_summary_{model_variant}.txt")
     with open(summary_path, "w", encoding="utf-8") as f:
-        f.write(f"📅 Test generado: {datetime.now()}\n")
-        f.write(f"🔧 Modelo evaluado: YOLOv11-{model_variant.upper()}\n\n")
-        for k, v in metrics_dict.items():
-            f.write(f"{k}: {float(v):.4f}\n")
+        f.write(f"📅 {datetime.now()}\n")
+        f.write(f"🔧 Modelo: YOLOv11-{model_variant.upper()} | Fase: {phase}\n\n")
+
+        f.write("=== MÉTRICAS GLOBALES ===\n")
+        for k, v in global_metrics.items():
+            f.write(f"{k}: {v:.4f}\n")
+
+        f.write("\n=== MÉTRICAS POR CLASE ===\n")
+        for cls, cls_metrics in per_class_metrics.items():
+            f.write(f"\n[{cls}]\n")
+            for k, v in cls_metrics.items():
+                f.write(f"  {k}: {v:.4f}\n")
+
     print(f"📄 Resumen guardado en {summary_path}")
 
 
@@ -167,10 +215,19 @@ def measure_fps(model, sample_input, device="cpu", runs=20):
 
 
 def evaluate_model(preds, targets, save_results=True, model_variant="n", phase="valid"):
-    metrics = calculate_metrics(preds, targets)
+    # Leer nombres de clases desde configs/yolo11.yaml
+    try:
+        cfg = OmegaConf.load("YOLOv11/configs/yolo11.yaml")
+        class_names = cfg.get("names", [])
+    except Exception:
+        class_names = []
+
+    global_metrics, per_class_metrics = calculate_metrics(preds, targets, class_names)
+
     if save_results:
         save_dir = create_metrics_folder(model_variant, phase=phase)
-        save_metrics_plots(metrics, save_dir, model_variant)
-        save_metrics_summary(metrics, save_dir, model_variant)
+        save_metrics_plots(global_metrics, per_class_metrics, save_dir, model_variant)
+        save_metrics_summary(global_metrics, per_class_metrics, save_dir, model_variant, phase)
         print(f"✅ Resultados guardados en {save_dir} para modelo YOLOv11-{model_variant.upper()}")
-    return metrics
+
+    return global_metrics

@@ -9,6 +9,7 @@
 Entrenamiento modular del modelo YOLOv11.
 Permite alternar variantes (n, s, m, l, x) y ajustar hiperparámetros
 desde configs/*.yaml sin modificar este script.
+Guarda histórico de pérdida para graficar curva train vs valid.
 =============================================================
 """
 import keyboard
@@ -18,13 +19,11 @@ from tqdm import tqdm
 import matplotlib
 matplotlib.use('Agg')
 
-# 🔹 Para captura de tecla ESC
 try:
-    import msvcrt  # Solo disponible en Windows
+    import msvcrt  # Solo en Windows
 except ImportError:
     msvcrt = None
 
-# -------------------- Importar módulos --------------------
 from models.yolo11 import YOLOv11
 from models.parser_yaml import ModelParser
 from utility.data_loader import create_dataloader
@@ -36,32 +35,25 @@ from utility.metrics import evaluate_model, measure_fps
 
 
 # =============================================================
-#          CONFIGURACIÓN DE ENTORNO Y LOGS
+#  CONFIGURACIÓN DE ENTORNO Y LOGS
 # =============================================================
 def setup_environment(model_variant="n"):
-    """Inicializa entorno, logs, weights y TensorBoard para la variante YOLOv11."""
     base_dir = "YOLOv11"
     variant = model_variant.lower()
-
-    # Crear estructura de carpetas por variante y fase (train)
     os.makedirs(os.path.join(base_dir, "logs", variant, "train"), exist_ok=True)
     os.makedirs(os.path.join(base_dir, "runs", variant, "train"), exist_ok=True)
     os.makedirs(os.path.join(base_dir, "weights", variant, "train"), exist_ok=True)
     os.makedirs(os.path.join(base_dir, "metrics", variant, "train"), exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     logger = get_logger(log_dir=f"{base_dir}/logs/{variant}/train", name=f"train_yolo11_{variant}")
     tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/train")
-
-    logger.info(f"📦 Dispositivo en uso: {device}")
-    logger.info(f"🧩 Logs y weights configurados para YOLOv11-{variant.upper()} (fase: train)")
-
+    logger.info(f"📦 Dispositivo: {device}")
     return device, logger, tb
 
 
 # =============================================================
-#          FUNCIONES AUXILIARES ROCm / BatchNorm Patch
+#  FUNCIONES AUXILIARES ROCm / BatchNorm Patch
 # =============================================================
 def _replace_batchnorm_with_groupnorm(model: nn.Module, groups: int = 32):
     count = 0
@@ -89,44 +81,42 @@ def try_model_forward_safe(model, dummy, device):
         print("✅ Forward exitoso en GPU ROCm.")
     except Exception as e:
         msg = str(e).lower()
-        print("❌ Error detectado en forward inicial.")
+        print("❌ Error en forward inicial.")
         if "miopen" in msg:
-            print("🩹 Parcheando modelo → reemplazando BatchNorm2d por GroupNorm...")
+            print("🩹 Reemplazando BatchNorm2d por GroupNorm...")
             _replace_batchnorm_with_groupnorm(model)
             model.eval()
             with torch.no_grad():
                 _ = model(dummy)
-            print("✅ Forward corregido y validado en GPU.")
+            print("✅ Forward corregido.")
         else:
             raise
 
 
 # =============================================================
-#            CARGA DE CONFIGS Y CREACIÓN DEL MODELO
+#  CARGA DE CONFIGS Y CREACIÓN DEL MODELO
 # =============================================================
 def load_model_and_configs(variant_override=None):
-    """Carga configs YAML y crea la instancia YOLOv11."""
     train_cfg = OmegaConf.load("YOLOv11/configs/train.yaml")
     variants_cfg = OmegaConf.load("YOLOv11/configs/model_variants.yaml")
-
     variant_name = variant_override or train_cfg.get("model_variant", "n")
+
     if variant_name not in variants_cfg.variants:
         raise ValueError(f"⚠️ Variante '{variant_name}' no existe en model_variants.yaml")
 
     variant_params = variants_cfg.variants[variant_name]
-    print(f"🧩 Configuración de variante YOLOv11-{variant_name.upper()}: {variant_params}")
+    print(f"🧩 Configuración YOLOv11-{variant_name.upper()}: {variant_params}")
 
     model_cfg_path = "YOLOv11/configs/yolo11.yaml"
     parser = ModelParser(model_cfg_path)
     model_cfg = parser.parse_model_config()
     num_classes = model_cfg.get("nc", 1)
-
     model = YOLOv11(cfg_path=model_cfg_path, num_classes=num_classes)
     return model, train_cfg, variant_name
 
 
 # =============================================================
-#                LOOP DE ENTRENAMIENTO
+#  LOOP DE ENTRENAMIENTO
 # =============================================================
 def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logger, tb, ckpt_dir):
     model.train()
@@ -137,6 +127,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
         images = images.to(device)
         outputs = model(images)
         loss, loss_items = criterion(outputs, labels)
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -145,28 +136,24 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
         progress.set_postfix(loss=loss.item())
         tb.log_metrics({"loss": loss_items["total_loss"]}, epoch * len(dataloader) + i, phase="train")
 
-        # 🔹 Detección universal de tecla ESC
+        # Interrupción manual
         if keyboard.is_pressed('esc'):
-            print("\n⚠️ Se presionó ESC.")
-            confirm = input("¿Desea detener el entrenamiento? (s/n): ").strip().lower()
+            print("\n⚠️ ESC detectado. Deteniendo entrenamiento...")
+            confirm = input("¿Desea detener? (s/n): ").strip().lower()
             if confirm == "s":
-                save_checkpoint(
-                    model, optimizer, epoch + 1,
-                    path=ckpt_dir,
-                    filename=f"yolo11_interrupted_epoch_{epoch+1}.pt"
-                )
-                print("🛑 Entrenamiento detenido por el usuario.")
+                save_checkpoint(model, optimizer, epoch + 1,
+                                path=ckpt_dir,
+                                filename=f"yolo11_interrupted_epoch_{epoch+1}.pt")
                 return "stop"
 
     avg_loss = epoch_loss / len(dataloader)
-    logger.info(f"📉 Epoch {epoch+1} finalizado | Loss promedio: {avg_loss:.4f}")
+    logger.info(f"📉 Epoch {epoch+1} | Loss promedio: {avg_loss:.4f}")
     tb.log_metrics({"epoch_loss": avg_loss}, epoch, phase="train")
     return avg_loss
 
 
-
 # =============================================================
-#                     VALIDACIÓN DURANTE TRAIN
+#  VALIDACIÓN DURANTE TRAIN
 # =============================================================
 def validate_model(model, device, logger, model_variant="n"):
     model.eval()
@@ -179,31 +166,31 @@ def validate_model(model, device, logger, model_variant="n"):
 
 
 # =============================================================
-#                 CONSOLA INTERACTIVA PRINCIPAL
+#  CONSOLA INTERACTIVA PRINCIPAL
 # =============================================================
 def interactive_console():
     print("====================================================")
     print("🚀 Entrenamiento YOLOv11 interactivo")
     print("====================================================")
-    variant = input("Seleccione variante del modelo [n/s/m/l/x]: ").strip().lower()
+    variant = input("Seleccione variante [n/s/m/l/x]: ").strip().lower()
     if variant not in ["n", "s", "m", "l", "x"]:
-        print("⚠️ Variante inválida. Se usará 'n' por defecto.")
+        print("⚠️ Variante inválida. Usando 'n' por defecto.")
         variant = "n"
 
     ckpt_dir = f"YOLOv11/weights/{variant}/train"
-    if os.path.exists(ckpt_dir) and len(os.listdir(ckpt_dir)) > 0:
-        ans = input(f"⚠️ Ya existe un modelo entrenado en {ckpt_dir}. ¿Desea reemplazarlo? (s/n): ").strip().lower()
+    if os.path.exists(ckpt_dir) and os.listdir(ckpt_dir):
+        ans = input(f"⚠️ Ya existe un modelo en {ckpt_dir}. ¿Reemplazarlo? (s/n): ").strip().lower()
         if ans == "s":
             for f in os.listdir(ckpt_dir):
                 os.remove(os.path.join(ckpt_dir, f))
-            print("🗑️ Checkpoints anteriores eliminados.")
+            print("🗑️ Checkpoints antiguos eliminados.")
         else:
-            print("✅ Se conservarán los modelos existentes.")
+            print("✅ Conservando modelos existentes.")
     return variant
 
 
 # =============================================================
-#                     MAIN TRAIN LOOP
+#  MAIN TRAIN LOOP
 # =============================================================
 def main():
     model_variant = interactive_console()
@@ -211,71 +198,61 @@ def main():
     model, train_cfg, _ = load_model_and_configs(variant_override=model_variant)
     model.to(device)
 
-    print(f"🚀 Entrenando variante YOLOv11-{model_variant.upper()}")
-    logger.info(f"🚀 Entrenando variante YOLOv11-{model_variant.upper()}")
-
     dummy = torch.randn(1, 3, 640, 640).to(device)
     try_model_forward_safe(model, dummy, device)
 
     train_loader = create_dataloader(train_cfg, phase="train")
     criterion = YoloLoss()
-    opt_params = train_cfg.optimizer
-    optimizer = optim.AdamW(model.parameters(), lr=opt_params.lr, weight_decay=opt_params.weight_decay)
+    optimizer = optim.AdamW(model.parameters(),
+                            lr=train_cfg.optimizer.lr,
+                            weight_decay=train_cfg.optimizer.weight_decay)
 
-    start_epoch = 0
     ckpt_dir = f"YOLOv11/weights/{model_variant}/train"
     os.makedirs(ckpt_dir, exist_ok=True)
 
+    start_epoch = 0
     if train_cfg.resume:
         try:
             start_epoch = load_checkpoint(model, optimizer, path=ckpt_dir, device=device)
-            logger.info(f"🔁 Reanudando entrenamiento desde la época {start_epoch}")
+            logger.info(f"🔁 Reanudando desde época {start_epoch}")
         except FileNotFoundError:
-            logger.warning(f"⚠️ No se encontró checkpoint previo en {ckpt_dir}.")
+            logger.warning("⚠️ No se encontró checkpoint previo.")
 
     num_epochs = train_cfg.epochs
-    logger.info(f"🚀 Iniciando entrenamiento por {num_epochs} épocas...")
+    logger.info(f"🚀 Entrenando {num_epochs} épocas.")
 
-    # 🔹 Lanzar TensorBoard una vez confirmado inicio
+    # Guardar historial de pérdida
+    loss_history_path = "YOLOv11/metrics/train_loss_history.pt"
+    train_loss_history = torch.load(loss_history_path) if os.path.exists(loss_history_path) else []
+
     print("🧠 Iniciando TensorBoard...")
-    import socket
-
-    def get_free_port(default=6006):
-        sock = socket.socket()
-        sock.bind(('', 0))
-        port = sock.getsockname()[1]
-        sock.close()
-        return port
-
-    port = get_free_port()
-    print(f"📊 Lanzando TensorBoard en puerto {port}...")
-    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}/train", "--port", str(port)])
+    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}/train", "--port", "6006"])
 
     for epoch in range(start_epoch, num_epochs):
         result = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch, logger, tb, ckpt_dir)
         if result == "stop":
-            logger.info("🛑 Entrenamiento detenido manualmente por el usuario.")
             break
+
+        avg_loss = result
+        train_loss_history.append(avg_loss)
+        torch.save(train_loss_history, loss_history_path)
 
         if (epoch + 1) % train_cfg.validate_every == 0:
             metrics = validate_model(model, device, logger, model_variant)
             tb.log_metrics(metrics, epoch, phase="valid")
 
-        save_checkpoint(
-            model, optimizer, epoch + 1,
-            path=ckpt_dir,
-            filename=f"yolo11_{model_variant}_epoch_{epoch+1}.pt"
-        )
+        save_checkpoint(model, optimizer, epoch + 1,
+                        path=ckpt_dir,
+                        filename=f"yolo11_{model_variant}_epoch_{epoch+1}.pt")
 
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
-    logger.info(f"⚡ FPS promedio del modelo ({model_variant.upper()}): {fps:.2f}")
-
+    logger.info(f"⚡ FPS promedio ({model_variant.upper()}): {fps:.2f}")
     tb.close()
     logger.info("✅ Entrenamiento finalizado correctamente.")
 
 
 # =============================================================
-#                       EJECUCIÓN
+#  EJECUCIÓN
 # =============================================================
 if __name__ == "__main__":
     main()
