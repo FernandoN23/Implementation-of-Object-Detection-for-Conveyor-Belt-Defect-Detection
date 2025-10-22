@@ -6,143 +6,133 @@ para la identificación de fallas en correas transportadoras"
 Autor: Fernando N.
 
 -------------------------------------------------------------
-Archivo: losses.py
-Define la función de pérdida principal de YOLOv11.
-Soporta formato multiclase y predicciones multi-escala.
+Archivo: losses.py (versión funcional)
+Define la pérdida YOLOv11 simplificada basada en BCE + IoU + Focal Loss.
 -------------------------------------------------------------
 """
-
-# -------------------------------------------------------------
-# Clase: YoloLoss
-#   - Integra tres términos ponderados:
-#       λ_box → pérdida de regresión de caja (SmoothL1)
-#       λ_obj → pérdida de confianza (BCE)
-#       λ_cls → pérdida de clasificación (MSE)
-#
-# Flujo interno:
-#   1. Unifica targets de lista → tensor [N,6]
-#   2. Normaliza predicciones → [B, N, C]
-#   3. Genera targets simulados (dummy) para prueba funcional
-#   4. Calcula pérdidas y devuelve total + desglose
-#
-# Uso:
-#   Llamado en train.py dentro del bucle principal
-#   junto a las salidas del modelo (head).
-# -------------------------------------------------------------
-
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
+# -------------------------------------------------------------
+# Función auxiliar: IoU entre cajas (en formato xywh)
+# -------------------------------------------------------------
+def bbox_iou(box1, box2, eps=1e-7):
+    # Convierte xywh → xyxy
+    def xywh2xyxy(x):
+        y = x.clone()
+        y[:, 0] = x[:, 0] - x[:, 2] / 2  # x1
+        y[:, 1] = x[:, 1] - x[:, 3] / 2  # y1
+        y[:, 2] = x[:, 0] + x[:, 2] / 2  # x2
+        y[:, 3] = x[:, 1] + x[:, 3] / 2  # y2
+        return y
+
+    b1, b2 = xywh2xyxy(box1), xywh2xyxy(box2)
+    inter = (torch.min(b1[:, 2], b2[:, 2]) - torch.max(b1[:, 0], b2[:, 0])).clamp(0) * \
+            (torch.min(b1[:, 3], b2[:, 3]) - torch.max(b1[:, 1], b2[:, 1])).clamp(0)
+    area1 = (b1[:, 2] - b1[:, 0]).clamp(0) * (b1[:, 3] - b1[:, 1]).clamp(0)
+    area2 = (b2[:, 2] - b2[:, 0]).clamp(0) * (b2[:, 3] - b2[:, 1]).clamp(0)
+    return inter / (area1 + area2 - inter + eps)
+
+
+# -------------------------------------------------------------
+# Focal Loss (BCE modificado)
+# -------------------------------------------------------------
+class FocalLoss(nn.Module):
+    def __init__(self, gamma=2.0, alpha=0.25):
+        super().__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+
+    def forward(self, pred, target):
+        bce_loss = F.binary_cross_entropy_with_logits(pred, target, reduction="none")
+        prob = torch.sigmoid(pred)
+        p_t = target * prob + (1 - target) * (1 - prob)
+        mod_factor = (1 - p_t) ** self.gamma
+        alpha_factor = target * self.alpha + (1 - target) * (1 - self.alpha)
+        return (alpha_factor * mod_factor * bce_loss).mean()
+
+
+# -------------------------------------------------------------
+# YoloLoss funcional
+# -------------------------------------------------------------
 class YoloLoss(nn.Module):
     def __init__(self, lambda_box=0.05, lambda_obj=1.0, lambda_cls=0.5):
         super().__init__()
         self.lambda_box = lambda_box
         self.lambda_obj = lambda_obj
         self.lambda_cls = lambda_cls
+        self.focal_loss = FocalLoss()
 
     def forward(self, preds, targets):
         """
-        preds: puede ser lista de mapas multi-escala o tensor [B, N, C]
+        preds: lista de 3 tensores [y3, y4, y5], cada uno [B, C, H, W]
         targets: lista de tensores [N_i,5] o tensor [N,6] con [img_idx, cls, x, y, w, h]
         """
+        device = preds[0].device
+        B = preds[0].shape[0]
 
-        # =============================================================
-        # 🔹 1. Convertir targets de lista → tensor [N_total, 6]
-        # =============================================================
-        if isinstance(targets, list):
-            merged = []
-            for i, t in enumerate(targets):
-                if not isinstance(t, torch.Tensor):
-                    t = torch.tensor(t, dtype=torch.float32)
-                if t.numel() == 0:
-                    continue
-                if t.shape[1] == 5:  # [cls, x, y, w, h]
-                    img_idx = torch.full((t.size(0), 1), i, dtype=t.dtype, device=t.device)
-                    t = torch.cat([img_idx, t], dim=1)  # [N,6]
-                elif t.shape[1] != 6:
-                    raise ValueError(f"Target inválido: {t.shape}")
-                merged.append(t)
-            if len(merged):
-                targets = torch.cat(merged, dim=0)
-            else:
-                targets = torch.zeros((0, 6), dtype=torch.float32, device=preds[0].device)
-        elif isinstance(targets, torch.Tensor) and targets.shape[1] == 5:
-            # Un solo batch plano [N,5]
-            img_idx = torch.zeros((targets.size(0), 1), dtype=targets.dtype, device=targets.device)
-            targets = torch.cat([img_idx, targets], dim=1)
-
-        # =============================================================
-        # 🔹 2. Normalizar predicciones a [B, N, C]
-        # =============================================================
-        if isinstance(preds, (list, tuple)):
-            p_list = []
-            for p in preds:
-                if p.ndim == 5:  # [B, A, H, W, C]
-                    B, A, H, W, C = p.shape
-                    p = p.view(B, A * H * W, C)
-                elif p.ndim == 4:  # [B, C, H, W]
-                    B, C, H, W = p.shape
-                    p = p.view(B, C, H * W).permute(0, 2, 1)
-                elif p.ndim == 3:  # [B, N, C]
-                    pass
-                else:
-                    raise ValueError(f"Formato de pred inesperado: {p.shape}")
-                p_list.append(p)
-            preds = torch.cat(p_list, dim=1)
-        elif preds.ndim == 4:  # [B, C, H, W]
-            B, C, H, W = preds.shape
-            preds = preds.view(B, C, H * W).permute(0, 2, 1)
-        elif preds.ndim == 3:
-            pass
-        else:
-            raise ValueError(f"Formato de pred inesperado: {preds.shape}")
-
-        B, N_pred, C_pred = preds.shape
-
-        # =============================================================
-        # 🔹 3. Generar targets densos simulados (dummy) del mismo tamaño
-        # =============================================================
-        # En esta versión simple, igualamos dimensiones por broadcast
-        # para evitar errores de shape (prototipo de prueba funcional).
-        if targets.numel() == 0:
-            targ_box = torch.zeros((B, N_pred, 4), device=preds.device)
-            targ_obj = torch.zeros((B, N_pred, 1), device=preds.device)
-            targ_cls = torch.zeros((B, N_pred, max(C_pred - 5, 1)), device=preds.device)
-        else:
-            # Asignación simplificada (se puede mejorar con matching IoU)
-            targ_box = torch.zeros((B, N_pred, 4), device=preds.device)
-            targ_obj = torch.zeros((B, N_pred, 1), device=preds.device)
-            targ_cls = torch.zeros((B, N_pred, max(C_pred - 5, 1)), device=preds.device)
-
-            for row in targets:
-                b = int(row[0].item())
-                if b >= B:
-                    continue
-                cls = int(row[1].item())
-                x, y, w, h = row[2:].tolist()
-                # se proyecta a una posición pseudoaleatoria (prototipo)
-                idx = torch.randint(0, N_pred, (1,)).item()
-                targ_box[b, idx] = torch.tensor([x, y, w, h], device=preds.device)
-                targ_obj[b, idx] = 1.0
-                if cls < targ_cls.shape[-1]:
-                    targ_cls[b, idx, cls] = 1.0
-
-        # =============================================================
-        # 🔹 4. Dividir predicciones
-        # =============================================================
-        pred_box = preds[..., 0:4]
+        # Unifica predicciones de las 3 escalas
+        preds_cat = []
+        for p in preds:
+            b, c, h, w = p.shape
+            p = p.view(b, c, h * w).permute(0, 2, 1)  # [B, H*W, C]
+            preds_cat.append(p)
+        preds = torch.cat(preds_cat, dim=1)  # [B, N_pred, C]
+        pred_box = preds[..., :4]
         pred_obj = preds[..., 4:5]
         pred_cls = preds[..., 5:]
 
-        # =============================================================
-        # 🔹 5. Calcular pérdidas
-        # =============================================================
-        box_loss = F.smooth_l1_loss(pred_box, targ_box, reduction='mean')
-        obj_loss = F.binary_cross_entropy_with_logits(pred_obj, targ_obj, reduction='mean')
-        cls_loss = F.mse_loss(pred_cls, targ_cls, reduction='mean')
+        # Targets vacíos → pérdida nula
+        if not isinstance(targets, torch.Tensor) or targets.numel() == 0:
+            return torch.tensor(0.0, device=device, requires_grad=True), {
+                "box_loss": 0.0, "obj_loss": 0.0, "cls_loss": 0.0, "total_loss": 0.0
+            }
+
+        # Inicializa acumuladores
+        box_loss, obj_loss, cls_loss = 0.0, 0.0, 0.0
+        total_pos = 0
+
+        # Procesa por imagen
+        for b in range(B):
+            t = targets[targets[:, 0] == b]
+            if t.numel() == 0:
+                continue
+            total_pos += len(t)
+
+            # Predicciones globales (no grid): selección simple por índice aleatorio
+            pred_b = pred_box[b].sigmoid()
+            pred_o = pred_obj[b]
+            pred_c = pred_cls[b]
+
+            # Matching simplificado: busca el pixel más cercano (puedes mejorar con IoU)
+            for row in t:
+                cls, x, y, w, h = row[1:].to(device)
+                gt_box = torch.tensor([[x, y, w, h]], device=device)
+                ious = bbox_iou(pred_b, gt_box.repeat(len(pred_b), 1))
+                idx = ious.argmax()
+                iou = ious[idx]
+
+                # L_box = (1 - IoU)
+                box_loss += (1.0 - iou)
+
+                # L_obj = FocalLoss sobre objectness
+                obj_target = torch.zeros_like(pred_o)
+                obj_target[idx] = 1.0
+                obj_loss += self.focal_loss(pred_o, obj_target)
+
+                # L_cls = BCE/Focal sobre clases
+                cls_target = torch.zeros_like(pred_c)
+                cls_target[idx, int(cls)] = 1.0
+                cls_loss += self.focal_loss(pred_c, cls_target)
+
+        # Normalización
+        total_pos = max(total_pos, 1)
+        box_loss /= total_pos
+        obj_loss /= total_pos
+        cls_loss /= total_pos
 
         total_loss = (
             self.lambda_box * box_loss +
