@@ -98,10 +98,15 @@ def select_training_variant():
 #        FUNCIÓN DE VALIDACIÓN
 # =============================================================
 def _to_cpu(x):
-    # Asegura que lo que guardamos para métricas está en CPU
+    """Convierte recursivamente tensores o colecciones a CPU."""
     if isinstance(x, torch.Tensor):
         return x.detach().cpu()
+    elif isinstance(x, (list, tuple)):
+        return [_to_cpu(i) for i in x]
+    elif isinstance(x, dict):
+        return {k: _to_cpu(v) for k, v in x.items()}
     return x
+
 
 def run_validation(model, dataloader, device, logger, tb, model_variant):
     model.eval()

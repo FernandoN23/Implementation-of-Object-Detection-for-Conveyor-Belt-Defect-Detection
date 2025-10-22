@@ -54,26 +54,35 @@ def save_checkpoint(model, optimizer, epoch, path="weights", filename=None):
 
 
 def load_checkpoint(model, optimizer=None, path="weights", device="cpu"):
-    """Carga el último checkpoint disponible (latest o el más reciente numérico)."""
-    ckpt_path = None
-
-    # 1️⃣ Si existe latest.pt → usarlo
-    latest = os.path.join(path, "latest.pt")
-    if os.path.exists(latest):
-        ckpt_path = latest
+    """
+    Carga un checkpoint de YOLOv11.
+    - Si 'path' es una carpeta: busca latest.pt o el último por número de época.
+    - Si 'path' es un archivo (.pt): carga directamente ese checkpoint.
+    """
+    # Si 'path' es un archivo .pt, cargar directamente
+    if os.path.isfile(path) and path.endswith(".pt"):
+        ckpt_path = path
     else:
-        # 2️⃣ Buscar el último por número de época
-        ckpts = sorted(glob.glob(os.path.join(path, "yolo11_epoch_*.pt")))
-        if ckpts:
-            ckpt_path = ckpts[-1]
+        ckpt_path = None
+        latest = os.path.join(path, "latest.pt")
+        if os.path.exists(latest):
+            ckpt_path = latest
+        else:
+            ckpts = sorted(glob.glob(os.path.join(path, "yolo11_epoch_*.pt")))
+            if ckpts:
+                ckpt_path = ckpts[-1]
 
     if not ckpt_path or not os.path.exists(ckpt_path):
         raise FileNotFoundError(f"❌ No se encontró ningún checkpoint en {path}")
 
+    # Cargar checkpoint
     checkpoint = torch.load(ckpt_path, map_location=device)
-    model.load_state_dict(checkpoint["model_state_dict"])
-    if optimizer:
+    model.load_state_dict(checkpoint["model_state_dict"], strict=False)
+
+    if optimizer and "optimizer_state_dict" in checkpoint:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
-    print(f"🔄 Checkpoint cargado desde {ckpt_path}, epoch {checkpoint['epoch']}")
-    return checkpoint["epoch"]
+    epoch = checkpoint.get("epoch", 0)
+    print(f"🔄 Checkpoint cargado desde {ckpt_path}, epoch {epoch}")
+    return epoch
+

@@ -27,22 +27,42 @@ def bbox_iou(box1, box2, eps=1e-6):
 
 
 def _to_numpy(x):
-    """Convierte a numpy de forma segura (soporta tensores en CUDA/CPU, listas o np arrays)."""
+    """Convierte a numpy de forma segura, manteniendo listas de longitudes variables."""
     if isinstance(x, torch.Tensor):
         return x.detach().cpu().numpy()
-    if isinstance(x, (list, tuple)):
-        return np.array(x, dtype=np.float32)
-    if isinstance(x, np.ndarray):
+    elif isinstance(x, np.ndarray):
         return x
-    return np.array(x, dtype=np.float32)
+    elif isinstance(x, (list, tuple)):
+        # No forzar np.array() en listas con longitudes distintas
+        return [_to_numpy(i) for i in x]
+    elif isinstance(x, dict):
+        return {k: _to_numpy(v) for k, v in x.items()}
+    else:
+        return x
+
+
 
 
 def calculate_metrics(preds, targets, iou_threshold=0.5, beta=1.0):
     """Calcula Precision, Recall, AP, mAP, F_beta e IoU promedio."""
     tp, fp, fn, ious = 0, 0, 0, []
 
-    preds = [ _to_numpy(p) for p in preds ]
-    targets = [ _to_numpy(t) for t in targets ]
+    preds = [_to_numpy(p) for p in preds]
+    targets = [_to_numpy(t) for t in targets]
+
+    # 🔹 Aplanar en caso de listas anidadas (por batch)
+    flat_preds, flat_targets = [], []
+    for p in preds:
+        if isinstance(p, (list, tuple)):
+            flat_preds.extend(p)
+        else:
+            flat_preds.append(p)
+    for t in targets:
+        if isinstance(t, (list, tuple)):
+            flat_targets.extend(t)
+        else:
+            flat_targets.append(t)
+    preds, targets = flat_preds, flat_targets
 
     for pred_boxes, gt_boxes in zip(preds, targets):
         if pred_boxes is None or gt_boxes is None:
