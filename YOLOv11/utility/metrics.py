@@ -96,6 +96,11 @@ def calculate_metrics(preds, targets, class_names=None, iou_threshold=0.5, beta=
         for pb in pred_boxes:
             cls = int(pb[5]) if pb.shape[-1] > 5 else 0
             class_name = classes[cls] if cls < len(classes) else f"class_{cls}"
+
+            # 🔧 Asegurar que la clase exista en per_class
+            if class_name not in per_class:
+                per_class[class_name] = {"tp": 0, "fp": 0, "fn": 0, "ious": []}
+
             ious_local = [(bbox_iou(pb[:4], gb[:4]), i, int(gb[5]) if gb.shape[-1] > 5 else 0)
                           for i, gb in enumerate(gt_boxes)]
             if not ious_local:
@@ -119,6 +124,11 @@ def calculate_metrics(preds, targets, class_names=None, iou_threshold=0.5, beta=
         for gb in gt_boxes:
             cls = int(gb[5]) if gb.shape[-1] > 5 else 0
             class_name = classes[cls] if cls < len(classes) else f"class_{cls}"
+
+            # 🔧 Asegurar que la clase exista también aquí
+            if class_name not in per_class:
+                per_class[class_name] = {"tp": 0, "fp": 0, "fn": 0, "ious": []}
+
             if cls not in [int(pb[5]) for pb in pred_boxes]:
                 per_class[class_name]["fn"] += 1
 
@@ -230,7 +240,6 @@ def measure_fps(model, sample_input, device="cpu", runs=20):
 #            EVALUACIÓN Y REGISTRO EN TENSORBOARD
 # ============================================================
 def evaluate_model(preds, targets, save_results=True, model_variant="n", phase="valid"):
-    # Leer nombres de clases desde configs/yolo11.yaml
     try:
         cfg = OmegaConf.load("YOLOv11/configs/yolo11.yaml")
         class_names = cfg.get("names", [])
@@ -245,19 +254,14 @@ def evaluate_model(preds, targets, save_results=True, model_variant="n", phase="
         save_metrics_summary(global_metrics, per_class_metrics, save_dir, model_variant, phase)
         print(f"✅ Resultados guardados en {save_dir} para modelo YOLOv11-{model_variant.upper()}")
 
-    # === Integración con TensorBoard ===
     try:
-        tb = TensorboardVisualizer(model_variant=model_variant)
+        tb = TensorboardVisualizer(log_dir="YOLOv11/runs", model_variant=f"{model_variant}/{phase}")
         tb.log_metrics(global_metrics, step=0, phase=phase)
-
         for class_name, cls_metrics in per_class_metrics.items():
             tb.log_metrics(cls_metrics, step=0, phase=phase, class_name=class_name)
-
-        tb.log_images_folder(save_dir, step=0, phase=phase)
+        if save_results:
+            tb.log_images_folder(save_dir, step=0, phase=phase)
         tb.flush()
         tb.close()
-
     except Exception as e:
         print(f"⚠️ Error al registrar métricas en TensorBoard: {e}")
-
-    return global_metrics
