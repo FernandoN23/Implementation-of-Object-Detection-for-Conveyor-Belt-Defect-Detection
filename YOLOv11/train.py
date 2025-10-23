@@ -12,7 +12,7 @@ Esta versión entrena exclusivamente el modelo y registra
 =============================================================
 """
 import keyboard
-import os, torch, torch.nn as nn, torch.optim as optim, subprocess
+import os, torch, torch.nn as nn, torch.optim as optim, subprocess, socket, psutil
 from omegaconf import OmegaConf
 from tqdm import tqdm
 import matplotlib
@@ -54,6 +54,10 @@ def setup_environment(model_variant="n"):
 #  FUNCIONES AUXILIARES ROCm / BatchNorm Patch
 # =============================================================
 def _replace_batchnorm_with_groupnorm(model: nn.Module, groups: int = 32):
+    """
+    Sustituye todas las capas BatchNorm2d por GroupNorm de forma automática.
+    Se utiliza cuando el backend activo es ROCm (GPUs AMD).
+    """
     count = 0
     for module in model.modules():
         for name, child in list(module.named_children()):
@@ -72,23 +76,28 @@ def _replace_batchnorm_with_groupnorm(model: nn.Module, groups: int = 32):
 
 
 def try_model_forward_safe(model, dummy, device):
+    """
+    Ejecuta un forward de prueba para verificar compatibilidad GPU.
+    Si detecta errores típicos de MIOpen (ROCm), aplica GroupNorm automáticamente.
+    """
     try:
         model.eval()
         with torch.no_grad():
             _ = model(dummy)
-        print("✅ Forward exitoso en GPU ROCm.")
+        print("✅ Forward exitoso en GPU.")
     except Exception as e:
         msg = str(e).lower()
         print("❌ Error en forward inicial.")
-        if "miopen" in msg:
-            print("🩹 Reemplazando BatchNorm2d por GroupNorm...")
+        # Detección automática de entorno ROCm
+        if hasattr(torch.version, "hip") or ("rocm" in str(torch.version.cuda).lower()) or "miopen" in msg:
+            print("🔍 Detectado entorno ROCm (AMD). Aplicando parche GroupNorm...")
             _replace_batchnorm_with_groupnorm(model)
             model.eval()
             with torch.no_grad():
                 _ = model(dummy)
-            print("✅ Forward corregido.")
+            print("✅ Forward corregido (ROCm activo).")
         else:
-            raise
+            raise e
 
 
 # =============================================================
@@ -134,7 +143,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, logg
         progress.set_postfix(loss=loss.item())
         tb.log_metrics({"train_loss": loss_items["total_loss"]}, epoch * len(dataloader) + i, phase="train")
 
-        # Interrupción manual
+        # Interrupción manual (F8)
         if keyboard.is_pressed('f8'):
             print("\n⚠️ F8 detectado. Deteniendo entrenamiento...")
             confirm = input("¿Desea detener? (s/n): ").strip().lower()
@@ -169,18 +178,28 @@ def interactive_console():
 # =============================================================
 def main():
     model_variant = interactive_console()
+
+    # Configura entorno: dispositivo (GPU/CPU), logger y TensorBoard
     device, logger, tb = setup_environment(model_variant)
+
+    # Carga el modelo
     model, train_cfg, _ = load_model_and_configs(variant_override=model_variant)
     model.to(device)
 
+    # Test de compatibilidad ROCm
     dummy = torch.randn(1, 3, 640, 640).to(device)
     try_model_forward_safe(model, dummy, device)
 
+    # Carga DataLoader
     train_loader = create_dataloader(train_cfg, phase="train")
+
+    # Definición de loss y optimizador
     criterion = YoloLoss()
-    optimizer = optim.AdamW(model.parameters(),
-                            lr=train_cfg.optimizer.lr,
-                            weight_decay=train_cfg.optimizer.weight_decay)
+    optimizer = optim.AdamW(
+        model.parameters(),
+        lr=train_cfg.optimizer.lr,
+        weight_decay=train_cfg.optimizer.weight_decay
+    )
 
     ckpt_dir = f"YOLOv11/weights/{model_variant}/train"
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -197,9 +216,44 @@ def main():
     loss_history_path = f"YOLOv11/metrics/{model_variant}/train/train_loss_history.pt"
     train_loss_history = torch.load(loss_history_path) if os.path.exists(loss_history_path) else []
 
-    print("🧠 Iniciando TensorBoard...")
-    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}/train", "--port", "6006"])
+    # -------------------------------------------------------------
+    # 🔹 Inicialización automática de TensorBoard sin duplicados
+    # -------------------------------------------------------------
+    def find_free_port(start=6006, end=6015):
+        for port in range(start, end + 1):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                if s.connect_ex(("localhost", port)) != 0:
+                    return port
+        return None
 
+    def is_tensorboard_running(logdir):
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if 'tensorboard' in proc.info['name'].lower():
+                    if any(logdir in arg for arg in proc.info['cmdline']):
+                        return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return False
+
+    log_dir = f"YOLOv11/runs/{model_variant}/train"
+    print("🧠 Verificando instancia de TensorBoard...")
+    if not is_tensorboard_running(log_dir):
+        free_port = find_free_port()
+        if free_port:
+            subprocess.Popen(
+                ["tensorboard", "--logdir", log_dir, "--port", str(free_port)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            print(f"🔗 TensorBoard iniciado en: http://localhost:{free_port}")
+        else:
+            print("⚠️ No se encontró un puerto libre para TensorBoard (6006–6015).")
+    else:
+        print(f"ℹ️ TensorBoard ya está activo para {model_variant}. No se lanza otra instancia.")
+
+    # -------------------------------------------------------------
+    # 🔁 Bucle principal de entrenamiento
+    # -------------------------------------------------------------
     for epoch in range(start_epoch, num_epochs):
         result = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch, logger, tb, ckpt_dir)
         if result == "stop":
@@ -209,9 +263,11 @@ def main():
         train_loss_history.append(avg_loss)
         torch.save(train_loss_history, loss_history_path)
 
-        save_checkpoint(model, optimizer, epoch + 1,
-                        path=ckpt_dir,
-                        filename=f"yolo11_{model_variant}_epoch_{epoch+1}.pt")
+        save_checkpoint(
+            model, optimizer, epoch + 1,
+            path=ckpt_dir,
+            filename=f"yolo11_{model_variant}_epoch_{epoch+1}.pt"
+        )
 
     tb.close()
     logger.info("✅ Entrenamiento finalizado correctamente.")
