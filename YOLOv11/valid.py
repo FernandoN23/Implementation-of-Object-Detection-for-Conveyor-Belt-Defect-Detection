@@ -72,45 +72,103 @@ def load_model_and_configs(variant_override=None):
 # =============================================================
 def validate_one_epoch(model, dataloader, device, logger, tb, model_variant, propagate=False):
     """
-    Ejecuta una época de validación.
-    Si propagate=True, permite gradientes (e.g., fine-tuning o test técnico).
+    Valida una época, decodifica predicciones a [x1,y1,x2,y2, conf, cls_logits...]
+    y convierte targets [cls,xywh] -> [x1,y1,x2,y2, 1.0, cls].
     """
     model.eval()
     criterion = YoloLoss()
-    all_preds, all_targets = [], []
     total_loss, loss_values = 0.0, []
+    all_preds, all_targets = [], []
 
     torch.set_grad_enabled(propagate)
-    progress = tqdm(dataloader, desc="Validando", leave=False)
+    pbar = tqdm(dataloader, desc="Validando", leave=False)
 
-    for i, (images, labels) in enumerate(progress):
-        if keyboard.is_pressed("esc"):
-            logger.info("🛑 Validación interrumpida manualmente (ESC).")
-            return None
-
+    for step, (images, labels) in enumerate(pbar):
         images = images.to(device)
-        preds = model(images)
+        preds = model(images)  # lista 3 escalas: [B,C,H,W]
+
+        # === loss para tracking (sin backprop si propagate=False) ===
         loss, loss_items = criterion(preds, labels)
-        total_loss += loss.item()
-        loss_values.append(loss.item())
+        total_loss += float(loss.item())
+        loss_values.append(float(loss.item()))
+        tb.log_metrics({"train_loss": loss_items["total_loss"]}, step, phase="valid")
+        pbar.set_postfix(loss=loss_items["total_loss"])
 
-        all_preds.append(preds)
-        all_targets.append(labels)
+        # === Decodificación a nivel batch ===
+        with torch.no_grad():
+            # [B,N,C] donde C = 5 + num_classes
+            flat = []
+            for p in preds:
+                b, c, h, w = p.shape
+                flat.append(p.view(b, c, h*w).permute(0, 2, 1))
+            P = torch.cat(flat, dim=1)
 
-        progress.set_postfix(loss=loss.item())
-        # === Log de pérdida continua (compatible con train_loss) ===
-        tb.log_metrics({"train_loss": loss_items["total_loss"]}, i, phase="valid")
+            box_xywh = torch.sigmoid(P[..., :4])           # [0,1]
+            obj_conf  = torch.sigmoid(P[..., 4])           # [0,1]
+            cls_logits = P[..., 5:]                        # logits (sin sigmoide)
+
+            # xywh -> xyxy
+            xyxy = box_xywh.clone()
+            xyxy[..., 0] = box_xywh[..., 0] - box_xywh[..., 2] / 2  # x1
+            xyxy[..., 1] = box_xywh[..., 1] - box_xywh[..., 3] / 2  # y1
+            xyxy[..., 2] = box_xywh[..., 0] + box_xywh[..., 2] / 2  # x2
+            xyxy[..., 3] = box_xywh[..., 1] + box_xywh[..., 3] / 2  # y2
+
+            conf_thr = 0.25
+            B = P.shape[0]
+            for b in range(B):
+                keep = obj_conf[b] > conf_thr
+                if keep.any():
+                    det_b = torch.cat(
+                        [xyxy[b][keep], obj_conf[b][keep].unsqueeze(-1), cls_logits[b][keep]],
+                        dim=-1
+                    ).cpu()
+                else:
+                    # shape consistente: 5 + num_classes
+                    det_b = torch.empty((0, 5 + cls_logits.shape[-1]))
+
+                # targets: [cls, x, y, w, h] -> [x1,y1,x2,y2, 1.0, cls]
+                t = labels[b]
+                if isinstance(t, torch.Tensor) and t.numel() > 0:
+                    cls_id = t[:, 0:1]
+                    xywh  = t[:, 1:5]
+                    t_xyxy = xywh.clone()
+                    t_xyxy[:, 0] = xywh[:, 0] - xywh[:, 2] / 2
+                    t_xyxy[:, 1] = xywh[:, 1] - xywh[:, 3] / 2
+                    t_xyxy[:, 2] = xywh[:, 0] + xywh[:, 2] / 2
+                    t_xyxy[:, 3] = xywh[:, 1] + xywh[:, 3] / 2
+                    gt_b = torch.cat([t_xyxy, torch.ones((t_xyxy.size(0), 1)), cls_id], dim=1).cpu()
+                else:
+                    gt_b = torch.empty((0, 6))
+
+                all_preds.append(det_b.numpy())
+                all_targets.append(gt_b.numpy())
 
     torch.set_grad_enabled(False)
 
-    avg_loss = total_loss / len(dataloader)
-    metrics = evaluate_model(all_preds, all_targets, save_results=True,
-                             model_variant=model_variant, phase="valid")
+    avg_loss = total_loss / max(len(dataloader), 1)
+
+    # === métricas ===
+    try:
+        metrics = evaluate_model(
+            all_preds, all_targets,
+            save_results=True, model_variant=model_variant, phase="valid"
+        )
+        # ensure tuple
+        if isinstance(metrics, tuple):
+            global_metrics, per_class_metrics = metrics
+        else:
+            global_metrics, per_class_metrics = metrics, {}
+    except Exception as e:
+        logger.warning(f"⚠️ Error al calcular métricas: {e}")
+        global_metrics, per_class_metrics = {"mAP": 0.0, "Precision": 0.0, "Recall": 0.0, "IoU": 0.0}, {}
+
+    # FPS de referencia
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
-
     logger.info(f"📉 Loss promedio validación: {avg_loss:.4f} | ⚡ FPS: {fps:.2f}")
-    return metrics, avg_loss, loss_values
 
+    # Devuelve en el mismo formato que esperas arriba
+    return {"global": global_metrics, "per_class": per_class_metrics}, avg_loss, loss_values
 
 # =============================================================
 # INICIALIZACIÓN AUTOMÁTICA DE TENSORBOARD

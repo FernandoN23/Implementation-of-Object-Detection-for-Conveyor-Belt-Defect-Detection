@@ -23,7 +23,7 @@ TARGETS = ["logs", "runs"]
 
 def confirm(prompt: str) -> bool:
     """Pide confirmación de usuario antes de eliminar."""
-    return input(f"{prompt} [y/N]: ").strip().lower() in ("y", "yes")
+    return input(f"{prompt} (s/n): ").strip().lower() in ("s", "n")
 
 
 def choose_variant():

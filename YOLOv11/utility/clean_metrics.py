@@ -21,7 +21,7 @@ PHASES = ["train", "valid", "test"]
 
 def confirm(prompt: str) -> bool:
     """Pide confirmación al usuario antes de eliminar."""
-    return input(f"{prompt} [y/N]: ").lower() in ("y", "yes")
+    return input(f"{prompt} (s/n): ").lower() in ("s", "n")
 
 def choose_variant():
     """Selecciona la variante por letra."""

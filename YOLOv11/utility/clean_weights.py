@@ -20,7 +20,7 @@ VARIANTS = ["n", "s", "m", "l", "xl"]
 PHASES = ["train", "valid", "test"]
 
 def confirm(prompt: str) -> bool:
-    return input(f"{prompt} [y/N]: ").lower() in ("y", "yes")
+    return input(f"{prompt} (s/n): ").lower() in ("s", "n")
 
 def choose_variant():
     print("\n📦 Variantes disponibles: " + ", ".join(v.upper() for v in VARIANTS))
