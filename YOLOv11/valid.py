@@ -7,15 +7,15 @@
 =============================================================
 
 Validación externa del modelo YOLOv11.
-Evalúa métricas de desempeño y curva de pérdida
-comparando entrenamiento vs validación.
+Evalúa métricas y curvas de pérdida con propagación opcional,
+manteniendo consistencia total con train.py y TensorBoard.
 =============================================================
 """
-import os, sys, torch, subprocess, keyboard
+import os, sys, torch, subprocess, keyboard, socket, psutil
 from omegaconf import OmegaConf
 from tqdm import tqdm
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from models.yolo11 import YOLOv11
@@ -29,7 +29,7 @@ from utility.visualization import TensorboardVisualizer
 
 
 # =============================================================
-# CONFIGURACIÓN DE ENTORNO
+# CONFIGURACIÓN DE ENTORNO Y LOGS
 # =============================================================
 def setup_environment(model_variant="n"):
     base_dir = "YOLOv11"
@@ -40,17 +40,22 @@ def setup_environment(model_variant="n"):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger = get_logger(log_dir=f"{base_dir}/logs/{variant}/valid", name=f"valid_yolo11_{variant}")
-    logger.info(f"📦 Dispositivo en uso: {device}")
-    return device, logger
+    tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/valid")
+    logger.info(f"📦 Dispositivo activo: {device}")
+    return device, logger, tb
 
 
 # =============================================================
-# CARGA DEL MODELO
+# CARGA DE CONFIGS Y MODELO
 # =============================================================
-def load_model_and_configs():
+def load_model_and_configs(variant_override=None):
     valid_cfg = OmegaConf.load("YOLOv11/configs/valid.yaml")
     variants_cfg = OmegaConf.load("YOLOv11/configs/model_variants.yaml")
-    variant_name = valid_cfg.get("model_variant", "n")
+    variant_name = variant_override or valid_cfg.get("model_variant", "n")
+
+    if variant_name not in variants_cfg.variants:
+        raise ValueError(f"⚠️ Variante '{variant_name}' no existe en model_variants.yaml")
+
     variant_params = variants_cfg.variants[variant_name]
     print(f"🧩 Configuración YOLOv11-{variant_name.upper()}: {variant_params}")
 
@@ -63,73 +68,123 @@ def load_model_and_configs():
 
 
 # =============================================================
-# VALIDACIÓN PRINCIPAL
+# LOOP DE VALIDACIÓN
 # =============================================================
-def run_validation(model, dataloader, device, logger, model_variant, tb=None):
+def validate_one_epoch(model, dataloader, device, logger, tb, model_variant, propagate=False):
+    """
+    Ejecuta una época de validación.
+    Si propagate=True, permite gradientes (e.g., fine-tuning o test técnico).
+    """
     model.eval()
     criterion = YoloLoss()
     all_preds, all_targets = [], []
-    total_loss, val_loss_history = 0.0, []
+    total_loss, loss_values = 0.0, []
 
-    logger.info("🚀 Iniciando validación externa...")
-    with torch.no_grad():
-        for i, (images, labels) in enumerate(tqdm(dataloader, desc="Validando")):
-            if keyboard.is_pressed("esc"):
-                logger.info("🛑 Validación interrumpida (ESC).")
-                return None
+    torch.set_grad_enabled(propagate)
+    progress = tqdm(dataloader, desc="Validando", leave=False)
 
-            images = images.to(device)
-            preds = model(images)
-            loss, _ = criterion(preds, labels)
-            total_loss += loss.item()
-            val_loss_history.append(loss.item())
-            all_preds.append(preds)
-            all_targets.append(labels)
+    for i, (images, labels) in enumerate(progress):
+        if keyboard.is_pressed("esc"):
+            logger.info("🛑 Validación interrumpida manualmente (ESC).")
+            return None
 
-            if tb:
-                tb.log_metrics({"val_loss": loss.item()}, i, phase="valid")
+        images = images.to(device)
+        preds = model(images)
+        loss, loss_items = criterion(preds, labels)
+        total_loss += loss.item()
+        loss_values.append(loss.item())
+
+        all_preds.append(preds)
+        all_targets.append(labels)
+
+        progress.set_postfix(loss=loss.item())
+        # === Log de pérdida continua (compatible con train_loss) ===
+        tb.log_metrics({"train_loss": loss_items["total_loss"]}, i, phase="valid")
+
+    torch.set_grad_enabled(False)
 
     avg_loss = total_loss / len(dataloader)
     metrics = evaluate_model(all_preds, all_targets, save_results=True,
                              model_variant=model_variant, phase="valid")
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
-    logger.info(f"📉 Loss validación promedio: {avg_loss:.4f} | ⚡ FPS: {fps:.2f}")
-    return metrics, avg_loss, val_loss_history
+
+    logger.info(f"📉 Loss promedio validación: {avg_loss:.4f} | ⚡ FPS: {fps:.2f}")
+    return metrics, avg_loss, loss_values
+
+
+# =============================================================
+# INICIALIZACIÓN AUTOMÁTICA DE TENSORBOARD
+# =============================================================
+def start_tensorboard_if_needed(log_dir, variant):
+    def find_free_port(start=6006, end=6015):
+        for port in range(start, end + 1):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                if s.connect_ex(("localhost", port)) != 0:
+                    return port
+        return None
+
+    def is_running(logdir):
+        for proc in psutil.process_iter(["name", "cmdline"]):
+            try:
+                if "tensorboard" in proc.info["name"].lower():
+                    if any(logdir in arg for arg in proc.info["cmdline"]):
+                        return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return False
+
+    if not is_running(log_dir):
+        port = find_free_port()
+        if port:
+            subprocess.Popen(
+                ["tensorboard", "--logdir", log_dir, "--port", str(port)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            print(f"🔗 TensorBoard iniciado: http://localhost:{port}")
+        else:
+            print("⚠️ No hay puertos libres para TensorBoard (6006–6015).")
+    else:
+        print(f"ℹ️ TensorBoard ya activo para {variant}.")
 
 
 # =============================================================
 # MAIN
 # =============================================================
 def main():
-    base_train_loss_path = "YOLOv11/metrics/train_loss_history.pt"
-    model_variant = input("👉 Variante a validar (n/s/m/l/x): ").strip().lower()
-    device, logger = setup_environment(model_variant)
-    model, valid_cfg, _ = load_model_and_configs()
+    print("====================================================")
+    print("🧪 Validación YOLOv11")
+    print("====================================================")
+    model_variant = input("👉 Variante a validar [n/s/m/l/x]: ").strip().lower()
+    propagate = input("¿Permitir propagación de gradientes? (s/n): ").strip().lower() == "s"
+
+    device, logger, tb = setup_environment(model_variant)
+    model, valid_cfg, _ = load_model_and_configs(variant_override=model_variant)
     model.to(device)
 
-    ckpt_dir = os.path.join("YOLOv11", "weights", model_variant, "train")
-    ckpt_files = sorted([f for f in os.listdir(ckpt_dir) if f.endswith(".pt")])
-    if not ckpt_files:
-        raise FileNotFoundError(f"⚠️ No hay checkpoints en {ckpt_dir}")
-    ckpt_path = os.path.join(ckpt_dir, ckpt_files[-1])
-    print(f"📁 Cargando checkpoint: {ckpt_path}")
-    load_checkpoint(model, path=ckpt_path, device=device)
+    # Cargar último checkpoint
+    ckpt_dir = f"YOLOv11/weights/{model_variant}/train"
+    if not os.path.exists(ckpt_dir):
+        raise FileNotFoundError(f"⚠️ Carpeta de checkpoints no encontrada: {ckpt_dir}")
+    load_checkpoint(model, path=ckpt_dir, device=device)
 
     valid_loader = create_dataloader(valid_cfg, phase="valid")
-    tb = TensorboardVisualizer(log_dir=f"YOLOv11/runs/{model_variant}/valid")
 
-    results = run_validation(model, valid_loader, device, logger, model_variant, tb)
+    log_dir = f"YOLOv11/runs/{model_variant}/valid"
+    start_tensorboard_if_needed(log_dir, model_variant)
+
+    results = validate_one_epoch(model, valid_loader, device, logger, tb, model_variant, propagate)
     if results is None:
         sys.exit(0)
 
     metrics, avg_loss, val_loss_history = results
-    tb.log_metrics({"val_loss_final": avg_loss}, 0, phase="valid")
+    tb.log_metrics({"train_loss": avg_loss}, 0, phase="valid")  # misma etiqueta que entrenamiento
     tb.close()
 
-    # === Curvas de pérdida ===
+    # === Curvas de pérdida combinadas ===
     save_dir = f"YOLOv11/metrics/{model_variant}/valid"
     os.makedirs(save_dir, exist_ok=True)
-    train_loss_history = torch.load(base_train_loss_path) if os.path.exists(base_train_loss_path) else []
+    train_loss_path = f"YOLOv11/metrics/{model_variant}/train/train_loss_history.pt"
+    train_loss_history = torch.load(train_loss_path) if os.path.exists(train_loss_path) else []
 
     plt.figure(figsize=(8, 5))
     if train_loss_history:
@@ -144,10 +199,9 @@ def main():
     plt.savefig(os.path.join(save_dir, "train_vs_valid_loss.png"))
     plt.close()
 
-    print(f"\n📉 Loss validación promedio: {avg_loss:.4f}")
-    print("📊 Métricas:", metrics)
-    subprocess.Popen(["tensorboard", "--logdir", f"YOLOv11/runs/{model_variant}", "--port", "6006"])
-    print("🔗 Visualiza resultados en: http://localhost:6006")
+    logger.info(f"✅ Validación completada. Loss promedio: {avg_loss:.4f}")
+    print("\n📊 Métricas finales:", metrics)
+    print(f"📈 Curva de pérdida guardada en {save_dir}/train_vs_valid_loss.png")
 
 
 if __name__ == "__main__":
