@@ -9,7 +9,7 @@ Autor: Fernando N.
 Archivo: clean_weights.py
 Limpieza interactiva de weights/pesos en YOLOv11.
 Estructura soportada:
-  YOLOv11/weights/<variant>/<train|valid|test>/
+  YOLOv11/weights/<variant>/train/
 -------------------------------------------------------------
 """
 
@@ -17,12 +17,13 @@ import os
 from pathlib import Path
 
 VARIANTS = ["n", "s", "m", "l", "xl"]
-PHASES = ["train", "valid", "test"]
 
 def confirm(prompt: str) -> bool:
-    return input(f"{prompt} (s/n): ").lower() in ("s", "n")
+    """Pide confirmación con formato (s/n)."""
+    return input(f"{prompt} (s/n): ").strip().lower() == "s"
 
 def choose_variant():
+    """Selecciona la variante a limpiar."""
     print("\n📦 Variantes disponibles: " + ", ".join(v.upper() for v in VARIANTS))
     variant = input("👉 Escribe la letra de la variante a limpiar: ").lower()
     if variant not in VARIANTS:
@@ -30,24 +31,14 @@ def choose_variant():
         return None
     return variant
 
-def choose_phase():
-    print("\n📂 Fases disponibles: train / valid / test")
-    phase = input("👉 Escribe la fase: ").lower()
-    if phase not in PHASES:
-        print("⚠️ Fase inválida.")
-        return None
-    return phase
-
 def clean_weights():
+    """Elimina los pesos de entrenamiento de una variante YOLOv11."""
     base_dir = Path(__file__).resolve().parents[1] / "weights"
     variant = choose_variant()
     if not variant:
         return
-    phase = choose_phase()
-    if not phase:
-        return
 
-    target_dir = base_dir / variant / phase
+    target_dir = base_dir / variant / "train"
     print(f"\n🧩 Carpeta objetivo: {target_dir}")
 
     if not target_dir.exists():
@@ -59,8 +50,8 @@ def clean_weights():
         print("ℹ️ No se encontraron archivos .pt en esta carpeta.")
         return
 
-    print(f"🔍 Se encontraron {len(files)} archivos de checkpoint.")
-    if not confirm("¿Deseas eliminar TODOS los archivos de esta carpeta?"):
+    print(f"🔍 Se encontraron {len(files)} archivos de checkpoint en la carpeta de entrenamiento.")
+    if not confirm(f"¿Deseas eliminar TODOS los pesos de entrenamiento de la variante '{variant.upper()}'?"):
         print("❌ Operación cancelada.")
         return
 
@@ -71,8 +62,7 @@ def clean_weights():
         except Exception as e:
             print(f"⚠️ Error eliminando {f.name}: {e}")
 
-    print("✅ Limpieza completada con éxito.")
-
+    print(f"✅ Limpieza completada para la variante '{variant.upper()}' (train).")
 
 if __name__ == "__main__":
     clean_weights()

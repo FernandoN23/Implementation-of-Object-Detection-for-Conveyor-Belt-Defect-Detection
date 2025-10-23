@@ -72,8 +72,9 @@ def load_model_and_configs(variant_override=None):
 # =============================================================
 def validate_one_epoch(model, dataloader, device, logger, tb, model_variant, propagate=False):
     """
-    Valida una época, decodifica predicciones a [x1,y1,x2,y2, conf, cls_logits...]
-    y convierte targets [cls,xywh] -> [x1,y1,x2,y2, 1.0, cls].
+    Valida una época del modelo YOLOv11 con decodificación explícita multiescala.
+    Convierte las salidas del modelo (P3, N4, N5) en coordenadas absolutas (xyxy),
+    y calcula las métricas globales y por clase.
     """
     model.eval()
     criterion = YoloLoss()
@@ -85,29 +86,57 @@ def validate_one_epoch(model, dataloader, device, logger, tb, model_variant, pro
 
     for step, (images, labels) in enumerate(pbar):
         images = images.to(device)
-        preds = model(images)  # lista 3 escalas: [B,C,H,W]
+        preds = model(images)  # lista [P3, N4, N5]
 
-        # === loss para tracking (sin backprop si propagate=False) ===
+        # === cálculo de pérdida (solo tracking, sin backprop) ===
         loss, loss_items = criterion(preds, labels)
         total_loss += float(loss.item())
         loss_values.append(float(loss.item()))
         tb.log_metrics({"train_loss": loss_items["total_loss"]}, step, phase="valid")
         pbar.set_postfix(loss=loss_items["total_loss"])
 
-        # === Decodificación a nivel batch ===
+        # === Decodificación explícita multiescala ===
         with torch.no_grad():
-            # [B,N,C] donde C = 5 + num_classes
-            flat = []
-            for p in preds:
+            decoded = []
+            strides = [8, 16, 32]  # escalas P3, N4, N5
+            for i, p in enumerate(preds):
                 b, c, h, w = p.shape
-                flat.append(p.view(b, c, h*w).permute(0, 2, 1))
-            P = torch.cat(flat, dim=1)
+                stride = strides[i]
+                p = p.view(b, c, h, w)
+                # Aplicar activaciones
+                xy = torch.sigmoid(p[:, 0:2, :, :])       # centro x, y
+                wh = torch.exp(p[:, 2:4, :, :]) * stride  # ancho, alto absolutos
+                conf = torch.sigmoid(p[:, 4:5, :, :])     # confianza
+                cls_logits = p[:, 5:, :, :]               # clases (logits)
 
-            box_xywh = torch.sigmoid(P[..., :4])           # [0,1]
-            obj_conf  = torch.sigmoid(P[..., 4])           # [0,1]
-            cls_logits = P[..., 5:]                        # logits (sin sigmoide)
+                # Crear grilla espacial
+                yv, xv = torch.meshgrid(
+                    torch.arange(h, device=device),
+                    torch.arange(w, device=device),
+                    indexing="ij"
+                )
+                grid = torch.stack((xv, yv), 2).view(1, h, w, 2).permute(0, 3, 1, 2)
 
-            # xywh -> xyxy
+                # Desplazar y escalar coordenadas a píxeles absolutos
+                x = (xy[:, 0:1, :, :] + grid[:, 0:1, :, :]) * stride
+                y = (xy[:, 1:2, :, :] + grid[:, 1:2, :, :]) * stride
+                w_abs, h_abs = wh[:, 0:1, :, :], wh[:, 1:2, :, :]
+                xywh = torch.cat([x, y, w_abs, h_abs], dim=1)
+
+                # Concatenar [x,y,w,h,conf,cls_logits]
+                det = torch.cat([xywh, conf, cls_logits], dim=1)
+                det = det.view(b, det.shape[1], -1).permute(0, 2, 1)
+                decoded.append(det)
+
+            # Combinar las tres escalas
+            P = torch.cat(decoded, dim=1)
+
+            # === Extraer componentes ===
+            box_xywh = P[..., :4]
+            obj_conf = P[..., 4]
+            cls_logits = P[..., 5:]
+
+            # === Convertir xywh -> xyxy ===
             xyxy = box_xywh.clone()
             xyxy[..., 0] = box_xywh[..., 0] - box_xywh[..., 2] / 2  # x1
             xyxy[..., 1] = box_xywh[..., 1] - box_xywh[..., 3] / 2  # y1
@@ -124,19 +153,18 @@ def validate_one_epoch(model, dataloader, device, logger, tb, model_variant, pro
                         dim=-1
                     ).cpu()
                 else:
-                    # shape consistente: 5 + num_classes
                     det_b = torch.empty((0, 5 + cls_logits.shape[-1]))
 
-                # targets: [cls, x, y, w, h] -> [x1,y1,x2,y2, 1.0, cls]
+                # === Preparar ground truth ===
                 t = labels[b]
                 if isinstance(t, torch.Tensor) and t.numel() > 0:
                     cls_id = t[:, 0:1]
-                    xywh  = t[:, 1:5]
+                    xywh = t[:, 1:5]
                     t_xyxy = xywh.clone()
-                    t_xyxy[:, 0] = xywh[:, 0] - xywh[:, 2] / 2
-                    t_xyxy[:, 1] = xywh[:, 1] - xywh[:, 3] / 2
-                    t_xyxy[:, 2] = xywh[:, 0] + xywh[:, 2] / 2
-                    t_xyxy[:, 3] = xywh[:, 1] + xywh[:, 3] / 2
+                    t_xyxy[:, 0] = xywh[:, 0] * 640 - (xywh[:, 2] * 640) / 2
+                    t_xyxy[:, 1] = xywh[:, 1] * 640 - (xywh[:, 3] * 640) / 2
+                    t_xyxy[:, 2] = xywh[:, 0] * 640 + (xywh[:, 2] * 640) / 2
+                    t_xyxy[:, 3] = xywh[:, 1] * 640 + (xywh[:, 3] * 640) / 2
                     gt_b = torch.cat([t_xyxy, torch.ones((t_xyxy.size(0), 1)), cls_id], dim=1).cpu()
                 else:
                     gt_b = torch.empty((0, 6))
@@ -145,29 +173,29 @@ def validate_one_epoch(model, dataloader, device, logger, tb, model_variant, pro
                 all_targets.append(gt_b.numpy())
 
     torch.set_grad_enabled(False)
-
     avg_loss = total_loss / max(len(dataloader), 1)
 
-    # === métricas ===
+    # === Calcular métricas ===
     try:
         metrics = evaluate_model(
             all_preds, all_targets,
             save_results=True, model_variant=model_variant, phase="valid"
         )
-        # ensure tuple
         if isinstance(metrics, tuple):
             global_metrics, per_class_metrics = metrics
         else:
             global_metrics, per_class_metrics = metrics, {}
     except Exception as e:
         logger.warning(f"⚠️ Error al calcular métricas: {e}")
-        global_metrics, per_class_metrics = {"mAP": 0.0, "Precision": 0.0, "Recall": 0.0, "IoU": 0.0}, {}
+        global_metrics, per_class_metrics = (
+            {"mAP": 0.0, "Precision": 0.0, "Recall": 0.0, "IoU": 0.0},
+            {},
+        )
 
-    # FPS de referencia
+    # === Medición de FPS y log ===
     fps = measure_fps(model, torch.randn(1, 3, 640, 640), device=device)
     logger.info(f"📉 Loss promedio validación: {avg_loss:.4f} | ⚡ FPS: {fps:.2f}")
 
-    # Devuelve en el mismo formato que esperas arriba
     return {"global": global_metrics, "per_class": per_class_metrics}, avg_loss, loss_values
 
 # =============================================================
