@@ -44,10 +44,21 @@ def setup_environment(model_variant="n"):
     os.makedirs(os.path.join(base_dir, "metrics", variant, "train"), exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # 🔹 Límite de uso de memoria GPU (70-80%) para evitar sobrecarga térmica
+    if device.type == "cuda":
+        try:
+            memory_fraction=0.8
+            torch.cuda.set_per_process_memory_fraction(memory_fraction, 0)
+            print(f"⚙️  GPU limitada al {memory_fraction*100}% de uso de memoria (modo eficiencia).")
+        except Exception as e:
+            print(f"⚠️ No se pudo aplicar límite de memoria GPU: {e}")
+
     logger = get_logger(log_dir=f"{base_dir}/logs/{variant}/train", name=f"train_yolo11_{variant}")
     tb = TensorboardVisualizer(log_dir=f"{base_dir}/runs/{variant}/train")
     logger.info(f"📦 Dispositivo: {device}")
     return device, logger, tb
+
 
 
 # =============================================================
