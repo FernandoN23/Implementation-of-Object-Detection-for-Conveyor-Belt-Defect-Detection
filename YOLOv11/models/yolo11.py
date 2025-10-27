@@ -18,7 +18,7 @@ import torch.nn as nn
 
 from .backbone import YOLOv11Backbone
 from .neck import YOLOv11Neck
-from .head import YOLOv11Head
+from .head import YOLOv11Classify
 from .parser_yaml import ModelParser
 
 
@@ -53,7 +53,7 @@ class YOLOv11(nn.Module):
         # -------------------------
         self.backbone = YOLOv11Backbone(3, base_channels, norm_type, gn_groups)
         self.neck = YOLOv11Neck(base_channels, norm_type, gn_groups)
-        self.head = YOLOv11Head(num_classes, base_channels, anchors, norm_type, gn_groups)
+        self.head = YOLOv11Classify(num_classes, base_channels, anchors, norm_type, gn_groups)
 
         # -------------------------
         # 3. Metadatos del modelo
@@ -61,7 +61,7 @@ class YOLOv11(nn.Module):
         self.model_info = dict(
             backbone="YOLOv11Backbone",
             neck="YOLOv11Neck",
-            head="YOLOv11Head",
+            head="YOLOv11Classify",
             num_classes=num_classes,
             norm=norm_type,
             gn_groups=gn_groups,

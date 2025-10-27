@@ -13,7 +13,7 @@ Incluye los detectores multiescala y el clasificador de imágenes.
 
 import torch
 import torch.nn as nn
-from YOLOv11.models.nn import Conv
+from models.nn import Conv
 
 
 # ============================================================

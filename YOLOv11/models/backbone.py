@@ -25,7 +25,7 @@ escalas (piramidales). Es la base para FPN+PAN en el Neck.
 # Estas tres salidas se conectan directamente al Neck.
 # -------------------------------------------------------------
 import torch.nn as nn
-from YOLOv11.models.nn.block import Conv, C3k2
+from models.nn.block import Conv, C3k2
 
 class YOLOv11Backbone(nn.Module):
 

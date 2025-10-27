@@ -39,10 +39,22 @@ class ModelParser:
         with open(self.cfg_path, 'r', encoding='utf-8') as f:
             cfg = yaml.safe_load(f)
 
-        required_keys = ['nc', 'backbone', 'neck', 'head']
+        # Claves esenciales, pero flexibles según versión YOLO
+        required_keys = ['nc', 'backbone', 'head']
+        optional_keys = ['neck']
+
+        # Verificar claves faltantes críticas
         for key in required_keys:
             if key not in cfg:
-                print(f"⚠️ Advertencia: clave '{key}' no encontrada en {self.cfg_path.name}")
+                raise KeyError(f"❌ Clave obligatoria '{key}' ausente en {self.cfg_path.name}")
+
+        # Claves opcionales (solo avisa una vez si falta)
+        for key in optional_keys:
+            if key not in cfg:
+                cfg[key] = None  # crea placeholder para compatibilidad
+                # Comentado: no es necesario mostrar advertencia
+                # print(f"ℹ️ Clave opcional '{key}' no encontrada en {self.cfg_path.name}")
+
         return cfg
 
     # ---------------------------------------------------------

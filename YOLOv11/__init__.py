@@ -7,9 +7,9 @@ Autor: Fernando N.
 
 -------------------------------------------------------------
 Archivo: __init__.py
-Inicializador del submódulo 'models' del proyecto YOLOv11.
-Expone los componentes principales del modelo:
-Backbone, Neck, Head, Classify y definiciones completas.
+Inicializador del paquete YOLOv11.
+Permite importar directamente los componentes principales
+del modelo y utilidades asociadas.
 -------------------------------------------------------------
 """
 
@@ -17,30 +17,31 @@ Backbone, Neck, Head, Classify y definiciones completas.
 # IMPORTS PRINCIPALES
 # ============================================================
 
-from .backbone import YOLOv11Backbone
-from .neck import YOLOv11Neck
-from .head import YOLOv11Classify
-from .yolo11 import YOLOv11
-from .parser_yaml import ModelParser
-from . import nn
+from .models import (
+    YOLOv11,
+    YOLOv11Backbone,
+    YOLOv11Neck,
+    YOLOv11Head,
+    YOLOv11Classify,
+    ModelParser,
+)
 
+# ============================================================
+# INFORMACIÓN DEL PAQUETE
+# ============================================================
+
+__version__ = "1.0.0"
+__author__ = "Fernando N. - Universidad de Chile"
+__license__ = "AGPL-3.0 License (Ultralytics-compatible)"
 
 # ============================================================
 # INTERFAZ PÚBLICA
 # ============================================================
 
 __all__ = [
-    # Submódulo base de capas neuronales
-    "nn",
-
-    # Componentes estructurales
+    "YOLOv11",
     "YOLOv11Backbone",
     "YOLOv11Neck",
-    "YOLOv11Classify", #Head
-
-    # Modelo completo
-    "YOLOv11",
-
-    # Parser de configuración
+    "YOLOv11Classify",
     "ModelParser",
 ]

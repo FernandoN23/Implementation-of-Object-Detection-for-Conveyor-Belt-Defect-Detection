@@ -28,7 +28,7 @@ class TensorboardVisualizer:
         Inicializa TensorBoard para una variante de modelo YOLOv11 específica.
         Solo lanza un servidor si no hay uno corriendo en el puerto indicado.
         """
-        self.variant = model_variant.lower()
+        self.variant = str(model_variant or "n").strip().lower()
         self.log_dir = os.path.join(log_dir, self.variant)
         os.makedirs(self.log_dir, exist_ok=True)
 
