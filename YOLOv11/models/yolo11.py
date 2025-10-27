@@ -1,4 +1,3 @@
-# yolo11.py
 """
 Departamento de Ingeniería Mecánica - Universidad de Chile
 Trabajo de Memoria de Título:
@@ -9,34 +8,10 @@ Autor: Fernando N.
 -------------------------------------------------------------
 Archivo: yolo11.py
 Definición del modelo completo YOLOv11.
-Integra las tres partes principales del detector:
-Backbone (extracción), Neck (fusión FPN+PAN) y Head (detección).
+Integra Backbone, Neck y Head, con lectura dinámica de YAML.
 -------------------------------------------------------------
 """
 
-# -------------------------------------------------------------
-# Estructura general del modelo:
-#   1. Se carga el archivo YAML (parser_yaml.py)
-#      → Se extraen parámetros como base_channels, anchors,
-#        tipo de normalización (BatchNorm, GroupNorm, etc.)
-#
-#   2. Se construyen los submódulos:
-#        • Backbone  → extracción de features jerárquicas
-#        • Neck      → fusión de características multiescala
-#        • Head      → salida de predicciones (bbox + clases)
-#
-#   3. En el forward():
-#        x → backbone → neck → head → [y3, y4, y5]
-#
-# Conexiones entre módulos:
-#   Backbone produce (x3, x4, x5)
-#   Neck combina → (p3, n4, n5)
-#   Head entrega las salidas finales del detector.
-#
-# Compatibilidad:
-#   Permite variar tipo de normalización y número de clases
-#   directamente desde el archivo YAML de configuración.
-# -------------------------------------------------------------
 import warnings
 import torch
 import torch.nn as nn
@@ -48,7 +23,13 @@ from .parser_yaml import ModelParser
 
 
 class YOLOv11(nn.Module):
-    def __init__(self, cfg_path=None, num_classes=5):
+    """
+    Modelo YOLOv11 completo
+    ------------------------
+    Estructura:
+        x → Backbone → Neck → Head → [p3, n4, n5]
+    """
+    def __init__(self, cfg_path="configs/yolo11.yaml", num_classes=5):
         super().__init__()
 
         # -------------------------
@@ -57,72 +38,83 @@ class YOLOv11(nn.Module):
         if cfg_path:
             parser = ModelParser(cfg_path)
             cfg = parser.parse_model_config()
-            base_channels = cfg.get('base_channels', 64)
-            anchors = cfg.get('anchors', 1)
-            if anchors > 1:
-                warnings.warn(
-                    "[YOLOv11] La configuración solicita anchors>1, pero la "
-                    "decodificación multi-anchor aún no está habilitada.",
-                    UserWarning,
-                )
-            # nuevos parámetros de normalización
-            norm_type = cfg.get('norm', 'bn')
-            gn_groups = cfg.get('gn_groups', 32)
+            base_channels = cfg.get("base_channels", 64)
+            anchors = cfg.get("anchors", 1)
+            norm_type = cfg.get("norm", "bn")
+            gn_groups = cfg.get("gn_groups", 32)
         else:
-            base_channels = 64
-            anchors = 1
-            norm_type = 'bn'
-            gn_groups = 32
+            base_channels, anchors, norm_type, gn_groups = 64, 1, "bn", 32
+
+        if anchors > 1:
+            warnings.warn("[YOLOv11] anchors>1 no soportado aún, se usará anchors=1.", UserWarning)
 
         # -------------------------
         # 2. Construcción de submódulos
         # -------------------------
-        self.backbone = YOLOv11Backbone(
-            in_channels=3,
-            base_channels=base_channels,
-            norm_type=norm_type,
-            gn_groups=gn_groups
-        )
+        self.backbone = YOLOv11Backbone(3, base_channels, norm_type, gn_groups)
+        self.neck = YOLOv11Neck(base_channels, norm_type, gn_groups)
+        self.head = YOLOv11Head(num_classes, base_channels, anchors, norm_type, gn_groups)
 
-        self.neck = YOLOv11Neck(
-            base_channels=base_channels,
-            norm_type=norm_type,
-            gn_groups=gn_groups
-        )
-
-        self.head = YOLOv11Head(
+        # -------------------------
+        # 3. Metadatos del modelo
+        # -------------------------
+        self.model_info = dict(
+            backbone="YOLOv11Backbone",
+            neck="YOLOv11Neck",
+            head="YOLOv11Head",
             num_classes=num_classes,
+            norm=norm_type,
+            gn_groups=gn_groups,
             base_channels=base_channels,
-            anchors=anchors,
-            norm_type=norm_type,
-            gn_groups=gn_groups
         )
 
-        print(f"[YOLOv11] Modelo inicializado con norm='{norm_type}', grupos GN={gn_groups}")
+        print(f"[YOLOv11] Modelo inicializado con norm='{norm_type}', GN={gn_groups}, clases={num_classes}")
+        self.initialize_weights()
 
-    # -------------------------
-    # 3. Forward completo
-    # -------------------------
+    # ---------------------------------------------------------
+    # Inicialización de pesos
+    # ---------------------------------------------------------
+    def initialize_weights(self):
+        """Inicializa los pesos de convoluciones y normalizaciones."""
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    # ---------------------------------------------------------
+    # Forward
+    # ---------------------------------------------------------
     def forward(self, x):
-        """
-        Forward completo del modelo:
-        1. Extrae features (backbone)
-        2. Fusiona escalas (neck)
-        3. Predice bounding boxes (head)
-        """
+        """Forward completo: Backbone → Neck → Head."""
         x3, x4, x5 = self.backbone(x)
         p3, n4, n5 = self.neck(x3, x4, x5)
         outputs = self.head(p3, n4, n5)
-        return outputs
+        return outputs if self.training else [o.detach() for o in outputs]
+
+    # ---------------------------------------------------------
+    # Información del modelo
+    # ---------------------------------------------------------
+    def info(self):
+        """Muestra resumen estructural del modelo."""
+        n_params = sum(p.numel() for p in self.parameters())
+        n_grad = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print("\n🧠 YOLOv11 Model Summary")
+        for k, v in self.model_info.items():
+            print(f"  {k:<15}: {v}")
+        print(f"  Parámetros totales : {n_params:,}")
+        print(f"  Parámetros entrenables: {n_grad:,}")
 
 
-# ============================
+# ============================================================
 # Test de verificación rápida
-# ============================
+# ============================================================
 if __name__ == "__main__":
-    model = YOLOv11(cfg_path="configs/yolo11.yaml", num_classes=10)
+    model = YOLOv11(cfg_path="YOLOv11/configs/yolo11.yaml", num_classes=10)
     dummy_input = torch.randn(1, 3, 640, 640)
     out = model(dummy_input)
-    print("Número de salidas:", len(out))
+    print(f"\nNúmero de salidas: {len(out)}")
     for i, o in enumerate(out):
-        print(f"Salida {i+1}: {list(o.shape)}")
+        print(f"  → Salida {i+1}: {list(o.shape)}")
+    model.info()

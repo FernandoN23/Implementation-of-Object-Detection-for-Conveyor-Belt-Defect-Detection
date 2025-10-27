@@ -1,4 +1,3 @@
-# head.py
 """
 Departamento de Ingeniería Mecánica - Universidad de Chile
 Trabajo de Memoria de Título: "Implementación de algoritmos de reconocimiento de objetos
@@ -8,72 +7,90 @@ Autor: Fernando N.
 -------------------------------------------------------------
 Archivo: head.py
 YOLOv11 Head
-Genera las predicciones multiescala (p3, n4, n5)
-para bounding boxes, clases e información de objeto.
+Incluye los detectores multiescala y el clasificador de imágenes.
 -------------------------------------------------------------
 """
 
-# -------------------------------------------------------------
-# Estructura:
-#   - Tres detectores independientes (p3, n4, n5)
-#   - Cada uno produce (B, anchors*(5+num_classes), H, W)
-#       5 → (x, y, w, h, conf)
-#   - Conv3x3 + Conv1x1 por escala
-#
-# Conexiones:
-#   p3 ← salida de FPN
-#   n4, n5 ← salidas del PAN
-# Salida final:
-#   lista [y3, y4, y5] → entrada al post-procesamiento (NMS)
-# -------------------------------------------------------------
-
 import torch
 import torch.nn as nn
-from .blocks import Conv
+from YOLOv11.models.nn import Conv
 
-class YOLOv11Head(nn.Module):
+
+# ============================================================
+# CLASIFICADOR YOLOv11
+# ============================================================
+
+class YOLOv11Classify(nn.Module):
     """
-    YOLOv11 Head
-    ------------
-    Genera predicciones multi-escala con normalización configurable.
+    YOLOv11 Classification Head
+    ---------------------------
+    Módulo de clasificación por imagen basado en el head oficial
+    de YOLOv11, adaptado para uso general y compatible con
+    normalización configurable (BN o GN).
+
+    Convierte mapas de características (b, c_in, h, w)
+    en predicciones de clases (b, n_classes).
+
+    Atributos:
+        export (bool): Modo exportación (ONNX/TFLite).
+        conv (Conv): Bloque convolucional de proyección.
+        pool (nn.AdaptiveAvgPool2d): Pooling global espacial.
+        drop (nn.Dropout): Regularización.
+        linear (nn.Linear): Capa final de clasificación.
     """
 
-    def __init__(self, num_classes=5, base_channels=64, anchors=1,
-                 norm_type="bn", gn_groups=32):
+    export = False  # para compatibilidad con exportadores
+
+    def __init__(self, c_in: int = 1024, n_classes: int = 1000,
+                 hidden_ch: int = 1280, dropout: float = 0.0,
+                 norm_type: str = "bn", gn_groups: int = 32):
+        """
+        Inicializa el clasificador YOLOv11.
+
+        Args:
+            c_in (int): Número de canales de entrada (última capa del backbone).
+            n_classes (int): Número de clases de salida.
+            hidden_ch (int): Dimensión intermedia del embedding.
+            dropout (float): Tasa de dropout para regularización.
+            norm_type (str): Tipo de normalización ('bn', 'gn', 'in', 'id').
+            gn_groups (int): Número de grupos si se usa GroupNorm.
+        """
         super().__init__()
-        self.num_classes = num_classes
-        self.norm_type = norm_type
-        self.gn_groups = gn_groups
-        self.requested_anchors = anchors
-        if anchors > 1:
-            print("[YOLOv11Head] Advertencia: anchors>1 aún no está soportado. Se usará anchors=1.")
-            anchors = 1
-        self.anchors = anchors
-        self.out_channels = self.anchors * (num_classes + 5)
-        # Detectores por escala
-        self.detect_p3 = nn.Sequential(
-            Conv(base_channels * 4, base_channels * 4, k=3, s=1,
-                 norm_type=norm_type, gn_groups=gn_groups),
-            nn.Conv2d(base_channels * 4, self.out_channels, 1)
-        )
-        self.detect_n4 = nn.Sequential(
-            Conv(base_channels * 8, base_channels * 8, k=3, s=1,
-                 norm_type=norm_type, gn_groups=gn_groups),
-            nn.Conv2d(base_channels * 8, self.out_channels, 1)
-        )
-        self.detect_n5 = nn.Sequential(
-            Conv(base_channels * 16, base_channels * 16, k=3, s=1,
-                 norm_type=norm_type, gn_groups=gn_groups),
-            nn.Conv2d(base_channels * 16, self.out_channels, 1)
-        )
+        self.n_classes = n_classes
 
-    def forward(self, p3, n4, n5):
-        y3 = self.detect_p3(p3)
-        y4 = self.detect_n4(n4)
-        y5 = self.detect_n5(n5)
-        # === Debug shapes ===
-        #if not torch.jit.is_scripting():
-        #    print(f"[HEAD DEBUG] y3={list(y3.shape)}, y4={list(y4.shape)}, y5={list(y5.shape)}")
-        #    total_preds = sum(y.shape[2] * y.shape[3] for y in [y3, y4, y5])
-        #    print(f"[HEAD DEBUG] Total cells per image: {total_preds}")
-        return [y3, y4, y5]
+        # Bloque de proyección convolucional (1x1 por defecto)
+        self.conv = Conv(c_in, hidden_ch, k=1, s=1,
+                         norm_type=norm_type, gn_groups=gn_groups)
+
+        # Pooling y capas finales
+        self.pool = nn.AdaptiveAvgPool2d(1)  # reduce a (b, c, 1, 1)
+        self.drop = nn.Dropout(p=dropout, inplace=True)
+        self.linear = nn.Linear(hidden_ch, n_classes)
+
+    # --------------------------------------------------------
+    # Forward
+    # --------------------------------------------------------
+    def forward(self, x: torch.Tensor | list[torch.Tensor]) -> torch.Tensor | tuple:
+        """
+        Propagación hacia adelante del clasificador.
+
+        Args:
+            x (torch.Tensor | list[torch.Tensor]): Tensor o lista de tensores de características.
+
+        Returns:
+            torch.Tensor | tuple: Predicción (softmax) y logits si no está en modo training.
+        """
+        if isinstance(x, list):
+            # concatenar canales de múltiples niveles (opcional)
+            x = torch.cat(x, 1)
+
+        # flujo clásico: conv → pool → dropout → linear
+        x = self.conv(x)
+        x = self.pool(x).flatten(1)
+        logits = self.linear(self.drop(x))
+
+        if self.training:
+            return logits  # solo logits durante entrenamiento
+
+        probs = logits.softmax(dim=1)
+        return probs if self.export else (probs, logits)

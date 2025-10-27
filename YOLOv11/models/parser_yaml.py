@@ -13,24 +13,9 @@ definidos en archivos YAML (modelo y dataset).
 -------------------------------------------------------------
 """
 
-# -------------------------------------------------------------
-# Clase ModelParser:
-#  - Carga y valida la estructura del archivo YAML principal.
-#  - Permite el acceso a hiperparámetros, arquitectura,
-#    rutas de dataset y variantes del modelo.
-#
-# Funciones:
-#   • parse_model_config(): lee y valida yolo11.yaml
-#   • parse_dataset_config(): lee dataset.yaml (train/val/test)
-#
-# Conexión en el proyecto:
-#   Es utilizada en yolo11.py y train.py para construir el
-#   modelo de forma parametrizada desde YAML.
-# -------------------------------------------------------------
-
-
 import yaml
 from pathlib import Path
+
 
 class ModelParser:
     """
@@ -40,47 +25,70 @@ class ModelParser:
     Permite ajustar dinámicamente hiperparámetros, rutas y variantes.
     """
 
-    def __init__(self, cfg_path):
-        self.cfg_path = Path(cfg_path)
+    def __init__(self, cfg_path: str):
+        self.root = Path(__file__).resolve().parents[2]
+        self.cfg_path = (self.root / cfg_path).resolve()
         if not self.cfg_path.exists():
-            raise FileNotFoundError(f"Archivo de configuración no encontrado: {cfg_path}")
+            raise FileNotFoundError(f"❌ Archivo de configuración no encontrado: {self.cfg_path}")
 
+    # ---------------------------------------------------------
+    # Lectura del modelo
+    # ---------------------------------------------------------
     def parse_model_config(self):
-        """
-        Lee el archivo YAML del modelo (e.g., yolo11.yaml)
-        Devuelve un diccionario con los parámetros clave.
-        """
+        """Lee y valida el archivo YAML del modelo (e.g., yolo11.yaml)."""
         with open(self.cfg_path, 'r', encoding='utf-8') as f:
             cfg = yaml.safe_load(f)
 
-        # Validar claves esperadas mínimas
         required_keys = ['nc', 'backbone', 'neck', 'head']
         for key in required_keys:
             if key not in cfg:
                 print(f"⚠️ Advertencia: clave '{key}' no encontrada en {self.cfg_path.name}")
-
         return cfg
 
-    def parse_dataset_config(self, dataset_path):
-        """
-        Lee un YAML de dataset (dataset.yaml) si se requiere.
-        """
+    # ---------------------------------------------------------
+    # Lectura de dataset
+    # ---------------------------------------------------------
+    def parse_dataset_config(self, dataset_path: str):
+        """Lee un YAML de dataset (dataset.yaml)."""
         dataset_file = Path(dataset_path)
         if not dataset_file.exists():
-            raise FileNotFoundError(f"Dataset YAML no encontrado: {dataset_path}")
-
+            raise FileNotFoundError(f"❌ Dataset YAML no encontrado: {dataset_path}")
         with open(dataset_file, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
+            return yaml.safe_load(f)
 
-        return data
+    # ---------------------------------------------------------
+    # Lectura de variantes (n, s, m, l, x)
+    # ---------------------------------------------------------
+    def load_variant_config(self, variant_file="configs/model_variants.yaml"):
+        """Carga los parámetros de escalado depth/width."""
+        vf = Path(variant_file)
+        if vf.exists():
+            with open(vf, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f)
+        print(f"ℹ️ Archivo de variantes no encontrado: {vf.name}")
+        return {}
+
+    # ---------------------------------------------------------
+    # Validación cruzada
+    # ---------------------------------------------------------
+    def validate_model_structure(self, cfg, variants=None):
+        """Verifica consistencia entre modelo y variantes."""
+        if variants and 'scales' in cfg:
+            missing = [k for k in cfg['scales'] if k not in variants]
+            if missing:
+                print(f"⚠️ Variantes no definidas en model_variants.yaml: {missing}")
+
+    # ---------------------------------------------------------
+    # Resumen visual
+    # ---------------------------------------------------------
+    def summary(self, cfg):
+        """Imprime resumen legible de configuración."""
+        print("\n📄 Resumen de configuración del modelo:")
+        for k, v in cfg.items():
+            print(f"  {k:<15}: {v}")
 
 
 if __name__ == "__main__":
-    """
-    Prueba rápida para verificar lectura del YAML.
-    """
-    parser = ModelParser("configs/yolo11.yaml")
+    parser = ModelParser("YOLOv11/configs/yolo11.yaml")
     cfg = parser.parse_model_config()
-    print("Configuración del modelo YOLOv11:")
-    for k, v in cfg.items():
-        print(f"  {k}: {v}")
+    parser.summary(cfg)

@@ -28,7 +28,7 @@ características multiescala provenientes del backbone.
 
 import torch
 import torch.nn as nn
-from .blocks import Conv, C3k2
+from YOLOv11.models.nn import Conv, C3k2
 
 class YOLOv11Neck(nn.Module):
     """
