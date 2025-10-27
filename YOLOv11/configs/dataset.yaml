@@ -10,7 +10,7 @@
 # Define rutas, número de clases y nombres de defectos detectados.
 # ==============================================================
 
-path: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\Dataset
+path: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
 
 train: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/train/images
 val:   C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/valid/images

@@ -16,33 +16,55 @@
 model: configs/yolo11.yaml
 data: configs/dataset.yaml
 model_variant: n          # Variante del modelo (n, s, m, l, x)
+task: detect
 
 # ------------------------------
 # PARÁMETROS DE ENTRENAMIENTO
 # ------------------------------
-epochs: 100               # Número total de épocas
-validate_every: 1         # Frecuencia de validación
-batch_size: 8
-img_size: 640
+epochs: 100
+batch: 8
+imgsz: 640
 device: 0
 workers: 4
+seed: 42
 
 # ------------------------------
-# OPTIMIZADOR
+# OPTIMIZADOR Y PROGRAMADOR
 # ------------------------------
-optimizer:
-  type: AdamW
-  lr: 0.002
-  weight_decay: 0.0005
+optimizer: AdamW
+lr0: 0.002            # Learning rate inicial
+lrf: 0.01             # Factor de decaimiento final del LR
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3.0    # Épocas de calentamiento
+ema: true             # Exponential Moving Average activado
 
 # ------------------------------
-# OPCIONES DE SESIÓN
+# OPCIONES DE ENTRENAMIENTO
 # ------------------------------
 resume: true              # Reanudar desde checkpoint previo
 project: runs/train
 name: yolov11_training
 exist_ok: false
 verbose: true
+save_period: 1            # Guardar cada época
+patience: 50              # Early stopping (opcional)
+
+# ------------------------------
+# AUGMENTACIÓN Y REGULARIZACIÓN
+# ------------------------------
+augment: true
+flipud: 0.0
+fliplr: 0.5
+mosaic: 1.0
+mixup: 0.1
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4
+degrees: 0.0
+translate: 0.1
+scale: 0.5
+shear: 0.0
 
 # ------------------------------
 # PARÁMETROS DEL LOADER

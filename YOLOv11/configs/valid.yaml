@@ -16,6 +16,7 @@
 model: configs/yolo11.yaml
 data: configs/dataset.yaml
 weights: weights/best.pt
+task: detect
 
 # ------------------------------
 # PARÁMETROS DE VALIDACIÓN
@@ -24,15 +25,18 @@ imgsz: 640
 batch: 8
 device: 0
 workers: 4
-
-conf_thres: 0.25
-iou_thres: 0.6
-max_det: 300
-
 save_json: true
 save_txt: false
+save_conf: true
 save_images: true
 plots: true
+
+# ------------------------------
+# UMBRALES DE DETECCIÓN
+# ------------------------------
+conf: 0.25         # Threshold de confianza
+iou: 0.7           # IoU para NMS (anchor-free)
+max_det: 300       # Máximo de detecciones por imagen
 
 # ------------------------------
 # MÉTRICAS A EVALUAR
@@ -40,8 +44,8 @@ plots: true
 metrics:
   - precision
   - recall
-  - mAP50
-  - mAP50-95
+  - map50
+  - map50_95
   - confusion_matrix
 
 # ------------------------------
