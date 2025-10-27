@@ -72,7 +72,7 @@ def load_model_and_configs(variant_override=None):
 # =============================================================
 def validate_one_epoch(model, dataloader, device, logger, tb, model_variant, propagate=False):
     """
-    Valida una época del modelo YOLOv11 con decodificación explícita multiescala.
+    Valida una época del modelo YOLOv11 aplicando la misma normalización empleada en la pérdida.
     Convierte las salidas del modelo (P3, N4, N5) en coordenadas absolutas (xyxy),
     y calcula las métricas globales y por clase.
     """
@@ -95,77 +95,60 @@ def validate_one_epoch(model, dataloader, device, logger, tb, model_variant, pro
         tb.log_metrics({"train_loss": loss_items["total_loss"]}, step, phase="valid")
         pbar.set_postfix(loss=loss_items["total_loss"])
 
-        # === Decodificación explícita multiescala ===
+        # === Decodificación normalizada (mismas activaciones que la pérdida) ===
         with torch.no_grad():
-            decoded = []
-            strides = [8, 16, 32]  # escalas P3, N4, N5
-            for i, p in enumerate(preds):
+            flattened = []
+            for p in preds:
                 b, c, h, w = p.shape
-                stride = strides[i]
-                p = p.view(b, c, h, w)
-                # Aplicar activaciones
-                xy = torch.sigmoid(p[:, 0:2, :, :])       # centro x, y
-                wh = torch.exp(p[:, 2:4, :, :]) * stride  # ancho, alto absolutos
-                conf = torch.sigmoid(p[:, 4:5, :, :])     # confianza
-                cls_logits = p[:, 5:, :, :]               # clases (logits)
+                flattened.append(p.view(b, c, h * w).permute(0, 2, 1))
+            pred_all = torch.cat(flattened, dim=1)
 
-                # Crear grilla espacial
-                yv, xv = torch.meshgrid(
-                    torch.arange(h, device=device),
-                    torch.arange(w, device=device),
-                    indexing="ij"
-                )
-                grid = torch.stack((xv, yv), 2).view(1, h, w, 2).permute(0, 3, 1, 2)
+            box_logits = pred_all[..., :4]
+            obj_logits = pred_all[..., 4]
+            cls_logits = pred_all[..., 5:]
 
-                # Desplazar y escalar coordenadas a píxeles absolutos
-                x = (xy[:, 0:1, :, :] + grid[:, 0:1, :, :]) * stride
-                y = (xy[:, 1:2, :, :] + grid[:, 1:2, :, :]) * stride
-                w_abs, h_abs = wh[:, 0:1, :, :], wh[:, 1:2, :, :]
-                xywh = torch.cat([x, y, w_abs, h_abs], dim=1)
+            box_norm = torch.sigmoid(box_logits).clamp(0.0, 1.0)
+            obj_scores = torch.sigmoid(obj_logits)
+            cls_scores = torch.sigmoid(cls_logits)
 
-                # Concatenar [x,y,w,h,conf,cls_logits]
-                det = torch.cat([xywh, conf, cls_logits], dim=1)
-                det = det.view(b, det.shape[1], -1).permute(0, 2, 1)
-                decoded.append(det)
+            cx = box_norm[..., 0]
+            cy = box_norm[..., 1]
+            w_norm = box_norm[..., 2]
+            h_norm = box_norm[..., 3]
 
-            # Combinar las tres escalas
-            P = torch.cat(decoded, dim=1)
+            x1 = (cx - w_norm / 2).clamp(0.0, 1.0)
+            y1 = (cy - h_norm / 2).clamp(0.0, 1.0)
+            x2 = (cx + w_norm / 2).clamp(0.0, 1.0)
+            y2 = (cy + h_norm / 2).clamp(0.0, 1.0)
+            xyxy_norm = torch.stack([x1, y1, x2, y2], dim=-1)
 
-            # === Extraer componentes ===
-            box_xywh = P[..., :4]
-            obj_conf = P[..., 4]
-            cls_logits = P[..., 5:]
-
-            # === Convertir xywh -> xyxy ===
-            xyxy = box_xywh.clone()
-            xyxy[..., 0] = box_xywh[..., 0] - box_xywh[..., 2] / 2  # x1
-            xyxy[..., 1] = box_xywh[..., 1] - box_xywh[..., 3] / 2  # y1
-            xyxy[..., 2] = box_xywh[..., 0] + box_xywh[..., 2] / 2  # x2
-            xyxy[..., 3] = box_xywh[..., 1] + box_xywh[..., 3] / 2  # y2
+            img_h, img_w = images.shape[2], images.shape[3]
+            scale = box_norm.new_tensor([img_w, img_h, img_w, img_h])
+            xyxy = xyxy_norm * scale
 
             conf_thr = 0.25
-            B = P.shape[0]
+            B = pred_all.shape[0]
             for b in range(B):
-                keep = obj_conf[b] > conf_thr
+                keep = obj_scores[b] > conf_thr
                 if keep.any():
                     det_b = torch.cat(
-                        [xyxy[b][keep], obj_conf[b][keep].unsqueeze(-1), cls_logits[b][keep]],
+                        [xyxy[b][keep], obj_scores[b][keep].unsqueeze(-1), cls_scores[b][keep]],
                         dim=-1
                     ).cpu()
                 else:
-                    det_b = torch.empty((0, 5 + cls_logits.shape[-1]))
+                    det_b = torch.empty((0, 5 + cls_scores.shape[-1]))
 
                 # === Preparar ground truth ===
                 t = labels[b]
                 if isinstance(t, torch.Tensor) and t.numel() > 0:
                     cls_id = t[:, 0:1]
-                    xywh = t[:, 1:5]
-                    t_xyxy = xywh.clone()
-                    t_xyxy[:, 0] = xywh[:, 0] * 640 - (xywh[:, 2] * 640) / 2
-                    t_xyxy[:, 1] = xywh[:, 1] * 640 - (xywh[:, 3] * 640) / 2
-                    t_xyxy[:, 2] = xywh[:, 0] * 640 + (xywh[:, 2] * 640) / 2
-                    t_xyxy[:, 3] = xywh[:, 1] * 640 + (xywh[:, 3] * 640) / 2
-                    gt_b = torch.cat([t_xyxy, torch.ones((t_xyxy.size(0), 1)), cls_id], dim=1).cpu()
+                    xywh = t[:, 1:5].clamp(0.0, 1.0)
+                    t_x1 = (xywh[:, 0] - xywh[:, 2] / 2).clamp(0.0, 1.0) * img_w
+                    t_y1 = (xywh[:, 1] - xywh[:, 3] / 2).clamp(0.0, 1.0) * img_h
+                    t_x2 = (xywh[:, 0] + xywh[:, 2] / 2).clamp(0.0, 1.0) * img_w
+                    t_y2 = (xywh[:, 1] + xywh[:, 3] / 2).clamp(0.0, 1.0) * img_h
+                    gt_xyxy = torch.stack([t_x1, t_y1, t_x2, t_y2], dim=1)
+                    gt_b = torch.cat([gt_xyxy, torch.ones((gt_xyxy.size(0), 1)), cls_id], dim=1).cpu
                 else:
                     gt_b = torch.empty((0, 6))
 

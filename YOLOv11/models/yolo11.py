@@ -37,7 +37,7 @@ Backbone (extracción), Neck (fusión FPN+PAN) y Head (detección).
 #   Permite variar tipo de normalización y número de clases
 #   directamente desde el archivo YAML de configuración.
 # -------------------------------------------------------------
-
+import warnings
 import torch
 import torch.nn as nn
 
@@ -58,13 +58,19 @@ class YOLOv11(nn.Module):
             parser = ModelParser(cfg_path)
             cfg = parser.parse_model_config()
             base_channels = cfg.get('base_channels', 64)
-            anchors = cfg.get('anchors', 3)
+            anchors = cfg.get('anchors', 1)
+            if anchors > 1:
+                warnings.warn(
+                    "[YOLOv11] La configuración solicita anchors>1, pero la "
+                    "decodificación multi-anchor aún no está habilitada.",
+                    UserWarning,
+                )
             # nuevos parámetros de normalización
             norm_type = cfg.get('norm', 'bn')
             gn_groups = cfg.get('gn_groups', 32)
         else:
             base_channels = 64
-            anchors = 3
+            anchors = 1
             norm_type = 'bn'
             gn_groups = 32
 

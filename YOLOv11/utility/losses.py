@@ -148,7 +148,7 @@ class YoloLoss(nn.Module):
                 continue
 
             # Preds de la imagen b
-            pb = torch.sigmoid(pred_box[b]) * 640  # Escala coordenadas a píxeles // [N_pred, 4] en [0,1]
+            pb = torch.sigmoid(pred_box[b]).clamp(0.0, 1.0)  # Coordenadas normalizadas en [0,1]
             po = pred_obj[b]                    # [N_pred] logits
             pc = pred_cls[b]                    # [N_pred, C] logits
 

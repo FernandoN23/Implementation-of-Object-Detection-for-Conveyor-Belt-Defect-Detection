@@ -38,14 +38,18 @@ class YOLOv11Head(nn.Module):
     Genera predicciones multi-escala con normalización configurable.
     """
 
-    def __init__(self, num_classes=5, base_channels=64, anchors=3,
+    def __init__(self, num_classes=5, base_channels=64, anchors=1,
                  norm_type="bn", gn_groups=32):
         super().__init__()
         self.num_classes = num_classes
-        self.out_channels = anchors * (num_classes + 5)
         self.norm_type = norm_type
         self.gn_groups = gn_groups
-
+        self.requested_anchors = anchors
+        if anchors > 1:
+            print("[YOLOv11Head] Advertencia: anchors>1 aún no está soportado. Se usará anchors=1.")
+            anchors = 1
+        self.anchors = anchors
+        self.out_channels = self.anchors * (num_classes + 5)
         # Detectores por escala
         self.detect_p3 = nn.Sequential(
             Conv(base_channels * 4, base_channels * 4, k=3, s=1,

@@ -29,11 +29,15 @@ Compatible con estructuras de dataset tipo YOLOv8
 # -------------------------------------------------------------
 
 import os
+import warnings
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torchvision.transforms as T
 import torch
 import yaml
+
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 # =============================================================
@@ -49,6 +53,11 @@ class CustomDataset(Dataset):
         self.root_dir = root_dir
         self.img_dir = root_dir
         self.label_dir = root_dir.replace("images", "labels")
+
+        if not os.path.isdir(self.img_dir):
+            raise FileNotFoundError(
+                f"Images directory not found: {self.img_dir}."
+            )
 
         # Leer data.yaml si existe
         data_yaml = os.path.join(os.path.dirname(os.path.dirname(root_dir)), "data.yaml")
@@ -95,11 +104,21 @@ class CustomDataset(Dataset):
         boxes, classes = [], []
 
         if os.path.exists(label_path):
-            with open(label_path, "r") as f:
+            with open(label_path, "r", encoding="utf-8") as f:
                 for line in f:
                     parts = line.strip().split()
                     if len(parts) >= 5:
                         cls_id, x_c, y_c, w, h = map(float, parts[:5])
+                        if any(value < 0.0 or value > 1.0 for value in (x_c, y_c, w, h)):
+                            warnings.warn(
+                                (
+                                    "Etiqueta fuera de rango [0, 1] descartada en "
+                                    f"'{label_path}': {parts}"
+                                ),
+                                UserWarning,
+                            )
+                            continue
+
                         classes.append(int(cls_id))
                         boxes.append([x_c, y_c, w, h])
         else:
@@ -132,16 +151,12 @@ def create_dataloader(cfg, phase="train"):
     Si no se indica explícitamente, usa 'train' por defecto.
     """
 
-    base_path = "C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset"
-
     # Selecciona el subdirectorio correspondiente
     phase = phase.lower()
     if phase not in ["train", "valid", "test"]:
         raise ValueError("phase debe ser 'train', 'valid' o 'test'")
 
-    path = getattr(cfg, "dataset_path", None)
-    if path is None:
-        path = os.path.join(base_path, phase, "images")
+    path = _resolve_dataset_path(cfg, phase)
 
     img_size = getattr(cfg, "img_size", 640)
     batch_size = getattr(cfg, "batch_size", 8)
@@ -157,6 +172,82 @@ def create_dataloader(cfg, phase="train"):
 
     print(f"[INFO] DataLoader ({phase}) → {len(dataset)} images | Batch size: {batch_size}")
     return loader
+
+
+def _resolve_dataset_path(cfg, phase):
+    """Obtiene la ruta al directorio de imágenes para la fase indicada."""
+
+    def _abspath(path, bases=None):
+        if path is None:
+            return None
+        expanded = os.path.expanduser(path)
+        if os.path.isabs(expanded):
+            return expanded
+
+        search_bases = [base for base in (bases or []) if base]
+        for base in search_bases:
+            candidate = os.path.abspath(os.path.join(base, expanded))
+            if os.path.exists(candidate):
+                return candidate
+
+        if search_bases:
+            return os.path.abspath(os.path.join(search_bases[0], expanded))
+
+        return os.path.abspath(os.path.join(os.getcwd(), expanded))
+
+    dataset_yaml_path = getattr(cfg, "data", None)
+    dataset_dir = getattr(cfg, "dataset_path", None)
+
+    yaml_data = None
+    yaml_dir = None
+    base_candidates = [os.getcwd(), PROJECT_ROOT]
+
+    if dataset_yaml_path:
+        dataset_yaml_path = _abspath(dataset_yaml_path, bases=base_candidates)
+        if not os.path.isfile(dataset_yaml_path):
+            raise FileNotFoundError(
+                f"Dataset configuration file not found: {dataset_yaml_path}."
+            )
+        yaml_dir = os.path.dirname(dataset_yaml_path)
+        with open(dataset_yaml_path, "r", encoding="utf-8") as f:
+            yaml_data = yaml.safe_load(f) or {}
+
+    phase_key_map = {
+        "train": ["train"],
+        "valid": ["val", "valid", "validation"],
+        "test": ["test"],
+    }
+
+    if yaml_data:
+        dataset_base = yaml_data.get("path")
+        dataset_base = (
+            _abspath(dataset_base, bases=[yaml_dir] + base_candidates)
+            if dataset_base
+            else yaml_dir
+        )
+
+        for key in phase_key_map[phase]:
+            candidate = yaml_data.get(key)
+            if not candidate:
+                continue
+            candidate = _abspath(
+                candidate,
+                bases=[dataset_base, yaml_dir] + base_candidates,
+            )
+            if candidate:
+                return candidate
+
+    if dataset_dir:
+        dataset_dir = _abspath(dataset_dir, bases=base_candidates)
+        if os.path.isdir(os.path.join(dataset_dir, phase, "images")):
+            return os.path.join(dataset_dir, phase, "images")
+        if os.path.isdir(os.path.join(dataset_dir, phase)):
+            return os.path.join(dataset_dir, phase)
+        return dataset_dir
+
+    raise FileNotFoundError(
+        "No se pudo determinar la ruta del dataset. Verifique cfg.data o cfg.dataset_path."
+    )
 
 
 
