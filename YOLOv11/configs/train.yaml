@@ -6,70 +6,52 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: train.yaml
-# Configuración de entrenamiento del modelo YOLOv11.
-# Controla la variante, hiperparámetros y validaciones.
+# Configuración de entrenamiento YOLOv11 (Clasificación)
 # ==============================================================
 
 # ------------------------------
 # CONFIGURACIÓN GENERAL
 # ------------------------------
 model: configs/yolo11.yaml
-data: configs/dataset.yaml
-model_variant: n          # Variante del modelo (n, s, m, l, x)
-task: detect
+data: YOLOv11/configs/dataset.yaml
+model_variant: n
+task: classify           # 'detect' o 'classify'
 
 # ------------------------------
 # PARÁMETROS DE ENTRENAMIENTO
 # ------------------------------
 epochs: 100
-batch: 8
+batch_size: 8
 imgsz: 640
-device: 0
-workers: 4
+num_workers: 4
+gpu_memory_fraction: 0.8
 seed: 42
+deterministic: false
+resume: true
 
 # ------------------------------
-# OPTIMIZADOR Y PROGRAMADOR
+# OPTIMIZADOR Y SCHEDULER
 # ------------------------------
-optimizer: AdamW
-lr0: 0.002            # Learning rate inicial
-lrf: 0.01             # Factor de decaimiento final del LR
-momentum: 0.937
-weight_decay: 0.0005
-warmup_epochs: 3.0    # Épocas de calentamiento
-ema: true             # Exponential Moving Average activado
+optimizer:
+  name: AdamW
+  lr: 0.002
+  weight_decay: 0.0005
+  momentum: 0.937
+
+scheduler: cosine
+lrf: 0.01
 
 # ------------------------------
-# OPCIONES DE ENTRENAMIENTO
+# EARLY STOPPING / CHECKPOINTS
 # ------------------------------
-resume: true              # Reanudar desde checkpoint previo
-project: runs/train
-name: yolov11_training
-exist_ok: false
-verbose: true
-save_period: 1            # Guardar cada época
-patience: 50              # Early stopping (opcional)
-
-# ------------------------------
-# AUGMENTACIÓN Y REGULARIZACIÓN
-# ------------------------------
-augment: true
-flipud: 0.0
-fliplr: 0.5
-mosaic: 1.0
-mixup: 0.1
-hsv_h: 0.015
-hsv_s: 0.7
-hsv_v: 0.4
-degrees: 0.0
-translate: 0.1
-scale: 0.5
-shear: 0.0
+early_stop_patience: 50
+early_stop_min_delta: 1e-4
+save_period: 1
 
 # ------------------------------
 # PARÁMETROS DEL LOADER
 # ------------------------------
-loader:
-  shuffle: true
-  pin_memory: true
-  drop_last: false
+cache_images: false
+accumulate: 1
+grad_clip: 10.0
+amp: true

@@ -164,26 +164,71 @@ def create_dataloader(cfg, phase="train"):
 # RUTA DEL DATASET
 # =============================================================
 def _resolve_dataset_path(cfg, phase):
+    """Resuelve automáticamente la ruta del dataset (detecta rutas absolutas, relativas y mixtas)."""
     dataset_yaml = getattr(cfg, "data", None)
     base_path = getattr(cfg, "dataset_path", None)
 
+    # -------------------------------
+    # 1️⃣ Cargar desde dataset.yaml
+    # -------------------------------
     if dataset_yaml and os.path.isfile(dataset_yaml):
         with open(dataset_yaml, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
+
         base = data.get("path", os.path.dirname(dataset_yaml))
         key_map = {"train": ["train"], "valid": ["val", "valid"], "test": ["test"]}
+
         for key in key_map[phase]:
             if data.get(key):
-                return os.path.join(base, data[key], "images")
+                subdir = data[key]
+                # Si es absoluta, la usamos directamente
+                if os.path.isabs(subdir):
+                    candidate = os.path.normpath(subdir)
+                else:
+                    candidate = os.path.normpath(os.path.join(base, subdir))
 
+                # Log informativo (debug)
+                print(f"[DEBUG] Verificando ruta candidata: {candidate}")
+
+                # Tolerancia: corregir errores por barras invertidas o espacios
+                if os.path.isdir(candidate):
+                    print(f"[INFO] Dataset ({phase}) encontrado en: {candidate}")
+                    return candidate
+
+                # Si no existe exactamente, intentar variantes
+                for alt in [candidate.replace("\\", "/"), candidate.replace("/", "\\"), os.path.join(candidate, "images")]:
+                    if os.path.isdir(alt):
+                        print(f"[INFO] Dataset ({phase}) encontrado en: {alt}")
+                        return alt
+
+    # -------------------------------
+    # 2️⃣ Dataset directo
+    # -------------------------------
     if base_path and os.path.isdir(base_path):
-        for variant in ["images", "train/images", "valid/images", "test/images"]:
+        for variant in ["train/images", "valid/images", "test/images", "images"]:
             candidate = os.path.join(base_path, variant)
             if os.path.isdir(candidate):
+                print(f"[INFO] Dataset ({phase}) encontrado en: {candidate}")
                 return candidate
 
-    raise FileNotFoundError("No se pudo resolver la ruta del dataset.")
+    # -------------------------------
+    # 3️⃣ Fallback genérico
+    # -------------------------------
+    project_root = Path(__file__).resolve().parent.parent
+    for sub in ["Dataset", "data", "datasets"]:
+        candidate = project_root / sub / f"{phase}/images"
+        if candidate.exists():
+            print(f"[INFO] Dataset ({phase}) encontrado en: {candidate}")
+            return str(candidate)
 
+    # -------------------------------
+    # ❌ Error final
+    # -------------------------------
+    raise FileNotFoundError(
+        f"No se pudo resolver la ruta del dataset para '{phase}'.\n"
+        f"Dataset YAML: {dataset_yaml}\n"
+        f"Verifica que exista la carpeta de imágenes.\n"
+    )
 
 # =============================================================
 # TEST LOCAL

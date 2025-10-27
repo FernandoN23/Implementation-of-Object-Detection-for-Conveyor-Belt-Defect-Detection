@@ -34,8 +34,11 @@ import sys
 def get_logger(log_dir="YOLOv11/logs", name="train_yolo11"):
     import logging
     import os
-    os.makedirs(log_dir, exist_ok=True)
 
+    # --- Nueva protección robusta ---
+    name = str(name).strip()  # 🔒 garantiza tipo str para el logger
+
+    os.makedirs(log_dir, exist_ok=True)
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
@@ -46,10 +49,12 @@ def get_logger(log_dir="YOLOv11/logs", name="train_yolo11"):
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
 
+    # Previene duplicado de handlers si ya fue inicializado
     if not logger.handlers:
         logger.addHandler(fh)
         logger.addHandler(ch)
 
     return logger
+
 
 

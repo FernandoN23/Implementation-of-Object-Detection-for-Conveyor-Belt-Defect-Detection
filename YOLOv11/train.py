@@ -1,17 +1,22 @@
-# YOLOv11/train.py
-# =============================================================
-#  Trabajo de Memoria de Título - Fernando Navarrete (Feña)
-#  Script: train.py (robusto)
-#  Objetivo: Entrenamiento modular YOLOv11 con:
-#   - AMP autocast + GradScaler
-#   - Acumulación de gradientes y clipping
-#   - Scheduler (cosine/one-cycle) seleccionable
-#   - Early Stopping por pérdida de entrenamiento
-#   - Checkpointing: last/best + reanudar
-#   - CSV + TensorBoard sin duplicados (puerto libre)
-#   - Parche GN automático en ROCm si BN falla
-#   - Señales SIGINT (Ctrl+C) y tecla F8 opcional
-# =============================================================
+"""
+=============================================================
+ Trabajo de Memoria de Título
+ Memorista: Fernando Navarrete
+ Modelo actual: YOLOv11
+ Código actual: train.py
+=============================================================
+Entrenamiento modular del modelo YOLOv11.
+Implementa optimización avanzada con:
+- AMP autocast + GradScaler
+- Acumulación de gradientes y clipping
+- Scheduler (cosine/one-cycle) seleccionable
+- Early Stopping por pérdida de entrenamiento
+- Checkpointing: last/best + reanudar
+- CSV + TensorBoard sin duplicados (puerto libre)
+- Parche GN automático en ROCm si BN falla
+- Señales SIGINT (Ctrl+C) y tecla F8 opcional
+=============================================================
+"""
 
 from __future__ import annotations
 import os, sys, gc, time, socket, math, csv, signal, subprocess
@@ -82,18 +87,25 @@ def limit_vram_usage(device: torch.device, fraction: float = 0.8):
             print(f"⚠️ No se pudo limitar VRAM: {e}")
 
 
-def _replace_bn_with_gn(model: nn.Module, groups_default: int = 32) -> int:
-    """Reemplaza BatchNorm2d->GroupNorm de forma segura (ROCm)."""
+def _replace_bn_with_gn(model: nn.Module, groups_default: int = 32, device=None) -> int:
+    """Reemplaza BatchNorm2d -> GroupNorm (seguro y moviendo a GPU si corresponde)."""
     count = 0
+    device = device or next(model.parameters()).device
+
     for module in model.modules():
         for name, child in list(module.named_children()):
             if isinstance(child, nn.BatchNorm2d):
                 c = child.num_features
-                # Encuentra un número de grupos que divida c
+                # Encuentra grupo compatible con c
                 groups_eff = next((g for g in (groups_default, 16, 8, 4, 2, 1) if c % g == 0), 1)
-                setattr(module, name, nn.GroupNorm(groups_eff, c, affine=True))
+                gn = nn.GroupNorm(groups_eff, c, affine=True).to(device)
+                if child.affine:
+                    gn.weight = nn.Parameter(child.weight.detach().clone().to(device))
+                    gn.bias = nn.Parameter(child.bias.detach().clone().to(device))
+                setattr(module, name, gn)
                 count += 1
     return count
+
 
 
 def forward_sanity(model: nn.Module, device: torch.device, imgsz: int = 640):
@@ -321,7 +333,7 @@ def main(variant_cli: Optional[str] = None):
     limit_vram_usage(device, fraction=float(train_cfg.get("gpu_memory_fraction", 0.8)))
 
     logger = get_logger(log_dir=f"{BASE}/logs/{variant}/train", name=f"train_yolo11_{variant}")
-    tb = TensorboardVisualizer(log_dir=f"{BASE}/runs/{variant}/train")
+    tb = TensorboardVisualizer(log_dir=f"{BASE}/runs/{variant}/train", model_variant=str(variant))
 
     # Semillas
     seed_everything(int(train_cfg.get("seed", 42)), deterministic=bool(train_cfg.get("deterministic", False)))
@@ -469,8 +481,4 @@ def main(variant_cli: Optional[str] = None):
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"❌ Error fatal en entrenamiento: {e}")
-        sys.exit(1)
+    main()

@@ -3,12 +3,14 @@ Departamento de Ingeniería Mecánica - Universidad de Chile
 Trabajo de Memoria de Título:
 "Implementación de algoritmos de reconocimiento de objetos
 para la identificación de fallas en correas transportadoras"
-Autor: Fernando N.
+Autor: Fernando Navarrete
 
 -------------------------------------------------------------
 Archivo: yolo11.py
-Definición del modelo completo YOLOv11.
-Integra Backbone, Neck y Head, con lectura dinámica de YAML.
+Definición del modelo completo YOLOv11 (Clasificación)
+-------------------------------------------------------------
+Estructura general:
+    Entrada → Backbone → Neck → Head(Classify) → Logits [B, num_classes]
 -------------------------------------------------------------
 """
 
@@ -24,40 +26,53 @@ from .parser_yaml import ModelParser
 
 class YOLOv11(nn.Module):
     """
-    Modelo YOLOv11 completo
+    YOLOv11 (Clasificación)
     ------------------------
-    Estructura:
-        x → Backbone → Neck → Head → [p3, n4, n5]
+    Flujo de procesamiento:
+        x → Backbone → Neck → Head → logits
     """
-    def __init__(self, cfg_path="configs/yolo11.yaml", num_classes=5):
+
+    def __init__(self, cfg_path: str = "configs/yolo11.yaml", num_classes: int = 5):
         super().__init__()
 
-        # -------------------------
+        # -------------------------------------------------
         # 1. Cargar configuración YAML
-        # -------------------------
+        # -------------------------------------------------
         if cfg_path:
             parser = ModelParser(cfg_path)
             cfg = parser.parse_model_config()
             base_channels = cfg.get("base_channels", 64)
-            anchors = cfg.get("anchors", 1)
             norm_type = cfg.get("norm", "bn")
             gn_groups = cfg.get("gn_groups", 32)
+            dropout = cfg.get("dropout", 0.0)
         else:
-            base_channels, anchors, norm_type, gn_groups = 64, 1, "bn", 32
+            base_channels, norm_type, gn_groups, dropout = 64, "bn", 32, 0.0
 
-        if anchors > 1:
-            warnings.warn("[YOLOv11] anchors>1 no soportado aún, se usará anchors=1.", UserWarning)
+        # -------------------------------------------------
+        # 2. Validaciones
+        # -------------------------------------------------
+        if not isinstance(dropout, (float, int)):
+            warnings.warn(f"⚠️ Valor inválido de dropout '{dropout}', usando 0.0", UserWarning)
+            dropout = 0.0
 
-        # -------------------------
-        # 2. Construcción de submódulos
-        # -------------------------
+        # -------------------------------------------------
+        # 3. Construcción de submódulos
+        # -------------------------------------------------
         self.backbone = YOLOv11Backbone(3, base_channels, norm_type, gn_groups)
         self.neck = YOLOv11Neck(base_channels, norm_type, gn_groups)
-        self.head = YOLOv11Classify(num_classes, base_channels, anchors, norm_type, gn_groups)
 
-        # -------------------------
-        # 3. Metadatos del modelo
-        # -------------------------
+        # ⚙️ Importante: el neck entrega base_channels * 16 canales (1024 por defecto)
+        self.head = YOLOv11Classify(
+            num_classes=num_classes,
+            c_in=base_channels * 16,     # ✅ alineado con salida del neck
+            dropout=dropout,
+            norm_type=norm_type,
+            gn_groups=gn_groups,
+        )
+
+        # -------------------------------------------------
+        # 4. Metadatos del modelo
+        # -------------------------------------------------
         self.model_info = dict(
             backbone="YOLOv11Backbone",
             neck="YOLOv11Neck",
@@ -66,14 +81,15 @@ class YOLOv11(nn.Module):
             norm=norm_type,
             gn_groups=gn_groups,
             base_channels=base_channels,
+            dropout=dropout,
         )
 
         print(f"[YOLOv11] Modelo inicializado con norm='{norm_type}', GN={gn_groups}, clases={num_classes}")
         self.initialize_weights()
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------
     # Inicialización de pesos
-    # ---------------------------------------------------------
+    # -------------------------------------------------
     def initialize_weights(self):
         """Inicializa los pesos de convoluciones y normalizaciones."""
         for m in self.modules():
@@ -83,38 +99,41 @@ class YOLOv11(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------
     # Forward
-    # ---------------------------------------------------------
-    def forward(self, x):
+    # -------------------------------------------------
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward completo: Backbone → Neck → Head."""
-        x3, x4, x5 = self.backbone(x)
-        p3, n4, n5 = self.neck(x3, x4, x5)
-        outputs = self.head(p3, n4, n5)
-        return outputs if self.training else [o.detach() for o in outputs]
+        features = self.backbone(x)
 
-    # ---------------------------------------------------------
+        # algunos backbones devuelven lista de features
+        if isinstance(features, (list, tuple)):
+            features = features[-1]
+
+        neck_out = self.neck(features)
+        logits = self.head(neck_out)
+        return logits
+
+    # -------------------------------------------------
     # Información del modelo
-    # ---------------------------------------------------------
+    # -------------------------------------------------
     def info(self):
-        """Muestra resumen estructural del modelo."""
+        """Muestra resumen estructural y de parámetros."""
         n_params = sum(p.numel() for p in self.parameters())
         n_grad = sum(p.numel() for p in self.parameters() if p.requires_grad)
         print("\n🧠 YOLOv11 Model Summary")
         for k, v in self.model_info.items():
             print(f"  {k:<15}: {v}")
-        print(f"  Parámetros totales : {n_params:,}")
-        print(f"  Parámetros entrenables: {n_grad:,}")
+        print(f"  Parámetros totales      : {n_params:,}")
+        print(f"  Parámetros entrenables  : {n_grad:,}")
 
 
 # ============================================================
-# Test de verificación rápida
+# Test rápido
 # ============================================================
 if __name__ == "__main__":
-    model = YOLOv11(cfg_path="YOLOv11/configs/yolo11.yaml", num_classes=10)
-    dummy_input = torch.randn(1, 3, 640, 640)
-    out = model(dummy_input)
-    print(f"\nNúmero de salidas: {len(out)}")
-    for i, o in enumerate(out):
-        print(f"  → Salida {i+1}: {list(o.shape)}")
+    model = YOLOv11(cfg_path="YOLOv11/configs/yolo11.yaml", num_classes=5)
+    dummy = torch.randn(1, 3, 640, 640)
+    out = model(dummy)
+    print(f"\nSalida del modelo: {list(out.shape)}")  # [1, num_classes]
     model.info()

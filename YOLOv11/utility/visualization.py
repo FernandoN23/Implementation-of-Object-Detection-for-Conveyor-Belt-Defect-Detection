@@ -8,14 +8,13 @@ Autor: Fernando N.
 
 -------------------------------------------------------------
 Archivo: visualization.py
-Módulo de visualización TensorBoard para YOLOv11 (versión mejorada).
+Módulo de visualización TensorBoard para YOLOv11 (versión robusta).
 -------------------------------------------------------------
 """
 
 import os
 import time
 import subprocess
-import webbrowser
 import numpy as np
 from PIL import Image
 from torch.utils.tensorboard import SummaryWriter
@@ -26,13 +25,22 @@ class TensorboardVisualizer:
     def __init__(self, log_dir="YOLOv11/runs", model_variant="n", port=6006):
         """
         Inicializa TensorBoard para una variante de modelo YOLOv11 específica.
-        Solo lanza un servidor si no hay uno corriendo en el puerto indicado.
+        Corrige automáticamente tipos no válidos de 'model_variant'.
         """
-        self.variant = str(model_variant or "n").strip().lower()
-        self.log_dir = os.path.join(log_dir, self.variant)
+        # 🔒 Normalización de variante (seguro ante int, None o DictConfig)
+        try:
+            if hasattr(model_variant, "strip"):
+                variant_clean = model_variant.strip()
+            else:
+                variant_clean = str(model_variant)
+            self.variant = variant_clean.replace("\n", "").strip().lower() or "n"
+        except Exception:
+            self.variant = "n"
+
+        self.log_dir = os.path.join(str(log_dir).strip(), self.variant)
         os.makedirs(self.log_dir, exist_ok=True)
 
-        self.port = port
+        self.port = int(port)
         self.writer = SummaryWriter(self.log_dir)
 
         # Lanzar TensorBoard solo si no hay otro en ejecución
@@ -159,4 +167,5 @@ class TensorboardVisualizer:
     def close(self):
         """Cierra el writer sin detener el servidor (mantiene la sesión)."""
         self.writer.close()
-        print(f"🧹 Writer cerrado correctamente para YOLOv11-{self.variant.upper()}.")
+        safe_variant = str(getattr(self, "variant", "n")).strip()
+        print(f"🧹 Writer cerrado correctamente para YOLOv11-{safe_variant.upper()}.")

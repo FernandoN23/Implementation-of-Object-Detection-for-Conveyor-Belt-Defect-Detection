@@ -1,96 +1,59 @@
 """
 Departamento de Ingeniería Mecánica - Universidad de Chile
-Trabajo de Memoria de Título: "Implementación de algoritmos de reconocimiento de objetos
+Trabajo de Memoria de Título:
+"Implementación de algoritmos de reconocimiento de objetos
 para la identificación de fallas en correas transportadoras"
 Autor: Fernando N.
 
 -------------------------------------------------------------
 Archivo: head.py
-YOLOv11 Head
-Incluye los detectores multiescala y el clasificador de imágenes.
+YOLOv11 Head (Clasificación)
+Recibe una sola feature map [B, 1024, H, W] y produce logits [B, num_classes].
 -------------------------------------------------------------
 """
 
 import torch
 import torch.nn as nn
-from models.nn import Conv
 
-
-# ============================================================
-# CLASIFICADOR YOLOv11
-# ============================================================
 
 class YOLOv11Classify(nn.Module):
     """
-    YOLOv11 Classification Head
-    ---------------------------
-    Módulo de clasificación por imagen basado en el head oficial
-    de YOLOv11, adaptado para uso general y compatible con
-    normalización configurable (BN o GN).
-
-    Convierte mapas de características (b, c_in, h, w)
-    en predicciones de clases (b, n_classes).
-
-    Atributos:
-        export (bool): Modo exportación (ONNX/TFLite).
-        conv (Conv): Bloque convolucional de proyección.
-        pool (nn.AdaptiveAvgPool2d): Pooling global espacial.
-        drop (nn.Dropout): Regularización.
-        linear (nn.Linear): Capa final de clasificación.
+    Cabeza de clasificación YOLOv11.
+    Flujo: Conv → Normalización → SiLU → Global Pool → Dropout → FC
     """
 
-    export = False  # para compatibilidad con exportadores
-
-    def __init__(self, c_in: int = 1024, n_classes: int = 1000,
-                 hidden_ch: int = 1280, dropout: float = 0.0,
-                 norm_type: str = "bn", gn_groups: int = 32):
-        """
-        Inicializa el clasificador YOLOv11.
-
-        Args:
-            c_in (int): Número de canales de entrada (última capa del backbone).
-            n_classes (int): Número de clases de salida.
-            hidden_ch (int): Dimensión intermedia del embedding.
-            dropout (float): Tasa de dropout para regularización.
-            norm_type (str): Tipo de normalización ('bn', 'gn', 'in', 'id').
-            gn_groups (int): Número de grupos si se usa GroupNorm.
-        """
+    def __init__(self, num_classes=5, c_in=1024, dropout=0.0, norm_type="bn", gn_groups=32):
         super().__init__()
-        self.n_classes = n_classes
 
-        # Bloque de proyección convolucional (1x1 por defecto)
-        self.conv = Conv(c_in, hidden_ch, k=1, s=1,
-                         norm_type=norm_type, gn_groups=gn_groups)
+        # Validación de dropout
+        if not isinstance(dropout, (int, float)):
+            print(f"⚠️ Valor inválido de dropout '{dropout}', usando 0.0")
+            dropout = 0.0
 
-        # Pooling y capas finales
-        self.pool = nn.AdaptiveAvgPool2d(1)  # reduce a (b, c, 1, 1)
-        self.drop = nn.Dropout(p=dropout, inplace=True)
-        self.linear = nn.Linear(hidden_ch, n_classes)
+        hidden_ch = c_in // 2  # 512 para base_channels=64
 
-    # --------------------------------------------------------
-    # Forward
-    # --------------------------------------------------------
-    def forward(self, x: torch.Tensor | list[torch.Tensor]) -> torch.Tensor | tuple:
+        self.conv = nn.Sequential(
+            nn.Conv2d(c_in, hidden_ch, kernel_size=1, stride=1, padding=0, bias=False),
+            self._norm_layer(hidden_ch, norm_type, gn_groups),
+            nn.SiLU(inplace=True),
+        )
+
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.drop = nn.Dropout(p=float(dropout), inplace=False)
+        self.fc = nn.Linear(hidden_ch, num_classes)
+
+    def _norm_layer(self, num_features, norm_type, gn_groups):
+        if norm_type == "gn":
+            return nn.GroupNorm(gn_groups, num_features)
+        else:
+            return nn.BatchNorm2d(num_features)
+
+    def forward(self, x):
         """
-        Propagación hacia adelante del clasificador.
-
-        Args:
-            x (torch.Tensor | list[torch.Tensor]): Tensor o lista de tensores de características.
-
-        Returns:
-            torch.Tensor | tuple: Predicción (softmax) y logits si no está en modo training.
+        x: tensor [B, 1024, H, W]
+        salida: tensor [B, num_classes]
         """
-        if isinstance(x, list):
-            # concatenar canales de múltiples niveles (opcional)
-            x = torch.cat(x, 1)
-
-        # flujo clásico: conv → pool → dropout → linear
         x = self.conv(x)
         x = self.pool(x).flatten(1)
-        logits = self.linear(self.drop(x))
-
-        if self.training:
-            return logits  # solo logits durante entrenamiento
-
-        probs = logits.softmax(dim=1)
-        return probs if self.export else (probs, logits)
+        x = self.drop(x)
+        return self.fc(x)

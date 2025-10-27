@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Departamento de Ingeniería Mecánica - Universidad de Chile
 Trabajo de Memoria de Título:
@@ -25,12 +26,13 @@ Manejo de weights del modelo YOLOv11.
 #   y recuperación de pesos para validación o testeo.
 # -------------------------------------------------------------
 
-
 import os
 import torch
 import glob
 
+
 def save_checkpoint(model, optimizer, epoch, path="weights", filename=None):
+    """Guarda el modelo y el optimizador en un checkpoint."""
     os.makedirs(path, exist_ok=True)
     if filename is None:
         filename = f"yolo11_epoch_{epoch}.pt"
@@ -42,7 +44,7 @@ def save_checkpoint(model, optimizer, epoch, path="weights", filename=None):
         "optimizer_state_dict": optimizer.state_dict(),
     }, save_path)
 
-    # ✅ Guardar también como "latest.pt" para continuar automáticamente
+    # ✅ Guardar también como "latest.pt" para reanudación rápida
     latest_path = os.path.join(path, "latest.pt")
     torch.save({
         "epoch": epoch,
@@ -85,4 +87,3 @@ def load_checkpoint(model, optimizer=None, path="weights", device="cpu"):
     epoch = checkpoint.get("epoch", 0)
     print(f"🔄 Checkpoint cargado desde {ckpt_path}, epoch {epoch}")
     return epoch
-
