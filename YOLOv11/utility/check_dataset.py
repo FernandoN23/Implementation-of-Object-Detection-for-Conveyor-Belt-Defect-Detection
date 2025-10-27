@@ -7,49 +7,77 @@ Autor: Fernando N.
 
 -------------------------------------------------------------
 Archivo: check_dataset.py
-Prepara el dataset local verificando las carpetas train/, valid/,
-test/ y data.yaml del directorio principal Dataset/.
+Verifica la estructura del dataset local (train/, valid/, test/)
+y el archivo data.yaml. Compatible con YOLOv8/YOLOv11.
 -------------------------------------------------------------
 """
 
-import os
+from pathlib import Path
 import yaml
 
-# Formatos válidos de imagen
+# Extensiones válidas
 IMG_EXT = ('.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff')
 
 
-def check_dataset_structure(dataset_path: str):
+def check_dataset_structure(dataset_path: str) -> bool:
+    """Verifica la integridad del dataset y su data.yaml asociado."""
+    dataset_path = Path(dataset_path)
     print(f"\n📂 Verificando dataset en: {dataset_path}\n")
 
     expected_splits = ['train', 'valid', 'test']
     all_ok = True
 
-    # --- 1. Verificación de carpetas principales ---
+    # =============================================================
+    # 1. Verificación de data.yaml
+    # =============================================================
+    yaml_path = dataset_path / 'data.yaml'
+    if not yaml_path.exists():
+        print(f"❌ No se encontró el archivo data.yaml en {dataset_path}")
+        return False
+
+    print(f"📘 Verificando archivo: {yaml_path}")
+    try:
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        print(f"❌ Error al leer data.yaml: {e}")
+        return False
+
+    nc = data.get('nc', None)
+    names = data.get('names', [])
+    if nc != len(names):
+        print(f"⚠️ Inconsistencia: nc={nc} pero se definieron {len(names)} nombres de clase.")
+        all_ok = False
+
+    # =============================================================
+    # 2. Verificación de carpetas principales
+    # =============================================================
     for split in expected_splits:
-        split_path = os.path.join(dataset_path, split)
-        if not os.path.exists(split_path):
+        split_path = dataset_path / split
+        if not split_path.exists():
             print(f"❌ Falta carpeta: {split_path}")
             all_ok = False
             continue
 
-        images_path = os.path.join(split_path, 'images')
-        labels_path = os.path.join(split_path, 'labels')
+        images_path = split_path / 'images'
+        labels_path = split_path / 'labels'
 
-        if not os.path.exists(images_path):
+        if not images_path.exists():
             print(f"❌ Falta carpeta de imágenes: {images_path}")
             all_ok = False
-        if not os.path.exists(labels_path):
+        if not labels_path.exists():
             print(f"❌ Falta carpeta de etiquetas: {labels_path}")
             all_ok = False
 
-        # --- 2. Verificación de correspondencia imagen-etiqueta ---
-        if os.path.exists(images_path) and os.path.exists(labels_path):
-            img_files = [f for f in os.listdir(images_path) if f.lower().endswith(IMG_EXT)]
-            lbl_files = [f for f in os.listdir(labels_path) if f.endswith('.txt')]
+        # ---------------------------------------------------------
+        # 3. Correspondencia imagen ↔ etiqueta
+        # ---------------------------------------------------------
+        if images_path.exists() and labels_path.exists():
+            img_files = [f for f in images_path.iterdir() if f.suffix.lower() in IMG_EXT]
+            lbl_files = [f for f in labels_path.iterdir() if f.suffix == '.txt']
 
-            img_basenames = {os.path.splitext(f)[0] for f in img_files}
-            lbl_basenames = {os.path.splitext(f)[0] for f in lbl_files}
+            img_basenames = {f.stem for f in img_files}
+            lbl_basenames = {f.stem for f in lbl_files}
 
             missing_labels = img_basenames - lbl_basenames
             missing_images = lbl_basenames - img_basenames
@@ -61,57 +89,60 @@ def check_dataset_structure(dataset_path: str):
                 print(f"⚠️ {len(missing_images)} etiquetas sin imagen en {split}/: {list(missing_images)[:5]}")
                 all_ok = False
 
-            # --- 3. Verificación de formato de etiquetas ---
-            for lbl_name in lbl_files:
-                lbl_path = os.path.join(labels_path, lbl_name)
-                with open(lbl_path, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
+            # -----------------------------------------------------
+            # 4. Verificación del formato de etiquetas
+            # -----------------------------------------------------
+            for lbl_path in lbl_files:
+                try:
+                    with open(lbl_path, 'r', encoding='utf-8') as f:
+                        lines = [line.strip() for line in f if line.strip()]
+                except Exception as e:
+                    print(f"❌ No se pudo leer {lbl_path.name}: {e}")
+                    all_ok = False
+                    continue
+
                 for i, line in enumerate(lines, start=1):
-                    parts = line.strip().split()
+                    parts = line.split()
                     if len(parts) != 5:
-                        print(f"❌ Formato inválido en {lbl_path}, línea {i}: {line.strip()}")
+                        print(f"❌ Formato inválido en {lbl_path.name}, línea {i}: {line}")
                         all_ok = False
-                    else:
-                        try:
-                            int(parts[0])
-                            [float(x) for x in parts[1:]]
-                        except ValueError:
-                            print(f"❌ Valores no numéricos en {lbl_path}, línea {i}: {line.strip()}")
+                        continue
+                    try:
+                        int(parts[0])
+                        coords = [float(x) for x in parts[1:]]
+                        if not all(0 <= c <= 1 for c in coords):
+                            print(f"⚠️ Coordenadas fuera de rango [0,1] en {lbl_path.name}, línea {i}: {coords}")
                             all_ok = False
+                    except ValueError:
+                        print(f"❌ Valores no numéricos en {lbl_path.name}, línea {i}: {line}")
+                        all_ok = False
 
-    # --- 4. Verificación del archivo data.yaml ---
-    yaml_path = os.path.join(dataset_path, 'data.yaml')
-    if not os.path.exists(yaml_path):
-        print(f"\n❌ No se encontró el archivo data.yaml en {dataset_path}")
-        all_ok = False
-    else:
-        print(f"\n📘 Verificando archivo: {yaml_path}")
-        with open(yaml_path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
-
-        expected_classes = ['Hole', 'Impact Damage', 'Puncture', 'Tear', 'Wear']
-
-        if data.get('nc', None) != 5:
-            print(f"❌ nc incorrecto ({data.get('nc')}) → se esperaba 5")
+    # =============================================================
+    # 5. Verificación de rutas en data.yaml
+    # =============================================================
+    for split in expected_splits:
+        if split not in data:
+            print(f"⚠️ Falta la clave '{split}' en data.yaml")
             all_ok = False
-        if data.get('names', None) != expected_classes:
-            print(f"❌ Nombres de clases incorrectos: {data.get('names')}")
-            print(f"✅ Esperado: {expected_classes}")
+            continue
+        path_rel = Path(data[split])
+        abs_path = (dataset_path / path_rel).resolve()
+        if not abs_path.exists():
+            print(f"⚠️ Ruta de {split} inválida o inexistente: {path_rel}")
             all_ok = False
 
-        for split in expected_splits:
-            if split not in data:
-                print(f"⚠️ Falta la ruta para '{split}' en data.yaml")
-                all_ok = False
-            elif not os.path.exists(os.path.join(dataset_path, data[split])):
-                print(f"⚠️ Ruta de {split} inválida: {data[split]}")
-
-    # --- Resultado final ---
+    # =============================================================
+    # Resultado Final
+    # =============================================================
     print("\n" + ("✅ Dataset verificado correctamente." if all_ok else "❌ Errores detectados en la estructura del dataset."))
     return all_ok
 
 
+# =============================================================
+# Ejecución directa
+# =============================================================
 if __name__ == "__main__":
-    # Ruta de tu dataset (ajustar según memoria guardada)
-    dataset_path = r"C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\Dataset"
+    dataset_path = Path(
+        r"C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\Dataset"
+    )
     check_dataset_structure(dataset_path)
