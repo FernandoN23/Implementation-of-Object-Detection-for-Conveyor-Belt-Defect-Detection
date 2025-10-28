@@ -23,32 +23,37 @@ YOLOv11/
 │   ├── valid.yaml                  ← validación y métricas
 │   └── parser.yaml                 ← rutas y opciones globales
 │
-├── data/                           ← Datos de entrenamiento, validación y pruebas
+├── logs/                           ← Logs de entrenamiento y ejecución del modelo
+├── metrics/                        ← Carpeta de almacenamiento de métricas
+├── runs/                           ← Carpeta de almacenamiento de ejecuciones
 │
-├── models/                    
+├── models/
+│   ├── nn/         
+│   │   ├── activation.py           ← Funciones de activación
+│   │   ├── block.py                ← Bloques convolucionales
+│   │   └── conv.py                 ← Redes neuronales convolucionales                                   
 │   ├── backbone.py                 ← Extracción de características multiescala
+│   ├── head.py                     ← Predicción y clasificación         
 │   ├── neck.py                     ← Fusión de características multiescala
-│   ├── head.py                     ← Predicción y clasificación
-│   ├── blocks.py                   ← Bloques neuronales clave del modelo YOLOv11
 │   ├── parser_yaml.py              ← Módulo auxiliar de configuración y parámetros
 │   └── yolo11.py                   ← Integración de la arquitectura de YOLOv11
 │
-├── utility/                   
-│   ├── clean_weights.py            ← Script de limpieza de pesos registrados
+├── utility/
+│   ├── check_dataset.py            ← Revisa formato dataset para modelo a entrenar                   
 │   ├── clean_logs_runs.py          ← Script de limpieza de logs y runs
+│   ├── clean_metrics.py            ← Script de limpieza de métricas
+│   ├── clean_weights.py            ← Script de limpieza de pesos registrados
 │   ├── data_loader.py              ← Cargador de datos para YOLOv11
 │   ├── logger.py                   ← Script para registrar eventos
 │   ├── losses.py                   ← Función de pérdida de YOLOv11
 │   ├── metrics.py                  ← Métricas a utilizar en el modelo
-│   ├── plot_tensorboard_metrics.py ← Analiza métricas de Tensorboard
-│   ├── prepare_dataset.py          ← Prepara el dataset al formato del modelo
 │   ├── test_model.py               ← Script para probar el modelo antes de entrenar
 │   ├── visualization.py            ← Visualización de entrenamiento en Tensorboard
-│   ├── weights.py                  ← Script para el manejo de checkpoints y pesos.
-├── train.py                        ← script principal de entrenamiento
-├── valid.py                        ← script principal de validación
-├── test.py                         ← script principal de pruebas
-└── runs/, logs/, checkpoints/      ← resultados, registros y pesos
+│   └── weights.py                  ← Script para el manejo de checkpoints y pesos.
+├── metrics/                        ← Carpeta de almacenamiento de los pesos de cada modelo entrenado
+├── train.py                        ← Script principal de entrenamiento
+├── valid.py                        ← Script principal de validación
+└── test.py                         ← Script principal de pruebas
 
 
 ```
