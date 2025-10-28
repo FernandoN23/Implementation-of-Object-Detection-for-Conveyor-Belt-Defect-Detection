@@ -1,19 +1,28 @@
 # ⚙️ Configuración de entorno para ejecución de modelos  
-## 🐍 Entorno Python 3.11 + PyTorch 2.7.0 (ROCm 6.4)
+## 🐍 Entorno Python 3.12 + PyTorch 2.8.0 (AMD ROCm 6.4.4 Preview Edition)
 
-Este entorno permite ejecutar proyectos Python en GPU AMD usando **PyTorch 2.7.0** con soporte **ROCm/HIP SDK 6.4**, gestionando dependencias con `pip` y ejecutándose en **Git Bash** sobre Windows o WSL.  
-Incluye librerías esenciales para **Deep Learning**, **CNNs** y análisis/visualización de resultados (TensorBoard, scikit-learn, OpenCV, etc.).
+Este entorno permite ejecutar proyectos Python en **GPU AMD Radeon y CPUs Ryzen AI** mediante la nueva versión oficial de **PyTorch 2.8.0a0 (Windows Preview)** con soporte **ROCm 6.4.4 / DirectML**.  
+
+La instalación es completamente automatizada mediante `pip`. Incluye librerías esenciales para **Deep Learning**, **detección de objetos (YOLOv11, DETR)**, y herramientas de **visualización y análisis** (TensorBoard, scikit-learn, OpenCV, etc.).
 
 ---
-
 ## 📋 Requisitos previos
 
-- **Git Bash** instalado ([descargar aquí](https://gitforwindows.org/)).
-- **Python 3.11** instalado y accesible desde Git Bash (`python3.11 --version`).
-- **pip** actualizado (`python.exe -m pip install --upgrade pip`) (`pip --version`)
-- **ROCm/HIP SDK 6.4** configurado en el sistema (Linux/WSL recomendado).  
-  **Nota:** Solo realizar este último paso en caso de contar con GPU AMD Radeon
-- Link repositorio: https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git
+- **Windows 11** actualizado (recomendado: últimas actualizaciones de Windows Update).
+- **Python 3.12** instalado y accesible desde terminal / PyCharm  
+  ↳ Verificar: `python --version`
+- **pip** actualizado  
+  ↳ `python -m pip install --upgrade pip`
+- **Controlador AMD con PyTorch on Windows (Preview) – ROCm 6.4.4**  
+  ↳ Requiere **AMD Software: PyTorch on Windows Preview Edition 25.20.01.14**  
+  ↳ Instalar desde la página oficial de AMD ([descargar](https://www.amd.com/en/resources/support-articles/release-notes/RN-AMDGPU-WINDOWS-PYTORCH-PREVIEW.html)).
+- **GPU/CPU compatibles**  
+  ↳ Radeon compatibles (serie 8000/9000 según lista oficial) **o** CPU **Ryzen AI Max+ PRO 395** (aceleración vía ROCm/DirectML).  
+- **(Opcional)** Git Bash para comandos de terminal en Windows ([descargar](https://gitforwindows.org/)).  
+  *(Puedes usar PowerShell o la terminal integrada de PyCharm si prefieres.)*
+- **Ruta al repositorio del proyecto**  
+  https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git
+
 ## 🚀 Crear y activar el entorno virtual
 
 En Git Bash:
@@ -24,7 +33,7 @@ git clone https://github.com/FernandoN23/Implementation-of-Object-Recognition-Al
 cd ../Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection
 
 # Crear entorno virtual
-python3.11 -m venv .venv
+python3.12 -m venv .venv
 
 
 # Activar entorno virtual
@@ -35,65 +44,48 @@ source .venv/Scripts/activate  # En Git Bash Windows
 # Actualizar pip
 pip install --upgrade pip
 
-Nota: si se trabaja con Pycharm, basta con seleccionar el intérprete una vez instalado python 3.11, de esta forma, se creará el entorno virtual dentro de la carpeta del repositorio.
+Nota: si se trabaja con Pycharm, basta con seleccionar el intérprete una vez instalado python 3.12, de esta forma, se creará el entorno virtual dentro de la carpeta del repositorio.
 ``` 
 
 ## 📦 Instalación de dependencias
-### 1️⃣ Instalar PyTorch con soporte HIP SDK (ROCm)
 
-⚠️**Precaución: build no oficial**⚠️
+La instalación del entorno es completamente automática gracias al archivo `Environment/requirements.txt`, que incluye **PyTorch oficial (ROCm 6.4.4)** y todas las librerías necesarias para la ejecución de modelos (YOLOv11, DETR, métricas, visualización, etc.).
 
-Descargar los 3 archivos en formato wheel (.whl) de releases:
+---
+
+### ⚙️ Instalación completa
+
+Ejecutar dentro del entorno virtual activado en la ruta principal del repositorio:
 
 ```bash
-torch-2.7.0a0+rocm_git3f903c3-cp311-cp311-win_amd64.whl
-torchaudio-2.7.0a0+52638ef-cp311-cp311-win_amd64.whl
-torchvision-0.22.0+9eb57cd-cp311-cp311-win_amd64.whl
+pip install -r Environment/requirements.txt --no-cache-dir
 ```
 
-[Descargar aquí](https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/releases).
+## 🧪 Verificación de instalación
 
-Luego, copiar y pegar en la carpeta `pytorch-wheels` en la siguiente ruta relativa del repositorio: 
+Una vez completada la instalación, se recomienda verificar que **PyTorch**, **TorchVision**, **TorchAudio** y **TensorBoard** funcionen correctamente dentro del entorno virtual.
 
-`..\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\Environment\pytorch-wheels`
-
-Ejecutar cada línea de código en el orden mostrado a continuación:
+Ejecutar los siguientes comandos en la terminal:
 
 ```bash
-pip install Environment/pytorch-wheels/torch-2.7.0a0+rocm_git3f903c3-cp311-cp311-win_amd64.whl
-pip install Environment/pytorch-wheels/torchaudio-2.7.0a0+52638ef-cp311-cp311-win_amd64.whl
-pip install Environment/pytorch-wheels/torchvision-0.22.0+9eb57cd-cp311-cp311-win_amd64.whl
+python -c "import torch; print('PyTorch:', torch.__version__, '| HIP:', torch.version.hip)"
+python -c "import torchvision, torchaudio; print('TorchVision:', torchvision.__version__, '| TorchAudio:', torchaudio.__version__)"
+python -c "import tensorboard; print('TensorBoard OK')"
 ```
 
-⚠️En caso de error debido al largo de la ruta (Long Path), habilitar long path en windows mediante el siguiente [Link](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry)
-### 2️⃣ Instalar librerías adicionales (Deep Learning, análisis, CNN):
-
-```bash
-pip install -r Environment/environment.txt
-``` 
-
-## 🧪 Verificación de instalación 
-
-Ejecutar dentro del entorno virtual en el siguiente orden:
-
-```bash
-python -c "import torch; print('PyTorch:', torch.__version__, ' HIP:', torch.version.hip)"
-python -c "import torchvision, torchaudio; print('vision', torchvision.__version__, 'audio', torchaudio.__version__)"
-python -c "import tensorboard; print('tensorboard OK')"
-```
 Se debe verificar las versiones instaladas, donde deberías ver 2.7.0 para PyTorch, la versión ROCm en uso, y confirmación de TensorBoard.
 
-⚠️Por último, ejecutar el script de test `test_rocm_pytorch.py` en la terminal mediante el siguiente comando:
+⚠️Por último, ejecutar el script de test `verify_torch_amd.py` en la terminal mediante el siguiente comando:
 
 ```bash
-python Environment/test_rocm_pytorch.py  
+python Environment/verify_torch_amd.py  
 ```
 Este código permite verificar el uso de CPU/GPU a la hora de utilizar Pytorch.
 
 Además, comprobar la compatibilidad con Tensorboard mediante el siguiente script:
 
 ```bash
-python Environment/test_tensorboard.py  
+python Environment/test_tensorboard_amd.py  
 ```
 
 ## 🗑️ Eliminar entorno virtual
