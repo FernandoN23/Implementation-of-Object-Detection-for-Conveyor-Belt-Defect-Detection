@@ -50,7 +50,9 @@ YOLOv11/
 │   ├── test_model.py               ← Script para probar el modelo antes de entrenar
 │   ├── visualization.py            ← Visualización de entrenamiento en Tensorboard
 │   └── weights.py                  ← Script para el manejo de checkpoints y pesos.
+│
 ├── metrics/                        ← Carpeta de almacenamiento de los pesos de cada modelo entrenado
+│
 ├── train.py                        ← Script principal de entrenamiento
 ├── valid.py                        ← Script principal de validación
 └── test.py                         ← Script principal de pruebas
