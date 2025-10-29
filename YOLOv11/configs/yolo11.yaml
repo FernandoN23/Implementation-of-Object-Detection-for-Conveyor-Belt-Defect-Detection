@@ -1,0 +1,45 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: yolo11.yaml
+#==============================================================
+# Definición estructural de YOLOv11 (proyecto propio) para el parser.
+# No es el YAML oficial de Ultralytics; está adaptado a nuestra implementación YOLOv11/models.
+# El escalado por variantes se toma desde configs/model_variants.yaml.
+
+meta:
+  name: YOLOv11
+  task: detection
+  description: "Backbone(C3k2), Neck(SPPF+C2PSA), Head(DFL, cls-DWConv)."
+
+model:
+  nc: 5
+  in_channels: 3
+  reg_max: 16
+  strides: [8, 16, 32]
+  use_dw_for_cls: true
+
+backbone:
+  # Canales base por etapa antes del escalado (se aplicará width_multiple y max_channels)
+  base_channels: [64, 128, 256, 512, 1024]
+  # Profundidad base (número de bloques por etapa) antes del escalado (depth_multiple)
+  c3k2_depths: [1, 2, 2, 1]
+  # Downsample por conv 3x3 s=2 entre etapas (stem+4 etapas)
+  downsample: [true, true, true, true]
+
+neck:
+  sppf: true
+  c2psa:
+    enabled: true
+    depth: 1   # escalable con depth_multiple
+  fpn: pan     # PAN-FPN (upsample+concat top-down y bottom-up)
+
+head:
+  detect_levels: ["P3", "P4", "P5"]
+  bias_init:
+    cls: -4.5
+    reg: 0.0

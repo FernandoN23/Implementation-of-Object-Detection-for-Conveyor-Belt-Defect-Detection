@@ -1,0 +1,78 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: train.yaml
+#==============================================================
+# Hiperparámetros de entrenamiento y validación (inspirados en Ultralytics).
+# Ajustados para un dataset de defectos en correas (nc=5) y imgsz=640.
+# Estos valores pueden modificarse desde train.py via CLI o parser.
+
+# ===== Datos =====
+imgsz: 640
+rect: false
+cache: false
+
+# ===== Optimizador y LR Schedule =====
+optimizer: adamw          # sgd|adam|adamw
+lr0: 0.0025               # lr inicial
+lrf: 0.1                  # factor mínimo (cosine decay)
+weight_decay: 0.01
+momentum: 0.9             # si usas SGD
+betas: [0.9, 0.999]       # si usas Adam/AdamW
+epochs: 150
+batch: 16
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+warmup_bias_lr: 0.05
+scheduler: cosine         # cosine|onecycle|linear
+
+# ===== Dataloader =====
+workers: 4
+pin_memory: true
+persistent_workers: true
+shuffle: true
+
+# ===== Entrenamiento =====
+amp: true                 # mixed precision
+ema: true
+ema_decay: 0.9999
+grad_accum: 1
+max_grad_norm: 0.0        # 0 desactiva clipping
+label_smoothing: 0.0
+patience: 50              # early stopping
+val_period: 1             # validar cada N epochs
+
+# ===== Pérdidas (ponderadores) =====
+loss:
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
+
+# ===== Aumentación =====
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4
+degrees: 0.0
+translate: 0.10
+scale: 0.50               # ±50%
+shear: 0.0
+perspective: 0.0
+fliplr: 0.5
+flipud: 0.0
+mosaic: 0.5
+mixup: 0.10
+copy_paste: 0.0
+erasing: 0.0
+
+# ===== Evaluación =====
+conf_thres: 0.001
+iou_thres: 0.70
+plots: true
+
+# ===== Guardado/Monitoreo =====
+tensorboard: true
+wandb: false

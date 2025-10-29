@@ -1,0 +1,50 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: parser.yaml
+#==============================================================
+# Parser y rutas base del proyecto. Este archivo orquesta los demás YAML.
+# Nota: las rutas son relativas a la raíz del proyecto (YOLOv11/).
+project:
+  name: yolo11_conveyor_defects
+  root_dir: YOLOv11
+  dirs:
+    runs: runs
+    logs: logs
+    metrics: metrics
+    weights: weights
+  time_format: "%Y%m%d_%H%M%S"
+
+data:
+  # YAML del dataset (incluye rutas absolutas del usuario)
+  config: configs/dataset.yaml
+
+model:
+  # YAML estructural del modelo y archivo de variantes
+  yolo_cfg: configs/yolo11.yaml
+  variants_cfg: configs/model_variants.yaml
+  default_variant: m   # n|s|m|l|xl
+  nc: 5
+  in_channels: 3
+  reg_max: 16
+
+train:
+  # YAML con hiperparámetros de entrenamiento
+  config: configs/train.yaml
+
+runtime:
+  device: auto           # auto | cuda | cpu
+  seed: 42
+  deterministic: false
+  compile: false         # torch.compile()
+  cudnn_benchmark: true
+
+save:
+  save_best: true
+  save_last: true
+  save_period: 10        # guardar cada N epochs
+  keep_checkpoint_max: 5
