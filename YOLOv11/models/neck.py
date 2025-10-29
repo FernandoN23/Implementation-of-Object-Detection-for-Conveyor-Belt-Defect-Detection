@@ -9,10 +9,13 @@
 # Neck PAN-FPN para YOLOv11 con SPPF + C2PSA (en P5).
 # Top-down: P5 → up → concat(P4) → C3k2 → up → concat(P3) → C3k2
 # Bottom-up: down → concat → C3k2 ... (tres niveles de salida).
+# Nota: se añadió compatibilidad con distintas firmas de C3k2, al igual que
+#       en backbone.py, usando inspección de firma para tolerar 'c3k'/'use_c3k'.
 #==============================================================
 
 from __future__ import annotations
 from typing import List, Tuple
+import inspect
 import torch
 import torch.nn as nn
 
@@ -21,6 +24,21 @@ from .nn.block import C3k2, SPPF, C2PSA
 from .backbone import scale_depth
 
 __all__ = ["Neck"]
+
+
+def _make_c3k2(c1: int, c2: int, n: int, use_c3k: bool, e: float) -> nn.Module:
+    """
+    Instancia C3k2 tolerando distintas firmas:
+    - Algunas versiones: C3k2(c1, c2, n=.., c3k=bool, e=..)
+    - Otras:             C3k2(c1, c2, n=.., use_c3k=bool, e=..)
+    - Fallback:          C3k2(c1, c2, n=.., e=..)
+    """
+    params = inspect.signature(C3k2).parameters
+    if "c3k" in params:
+        return C3k2(c1, c2, n=n, c3k=use_c3k, e=e)
+    if "use_c3k" in params:
+        return C3k2(c1, c2, n=n, use_c3k=use_c3k, e=e)
+    return C3k2(c1, c2, n=n, e=e)
 
 
 class Neck(nn.Module):
@@ -47,15 +65,15 @@ class Neck(nn.Module):
         self.concat = Concat(dim=1)
 
         # Top-down
-        self.c3k2_13 = C3k2(c5 + c4, c4, n=n2, c3k=False, e=0.25)   # 40×40
-        self.c3k2_16 = C3k2(c4 + c3, c3, n=n2, c3k=False, e=0.25)   # 80×80 (salida pequeña)
+        self.c3k2_13 = _make_c3k2(c5 + c4, c4, n=n2, use_c3k=False, e=0.25)   # 40×40
+        self.c3k2_16 = _make_c3k2(c4 + c3, c3, n=n2, use_c3k=False, e=0.25)   # 80×80 (salida pequeña)
 
         # Bottom-up
-        self.down_17 = Conv(c3, c4, k=3, s=2)                       # 80→40
-        self.c3k2_19 = C3k2(c4 + c4, c4, n=n2, c3k=False, e=0.25)   # 40×40 (salida media)
+        self.down_17 = Conv(c3, c4, k=3, s=2)                                 # 80→40
+        self.c3k2_19 = _make_c3k2(c4 + c4, c4, n=n2, use_c3k=False, e=0.25)   # 40×40 (salida media)
 
-        self.down_20 = Conv(c4, c5, k=3, s=2)                       # 40→20
-        self.c3k2_22 = C3k2(c5 + c5, c5, n=n2, c3k=False, e=0.25)   # 20×20 (salida grande)
+        self.down_20 = Conv(c4, c5, k=3, s=2)                                 # 40→20
+        self.c3k2_22 = _make_c3k2(c5 + c5, c5, n=n2, use_c3k=False, e=0.25)   # 20×20 (salida grande)
 
         # Exponer canales de salida por nivel
         self.out_channels: Tuple[int, int, int] = (c3, c4, c5)

@@ -1,0 +1,5 @@
+test_model run @ 20251029_134346
+variant=l imgsz=640 batch=2 device=cuda dtype=float32 decode=False concat=False
+P3: cls (2, 5, 80, 80) | reg (2, 64, 80, 80)
+P4: cls (2, 5, 40, 40) | reg (2, 64, 40, 40)
+P5: cls (2, 5, 20, 20) | reg (2, 64, 20, 20)

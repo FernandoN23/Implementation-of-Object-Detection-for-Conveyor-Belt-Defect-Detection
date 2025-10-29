@@ -34,6 +34,7 @@ from .yolo11 import YOLOv11, build_model, VARIANTS as VARIANTS_FALLBACK
 # ------------------------------
 # Utilidades básicas
 # ------------------------------
+
 def _read_yaml(path: Path) -> Dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"YAML no encontrado: {path}")
@@ -62,6 +63,7 @@ def _auto_device() -> str:
 # ------------------------------
 # Data classes de salida
 # ------------------------------
+
 @dataclass
 class PathsCfg:
     project_root: Path
@@ -125,10 +127,8 @@ class ConfigParserYaml:
     ) -> None:
         # Resolver raíz del proyecto:
         # 1) argumento explícito
-        # 2) variable env YOLOV11_ROOT
-        # 3) carpeta dos niveles arriba de este archivo (…/YOLOv11)
+        # 2) carpeta dos niveles arriba de este archivo (…/YOLOv11)
         default_root = Path(__file__).resolve().parents[1]
-        env_root = Path(Path.home() / "YOLOV11_ROOT") if False else None  # placeholder (no usar .env aquí)
         root = Path(project_root) if project_root else default_root
         self.root = root
 
@@ -214,28 +214,35 @@ class ConfigParserYaml:
         )
 
         # ----- Variantes -----
-        self.default_variant_name = p.get("model", {}).get("default_variant", "m")
+        # 1) Fallback por defecto definido en código
+        self.variants_map = {k: {"d": v.get("d"), "w": v.get("w"), "mc": v.get("mc")} for k, v in VARIANTS_FALLBACK.items()}
 
-        # Si existe model_variants.yaml úsalo; si no, usa fallback del código
-        self.variants_map = VARIANTS_FALLBACK.copy()
+        # 2) Si existe model_variants.yaml, úsalo (aplanando raíz 'variants' si aparece)
         try:
             if self.paths.variants_yaml and self.paths.variants_yaml.exists():
-                loaded = _read_yaml(self.paths.variants_yaml) or {}
-                # Se espera formato: {n:{depth_multiple, width_multiple, max_channels}, ...}
-                # Normalizamos llaves a d,w,mc
-                normalized = {}
-                for k, v in (loaded or {}).items():
-                    if not isinstance(v, dict):
-                        continue
-                    d = float(v.get("depth_multiple", v.get("d", 1.0)))
-                    w = float(v.get("width_multiple", v.get("w", 1.0)))
-                    mc = int(v.get("max_channels", v.get("mc", 1024)))
-                    normalized[str(k)] = {"d": d, "w": w, "mc": mc}
-                if normalized:
-                    self.variants_map = normalized
+                raw = _read_yaml(self.paths.variants_yaml) or {}
+                if isinstance(raw, dict):
+                    vroot = raw.get("variants", raw)  # aplanar si el yaml viene con la clave raíz 'variants'
+                    if isinstance(vroot, dict):
+                        normalized: Dict[str, Dict[str, Any]] = {}
+                        for k, v in vroot.items():
+                            if not isinstance(v, dict):
+                                continue
+                            d = float(v.get("depth_multiple", v.get("d", 1.0)))
+                            w = float(v.get("width_multiple", v.get("w", 1.0)))
+                            mc = int(v.get("max_channels", v.get("mc", 1024)))
+                            normalized[str(k).lower()] = {"d": d, "w": w, "mc": mc}
+                        if normalized:
+                            self.variants_map = normalized
         except Exception:
-            # Silencioso: si algo falla, mantenemos el fallback del código
+            # Silencioso: si algo falla, se mantiene el fallback del código
             pass
+
+        # 3) Variante por defecto desde parser.yaml (lower-case y validación)
+        self.default_variant_name = str(p.get("model", {}).get("default_variant", "m")).lower()
+        if self.default_variant_name not in self.variants_map:
+            # Fallback razonable
+            self.default_variant_name = "m" if "m" in self.variants_map else next(iter(self.variants_map.keys()))
 
         # ----- Dataset (opcional) para validaciones -----
         try:
@@ -259,6 +266,11 @@ class ConfigParserYaml:
         self._loaded = True
         return self
 
+    # -------- Propiedades de conveniencia ----------
+    @property
+    def train(self) -> Dict[str, Any]:  # compat con utilidades externas
+        return self.train_cfg
+
     # -------- Resolución de variante ----------
     def resolve_variant(self, *, variant: Optional[str] = None,
                         d: Optional[float] = None, w: Optional[float] = None, mc: Optional[int] = None) -> ResolvedVariant:
@@ -266,12 +278,21 @@ class ConfigParserYaml:
             self.load()
 
         if all(v is not None for v in (d, w, mc)):
-            return ResolvedVariant(name=variant or "custom", d=float(d), w=float(w), mc=int(mc))
+            return ResolvedVariant(name=(variant or "custom").lower(), d=float(d), w=float(w), mc=int(mc))
 
-        vname = (variant or self.default_variant_name)
-        if vname not in self.variants_map:
-            raise KeyError(f"Variante '{vname}' no encontrada. Disponibles: {list(self.variants_map.keys())}")
-        vd = self.variants_map[vname]
+        vname = (variant or self.default_variant_name or "m").lower()
+
+        # Asegurar que variants_map no tiene raíz 'variants'
+        vmap = self.variants_map
+        if "variants" in vmap and isinstance(vmap["variants"], dict):
+            vmap = vmap["variants"]  # aplanar si quedó anidado por error
+            # Persistir aplanado
+            self.variants_map = vmap  # type: ignore[assignment]
+
+        if vname not in vmap:
+            raise KeyError(f"Variante '{vname}' no encontrada. Disponibles: {list(vmap.keys())}")
+
+        vd = vmap[vname]
         return ResolvedVariant(name=vname, d=float(vd["d"]), w=float(vd["w"]), mc=int(vd["mc"]))
 
     # -------- Construcción del modelo ----------
@@ -289,6 +310,16 @@ class ConfigParserYaml:
             in_ch=self.model_meta.in_channels,
             reg_max=self.model_meta.reg_max,
             imgsz_for_strides=imgsz_for_strides,
+        )
+
+        # Actualiza metadatos con strides reales del modelo, si existen
+        strides = tuple(getattr(m, "strides", (8, 16, 32)))
+        self.model_meta = ModelMeta(
+            nc=self.model_meta.nc,
+            in_channels=self.model_meta.in_channels,
+            reg_max=self.model_meta.reg_max,
+            use_dw_for_cls=self.model_meta.use_dw_for_cls,
+            strides=strides,
         )
         return m
 
@@ -324,18 +355,20 @@ class ConfigParserYaml:
 # ------------------------------
 if __name__ == "__main__":
     # Ajusta la raíz explícita si ejecutas fuera del repositorio
-    # root = Path(r"C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\YOLOv11")
     root = None  # usa detección automática (dos niveles arriba de este archivo)
 
     parser = ConfigParserYaml(project_root=root).load()
     print(parser.summary())
 
     # Construir el modelo con la variante por defecto de parser.yaml
-    model = parser.build_model()
+    model = parser.build_model(variant=parser.default_variant_name)
     print(f"\nModelo construido (variant={parser.default_variant_name}):")
-    print("Strides:", model.strides.tolist())
+    try:
+        print("Strides:", getattr(model, "strides", [8, 16, 32]))
+    except Exception:
+        pass
 
-    # Forward seco para validar shapes
+    # Forward seco para validar shapes (opcional)
     x = torch.zeros(1, parser.model_meta.in_channels, 640, 640)
     out = model(x)
     for i, (c, r) in enumerate(zip(out["cls"], out["reg"])):

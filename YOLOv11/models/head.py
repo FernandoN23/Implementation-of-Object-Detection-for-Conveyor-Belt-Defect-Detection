@@ -10,10 +10,12 @@
 # - Clasificación: dos DWConv + Conv1×1 (profundidad separable, ligero).
 # - Regresión: dos Conv estándar + Conv1×1 → (4 * reg_max) canales (DFL-ready).
 # Devuelve listas por nivel: dict(cls=[...], reg=[...]).
+# Nota: se añadió compatibilidad para "bias_init" tipo dict {cls, reg} además
+#       de los argumentos cls_bias/reg_bias existentes.
 #==============================================================
 
 from __future__ import annotations
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 import torch
 import torch.nn as nn
 
@@ -31,8 +33,8 @@ class _ClsRegBranch(nn.Module):
         self.cv1 = Block(c, c, k=3, s=1)
         self.cv2 = Block(c, c, k=3, s=1)
         self.proj = nn.Conv2d(c, out, kernel_size=1, bias=True)
-        if final_bias:
-            nn.init.constant_(self.proj.bias, final_bias)
+        if final_bias is not None:
+            nn.init.constant_(self.proj.bias, float(final_bias))
         self.name = name
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -53,11 +55,18 @@ class DetectHead(nn.Module):
         reg_max: int = 16,                # bins DFL (4 * reg_max canales)
         use_dw_for_cls: bool = True,      # cls con DWConv
         cls_bias: float = -4.5,           # inicialización conservadora (p~1%)
+        reg_bias: float = 0.0,            # bias inicial rama de regresión
+        bias_init: Optional[Dict[str, float]] = None,  # alternativo: {"cls":-4.5, "reg":0.0}
     ) -> None:
         super().__init__()
         assert len(ch) == 3, "Se esperan 3 niveles (P3, P4, P5)."
         self.nc = nc
         self.reg_max = reg_max
+
+        # Compatibilidad con bias_init dict (desde YAML)
+        if bias_init is not None:
+            cls_bias = float(bias_init.get("cls", cls_bias))
+            reg_bias = float(bias_init.get("reg", reg_bias))
 
         c3, c4, c5 = ch
         c_in = [c3, c4, c5]
@@ -67,7 +76,7 @@ class DetectHead(nn.Module):
             for i in range(3)
         ])
         self.reg_branches = nn.ModuleList([
-            _ClsRegBranch(c=c_in[i], out=4 * reg_max, depthwise=False, final_bias=0.0, name=f"reg_p{i+3}")
+            _ClsRegBranch(c=c_in[i], out=4 * reg_max, depthwise=False, final_bias=reg_bias, name=f"reg_p{i+3}")
             for i in range(3)
         ])
 
