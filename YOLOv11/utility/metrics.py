@@ -1,0 +1,456 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: metrics.py
+# Módulo de métricas para YOLOv11 (detección). Calcula y registra
+# P, R, F1, mAP@0.50, mAP@0.50:0.95, IoU y matrices de confusión
+# por variante (n/s/m/l/xl) y fase (train/val/test). Soporta
+# imágenes negativas (sin etiquetas) y se integra con el logger
+# del proyecto para guardar curvas y CSV por época.
+#==============================================================
+from __future__ import annotations
+
+import math
+import os
+import csv
+import json
+import warnings
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Tuple
+
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+
+try:
+    import seaborn as sns  # type: ignore
+except Exception:  # pragma: no cover
+    sns = None
+
+
+# ==============================================================
+# Utilidades geométricas
+# ==============================================================
+
+def _box_iou_xyxy(box1: torch.Tensor, box2: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
+    (a1, a2), (b1, b2) = box1.float().unsqueeze(1).chunk(2, 2), box2.float().unsqueeze(0).chunk(2, 2)
+    inter = (torch.min(a2, b2) - torch.max(a1, b1)).clamp_(0).prod(2)
+    return inter / ((a2 - a1).prod(2) + (b2 - b1).prod(2) - inter + eps)
+
+
+# ==============================================================
+# Promedios corrientes para pérdidas (train/val)
+# ==============================================================
+
+class RunningMean:
+    def __init__(self):
+        self._sum: Dict[str, float] = {}
+        self._n: int = 0
+
+    def update(self, scalars: Dict[str, float], inc: int = 1) -> None:
+        for k, v in scalars.items():
+            self._sum[k] = self._sum.get(k, 0.0) + float(v) * inc
+        self._n += inc
+
+    def mean(self) -> Dict[str, float]:
+        if self._n == 0:
+            return {k: 0.0 for k in self._sum}
+        return {k: s / self._n for k, s in self._sum.items()}
+
+
+# ==============================================================
+# Cálculo de AP y curvas PR (COCO-like)
+# ==============================================================
+
+@dataclass
+class PRCurves:
+    px: np.ndarray
+    p_curve: np.ndarray
+    r_curve: np.ndarray
+    f1_curve: np.ndarray
+    ap: np.ndarray
+
+    def summary(self) -> Dict[str, float]:
+        map50 = self.ap[:, 0].mean() if self.ap.size else 0.0
+        map5095 = self.ap.mean() if self.ap.size else 0.0
+        i = _smooth(self.f1_curve.mean(0), f=0.1).argmax() if self.f1_curve.size else 0
+        p = float(self.p_curve[:, i].mean()) if self.p_curve.size else 0.0
+        r = float(self.r_curve[:, i].mean()) if self.r_curve.size else 0.0
+        return {"precision": p, "recall": r, "mAP50": float(map50), "mAP50_95": float(map5095)}
+
+
+def _smooth(y: np.ndarray, f: float = 0.05) -> np.ndarray:
+    if y.size == 0:
+        return y
+    nf = round(len(y) * f * 2) // 2 + 1
+    p = np.ones(nf // 2)
+    yp = np.concatenate((p * y[0], y, p * y[-1]), 0)
+    return np.convolve(yp, np.ones(nf) / nf, mode="valid")
+
+
+def _compute_ap(recall: np.ndarray, precision: np.ndarray) -> float:
+    mrec = np.concatenate(([0.0], recall, [1.0]))
+    mpre = np.concatenate(([1.0], precision, [0.0]))
+    mpre = np.flip(np.maximum.accumulate(np.flip(mpre)))
+    x = np.linspace(0, 1, 101)
+    return float(np.trapz(np.interp(x, mrec, mpre), x))
+
+
+def _ap_per_class(tp: np.ndarray, conf: np.ndarray, pred_cls: np.ndarray, target_cls: np.ndarray,
+                  iouv: np.ndarray, names: Dict[int, str],
+                  save_dir: Optional[Path] = None, prefix: str = "") -> Tuple[PRCurves, np.ndarray]:
+    if tp.size == 0:
+        T = 1000
+        return PRCurves(px=np.linspace(0, 1, T), p_curve=np.zeros((0, T)), r_curve=np.zeros((0, T)),
+                         f1_curve=np.zeros((0, T)), ap=np.zeros((0, len(iouv)))), np.array([], dtype=int)
+
+    i = np.argsort(-conf)
+    tp, conf, pred_cls = tp[i], conf[i], pred_cls[i]
+
+    unique_classes, nt = np.unique(target_cls, return_counts=True)
+    nc, T = unique_classes.shape[0], 1000
+
+    x = np.linspace(0, 1, T)
+    p_curve = np.zeros((nc, T))
+    r_curve = np.zeros((nc, T))
+    ap = np.zeros((nc, iouv.size))
+
+    for ci, c in enumerate(unique_classes):
+        idx = pred_cls == c
+        n_l = int(nt[ci])
+        n_p = int(idx.sum())
+        if n_p == 0 or n_l == 0:
+            continue
+        fpc = (1 - tp[idx]).cumsum(0)
+        tpc = tp[idx].cumsum(0)
+        recall = tpc / (n_l + 1e-16)
+        precision = tpc / (tpc + fpc + 1e-16)
+        r_curve[ci] = np.interp(-x, -conf[idx], recall[:, 0], left=0)
+        p_curve[ci] = np.interp(-x, -conf[idx], precision[:, 0], left=1)
+        for j in range(iouv.size):
+            ap[ci, j] = _compute_ap(recall[:, j], precision[:, j])
+
+    f1_curve = 2 * p_curve * r_curve / (p_curve + r_curve + 1e-16)
+    curves = PRCurves(px=x, p_curve=p_curve, r_curve=r_curve, f1_curve=f1_curve, ap=ap)
+
+    if save_dir is not None:
+        try:
+            save_dir.mkdir(parents=True, exist_ok=True)
+            _plot_pr_curve(x, p_curve, ap, save_dir / f"{prefix}PR_curve.png", names)
+            _plot_mc_curve(x, f1_curve, save_dir / f"{prefix}F1_curve.png", names, ylabel="F1")
+            _plot_mc_curve(x, p_curve, save_dir / f"{prefix}P_curve.png", names, ylabel="Precision")
+            _plot_mc_curve(x, r_curve, save_dir / f"{prefix}R_curve.png", names, ylabel="Recall")
+        except Exception as e:
+            warnings.warn(f"Fallo al guardar curvas PR/MC: {e}")
+
+    return curves, unique_classes.astype(int)
+
+
+def _plot_pr_curve(px: np.ndarray, p_curve: np.ndarray, ap: np.ndarray, path: Path,
+                   names: Dict[int, str]) -> None:
+    fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
+    if 0 < len(names) < 21 and p_curve.shape[0] == len(names):
+        for i, y in enumerate(p_curve):
+            label = f"{names.get(i, str(i))} {ap[i,0]:.3f}"
+            ax.plot(px, y, linewidth=1, label=label)
+    else:
+        ax.plot(px, p_curve.T, linewidth=1, color="grey")
+    ax.plot(px, p_curve.mean(0), linewidth=3, label=f"all classes {ap[:,0].mean():.3f} mAP@0.5")
+    ax.set_xlabel("Recall"); ax.set_ylabel("Precision"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.legend(bbox_to_anchor=(1.04, 1), loc="upper left"); ax.set_title("Precision-Recall Curve")
+    fig.savefig(path, dpi=250); plt.close(fig)
+
+
+def _plot_mc_curve(px: np.ndarray, py: np.ndarray, path: Path, names: Dict[int, str],
+                   xlabel: str = "Confidence", ylabel: str = "Metric") -> None:
+    fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
+    if 0 < len(names) < 21 and py.shape[0] == len(names):
+        for i, y in enumerate(py):
+            ax.plot(px, y, linewidth=1, label=f"{names.get(i, str(i))}")
+    else:
+        ax.plot(px, py.T, linewidth=1, color="grey")
+    y = _smooth(py.mean(0), 0.05)
+    ax.plot(px, y, linewidth=3, label=f"all classes {y.max():.2f} at {px[y.argmax()]:.3f}")
+    ax.set_xlabel(xlabel); ax.set_ylabel(ylabel); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.legend(bbox_to_anchor=(1.04, 1), loc="upper left"); ax.set_title(f"{ylabel}-Confidence Curve")
+    fig.savefig(path, dpi=250); plt.close(fig)
+
+
+# ==============================================================
+# Matriz de confusión (detección)
+# ==============================================================
+
+class ConfusionMatrix:
+    def __init__(self, nc: int, conf: float = 0.25, iou_thres: float = 0.45):
+        self.nc = int(nc)
+        self.conf = 0.25 if conf in (None, 0.001) else float(conf)
+        self.iou_thres = float(iou_thres)
+        self.mat = np.zeros((self.nc + 1, self.nc + 1), dtype=np.float64)
+
+    def update(self, detections: Optional[torch.Tensor], gt_boxes: torch.Tensor, gt_cls: torch.Tensor) -> None:
+        if gt_cls.numel() == 0:
+            if detections is not None:
+                det = detections[detections[:, 4] > self.conf]
+                for dc in det[:, 5].int().tolist():
+                    self.mat[int(dc), self.nc] += 1
+            return
+        if detections is None or detections.numel() == 0:
+            for gc in gt_cls.int().tolist():
+                self.mat[self.nc, int(gc)] += 1
+            return
+        det = detections[detections[:, 4] > self.conf]
+        iou = _box_iou_xyxy(gt_boxes, det[:, :4])
+        x = torch.where(iou > self.iou_thres)
+        if x[0].numel():
+            matches = torch.stack((x[0], x[1], iou[x[0], x[1]]), 1).cpu().numpy()
+            matches = matches[matches[:, 2].argsort()[::-1]]
+            matches = matches[np.unique(matches[:, 1], return_index=True)[1]]
+            matches = matches[matches[:, 2].argsort()[::-1]]
+            matches = matches[np.unique(matches[:, 0], return_index=True)[1]]
+        else:
+            matches = np.zeros((0, 3))
+
+        gt_classes = gt_cls.int().cpu().numpy()
+        det_classes = det[:, 5].int().cpu().numpy()
+        m0, m1, _ = matches.astype(int).T if matches.size else (np.array([], int), np.array([], int), None)
+
+        for i, gc in enumerate(gt_classes):
+            j = m0 == i
+            if matches.size and j.sum() == 1:
+                self.mat[det_classes[m1[j]][0], gc] += 1
+            else:
+                self.mat[self.nc, gc] += 1
+        for i, dc in enumerate(det_classes):
+            if not (matches.size and (m1 == i).any()):
+                self.mat[dc, self.nc] += 1
+
+    def plot(self, path: Path, names: Dict[int, str]) -> None:
+        if sns is None:
+            warnings.warn("seaborn no disponible; no se graficará la matriz de confusión")
+            return
+        array = self.mat / (self.mat.sum(0, keepdims=True) + 1e-9)
+        array[array < 0.005] = np.nan
+        fig, ax = plt.subplots(1, 1, figsize=(12, 9), tight_layout=True)
+        ticklabels = list(names.values()) + ["background"]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sns.heatmap(array, ax=ax, annot=self.nc < 30, annot_kws={"size": 8}, cmap="Blues",
+                        fmt=".2f", square=True, vmin=0.0, xticklabels=ticklabels, yticklabels=ticklabels)
+        ax.set_xlabel("True"); ax.set_ylabel("Predicted"); ax.set_title("Confusion Matrix (Normalized)")
+        fig.savefig(path, dpi=250); plt.close(fig)
+
+
+# ==============================================================
+# Núcleo de métricas de detección
+# ==============================================================
+
+@dataclass
+class DetMetricsSummary:
+    precision: float
+    recall: float
+    map50: float
+    map50_95: float
+    tp: int
+    fp: int
+    fn: int
+
+    def to_dict(self) -> Dict[str, float]:
+        d = asdict(self)
+        return {
+            "metrics/precision": d["precision"],
+            "metrics/recall": d["recall"],
+            "metrics/mAP50": d["map50"],
+            "metrics/mAP50-95": d["map50_95"],
+            "stats/tp": float(d["tp"]),
+            "stats/fp": float(d["fp"]),
+            "stats/fn": float(d["fn"]),
+        }
+
+
+class DetMetricsYOLOv11:
+    def __init__(self, class_names: Dict[int, str],
+                 save_dir: Optional[Path] = None,
+                 iou_thresholds: Iterable[float] = np.linspace(0.5, 0.95, 10)) -> None:
+        self.names: Dict[int, str] = class_names
+        self.save_dir = Path(save_dir) if save_dir is not None else None
+        self.iouv = np.array(list(iou_thresholds), dtype=np.float64)
+        self.stats_tp: List[np.ndarray] = []
+        self.stats_conf: List[np.ndarray] = []
+        self.stats_pred_cls: List[np.ndarray] = []
+        self.stats_target_cls: List[np.ndarray] = []
+        self.cm = ConfusionMatrix(nc=len(self.names))
+
+    @staticmethod
+    def _xywhn_to_xyxy_pix(xywhn: torch.Tensor, hw: Tuple[int, int]) -> torch.Tensor:
+        H, W = hw
+        cx, cy, w, h = xywhn.unbind(-1)
+        x1 = (cx - w * 0.5) * W
+        y1 = (cy - h * 0.5) * H
+        x2 = (cx + w * 0.5) * W
+        y2 = (cy + h * 0.5) * H
+        return torch.stack([x1, y1, x2, y2], dim=-1)
+
+    def add_batch(self,
+                  preds: List[torch.Tensor],
+                  targets: List[torch.Tensor],
+                  img_hw: List[Tuple[int, int]],
+                  labels_is_xywhn: bool = True,
+                  conf_min_for_cm: float = 0.25,
+                  iou_match_for_cm: float = 0.50) -> None:
+        device = preds[0].device if preds else torch.device("cpu")
+        for i, (p_i, t_i, hw) in enumerate(zip(preds, targets, img_hw)):
+            if t_i.numel() == 0:
+                tcls = torch.zeros((0,), device=device)
+                tbox = torch.zeros((0, 4), device=device)
+            else:
+                if labels_is_xywhn:
+                    if t_i.size(-1) == 6:
+                        tcls = t_i[:, 1]
+                        xywhn = t_i[:, 2:]
+                    elif t_i.size(-1) == 5:
+                        tcls = t_i[:, 0]
+                        xywhn = t_i[:, 1:]
+                    else:
+                        raise ValueError("Formato de labels no reconocido para XYWHN")
+                    tbox = self._xywhn_to_xyxy_pix(xywhn, hw)
+                else:
+                    if t_i.size(-1) == 5:
+                        tcls = t_i[:, 0]
+                        tbox = t_i[:, 1:5]
+                    else:
+                        raise ValueError("Formato de labels no reconocido para XYXY")
+
+            self.cm.conf = conf_min_for_cm
+            self.cm.iou_thres = iou_match_for_cm
+            self.cm.update(p_i if p_i.numel() else None, tbox, tcls)
+
+            if p_i is None or p_i.numel() == 0:
+                self.stats_target_cls.append(tcls.cpu().numpy())
+                continue
+            p_i = p_i[p_i[:, 4].argsort(descending=True)]
+            correct = np.zeros((p_i.shape[0], self.iouv.size), dtype=bool)
+            if tbox.numel():
+                ious = _box_iou_xyxy(tbox, p_i[:, :4])
+                x = torch.where(ious > self.iouv.min() - 1e-9)
+                if x[0].numel():
+                    matches = torch.stack((x[0], x[1], ious[x[0], x[1]]), 1).cpu().numpy()
+                    matches = matches[matches[:, 2].argsort()[::-1]]
+                    m_pred = matches[np.unique(matches[:, 1], return_index=True)[1]]
+                    m_gt = m_pred[np.unique(m_pred[:, 0], return_index=True)[1]]
+                    if m_gt.size:
+                        gt_idx = m_gt[:, 0].astype(int)
+                        det_idx = m_gt[:, 1].astype(int)
+                        iou_vals = m_gt[:, 2]  # mantener float, no castear a int
+                        gt_cls = tcls.cpu().numpy().astype(int)
+                        det_cls = p_i[:, 5].cpu().numpy().astype(int)
+                        for g, d, iou_val in zip(gt_idx, det_idx, iou_vals):
+                            if det_cls[d] != gt_cls[g]:
+                                continue
+                            correct[d, iou_val >= self.iouv] = True
+            self.stats_tp.append(correct)
+            self.stats_conf.append(p_i[:, 4].cpu().numpy())
+            self.stats_pred_cls.append(p_i[:, 5].cpu().numpy().astype(int))
+            self.stats_target_cls.append(tcls.cpu().numpy())
+
+    def finalize(self) -> Tuple[DetMetricsSummary, PRCurves]:
+        if len(self.stats_tp) == 0:
+            empty_curves = PRCurves(px=np.linspace(0, 1, 1000), p_curve=np.zeros((0, 1000)),
+                                     r_curve=np.zeros((0, 1000)), f1_curve=np.zeros((0, 1000)), ap=np.zeros((0, 10)))
+            return DetMetricsSummary(0.0, 0.0, 0.0, 0.0, 0, 0, 0), empty_curves
+
+        tp = np.concatenate(self.stats_tp, 0)
+        conf = np.concatenate(self.stats_conf, 0)
+        pred_cls = np.concatenate(self.stats_pred_cls, 0)
+        target_cls = np.concatenate(self.stats_target_cls, 0)
+
+        save_dir = self.save_dir / "pr_curves" if self.save_dir is not None else None
+        curves, present_classes = _ap_per_class(tp, conf, pred_cls, target_cls, self.iouv, self.names,
+                                                save_dir=save_dir, prefix="")
+        summary = curves.summary()
+
+        tp_sum = int(np.diag(self.cm.mat)[:-1].sum())
+        fp_sum = int(self.cm.mat[:-1, -1].sum())
+        fn_sum = int(self.cm.mat[-1, :-1].sum())
+
+        det_summary = DetMetricsSummary(
+            precision=float(summary["precision"]),
+            recall=float(summary["recall"]),
+            map50=float(summary["mAP50"]),
+            map50_95=float(summary["mAP50_95"]),
+            tp=tp_sum,
+            fp=fp_sum,
+            fn=fn_sum,
+        )
+
+        if self.save_dir is not None:
+            try:
+                self.save_dir.mkdir(parents=True, exist_ok=True)
+                self.cm.plot(self.save_dir / "confusion_matrix.png", self.names)
+            except Exception as e:
+                warnings.warn(f"No se pudo guardar la matriz de confusión: {e}")
+
+        return det_summary, curves
+
+
+# ==============================================================
+# Escritura de métricas por época (CSV)
+# ==============================================================
+
+class MetricsWriter:
+    def __init__(self, root: Path, variant: str, phase: str, run_name: str):
+        self.root = Path(root)
+        self.variant = variant
+        self.phase = phase
+        self.run_name = run_name
+        self.logs_dir = self.root / "logs" / variant / phase / run_name
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        self.csv_path = self.logs_dir / ("train.csv" if phase == "train" else f"{phase}.csv")
+        if not self.csv_path.exists():
+            with self.csv_path.open("w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["epoch", "split", "metric", "value"])  # formato largo
+
+    def write_epoch(self, epoch: int, scalars: Dict[str, float]) -> None:
+        rows = [(epoch, self.phase, k, float(v)) for k, v in sorted(scalars.items())]
+        with self.csv_path.open("a", newline="") as f:
+            csv.writer(f).writerows(rows)
+
+
+class TrainEpochTracker:
+    def __init__(self):
+        self.rm = RunningMean()
+
+    def update(self, loss_scalars: Dict[str, float], batch_size: int = 1) -> None:
+        self.rm.update(loss_scalars, inc=batch_size)
+
+    def finalize(self) -> Dict[str, float]:
+        m = self.rm.mean()
+        return {
+            "loss/total": m.get("loss", 0.0),
+            "loss/box": m.get("loss_box", 0.0),
+            "loss/cls": m.get("loss_cls", 0.0),
+            "loss/dfl": m.get("loss_dfl", 0.0),
+            "stats/num_pos": m.get("num_pos", 0.0),
+        }
+
+
+def summarize_validation(det_summary: DetMetricsSummary, loss_means: Optional[Dict[str, float]] = None) -> Dict[str, float]:
+    d = det_summary.to_dict()
+    if loss_means is not None:
+        d.update({
+            "loss/total": loss_means.get("loss", 0.0),
+            "loss/box": loss_means.get("loss_box", 0.0),
+            "loss/cls": loss_means.get("loss_cls", 0.0),
+            "loss/dfl": loss_means.get("loss_dfl", 0.0),
+            "stats/num_pos": loss_means.get("num_pos", 0.0),
+        })
+    return d
+
+
+if __name__ == "__main__":
+    print("metrics.py módulo - ejecutar test_metrics.py para prueba funcional")
