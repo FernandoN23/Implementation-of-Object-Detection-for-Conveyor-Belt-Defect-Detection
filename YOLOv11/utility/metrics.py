@@ -18,7 +18,7 @@ import csv
 import warnings
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,6 +29,7 @@ try:
 except Exception:  # pragma: no cover
     sns = None
 
+TensorOrArray = Union[torch.Tensor, np.ndarray, None]
 
 # ==============================================================
 # Utilidades geométricas
@@ -38,6 +39,17 @@ def _box_iou_xyxy(box1: torch.Tensor, box2: torch.Tensor, eps: float = 1e-7) -> 
     (a1, a2), (b1, b2) = box1.float().unsqueeze(1).chunk(2, 2), box2.float().unsqueeze(0).chunk(2, 2)
     inter = (torch.min(a2, b2) - torch.max(a1, b1)).clamp_(0).prod(2)
     return inter / ((a2 - a1).prod(2) + (b2 - b1).prod(2) - inter + eps)
+
+
+def _as_tensor(x: TensorOrArray, device: Optional[torch.device] = None) -> Optional[torch.Tensor]:
+    if x is None:
+        return None
+    if isinstance(x, torch.Tensor):
+        return x.to(device=device) if device is not None else x
+    if isinstance(x, np.ndarray):
+        t = torch.from_numpy(x)
+        return t.to(device=device) if device is not None else t
+    raise TypeError(f"Tipo no soportado: {type(x)}")
 
 
 # ==============================================================
@@ -156,7 +168,7 @@ def _plot_pr_curve(px: np.ndarray, p_curve: np.ndarray, ap: np.ndarray, path: Pa
             label = f"{names.get(i, str(i))} {ap[i,0]:.3f}"
             ax.plot(px, y, linewidth=1, label=label)
     else:
-        ax.plot(px, p_curve.T, linewidth=1, color="grey")
+        ax.plot(px, p_curve.T, linewidth=1)
     ax.plot(px, p_curve.mean(0), linewidth=3, label=f"all classes {ap[:,0].mean():.3f} mAP@0.5")
     ax.set_xlabel("Recall"); ax.set_ylabel("Precision"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     ax.legend(bbox_to_anchor=(1.04, 1), loc="upper left"); ax.set_title("Precision-Recall Curve")
@@ -170,7 +182,7 @@ def _plot_mc_curve(px: np.ndarray, py: np.ndarray, path: Path, names: Dict[int, 
         for i, y in enumerate(py):
             ax.plot(px, y, linewidth=1, label=f"{names.get(i, str(i))}")
     else:
-        ax.plot(px, py.T, linewidth=1, color="grey")
+        ax.plot(px, py.T, linewidth=1)
     y = _smooth(py.mean(0), 0.05)
     ax.plot(px, y, linewidth=3, label=f"all classes {y.max():.2f} at {px[y.argmax()]:.3f}")
     ax.set_xlabel(xlabel); ax.set_ylabel(ylabel); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
@@ -190,7 +202,6 @@ class ConfusionMatrix:
         self.mat = np.zeros((self.nc + 1, self.nc + 1), dtype=np.float64)
 
     def update(self, detections: Optional[torch.Tensor], gt_boxes: torch.Tensor, gt_cls: torch.Tensor) -> None:
-        # Sin GT -> todo lo que pase conf es FP al background
         if gt_cls.numel() == 0:
             if detections is not None:
                 det = detections[detections[:, 4] > self.conf]
@@ -198,7 +209,6 @@ class ConfusionMatrix:
                     self.mat[int(dc), self.nc] += 1
             return
 
-        # Con GT pero sin detecciones -> todos los GT son FN
         if detections is None or detections.numel() == 0:
             for gc in gt_cls.int().tolist():
                 self.mat[self.nc, int(gc)] += 1
@@ -214,7 +224,6 @@ class ConfusionMatrix:
         x = torch.where(iou > self.iou_thres)
         if x[0].numel():
             matches = torch.stack((x[0], x[1], iou[x[0], x[1]]), 1).cpu().numpy()
-            # Greedy por IoU: 1 pred <-> 1 GT
             matches = matches[matches[:, 2].argsort()[::-1]]
             matches = matches[np.unique(matches[:, 1], return_index=True)[1]]
             matches = matches[matches[:, 2].argsort()[::-1]]
@@ -227,7 +236,6 @@ class ConfusionMatrix:
         m0 = matches[:, 0].astype(int) if matches.size else np.array([], dtype=int)
         m1 = matches[:, 1].astype(int) if matches.size else np.array([], dtype=int)
 
-        # TP y FN por GT
         for i, gc in enumerate(gt_classes):
             j = (m0 == i)
             if m0.size and j.sum() == 1:
@@ -236,7 +244,6 @@ class ConfusionMatrix:
             else:
                 self.mat[self.nc, int(gc)] += 1
 
-        # FP por detección no emparejada
         for i, dc in enumerate(det_classes):
             if not (m1.size and (m1 == i).any()):
                 self.mat[int(dc), self.nc] += 1
@@ -289,10 +296,17 @@ class DetMetricsSummary:
 
 
 class DetMetricsYOLOv11:
-    def __init__(self, class_names: Dict[int, str],
+    def __init__(self,
+                 class_names: Optional[Dict[int, str]] = None,
                  save_dir: Optional[Path] = None,
-                 iou_thresholds: Iterable[float] = np.linspace(0.5, 0.95, 10)) -> None:
-        self.names: Dict[int, str] = class_names
+                 iou_thresholds: Iterable[float] = np.linspace(0.5, 0.95, 10),
+                 nc: Optional[int] = None) -> None:
+        if class_names is None:
+            if nc is None:
+                raise ValueError("DetMetricsYOLOv11: debes proveer 'class_names' o 'nc'.")
+            self.names: Dict[int, str] = {i: str(i) for i in range(int(nc))}
+        else:
+            self.names = class_names
         self.save_dir = Path(save_dir) if save_dir is not None else None
         self.iouv = np.array(list(iou_thresholds), dtype=np.float64)
         self.stats_tp: List[np.ndarray] = []
@@ -313,15 +327,22 @@ class DetMetricsYOLOv11:
         return torch.stack([x1, y1, x2, y2], dim=-1)
 
     def add_batch(self,
-                  preds: List[torch.Tensor],
-                  targets: List[torch.Tensor],
-                  img_hw: List[Tuple[int, int]],
+                  preds: List[TensorOrArray],
+                  targets: List[TensorOrArray],
+                  img_hw: Union[List[Tuple[int, int]], Tuple[int, int]],
                   labels_is_xywhn: bool = True,
                   conf_min_for_cm: float = 0.25,
                   iou_match_for_cm: float = 0.50) -> None:
-        device = preds[0].device if preds else torch.device("cpu")
-        for i, (p_i, t_i, hw) in enumerate(zip(preds, targets, img_hw)):
-            if t_i.numel() == 0:
+        if isinstance(img_hw, tuple):  # admitir (H,W) para un solo elemento
+            img_hw = [img_hw]
+        device = torch.device("cpu")
+        if preds and isinstance(preds[0], torch.Tensor):
+            device = preds[0].device
+        preds_t = [_as_tensor(p, device=device) for p in preds]
+        targs_t = [_as_tensor(t, device=device) for t in targets]
+
+        for p_i, t_i, hw in zip(preds_t, targs_t, img_hw):
+            if t_i is None or t_i.numel() == 0:
                 tcls = torch.zeros((0,), device=device)
                 tbox = torch.zeros((0, 4), device=device)
             else:
@@ -342,17 +363,14 @@ class DetMetricsYOLOv11:
                     else:
                         raise ValueError("Formato de labels no reconocido para XYXY")
 
-            # CM parámetros
             self.cm.conf = conf_min_for_cm
             self.cm.iou_thres = iou_match_for_cm
             self.cm.update(p_i if (p_i is not None and p_i.numel()) else None, tbox, tcls)
 
-            # Nada que evaluar para AP
             if p_i is None or p_i.numel() == 0:
                 self.stats_target_cls.append(tcls.cpu().numpy())
                 continue
 
-            # Orden por confianza
             p_i = p_i[p_i[:, 4].argsort(descending=True)]
             correct = np.zeros((p_i.shape[0], self.iouv.size), dtype=bool)
 
@@ -361,14 +379,13 @@ class DetMetricsYOLOv11:
                 x = torch.where(ious > self.iouv.min() - 1e-9)
                 if x[0].numel():
                     matches = torch.stack((x[0], x[1], ious[x[0], x[1]]), 1).cpu().numpy()
-                    # Greedy 1-1 por IoU
                     matches = matches[matches[:, 2].argsort()[::-1]]
                     m_pred = matches[np.unique(matches[:, 1], return_index=True)[1]]
                     m_gt = m_pred[np.unique(m_pred[:, 0], return_index=True)[1]]
                     if m_gt.size:
                         gt_idx = m_gt[:, 0].astype(int)
                         det_idx = m_gt[:, 1].astype(int)
-                        iou_vals = m_gt[:, 2]  # float
+                        iou_vals = m_gt[:, 2]
                         gt_cls = tcls.cpu().numpy().astype(int)
                         det_cls = p_i[:, 5].cpu().numpy().astype(int)
                         for g, d, iou_val in zip(gt_idx, det_idx, iou_vals):
@@ -397,12 +414,10 @@ class DetMetricsYOLOv11:
         curves, _ = _ap_per_class(tp, conf, pred_cls, target_cls, self.iouv, self.names,
                                   save_dir=save_dir, prefix="")
 
-        # Resumen global
         summary = curves.summary()
         iou_mean = float(np.mean(self.matched_ious)) if len(self.matched_ious) else 0.0
         iou_median = float(np.median(self.matched_ious)) if len(self.matched_ious) else 0.0
 
-        # CM agregada
         tp_sum = int(np.diag(self.cm.mat)[:-1].sum())
         fp_sum = int(self.cm.mat[:-1, -1].sum())
         fn_sum = int(self.cm.mat[-1, :-1].sum())
@@ -423,7 +438,6 @@ class DetMetricsYOLOv11:
             try:
                 self.save_dir.mkdir(parents=True, exist_ok=True)
                 self.cm.plot(self.save_dir / "confusion_matrix.png", self.names)
-                # Histograma de IoU
                 if self.matched_ious:
                     fig, ax = plt.subplots(1, 1, figsize=(7, 5), tight_layout=True)
                     ax.hist(self.matched_ious, bins=20, range=(0, 1))
