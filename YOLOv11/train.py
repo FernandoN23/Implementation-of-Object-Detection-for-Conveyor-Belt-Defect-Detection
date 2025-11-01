@@ -1,3 +1,4 @@
+
 # ==============================================================
 # Departamento de Ingeniería Mecánica - Universidad de Chile
 # Trabajo de Memoria de Título:
@@ -6,11 +7,9 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: train.py
-# Script principal de entrenamiento para YOLOv11. Integra: parser de
-# configuraciones, construcción de modelo, dataloaders, bucle de
-# entrenamiento con HUD de consola compacto, validación interna
-# espaciable, early-stopping, guardado de checkpoints (best/last/periodic),
-# AMP/EMA opcionales, métricas (mAP, P/R), y salida a TensorBoard.
+# Script principal de entrenamiento para YOLOv11, versión compacta y modular.
+# Define clases para warm-up, evaluación, checkpoints y entrenamiento,
+# reduciendo lógica duplicada y manteniendo integridad funcional.
 #==============================================================
 
 from __future__ import annotations
@@ -73,7 +72,6 @@ from utility.data_loader import build_yolo_dataloader
 from utility.losses import YOLOLoss, LossHyperparams
 from utility.metrics import DetMetricsYOLOv11
 from utility.logger import ExperimentLogger
-from utility.weights import WeightsManager
 
 # Visualización/TensorBoard (opcional, tolerante a fallos de API)
 try:
@@ -231,8 +229,8 @@ class ModelEMA:
             if k in msd:
                 v.copy_(v * self.decay + msd[k] * (1.0 - self.decay))
 
-# --- Mitigación ROCm/MIOpen: BN en eval() ---
 
+# --- Mitigación ROCm/MIOpen: BN en eval() ---
 def apply_bn_eval(module: nn.Module, verbose: bool = True) -> int:
     """Pone capas BatchNorm en eval() (mitiga fallos MIOpen/SQLite en ROCm Windows)."""
     count = 0
@@ -354,136 +352,9 @@ def adapt_outputs_to_scores_boxes(outputs: Any, nc: int) -> Tuple[Optional[torch
     return None, None
 
 
-# ========================= Interfaz / CLI ========================= #
-
-def build_parser() -> argparse.ArgumentParser:
-    """Argumentos de entrenamiento (sin cambiar valores por defecto actuales)."""
-    p = argparse.ArgumentParser(
-        prog="YOLOv11 — Entrenamiento",
-        description="Entrena variantes YOLOv11 con validación interna, HUD compacto, F8 stop, AMP/EMA opcionales.",
-    )
-    p.add_argument("--variant", type=str, default=None, help="n/s/m/l/xl o dejar None para usar default del parser.yaml")
-    p.add_argument("--epochs", type=int, default=None)
-    p.add_argument("--batch", type=int, default=None)
-    p.add_argument("--imgsz", type=int, default=None)
-    p.add_argument("--device", type=str, default=None)
-    p.add_argument("--amp", action="store_true")
-    p.add_argument("--ema", action="store_true")
-    p.add_argument("--grad-accum", type=int, default=1)
-    # Frecuencias
-    p.add_argument("--val-interval", type=int, default=1)
-    p.add_argument("--pr-curves-every", type=int, default=10)
-    p.add_argument("--cm-every", type=int, default=10)
-    p.add_argument("--overlay-every", type=int, default=10)
-    # Checkpoints / early stop
-    p.add_argument("--save-period", type=int, default=10)
-    p.add_argument("--keep-checkpoint-max", type=int, default=5)
-    p.add_argument("--patience", type=int, default=50, help="en unidades de validación (se multiplica por val_interval)")
-    # Umbrales inferencia validación
-    p.add_argument("--conf-thr", type=float, default=0.25)
-    p.add_argument("--iou-thr", type=float, default=0.70)
-    # Overrides de optimización/planificación
-    p.add_argument("--lr0", type=float, default=None, help="Override LR inicial (AdamW)")
-    p.add_argument("--lrf", type=float, default=None, help="Factor mínimo LR (cosine)")
-    p.add_argument("--warmup-epochs", type=float, default=None, help="Override warmup epochs del scheduler")
-    # Reanudar
-    p.add_argument("--resume", type=str, default=None, help="ruta a last.pt")
-    # Verbosidad HUD
-    p.add_argument("--verbosity", type=str, choices=["v0", "v1", "v2"], default="v1")
-    # HUD (one/two/off)
-    p.add_argument("--hud", type=str, choices=["one", "two", "off"], default="two")
-    # Wizard interactivo
-    p.add_argument("--interactive", action="store_true", help="Inicia asistente interactivo antes de entrenar")
-    # Mitigación ROCm/MIOpen
-    p.add_argument("--bn-eval-fallback", action="store_true", help="Fuerza BatchNorm en eval() desde el inicio para evitar fallos MIOpen")
-    # Warm-up HUD explícito (opción A)
-    p.add_argument("--warmup-hud", action="store_true", help="Ejecuta forwards sintéticos y muestra un HUD de warm-up antes del primer batch")
-    p.add_argument("--warmup-steps", type=int, default=3, help="Pasos sintéticos de warm-up para compilar kernels")
-    p.add.argument("--warmup-batch", type=int, default=1, help="Tamaño de batch usado durante el warm-up")
-    p.add_argument("--warmup-imgsz", type=int, default=None, help="imgsz específico para warm-up (por defecto usa --imgsz)")
-    p.add_argument("--warmup-only", action="store_true", help="Ejecuta solo el warm-up y sale (smoketest)")
-    # TensorBoard / Auto-lanzamiento
-    p.add_argument("--tb-auto", dest="tb_auto", action="store_true")
-    p.add_argument("--no-tb-auto", dest="tb_auto", action="store_false")
-    p.set_defaults(tb_auto=True)
-    p.add_argument("--tb-port", type=int, default=None)
-    p.add_argument("--tb-host", type=str, default=None)
-    p.add_argument("--tb-open-browser", action="store_true", help="Abrir URL en el navegador al lanzar TB")
-    # Ajustes de aprendizaje temprano
-    p.add_argument("--freeze-epochs", type=int, default=0, help="Congelar backbone los primeros K epochs")
-    p.add_argument("--conf-ramp-epochs", type=int, default=5, help="Rampa de confianza en validación hasta --conf-thr")
-    return p
-
-
-def interactive_wizard(cfg: Any, args: argparse.Namespace) -> argparse.Namespace:
-    """Asistente simple para sobreescribir parámetros clave leídos de configs.* sin cambiar defaults."""
-    def ask_int(prompt: str, default: Optional[int]) -> Optional[int]:
-        s = input(f"{prompt} [{default}]: ").strip()
-        return int(s) if s else default
-
-    def ask_str(prompt: str, default: Optional[str]) -> Optional[str]:
-        s = input(f"{prompt} [{default}]: ").strip()
-        return s if s else default
-
-    train_section = _to_dict_like(getattr(cfg, "train", {}))
-    tr = _to_dict_like(train_section.get("config", {}))
-
-    print("=== Asistente interactivo de entrenamiento ===")
-    args.variant = ask_str("Variante (n/s/m/l/xl)", args.variant or getattr(cfg, "default_variant", None))
-    args.imgsz = ask_int("Tamaño de imagen (imgsz)", args.imgsz or tr.get("imgsz", 640))
-    args.epochs = ask_int("Épocas", args.epochs or tr.get("epochs", 150))
-    args.batch = ask_int("Batch", args.batch or tr.get("batch", 16))
-    args.val_interval = ask_int("Validación cada N épocas", args.val_interval)
-    args.save_period = ask_int("Guardar checkpoint cada N épocas", args.save_period)
-    args.keep_checkpoint_max = ask_int("Máx. checkpoints a mantener", args.keep_checkpoint_max)
-    args.patience = ask_int("Paciencia (en validaciones)", args.patience)
-    args.verbosity = ask_str("Verbosity (v0/v1/v2)", args.verbosity)
-    print("=== Fin asistente ===")
-    return args
-
-
 # ========================= HUD consola ========================= #
-class ConsoleHUD:
-    """HUD de dos líneas con barra de progreso y métricas (sin cambiar lógica)."""
-    def __init__(self, verbosity: str = "v1"):
-        self.verbosity = verbosity
-        self._last_len1 = 0
-        self._last_len2 = 0
-
-    @staticmethod
-    def _bar(frac: float, width: int = 10) -> str:
-        k = max(0, min(width, int(round(frac * width))))
-        return "▰" * k + "▱" * (width - k)
-
-    def live(self, epoch: int, epochs: int, it: int, it_total: int,
-             elapsed_s: float, eta_s: float, imgs_per_s: float,
-             lr: float, amp: bool, ema: bool, grad_accum: int,
-             loss_avg: float, loss_box: float, loss_cls: float, loss_dfl: float,
-             mem_gb: float, device_str: str) -> None:
-        if self.verbosity == "v0":
-            return
-        frac = it / max(1, it_total)
-        line1 = (f"[EPOCH {epoch}/{epochs}] {self._bar(frac)}  {int(frac*100):2d}% | "
-                 f"it {it}/{it_total} | {time.strftime('%H:%M:%S', time.gmtime(elapsed_s))} ⏱ | "
-                 f"ETA {time.strftime('%H:%M:%S', time.gmtime(max(0, int(eta_s))))} | "
-                 f"imgs/s {imgs_per_s:.0f} | lr {lr:.2e} | AMP {'on' if amp else 'off'} | EMA{'✓' if ema else '×'} | F8=stop")
-        line2 = (f"train: loss {loss_avg:.3f} (box {loss_box:.2f}, cls {loss_cls:.2f}, dfl {loss_dfl:.2f}) | "
-                 f"grad_acc {grad_accum}x | mem {mem_gb:.1f}GB | dev: {device_str}")
-        sys.stdout.write("\r" + line1 + ("\n" if self._last_len2 else ""))
-        sys.stdout.write(("\r\x1b[1A\x1b[2K" if self._last_len2 else "") + line2 + "\n")
-        sys.stdout.flush()
-        self._last_len1, self._last_len2 = len(line1), len(line2)
-
-    def epoch_summary(self, text: str) -> None:
-        if self.verbosity != "v0":
-            sys.stdout.write("\x1b[2K\r")
-        print(text, flush=True)
-        self._last_len1 = self._last_len2 = 0
-
-
-# ========================= HUD compacto (one-line / two-line) ========================= #
 class SimpleHUD:
-    """HUD compacto configurable (one/two/off). No altera parámetros ni salidas existentes."""
+    """HUD compacto configurable (one/two/off)."""
     def __init__(self, verbosity: str = "v1", mode: str = "two"):
         self.verbosity = verbosity
         self.mode = mode  # 'one' una línea, 'two' dos líneas, 'off' desactivar
@@ -526,7 +397,6 @@ class SimpleHUD:
         self._last_len = 0
 
 
-# ========================= HUD de Warm-up (opción A) ========================= #
 class WarmupHUD:
     """Una línea compacta para la fase de warm-up (kernel search, cachés, etc.)."""
     FRAMES = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
@@ -550,6 +420,8 @@ class WarmupHUD:
             return
         sys.stdout.write("\n"); sys.stdout.flush(); self._last_len = 0
 
+
+# ========================= Memoria GPU ========================= #
 def _mem_gb(device: torch.device) -> Tuple[float, float]:
     """Devuelve (allocated_GB, reserved_GB) para CUDA/ROCm; zeros en CPU/MPS."""
     try:
@@ -577,68 +449,8 @@ def _mem_stats(device: torch.device) -> Tuple[float, float, float, float, float]
     resv_pct = (r_gb / total_gb * 100.0) if total_gb > 0 else 0.0
     return a_gb, r_gb, total_gb, alloc_pct, resv_pct
 
-@torch.no_grad()
-def do_model_warmup(model: nn.Module, device: torch.device, *, steps: int, batch: int, imgsz: int, in_ch: int, amp: bool, bn_eval_active: bool, verbosity: str) -> float:
-    """Ejecuta 'steps' forwards sintéticos con batch/imgsz dados, muestra HUD de warm-up y restaura el estado del modelo.
-    Robustez MIOpen: si aparece RuntimeError de MIOpen/EvaluateInvokers, activa BN.eval() una vez y reintenta el paso.
-    Devuelve el tiempo total de warm-up (s)."""
-    hud = WarmupHUD(verbosity=verbosity)
-    was_train = model.training
-    t0 = time.time()
-
-    def _forward_once(x: torch.Tensor, use_amp: bool) -> None:
-        if use_amp:
-            with torch.amp.autocast('cuda'):
-                try:
-                    _ = model(x, decode=False, concat=False)
-                except TypeError:
-                    _ = model(x)
-        else:
-            try:
-                _ = model(x, decode=False, concat=False)
-            except TypeError:
-                _ = model(x)
-
-    try:
-        model.eval()
-        x = torch.randn(batch, in_ch, imgsz, imgsz, device=device, dtype=torch.float32)
-        use_cuda_autocast = (device.type == "cuda") and amp
-
-        for i in range(1, steps + 1):
-            step_done = False
-            attempts = 0
-            while not step_done and attempts < 2:
-                attempts += 1
-                try:
-                    _forward_once(x, use_cuda_autocast)
-                    step_done = True
-                except RuntimeError as e:
-                    msg = str(e).lower()
-                    if ("miopen" in msg or "evaluateinvokers" in msg or "sqlite" in msg) and not bn_eval_active:
-                        print("[MIOpen] RuntimeError detectado (" + e.__class__.__name__ + ") → activando BN.eval() y reintentando batch una vez…")
-                        apply_bn_eval(model, verbose=True)
-                        bn_eval_active = True
-                        # pequeño enfriamiento para permitir recompilación/perfilado de kernels
-                        time.sleep(0.2)
-                        continue
-                    # Segundo fallo o fallo no-MIOpen: registrar y continuar con el siguiente paso
-                    print(f"[MIOpen] Aviso: fallo en warm-up step {i} (intento {attempts}) → {e}")
-                    break
-
-            if device.type == "cuda":
-                try:
-                    torch.cuda.synchronize()
-                except Exception:
-                    pass
-            a_gb, r_gb, t_gb, a_pct, r_pct = _mem_stats(device)
-            hud.live(step=i, total=steps, dev=device.type, amp=amp, bn_eval=bn_eval_active, vram_pct=a_pct, alloc_gb=a_gb, reserved_gb=r_gb)
-        hud.done()
-    finally:
-        model.train(was_train)
-    return float(time.time() - t0)
 
 # ========================= Utilidades TensorBoard ========================= #
-
 def _is_port_free(port: int, host: str = "127.0.0.1") -> bool:
     """Comprueba si el puerto/host está libre (para auto-lanzar TensorBoard)."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -674,169 +486,558 @@ def launch_tensorboard(logdir: str, port: int = 6006, host: str = "127.0.0.1"):
         print(f"[TB] Auto-lanzamiento falló: {e}"); return None, port
 
 
-# ========================= Bucle de entrenamiento (setup actual) ========================= #
+# ========================= Clases compactas ========================= #
+class WarmupRunner:
+    def __init__(self, model: nn.Module, device: torch.device, verbosity: str = "v1"):
+        self.model = model
+        self.device = device
+        self.verbosity = verbosity
 
-def train_main() -> None:
-    """Configura entrenamiento y artefactos (esta versión incluye arranque de warm-up robusto)."""
-    parser = build_parser(); args = parser.parse_args()
+    @torch.no_grad()
+    def run(self, *, steps: int, batch: int, imgsz: int, in_ch: int, amp: bool, bn_eval_active: bool) -> float:
+        hud = WarmupHUD(verbosity=self.verbosity)
+        was_train = self.model.training
+        t0 = time.time()
 
-    # 1) Cargar configs
-    cfg = ConfigParserYaml().load()
-    if args.interactive:
-        args = interactive_wizard(cfg, args)
+        def _forward_once(x: torch.Tensor, use_amp: bool) -> None:
+            if use_amp:
+                with torch.amp.autocast('cuda'):
+                    try:
+                        _ = self.model(x, decode=False, concat=False)
+                    except TypeError:
+                        _ = self.model(x)
+            else:
+                try:
+                    _ = self.model(x, decode=False, concat=False)
+                except TypeError:
+                    _ = self.model(x)
 
-    # 2) Resolver secciones robustamente (soporta dict/objeto/dataclass)
-    variant = args.variant or getattr(cfg, "default_variant", None)
+        try:
+            self.model.eval()
+            x = torch.randn(batch, in_ch, imgsz, imgsz, device=self.device, dtype=torch.float32)
+            use_cuda_autocast = (self.device.type == "cuda") and amp
+
+            for i in range(1, steps + 1):
+                step_done = False
+                attempts = 0
+                while not step_done and attempts < 2:
+                    attempts += 1
+                    try:
+                        _forward_once(x, use_cuda_autocast)
+                        step_done = True
+                    except RuntimeError as e:
+                        msg = str(e).lower()
+                        if ("miopen" in msg or "evaluateinvokers" in msg or "sqlite" in msg) and not bn_eval_active:
+                            print("[MIOpen] RuntimeError detectado (" + e.__class__.__name__ + ") → activando BN.eval() y reintentando batch una vez…")
+                            apply_bn_eval(self.model, verbose=True)
+                            bn_eval_active = True
+                            time.sleep(0.2)
+                            continue
+                        print(f"[MIOpen] Aviso: fallo en warm-up step {i} (intento {attempts}) → {e}")
+                        break
+
+                if self.device.type == "cuda":
+                    try: torch.cuda.synchronize()
+                    except Exception: pass
+                a_gb, r_gb, t_gb, a_pct, r_pct = _mem_stats(self.device)
+                hud.live(step=i, total=steps, dev=self.device.type, amp=amp, bn_eval=bn_eval_active,
+                         vram_pct=a_pct, alloc_gb=a_gb, reserved_gb=r_gb)
+            hud.done()
+        finally:
+            self.model.train(was_train)
+        return float(time.time() - t0)
+
+
+class Evaluator:
+    def __init__(self, imgsz: int, nc: int, conf_thr: float, iou_thr: float):
+        self.imgsz = int(imgsz)
+        self.nc = int(nc)
+        self.conf_thr = float(conf_thr)
+        self.iou_thr = float(iou_thr)
+
+    @torch.no_grad()
+    def __call__(self, model: nn.Module, loader) -> Dict[str, Optional[float]]:
+        metrics = {"mAP50-95": None, "mAP50": None, "precision": None, "recall": None}
+        try:
+            device_eval = next(model.parameters()).device
+            model.eval()
+            dm = DetMetricsYOLOv11()
+            for ims, tgts, *rest in loader:
+                ims = ims.to(device_eval, non_blocking=True).float()
+                try:
+                    out = model(ims, decode=True, concat=True)
+                except TypeError:
+                    out = model(ims)
+                scores, boxes = adapt_outputs_to_scores_boxes(out, self.nc)
+                if scores is None or boxes is None:
+                    continue
+                dets = scores_boxes_to_dets(scores, boxes, conf_thr=self.conf_thr, iou_thr=self.iou_thr, max_det=300)
+                if tgts is None:
+                    batch_gt = [[] for _ in range(len(ims))]
+                else:
+                    tgts_np = tgts.detach().cpu().numpy()
+                    B = len(ims); batch_gt = [[] for _ in range(B)]
+                    for (bi, c, x, y, w, h) in tgts_np:
+                        bi = int(bi); batch_gt[bi].append([float(c), float(x), float(y), float(w), float(h)])
+                dm.add_batch(detections=[d.detach().cpu().numpy() for d in dets], ground_truth=batch_gt, imgsz=self.imgsz)
+            res = dm.finalize()
+            for k in ("mAP50-95", "map_50_95", "map50_95", "map5095"):
+                if k in res: metrics["mAP50-95"] = float(res[k]); break
+            for k in ("mAP50", "map50"):
+                if k in res: metrics["mAP50"] = float(res[k]); break
+            for k in ("precision", "P"):
+                if k in res: metrics["precision"] = float(res[k]); break
+            for k in ("recall", "R"):
+                if k in res: metrics["recall"] = float(res[k]); break
+        except Exception as _e:
+            print(f"[val] Omitiendo validación (motivo: {_e})")
+        return metrics
+
+
+class Checkpointer:
+    def __init__(self, base_dir: str, variant: str, run_name: str, save_period: int = 10):
+        self.dir = os.path.join(base_dir, variant, "train", run_name)
+        os.makedirs(self.dir, exist_ok=True)
+        self.best_metric: Optional[float] = None
+        self.save_period = max(1, int(save_period))
+
+    def save(self, *, epoch: int, model_state: Dict[str, Any], optimizer_state: Dict[str, Any],
+             scaler_state: Optional[Dict[str, Any]], metrics: Dict[str, Optional[float]],
+             ref_metric: float) -> None:
+        is_best = (self.best_metric is None) or (ref_metric > self.best_metric)
+        if is_best:
+            self.best_metric = ref_metric
+        ckpt = {
+            "epoch": epoch,
+            "model_state": model_state,
+            "optimizer_state": optimizer_state,
+            "scaler_state": scaler_state,
+            "best_metric": self.best_metric,
+            "metrics": metrics,
+        }
+        torch.save(ckpt, os.path.join(self.dir, "last.pt"))
+        if is_best:
+            torch.save(ckpt, os.path.join(self.dir, "best.pt"))
+        if (epoch % self.save_period) == 0:
+            torch.save(ckpt, os.path.join(self.dir, f"VAR_Train_Epoch_{epoch:03d}.pt"))
+
+
+class Trainer:
+    def __init__(self, args: argparse.Namespace):
+        self.args = args
+        # 1) Cargar configs
+        self.cfg = ConfigParserYaml().load()
+        if args.interactive:
+            self.args = interactive_wizard(self.cfg, args)
+
+        # 2) Resolver secciones
+        self.variant = self.args.variant or getattr(self.cfg, "default_variant", None)
+        train_section = _to_dict_like(getattr(self.cfg, "train", {}))
+        self.tr_cfg = _to_dict_like(train_section.get("config", {}))
+
+        imgsz_for_strides = self.args.imgsz or self.tr_cfg.get("imgsz", 640)
+        self.model = self.cfg.build_model(variant=self.variant, imgsz_for_strides=imgsz_for_strides)
+
+        # Metadata
+        self.model_meta = getattr(self.cfg, "model_meta", {})
+        self.nc = int(_meta_get(self.model_meta, "nc", 5))
+        self.reg_max = int(_meta_get(self.model_meta, "reg_max", 16))
+        self.strides = _meta_get(self.model_meta, "strides", [8, 16, 32])
+        if isinstance(self.strides, torch.Tensor):
+            self.strides = self.strides.detach().cpu().tolist()
+
+        # 3) Runtime / device / seed
+        runtime_dict = _to_dict_like(getattr(self.cfg, "runtime", {}))
+        self.device = select_device(self.args.device or runtime_dict.get("device", None))
+        seed_everything(int(runtime_dict.get("seed", 42)), bool(runtime_dict.get("deterministic", False)))
+        compile_flag = bool(runtime_dict.get("compile", False))
+
+        self.model.to(self.device)
+        if compile_flag and hasattr(torch, "compile"):
+            try:
+                self.model = torch.compile(self.model)
+            except Exception:
+                print("[warn] torch.compile falló; continuando sin compile().")
+
+        # BN eval fallback opcional
+        self.bn_eval_active = False
+        if self.args.bn_eval_fallback:
+            apply_bn_eval(self.model, verbose=True); self.bn_eval_active = True
+
+        # 4) Data
+        self.imgsz = self.args.imgsz or self.tr_cfg.get("imgsz", 640)
+        self.epochs = self.args.epochs or self.tr_cfg.get("epochs", 150)
+        self.batch = self.args.batch or self.tr_cfg.get("batch", 16)
+
+        dl_cfg = _to_dict_like(self.tr_cfg.get("dataloader", {}))
+        workers = int(dl_cfg.get("workers", 4))
+        pin_memory = bool(dl_cfg.get("pin_memory", True))
+        persistent = bool(dl_cfg.get("persistent_workers", True))
+
+        self.train_loader = build_yolo_dataloader(
+            "train", imgsz=self.imgsz, batch=self.batch, workers=workers,
+            pin_memory=pin_memory, persistent_workers=persistent, shuffle=True
+        )
+        self.val_loader = build_yolo_dataloader(
+            "val", imgsz=self.imgsz, batch=self.batch, workers=workers,
+            pin_memory=pin_memory, persistent_workers=persistent, shuffle=False
+        )
+        self.steps_per_epoch = max(1, len(self.train_loader))
+
+        # 5) Criterio/opt/planificador
+        loss_weights = _to_dict_like(self.tr_cfg.get("loss weights", {"box": 7.5, "cls": 0.5, "dfl": 1.5}))
+        hyp = LossHyperparams(
+            box=float(loss_weights.get("box", 7.5)),
+            cls=float(loss_weights.get("cls", 0.5)),
+            dfl=float(loss_weights.get("dfl", 1.5))
+        )
+        self.loss_fn = YOLOLoss(
+            nc=int(self.nc), reg_max=int(self.reg_max),
+            strides=tuple(int(s) for s in (self.strides if isinstance(self.strides, (list, tuple)) else [8, 16, 32])),
+            hyp=hyp, safe_fp32=True, cls_pos_only=True, use_iou_weight=True
+        ).to(self.device)
+
+        self.lr0 = float(self.args.lr0 if self.args.lr0 is not None else self.tr_cfg.get("lr0", 0.0025))
+        self.lrf = float(self.args.lrf if self.args.lrf is not None else self.tr_cfg.get("lrf", 0.1))
+        wd = float(self.tr_cfg.get("weight_decay", 0.01))
+        betas_list = self.tr_cfg.get("betas", [0.9, 0.999])
+        betas = (float(betas_list[0]), float(betas_list[1])) if isinstance(betas_list, (list, tuple)) else (0.9, 0.999)
+
+        self.optimizer = AdamW(self.model.parameters(), lr=self.lr0, betas=betas, weight_decay=wd)
+        warmup_e = float(self.args.warmup_epochs if self.args.warmup_epochs is not None else self.tr_cfg.get("warmup_epochs", 3.0))
+        self.scheduler = build_warmup_cosine_scheduler(
+            self.optimizer, epochs=self.epochs, steps_per_epoch=self.steps_per_epoch,
+            lr0=self.lr0, lrf=self.lrf, warmup_epochs=warmup_e
+        )
+
+        self.amp_enabled = bool(self.args.amp or self.tr_cfg.get("amp", True))
+        self.scaler = torch.amp.GradScaler("cuda", enabled=self.amp_enabled)
+
+        self.ema_enabled = bool(self.args.ema or self.tr_cfg.get("ema", True))
+        ema_decay = float(self.tr_cfg.get("ema_decay", 0.9999))
+        self.ema = ModelEMA(self.model, decay=ema_decay, device=self.device) if self.ema_enabled else None
+
+        # 6) Artefactos: logger/TB
+        self.variant_safe = self.variant or getattr(self.cfg, "default_variant", "m")
+        self.run_name = f"yolo11_{self.variant_safe}_train_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        self.logger = ExperimentLogger(variant=self.variant_safe, phase="train", run_name=self.run_name)
+
+        tb_port = int(self.args.tb_port or os.environ.get("TB_PORT") or os.environ.get("TENSORBOARD_PORT") or 6006)
+        tb_host = (self.args.tb_host or os.environ.get("TB_HOST") or "127.0.0.1").strip()
+        tb_logdir_parent = os.path.dirname(self.logger.runs_dir)
+        tb_logdir_parent_rel = os.path.relpath(tb_logdir_parent, start=os.getcwd())
+        tb_cmd = f'tensorboard --logdir "{tb_logdir_parent_rel}" --port {tb_port} --host {tb_host}'
+        print(f"[TB] comando: {tb_cmd}")
+        if getattr(self.args, "tb_auto", True):
+            proc, tb_port = launch_tensorboard(tb_logdir_parent, tb_port, tb_host)
+            if proc is None:
+                print("[TB] No se pudo iniciar TensorBoard automáticamente; usa el comando anterior.")
+            else:
+                tb_url = f"http://{tb_host}:{tb_port}/"
+                print(f"[TB] TensorBoard · {tb_url}")
+                if getattr(self.args, "tb_open_browser", False):
+                    try: webbrowser.open(tb_url, new=2, autoraise=False)
+                    except Exception: pass
+
+        try:
+            self.logger.save_config_json({
+                "variant": self.variant_safe, "train": self.tr_cfg,
+                "model_meta": {"nc": self.nc, "reg_max": self.reg_max, "strides": self.strides},
+                "runtime": runtime_dict
+            })
+        except Exception:
+            pass
+        try:
+            total_params = sum(p.numel() for p in self.model.parameters())
+            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            strides_int = [int(s) for s in (self.strides if isinstance(self.strides, (list, tuple)) else [8, 16, 32])]
+            self.logger.save_model_summary(self.model, extra={
+                "total_params": int(total_params),
+                "trainable_params": int(trainable_params),
+                "strides": strides_int
+            })
+        except Exception:
+            pass
+
+        # 7) Utilidades de ejecución
+        self.hud = SimpleHUD(verbosity=self.args.verbosity, mode=self.args.hud)
+        self.stopper = GracefulStopper(enabled=True)
+        self.checkpointer = Checkpointer(base_dir="weights", variant=self.variant_safe, run_name=self.run_name, save_period=int(self.args.save_period))
+
+        # 8) Evaluador
+        self.evaluator = Evaluator(imgsz=self.imgsz, nc=self.nc, conf_thr=float(self.args.conf_thr), iou_thr=float(self.args.iou_thr))
+
+        # 9) Early stop (opcional)
+        self.patience = max(0, int(self.args.patience))
+        self.val_interval = max(1, int(self.args.val_interval))
+        self.grad_accum = max(1, int(self.args.grad_accum))
+        self.best_epoch_seen = 0
+
+    def _compute_loss(self, preds, targets):
+        out = self.loss_fn(preds, targets)
+        # Soporte tuple/list/dict
+        if isinstance(out, (tuple, list)):
+            loss = out[0]; lbox = float(out[1]) if len(out) > 1 else 0.0; lcls = float(out[2]) if len(out) > 2 else 0.0; ldfl = float(out[3]) if len(out) > 3 else 0.0
+            return loss, lbox, lcls, ldfl
+        if isinstance(out, dict):
+            return out.get("loss", None), float(out.get("loss_box", out.get("box", 0.0))), float(out.get("loss_cls", out.get("cls", 0.0))), float(out.get("loss_dfl", out.get("dfl", 0.0)))
+        return out, 0.0, 0.0, 0.0
+
+    def warmup_if_needed(self) -> bool:
+        steps = int(max(0, getattr(self.args, "warmup_steps", 0)))
+        if steps <= 0:
+            return True
+        runner = WarmupRunner(self.model, self.device, verbosity=self.args.verbosity)
+        batch = int(max(1, getattr(self.args, "warmup_batch", self.batch)))
+        imgsz = int(getattr(self.args, "warmup_imgsz", self.imgsz))
+        amp_flag = bool(self.args.amp or self.tr_cfg.get("amp", True))
+        print(f"[WARM-UP] steps={steps} · batch={batch} · imgsz={imgsz} · AMP={'on' if amp_flag else 'off'}")
+        dt_warm = runner.run(steps=steps, batch=batch, imgsz=imgsz, in_ch=int(_meta_get(self.model_meta, "in_channels", 3)), amp=amp_flag, bn_eval_active=self.bn_eval_active)
+        a_gb, _r_gb, t_gb, a_pct, _r_pct = _mem_stats(self.device)
+        print(f"[WARM-UP] {dt_warm:.2f}s · VRAM {a_pct:.2f}% ({a_gb:.2f}GB de {t_gb:.2f}GB)")
+        if getattr(self.args, "warmup_only", False):
+            print("[WARM-UP] --warmup-only activado. Saliendo tras smoketest ✔")
+            return False
+        return True
+
+    def train(self) -> None:
+        if not self.warmup_if_needed():
+            try: self.logger.close()
+            except Exception: pass
+            return
+
+        # Loop de épocas
+        for epoch in range(1, int(self.epochs) + 1):
+            self.model.train()
+            t_epoch0 = time.time()
+            loss_m = box_m = cls_m = dfl_m = 0.0
+            steps = len(self.train_loader); it = 0
+
+            self.optimizer.zero_grad(set_to_none=True)
+
+            for batch_i, batch_data in enumerate(self.train_loader):
+                if isinstance(batch_data, (list, tuple)) and len(batch_data) >= 2:
+                    imgs, targets = batch_data[0], batch_data[1]
+                else:
+                    imgs, targets = batch_data, None
+
+                imgs = imgs.to(self.device, non_blocking=True).float()
+
+                with torch.amp.autocast('cuda', enabled=self.amp_enabled):
+                    try:
+                        preds = self.model(imgs, decode=False, concat=False)
+                    except TypeError:
+                        preds = self.model(imgs)
+                    loss, lbox, lcls, ldfl = self._compute_loss(preds, targets)
+
+                loss_scaled = loss / self.grad_accum
+                if self.amp_enabled:
+                    self.scaler.scale(loss_scaled).backward()
+                else:
+                    loss_scaled.backward()
+
+                do_step = ((batch_i + 1) % self.grad_accum == 0) or ((batch_i + 1) == steps)
+                if do_step:
+                    if self.amp_enabled:
+                        self.scaler.step(self.optimizer); self.scaler.update()
+                    else:
+                        self.optimizer.step()
+                    self.optimizer.zero_grad(set_to_none=True)
+                    if self.scheduler is not None:
+                        try: self.scheduler.step()
+                        except Exception: pass
+                    if self.ema is not None:
+                        try: self.ema.update(self.model)
+                        except Exception: pass
+
+                it += 1
+                loss_m += float(loss.detach().item())
+                box_m += float(lbox); cls_m += float(lcls); dfl_m += float(ldfl)
+
+                elapsed = time.time() - t_epoch0
+                imgs_per_s = (it * imgs.size(0)) / max(1e-9, elapsed)
+                eta_s = (steps - it) * (elapsed / max(1, it))
+                alloc_gb, _resv_gb, total_gb, alloc_pct, _resv_pct = _mem_stats(self.device)
+                self.hud.live(
+                    epoch=epoch, epochs=self.epochs, it=it, it_total=steps,
+                    elapsed_s=elapsed, eta_s=eta_s, imgs_per_s=imgs_per_s,
+                    lr=self.optimizer.param_groups[0]["lr"], amp=self.amp_enabled, ema=(self.ema is not None),
+                    grad_accum=self.grad_accum,
+                    loss_avg=loss_m / it, loss_box=box_m / it, loss_cls=cls_m / it, loss_dfl=dfl_m / it,
+                    mem_gb=alloc_gb, device_str=self.device.type
+                )
+
+                if self.stopper.poll():
+                    print("\n[STOP] Solicitud de parada detectada. Guardando 'last.pt' y saliendo...")
+                    state = self.ema.ema.state_dict() if self.ema is not None else self.model.state_dict()
+                    ckpt_last = {
+                        "epoch": epoch,
+                        "model_state": state,
+                        "optimizer_state": self.optimizer.state_dict(),
+                        "scaler_state": (self.scaler.state_dict() if self.amp_enabled else None),
+                        "config": {"variant": self.variant_safe, "imgsz": self.imgsz, "batch": self.batch}
+                    }
+                    torch.save(ckpt_last, os.path.join(self.checkpointer.dir, "last.pt"))
+                    try: self.logger.close()
+                    except Exception: pass
+                    return
+
+            # Fin de época
+            loss_epoch = loss_m / max(1, it)
+            box_epoch = box_m / max(1, it)
+            cls_epoch = cls_m / max(1, it)
+            dfl_epoch = dfl_m / max(1, it)
+
+            # Validación
+            val_metrics = {"mAP50-95": None, "mAP50": None, "precision": None, "recall": None}
+            if (epoch % self.val_interval) == 0:
+                model_eval = (self.ema.ema if self.ema is not None else self.model)
+                val_metrics = self.evaluator(model_eval, self.val_loader)
+
+            # Logging
+            epoch_log = {
+                "epoch": int(epoch),
+                "loss": float(loss_epoch),
+                "loss_box": float(box_epoch),
+                "loss_cls": float(cls_epoch),
+                "loss_dfl": float(dfl_epoch),
+            }
+            for k, v in val_metrics.items():
+                if v is not None:
+                    epoch_log[f"val/{k}"] = float(v)
+            try: self.logger.log_epoch(epoch_log, split="train")
+            except Exception: pass
+
+            # Checkpoints
+            ref_metric = val_metrics["mAP50-95"] if val_metrics["mAP50-95"] is not None else (-loss_epoch)
+            model_state = (self.ema.ema.state_dict() if self.ema is not None else self.model.state_dict())
+            self.checkpointer.save(
+                epoch=epoch, model_state=model_state, optimizer_state=self.optimizer.state_dict(),
+                scaler_state=(self.scaler.state_dict() if self.amp_enabled else None),
+                metrics=val_metrics, ref_metric=ref_metric
+            )
+            if (val_metrics["mAP50-95"] is not None) and (self.checkpointer.best_metric == val_metrics["mAP50-95"]):
+                self.best_epoch_seen = epoch
+
+            # HUD resumen
+            parts = [f"epoch {epoch}/{self.epochs}",
+                     f"loss {loss_epoch:.3f} (b {box_epoch:.2f}, c {cls_epoch:.2f}, d {dfl_epoch:.2f})"]
+            if val_metrics["mAP50-95"] is not None:
+                parts.append(f"val mAP50-95 {val_metrics['mAP50-95']:.3f}")
+            if val_metrics["precision"] is not None and val_metrics["recall"] is not None:
+                parts.append(f"P {val_metrics['precision']:.3f} | R {val_metrics['recall']:.3f}")
+            self.hud.epoch_summary(" | ".join(parts))
+
+            # Early stopping (si aplica)
+            if self.patience > 0 and val_metrics["mAP50-95"] is not None:
+                epochs_since_best = epoch - max(1, self.best_epoch_seen)
+                if epochs_since_best >= (self.patience * self.val_interval):
+                    print(f"[EARLY-STOP] Paciencia agotada (sin mejora por {epochs_since_best} épocas).")
+                    break
+
+        try: self.logger.close()
+        except Exception: pass
+
+
+# ========================= Interfaz / CLI ========================= #
+def build_parser() -> argparse.ArgumentParser:
+    """Argumentos de entrenamiento (conserva defaults del proyecto)."""
+    p = argparse.ArgumentParser(
+        prog="YOLOv11 — Entrenamiento",
+        description="Entrena variantes YOLOv11 con validación interna, HUD compacto, F8 stop, AMP/EMA opcionales.",
+    )
+    p.add_argument("--variant", type=str, default=None, help="n/s/m/l/xl o usar default del parser.yaml")
+    p.add_argument("--epochs", type=int, default=None)
+    p.add_argument("--batch", type=int, default=None)
+    p.add_argument("--imgsz", type=int, default=None)
+    p.add_argument("--device", type=str, default=None)
+    p.add_argument("--amp", action="store_true")
+    p.add_argument("--ema", action="store_true")
+    p.add_argument("--grad-accum", type=int, default=1)
+    # Frecuencias
+    p.add_argument("--val-interval", type=int, default=1)
+    p.add_argument("--pr-curves-every", type=int, default=10)
+    p.add_argument("--cm-every", type=int, default=10)
+    p.add_argument("--overlay-every", type=int, default=10)
+    # Checkpoints / early stop
+    p.add_argument("--save-period", type=int, default=10)
+    p.add_argument("--keep-checkpoint-max", type=int, default=5)
+    p.add_argument("--patience", type=int, default=50, help="en unidades de validación (se multiplica por val_interval)")
+    # Umbrales inferencia validación
+    p.add_argument("--conf-thr", type=float, default=0.25)
+    p.add_argument("--iou-thr", type=float, default=0.70)
+    # Overrides de optimización/planificación
+    p.add_argument("--lr0", type=float, default=None, help="Override LR inicial (AdamW)")
+    p.add_argument("--lrf", type=float, default=None, help="Factor mínimo LR (cosine)")
+    p.add_argument("--warmup-epochs", type=float, default=None, help="Override warmup epochs del scheduler")
+    # Reanudar
+    p.add_argument("--resume", type=str, default=None, help="ruta a last.pt (no implementado en esta versión)")
+    # Verbosidad HUD
+    p.add_argument("--verbosity", type=str, choices=["v0", "v1", "v2"], default="v1")
+    # HUD (one/two/off)
+    p.add_argument("--hud", type=str, choices=["one", "two", "off"], default="two")
+    # Wizard interactivo
+    p.add_argument("--interactive", action="store_true", help="Inicia asistente interactivo antes de entrenar")
+    # Mitigación ROCm/MIOpen
+    p.add_argument("--bn-eval-fallback", action="store_true", help="Fuerza BatchNorm en eval() desde el inicio para evitar fallos MIOpen")
+    # Warm-up (integrado)
+    p.add_argument("--warmup-steps", type=int, default=3, help="Pasos sintéticos de warm-up para compilar kernels")
+    p.add_argument("--warmup-batch", type=int, default=1, help="Tamaño de batch usado durante el warm-up")
+    p.add_argument("--warmup-imgsz", type=int, default=None, help="imgsz específico para warm-up (por defecto usa --imgsz)")
+    p.add_argument("--warmup-only", action="store_true", help="Ejecuta solo el warm-up y sale (smoketest)")
+    # TensorBoard / Auto-lanzamiento
+    p.add_argument("--tb-auto", dest="tb_auto", action="store_true")
+    p.add_argument("--no-tb-auto", dest="tb_auto", action="store_false")
+    p.set_defaults(tb_auto=True)
+    p.add_argument("--tb-port", type=int, default=None)
+    p.add_argument("--tb-host", type=str, default=None)
+    p.add_argument("--tb-open-browser", action="store_true", help="Abrir URL en el navegador al lanzar TB")
+    # Ajustes de aprendizaje temprano
+    p.add_argument("--freeze-epochs", type=int, default=0, help="Congelar backbone los primeros K epochs (no implementado)")
+    p.add_argument("--conf-ramp-epochs", type=int, default=5, help="Rampa de confianza en validación hasta --conf-thr (no implementado)")
+    return p
+
+
+def interactive_wizard(cfg: Any, args: argparse.Namespace) -> argparse.Namespace:
+    """Asistente simple para sobreescribir parámetros clave leídos de configs.* sin cambiar defaults."""
+    def ask_int(prompt: str, default: Optional[int]) -> Optional[int]:
+        s = input(f"{prompt} [{default}]: ").strip()
+        return int(s) if s else default
+
+    def ask_str(prompt: str, default: Optional[str]) -> Optional[str]:
+        s = input(f"{prompt} [{default}]: ").strip()
+        return s if s else default
 
     train_section = _to_dict_like(getattr(cfg, "train", {}))
-    tr_cfg = _to_dict_like(train_section.get("config", {}))
+    tr = _to_dict_like(train_section.get("config", {}))
 
-    imgsz_for_strides = args.imgsz or tr_cfg.get("imgsz", 640)
-    model = cfg.build_model(variant=variant, imgsz_for_strides=imgsz_for_strides)
+    print("=== Asistente interactivo de entrenamiento ===")
+    args.variant = ask_str("Variante (n/s/m/l/xl)", args.variant or getattr(cfg, "default_variant", None))
+    args.imgsz = ask_int("Tamaño de imagen (imgsz)", args.imgsz or tr.get("imgsz", 640))
+    args.epochs = ask_int("Épocas", args.epochs or tr.get("epochs", 150))
+    args.batch = ask_int("Batch", args.batch or tr.get("batch", 16))
+    args.val_interval = ask_int("Validación cada N épocas", args.val_interval)
+    args.save_period = ask_int("Guardar checkpoint cada N épocas", args.save_period)
+    args.keep_checkpoint_max = ask_int("Máx. checkpoints a mantener", args.keep_checkpoint_max)
+    args.patience = ask_int("Paciencia (en validaciones)", args.patience)
+    args.verbosity = ask_str("Verbosity (v0/v1/v2)", args.verbosity)
+    print("=== Fin asistente ===")
+    return args
 
-    # Metadata del modelo
-    model_meta = getattr(cfg, "model_meta", {})
-    nc = _meta_get(model_meta, "nc", 5)
-    reg_max = _meta_get(model_meta, "reg_max", 16)
-    strides = _meta_get(model_meta, "strides", [8, 16, 32])
-    if isinstance(strides, torch.Tensor):
-        strides = strides.detach().cpu().tolist()
 
-    # 3) Runtime / device / seed
-    runtime_dict = _to_dict_like(getattr(cfg, "runtime", {}))
-    device = select_device(args.device or runtime_dict.get("device", None))
-    seed_everything(int(runtime_dict.get("seed", 42)), bool(runtime_dict.get("deterministic", False)))
-    compile_flag = bool(runtime_dict.get("compile", False))
+# ========================= Entrypoint ========================= #
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
 
-    model.to(device)
-    if compile_flag and hasattr(torch, "compile"):
-        try:
-            model = torch.compile(model)
-        except Exception:
-            print("[warn] torch.compile falló; continuando sin compile().")
-    # BN eval fallback opcional desde el arranque
-    bn_eval_active = False
-    if args.bn_eval_fallback:
-        apply_bn_eval(model, verbose=True); bn_eval_active = True
-
-    # --- Warm-up explícito (opción A) antes del primer batch ---
-    if getattr(args, "warmup_hud", False):
-        warm_steps = int(max(0, args.warmup_steps))
-        if warm_steps <= 0:
-            print("[WARM-UP] saltado: --warmup-steps ≤ 0")
-        else:
-            warm_batch = int(max(1, args.warmup_batch))
-            warm_imgsz = int(args.warmup_imgsz or imgsz_for_strides or 640)
-            in_ch = int(_meta_get(model_meta, "in_channels", 3))
-            amp_flag = bool(args.amp or tr_cfg.get("amp", True))
-            print(f"[WARM-UP] Inicializando · steps={warm_steps} · batch={warm_batch} · imgsz={warm_imgsz} · in_ch={in_ch} · AMP={'on' if amp_flag else 'off'}")
-            dt_warm = do_model_warmup(model, device, steps=warm_steps, batch=warm_batch, imgsz=warm_imgsz, in_ch=in_ch, amp=amp_flag, bn_eval_active=bn_eval_active, verbosity=args.verbosity)
-            a_gb, r_gb, t_gb, a_pct, r_pct = _mem_stats(device)
-            print(f"[WARM-UP] Listo en {dt_warm:.2f}s · VRAM {a_pct:.1f}% (alloc {a_gb:.2f}GB, resv {r_gb:.2f}GB, total {t_gb:.1f} GB)")
-            if args.warmup_only:
-                print("[WARM-UP] --warmup-only activado. Saliendo tras smoketest ✔")
-                return
-
-    # 4) Dataloaders
-    imgsz = args.imgsz or tr_cfg.get("imgsz", 640)
-    epochs = args.epochs or tr_cfg.get("epochs", 150)
-    batch = args.batch or tr_cfg.get("batch", 16)
-
-    dl_cfg = _to_dict_like(tr_cfg.get("dataloader", {}))
-    workers = int(dl_cfg.get("workers", 4)); pin_memory = bool(dl_cfg.get("pin_memory", True)); persistent = bool(dl_cfg.get("persistent_workers", True))
-
-    train_loader = build_yolo_dataloader("train", imgsz=imgsz, batch=batch, workers=workers, pin_memory=pin_memory, persistent_workers=persistent, shuffle=True)
-    val_loader = build_yolo_dataloader("val", imgsz=imgsz, batch=batch, workers=workers, pin_memory=pin_memory, persistent_workers=persistent, shuffle=False)
-
-    # --- Dataset summary on-screen ---
+    # Construcción + Entrenamiento
+    trainer = Trainer(args)
     try:
-        data_sec = _to_dict_like(getattr(cfg, "data", {}))
-        yaml_path = (data_sec.get("config") or data_sec.get("dataset") or data_sec.get("path") or os.path.join("configs","dataset.yaml"))
-        yaml_abs = os.path.abspath(yaml_path); verified = os.path.exists(yaml_abs)
-        print(f"[DATA] Config (yaml): {yaml_abs}" + ("" if verified else " (no verificado)"))
-        tr_len = len(train_loader.dataset) if hasattr(train_loader, "dataset") else len(train_loader)
-        print(f"[DATA] split=train | imgsz={imgsz} | batch={batch} | samples={tr_len}")
-        ds_names = None
-        if hasattr(train_loader, "dataset"):
-            _ds = train_loader.dataset
-            ds_names = getattr(_ds, "names", None) or getattr(_ds, "class_names", None)
-        if ds_names is not None:
-            try:
-                print(f"[DATA] classes (nc={len(ds_names)}): {list(ds_names)}")
-            except Exception:
-                pass
-        else:
-            print(f"[DATA] classes (nc={int(nc)}) — desde config/model_meta")
-    except Exception as _e:
-        print("[DATA] resumen no disponible:", _e)
+        trainer.train()
+    except KeyboardInterrupt:
+        print("[STOP] Entrenamiento interrumpido por el usuario (F8/Ctrl+C).")
+        sys.exit(130)
 
-    steps_per_epoch = max(1, len(train_loader))
-
-    # 5) Pérdida, optimizador, scheduler, AMP, EMA
-    loss_weights = _to_dict_like(tr_cfg.get("loss weights", {"box": 7.5, "cls": 0.5, "dfl": 1.5}))
-    hyp = LossHyperparams(box=float(loss_weights.get("box", 7.5)), cls=float(loss_weights.get("cls", 0.5)), dfl=float(loss_weights.get("dfl", 1.5)))
-    loss_fn = YOLOLoss(nc=int(nc), reg_max=int(reg_max), strides=tuple(int(s) for s in (strides if isinstance(strides, (list, tuple)) else [8, 16, 32])), hyp=hyp, safe_fp32=True, cls_pos_only=True, use_iou_weight=True)
-    loss_fn = loss_fn.to(device)
-
-    lr0 = float(args.lr0 if args.lr0 is not None else tr_cfg.get("lr0", 0.0025))
-    lrf = float(args.lrf if args.lrf is not None else tr_cfg.get("lrf", 0.1))
-    wd = float(tr_cfg.get("weight_decay", 0.01))
-    betas_list = tr_cfg.get("betas", [0.9, 0.999])
-    betas = (float(betas_list[0]), float(betas_list[1])) if isinstance(betas_list, (list, tuple)) else (0.9, 0.999)
-
-    optimizer = AdamW(model.parameters(), lr=lr0, betas=betas, weight_decay=wd)
-    warmup_e = float(args.warmup_epochs if args.warmup_epochs is not None else tr_cfg.get("warmup_epochs", 3.0))
-    scheduler = build_warmup_cosine_scheduler(optimizer, epochs=epochs, steps_per_epoch=steps_per_epoch, lr0=lr0, lrf=lrf, warmup_epochs=warmup_e)
-
-    amp_enabled = bool(args.amp or tr_cfg.get("amp", True))
-    scaler = torch.amp.GradScaler("cuda", enabled=amp_enabled)
-
-    ema_enabled = bool(args.ema or tr_cfg.get("ema", True))
-    ema_decay = float(tr_cfg.get("ema_decay", 0.9999))
-    ema = ModelEMA(model, decay=ema_decay, device=device) if ema_enabled else None
-
-    # 6) Artefactos: logger, weights, TB overlays (tolerante)
-    variant_safe = variant or getattr(cfg, "default_variant", "m")
-    run_name = f"yolo11_{variant_safe}_train_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-
-    logger = ExperimentLogger(variant=variant_safe, phase="train", run_name=run_name)
-    # --- TensorBoard: auto-lanzamiento y URL cliqueable ---
-    tb_port = int(args.tb_port or os.environ.get("TB_PORT") or os.environ.get("TENSORBOARD_PORT") or 6006)
-    tb_host = (args.tb_host or os.environ.get("TB_HOST") or "127.0.0.1").strip()
-    tb_logdir_run = logger.runs_dir
-    tb_logdir_parent = os.path.dirname(tb_logdir_run)
-    tb_logdir_parent_rel = os.path.relpath(tb_logdir_parent, start=os.getcwd())
-    tb_cmd = f'tensorboard --logdir "{tb_logdir_parent_rel}" --port {tb_port} --host {tb_host}'
-    print(f"[TB] comando: {tb_cmd}")
-
-    if getattr(args, "tb_auto", True):
-        proc, tb_port = launch_tensorboard(tb_logdir_parent, tb_port, tb_host)
-        if proc is None:
-            print("[TB] No se pudo iniciar TensorBoard automáticamente; usa el comando anterior.")
-        else:
-            tb_url = f"http://{tb_host}:{tb_port}/"
-            print(f"[TB] TensorBoard · {tb_url}")
-            if getattr(args, "tb_open_browser", False):
-                try: webbrowser.open(tb_url, new=2, autoraise=False)
-                except Exception: pass
-
-    try:
-        logger.save_config_json({"variant": variant_safe, "train": tr_cfg, "model_meta": {"nc": nc, "reg_max": reg_max, "strides": strides}, "runtime": runtime_dict})
-    except Exception:
-        pass
-
-    try:
-        total_params = sum(p.numel() for p in model.parameters())
-        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        strides_int = [int(s) for s in (strides if isinstance(strides, (list, tuple)) else [8, 16, 32])]
-        logger.save_model_summary(model, extra={"total_params": int(total_params), "trainable_params": int(trainable_params), "strides": strides_int})
-    except Exception:
-        pass
 
 if __name__ == "__main__":
-    try:
-        train_main()
-    except KeyboardInterrupt:
-        print("[STOP] Entrenamiento interrumpido por el usuario (F8/Ctrl+C)."); import sys; sys.exit(130)
-    except Exception as e:
-        print(f"[FATAL] {e}"); raise
+    main()
