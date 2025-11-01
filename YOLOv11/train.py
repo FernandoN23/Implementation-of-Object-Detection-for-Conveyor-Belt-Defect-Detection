@@ -399,7 +399,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Warm-up HUD explícito (opción A)
     p.add_argument("--warmup-hud", action="store_true", help="Ejecuta forwards sintéticos y muestra un HUD de warm-up antes del primer batch")
     p.add_argument("--warmup-steps", type=int, default=3, help="Pasos sintéticos de warm-up para compilar kernels")
-    p.add_argument("--warmup-batch", type=int, default=1, help="Tamaño de batch usado durante el warm-up")
+    p.add.argument("--warmup-batch", type=int, default=1, help="Tamaño de batch usado durante el warm-up")
     p.add_argument("--warmup-imgsz", type=int, default=None, help="imgsz específico para warm-up (por defecto usa --imgsz)")
     p.add_argument("--warmup-only", action="store_true", help="Ejecuta solo el warm-up y sale (smoketest)")
     # TensorBoard / Auto-lanzamiento
@@ -537,19 +537,18 @@ class WarmupHUD:
         self._t0 = time.time()
     def _fmt_t(self, t: float) -> str:
         return time.strftime('%M:%S', time.gmtime(int(max(0,t))))
-    def live(self, step: int, total: int, dev: str, amp: bool, bn_eval: bool, vram_alloc_pct: float, vram_resv_pct: float) -> None:
+    def live(self, step: int, total: int, dev: str, amp: bool, bn_eval: bool, vram_pct: float, alloc_gb: float, reserved_gb: float) -> None:
         if self.verbosity == "v0":
             return
         dt_s = time.time() - self._t0
         spinner = self.FRAMES[self._i % len(self.FRAMES)]; self._i += 1
-        line = (f"[WARM-UP] {spinner}  t={self._fmt_t(dt_s)}  VRAM {vram_alloc_pct:.0f}%/{vram_resv_pct:.0f}%  dev: {dev}  AMP {'on' if amp else 'off'}  BN-eval {'✓' if bn_eval else '×'}  step {step}/{total}")
+        line = (f"[WARM-UP] {spinner}  t={self._fmt_t(dt_s)}  VRAM {vram_pct:.1f}% (alloc {alloc_gb:.2f}GB, resv {reserved_gb:.2f}GB)  dev: {dev}  AMP {'on' if amp else 'off'}  BN-eval {'✓' if bn_eval else '×'}  step {step}/{total}")
         pad = max(0, self._last_len - len(line))
         sys.stdout.write("\r" + line + (" " * pad)); sys.stdout.flush(); self._last_len = len(line)
     def done(self) -> None:
         if self.verbosity == "v0":
             return
         sys.stdout.write("\n"); sys.stdout.flush(); self._last_len = 0
-
 
 def _mem_gb(device: torch.device) -> Tuple[float, float]:
     """Devuelve (allocated_GB, reserved_GB) para CUDA/ROCm; zeros en CPU/MPS."""
@@ -632,7 +631,7 @@ def do_model_warmup(model: nn.Module, device: torch.device, *, steps: int, batch
                 except Exception:
                     pass
             a_gb, r_gb, t_gb, a_pct, r_pct = _mem_stats(device)
-            hud.live(step=i, total=steps, dev=device.type, amp=amp, bn_eval=bn_eval_active, vram_alloc_pct=a_pct, vram_resv_pct=r_pct)
+            hud.live(step=i, total=steps, dev=device.type, amp=amp, bn_eval=bn_eval_active, vram_pct=a_pct, alloc_gb=a_gb, reserved_gb=r_gb)
         hud.done()
     finally:
         model.train(was_train)
@@ -733,7 +732,7 @@ def train_main() -> None:
             print(f"[WARM-UP] Inicializando · steps={warm_steps} · batch={warm_batch} · imgsz={warm_imgsz} · in_ch={in_ch} · AMP={'on' if amp_flag else 'off'}")
             dt_warm = do_model_warmup(model, device, steps=warm_steps, batch=warm_batch, imgsz=warm_imgsz, in_ch=in_ch, amp=amp_flag, bn_eval_active=bn_eval_active, verbosity=args.verbosity)
             a_gb, r_gb, t_gb, a_pct, r_pct = _mem_stats(device)
-            print(f"[WARM-UP] Listo en {dt_warm:.2f}s · VRAM {a_pct:.0f}%/{r_pct:.0f}% (total {t_gb:.1f} GB)")
+            print(f"[WARM-UP] Listo en {dt_warm:.2f}s · VRAM {a_pct:.1f}% (alloc {a_gb:.2f}GB, resv {r_gb:.2f}GB, total {t_gb:.1f} GB)")
             if args.warmup_only:
                 print("[WARM-UP] --warmup-only activado. Saliendo tras smoketest ✔")
                 return
@@ -833,9 +832,6 @@ def train_main() -> None:
         logger.save_model_summary(model, extra={"total_params": int(total_params), "trainable_params": int(trainable_params), "strides": strides_int})
     except Exception:
         pass
-
-    # Nota: El bucle de entrenamiento completo se gestiona en versiones posteriores; aquí nos enfocamos en el warm-up y setup.
-
 
 if __name__ == "__main__":
     try:
