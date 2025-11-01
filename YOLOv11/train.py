@@ -537,12 +537,12 @@ class WarmupHUD:
         self._t0 = time.time()
     def _fmt_t(self, t: float) -> str:
         return time.strftime('%M:%S', time.gmtime(int(max(0,t))))
-    def live(self, step: int, total: int, dev: str, amp: bool, bn_eval: bool, mem_alloc_gb: float, mem_res_gb: float) -> None:
+    def live(self, step: int, total: int, dev: str, amp: bool, bn_eval: bool, vram_alloc_pct: float, vram_resv_pct: float) -> None:
         if self.verbosity == "v0":
             return
         dt_s = time.time() - self._t0
         spinner = self.FRAMES[self._i % len(self.FRAMES)]; self._i += 1
-        line = (f"[WARM-UP] {spinner}  t={self._fmt_t(dt_s)}  mem {mem_alloc_gb:.1f}/{mem_res_gb:.1f}GB  dev: {dev}  AMP {'on' if amp else 'off'}  BN-eval {'✓' if bn_eval else '×'}  step {step}/{total}")
+        line = (f"[WARM-UP] {spinner}  t={self._fmt_t(dt_s)}  VRAM {vram_alloc_pct:.0f}%/{vram_resv_pct:.0f}%  dev: {dev}  AMP {'on' if amp else 'off'}  BN-eval {'✓' if bn_eval else '×'}  step {step}/{total}")
         pad = max(0, self._last_len - len(line))
         sys.stdout.write("\r" + line + (" " * pad)); sys.stdout.flush(); self._last_len = len(line)
     def done(self) -> None:
@@ -562,34 +562,77 @@ def _mem_gb(device: torch.device) -> Tuple[float, float]:
         pass
     return 0.0, 0.0
 
+
+def _mem_stats(device: torch.device) -> Tuple[float, float, float, float, float]:
+    """(alloc_GB, reserved_GB, total_GB, alloc_pct, reserved_pct)."""
+    a_gb, r_gb = _mem_gb(device)
+    total_gb = 0.0
+    try:
+        if device.type == "cuda" and torch.cuda.is_available():
+            idx = torch.cuda.current_device()
+            props = torch.cuda.get_device_properties(idx)
+            total_gb = float(props.total_memory) / (1024**3)
+    except Exception:
+        total_gb = 0.0
+    alloc_pct = (a_gb / total_gb * 100.0) if total_gb > 0 else 0.0
+    resv_pct = (r_gb / total_gb * 100.0) if total_gb > 0 else 0.0
+    return a_gb, r_gb, total_gb, alloc_pct, resv_pct
+
 @torch.no_grad()
 def do_model_warmup(model: nn.Module, device: torch.device, *, steps: int, batch: int, imgsz: int, in_ch: int, amp: bool, bn_eval_active: bool, verbosity: str) -> float:
     """Ejecuta 'steps' forwards sintéticos con batch/imgsz dados, muestra HUD de warm-up y restaura el estado del modelo.
+    Robustez MIOpen: si aparece RuntimeError de MIOpen/EvaluateInvokers, activa BN.eval() una vez y reintenta el paso.
     Devuelve el tiempo total de warm-up (s)."""
     hud = WarmupHUD(verbosity=verbosity)
     was_train = model.training
     t0 = time.time()
-    try:
-        model.eval()
-        x = torch.randn(batch, in_ch, imgsz, imgsz, device=device, dtype=torch.float32)
-        use_cuda_autocast = (device.type == "cuda") and amp
-        for i in range(1, steps + 1):
-            if use_cuda_autocast:
-                with torch.amp.autocast('cuda'):
-                    try:
-                        _ = model(x, decode=False, concat=False)
-                    except TypeError:
-                        _ = model(x)
-            else:
+
+    def _forward_once(x: torch.Tensor, use_amp: bool) -> None:
+        if use_amp:
+            with torch.amp.autocast('cuda'):
                 try:
                     _ = model(x, decode=False, concat=False)
                 except TypeError:
                     _ = model(x)
+        else:
+            try:
+                _ = model(x, decode=False, concat=False)
+            except TypeError:
+                _ = model(x)
+
+    try:
+        model.eval()
+        x = torch.randn(batch, in_ch, imgsz, imgsz, device=device, dtype=torch.float32)
+        use_cuda_autocast = (device.type == "cuda") and amp
+
+        for i in range(1, steps + 1):
+            step_done = False
+            attempts = 0
+            while not step_done and attempts < 2:
+                attempts += 1
+                try:
+                    _forward_once(x, use_cuda_autocast)
+                    step_done = True
+                except RuntimeError as e:
+                    msg = str(e).lower()
+                    if ("miopen" in msg or "evaluateinvokers" in msg or "sqlite" in msg) and not bn_eval_active:
+                        print("[MIOpen] RuntimeError detectado (" + e.__class__.__name__ + ") → activando BN.eval() y reintentando batch una vez…")
+                        apply_bn_eval(model, verbose=True)
+                        bn_eval_active = True
+                        # pequeño enfriamiento para permitir recompilación/perfilado de kernels
+                        time.sleep(0.2)
+                        continue
+                    # Segundo fallo o fallo no-MIOpen: registrar y continuar con el siguiente paso
+                    print(f"[MIOpen] Aviso: fallo en warm-up step {i} (intento {attempts}) → {e}")
+                    break
+
             if device.type == "cuda":
-                try: torch.cuda.synchronize()
-                except Exception: pass
-            a_gb, r_gb = _mem_gb(device)
-            hud.live(step=i, total=steps, dev=device.type, amp=amp, bn_eval=bn_eval_active, mem_alloc_gb=a_gb, mem_res_gb=r_gb)
+                try:
+                    torch.cuda.synchronize()
+                except Exception:
+                    pass
+            a_gb, r_gb, t_gb, a_pct, r_pct = _mem_stats(device)
+            hud.live(step=i, total=steps, dev=device.type, amp=amp, bn_eval=bn_eval_active, vram_alloc_pct=a_pct, vram_resv_pct=r_pct)
         hud.done()
     finally:
         model.train(was_train)
@@ -689,8 +732,8 @@ def train_main() -> None:
             amp_flag = bool(args.amp or tr_cfg.get("amp", True))
             print(f"[WARM-UP] Inicializando · steps={warm_steps} · batch={warm_batch} · imgsz={warm_imgsz} · in_ch={in_ch} · AMP={'on' if amp_flag else 'off'}")
             dt_warm = do_model_warmup(model, device, steps=warm_steps, batch=warm_batch, imgsz=warm_imgsz, in_ch=in_ch, amp=amp_flag, bn_eval_active=bn_eval_active, verbosity=args.verbosity)
-            a_gb, r_gb = _mem_gb(device)
-            print(f"[WARM-UP] Listo en {dt_warm:.2f}s · mem {a_gb:.2f}/{r_gb:.2f} GB")
+            a_gb, r_gb, t_gb, a_pct, r_pct = _mem_stats(device)
+            print(f"[WARM-UP] Listo en {dt_warm:.2f}s · VRAM {a_pct:.0f}%/{r_pct:.0f}% (total {t_gb:.1f} GB)")
             if args.warmup_only:
                 print("[WARM-UP] --warmup-only activado. Saliendo tras smoketest ✔")
                 return
