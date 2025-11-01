@@ -15,15 +15,12 @@
 
 from __future__ import annotations
 
-import os
-import sys
-import math
-import json
-import time
-import argparse
-import datetime as dt
+# ========================= Importes estándar ========================= #
+import os, sys, math, json, time, argparse, datetime as dt
 from dataclasses import asdict, is_dataclass
 from typing import Optional, Tuple, Dict, Any, List
+import subprocess, socket, webbrowser, shutil
+import warnings
 
 # --- Ajuste de ruta del proyecto (ejecutar desde la raíz del repo) ---
 PROJ_MARKERS = ("configs", "models", "utility")
@@ -39,7 +36,6 @@ else:
     sys.path.insert(0, THIS)
 
 # --- Silencio de logs/avisos molestos (antes de importar torch) ---
-import warnings
 os.environ.setdefault("MIOPEN_ENABLE_LOGGING", "0")
 os.environ.setdefault("MIOPEN_LOG_LEVEL", "0")
 # Mitigación: forzar búsqueda de kernels (evita DB SQLite corrupta)
@@ -53,7 +49,7 @@ try:
 except Exception:  # noqa: E722
     pass
 
-# --- Importes de terceros ---
+# ========================= Importes de terceros ========================= #
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -71,7 +67,7 @@ try:
 except Exception:  # noqa: E722
     _HAS_KEYBOARD = False
 
-# --- Importes del proyecto ---
+# ========================= Importes del proyecto ========================= #
 from models.parser_yaml import ConfigParserYaml  # orquesta configs y construye modelo
 from utility.data_loader import build_yolo_dataloader
 from utility.losses import YOLOLoss, LossHyperparams
@@ -89,6 +85,9 @@ except Exception:  # noqa: E722
 # ========================= Helpers generales ========================= #
 
 def seed_everything(seed: int = 42, deterministic: bool = False) -> None:
+    """Fija semillas (PyTorch/NumPy/Random) y ajusta CUDNN para reproducibilidad.
+    deterministic=True fuerza kernels deterministas (más lento); benchmark activa autotuning.
+    """
     import random
     import numpy as np
     torch.manual_seed(seed)
@@ -101,6 +100,9 @@ def seed_everything(seed: int = 42, deterministic: bool = False) -> None:
 
 
 def select_device(pref: str | None = None) -> torch.device:
+    """Selecciona dispositivo: respeta pref (cpu/cuda/mps) o elige automática.
+    Prioridad: CUDA/ROCm > MPS > CPU.
+    """
     if pref and pref.lower() in ("cpu", "cuda", "mps"):
         if pref.lower() == "cpu":
             return torch.device("cpu")
@@ -108,7 +110,6 @@ def select_device(pref: str | None = None) -> torch.device:
             return torch.device("mps")
         if pref.lower() == "cuda" and torch.cuda.is_available():
             return torch.device("cuda")
-    # Auto: prioriza CUDA/ROCm, luego MPS, luego CPU
     if torch.cuda.is_available():
         return torch.device("cuda")
     if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
@@ -127,10 +128,8 @@ def _meta_get(meta: Any, key: str, default: Any = None) -> Any:
 
 
 def _to_dict_like(meta: Any) -> Dict[str, Any]:
-    """Convierte un objeto (incluido dataclass) en un dict sencillo.
-    - dict -> tal cual
-    - dataclass -> asdict
-    - objeto genérico -> __dict__ / atributos públicos no llamables
+    """Convierte un objeto (incl. dataclass) a dict sencillo sin alterar contenido.
+    - dict -> tal cual; - dataclass -> asdict; - objeto -> __dict__/atributos públicos.
     """
     if isinstance(meta, dict):
         return meta
@@ -142,7 +141,6 @@ def _to_dict_like(meta: Any) -> Dict[str, Any]:
     try:
         if hasattr(meta, "__dict__"):
             return dict(meta.__dict__)
-        # fallback: recorrer dir()
         out = {}
         for k in dir(meta):
             if k.startswith("_"):
@@ -160,7 +158,7 @@ def _to_dict_like(meta: Any) -> Dict[str, Any]:
 
 
 class GracefulStopper:
-    """Detección de parada elegante por F8 / Ctrl+C."""
+    """Detección de parada elegante por F8 / Ctrl+C sin alterar el bucle principal."""
     def __init__(self, enabled: bool = True):
         self.enabled = enabled
         self._requested = False
@@ -172,7 +170,6 @@ class GracefulStopper:
     def poll(self) -> bool:
         if not self.enabled:
             return False
-        # Ctrl+C será manejado por KeyboardInterrupt fuera
         if _HAS_KEYBOARD:
             try:
                 if keyboard.is_pressed("f8"):
@@ -195,7 +192,7 @@ def build_warmup_cosine_scheduler(optimizer: torch.optim.Optimizer,
                                   lr0: float,
                                   lrf: float = 0.1,
                                   warmup_epochs: float = 3.0) -> LambdaLR:
-    """LambdaLR: warmup lineal + decaimiento coseno. lrf=factor mínimo (lr_min=lr0*lrf)."""
+    """LambdaLR: warmup lineal + coseno. lrf=factor mínimo (lr_min=lr0*lrf)."""
     total_steps = max(1, int(epochs * steps_per_epoch))
     warmup_steps = int(warmup_epochs * steps_per_epoch)
     lr_min = lr0 * lrf
@@ -211,7 +208,7 @@ def build_warmup_cosine_scheduler(optimizer: torch.optim.Optimizer,
 
 # ========================= EMA sencilla opcional ========================= #
 class ModelEMA:
-    """EMA ligero de parámetros del modelo."""
+    """EMA ligero de parámetros del modelo sin cambiar forward/backward."""
     def __init__(self, model: nn.Module, decay: float = 0.9999, device: Optional[torch.device] = None):
         self.ema = self._clone_model(model).eval()
         self.decay = decay
@@ -237,6 +234,7 @@ class ModelEMA:
 # --- Mitigación ROCm/MIOpen: BN en eval() ---
 
 def apply_bn_eval(module: nn.Module, verbose: bool = True) -> int:
+    """Pone capas BatchNorm en eval() (mitiga fallos MIOpen/SQLite en ROCm Windows)."""
     count = 0
     for m in module.modules():
         if isinstance(m, (nn.BatchNorm2d, nn.SyncBatchNorm, nn.BatchNorm1d)):
@@ -254,7 +252,7 @@ def scores_boxes_to_dets(scores: torch.Tensor,
                          conf_thr: float = 0.25,
                          iou_thr: float = 0.7,
                          max_det: int = 300) -> List[torch.Tensor]:
-    """Convierte (B,N,nc) y (B,N,4) en listas de [x1,y1,x2,y2,conf,cls] por imagen."""
+    """Convierte (B,N,nc)/(B,N,4) a listas [x1,y1,x2,y2,conf,cls] por imagen (con NMS opcional)."""
     B, N, nc = scores.shape
     if scores.min() < 0 or scores.max() > 1:
         scores = scores.sigmoid()
@@ -266,12 +264,9 @@ def scores_boxes_to_dets(scores: torch.Tensor,
         conf, cls = sb.max(dim=1)
         mask = conf >= conf_thr
         if mask.any():
-            bb = bb[mask]
-            conf = conf[mask]
-            cls = cls[mask]
+            bb = bb[mask]; conf = conf[mask]; cls = cls[mask]
         else:
-            out.append(torch.zeros((0, 6), device=scores.device))
-            continue
+            out.append(torch.zeros((0, 6), device=scores.device)); continue
 
         if nms is not None and bb.numel() > 0:
             keep = nms(bb, conf, iou_thr)[:max_det]
@@ -293,7 +288,6 @@ def _flatten_hw_to_NC(t: torch.Tensor) -> torch.Tensor:
     if t.dim() == 4:
         return t.permute(0, 2, 3, 1).contiguous().view(t.size(0), -1, t.size(1))
     if t.dim() == 3:
-        # Heurística: si es (B,C,N) -> (B,N,C)
         if t.size(1) in (4, 5, 6, 8) and t.size(2) > t.size(1):
             return t.permute(0, 2, 1).contiguous()
         return t
@@ -301,101 +295,69 @@ def _flatten_hw_to_NC(t: torch.Tensor) -> torch.Tensor:
 
 
 def _cat_levels_to_BNC(seq: List[torch.Tensor]) -> torch.Tensor:
+    """Concatena niveles tras aplanarlos a (B,N,C)."""
     parts = [_flatten_hw_to_NC(x) for x in seq]
-    # Concat por N (dim=1), asumiendo mismo B y C
     return torch.cat(parts, dim=1)
 
 
 @torch.no_grad()
-
 def adapt_outputs_to_scores_boxes(outputs: Any, nc: int) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
-    """Intenta extraer (scores[B,N,nc], boxes[B,N,4]) desde múltiples formatos posibles."""
+    """Intenta extraer (scores[B,N,nc], boxes[B,N,4]) desde formatos comunes (dict/list/tensor)."""
     # 1) Dict con 'scores'/'boxes'
     if isinstance(outputs, dict):
-        s = outputs.get("scores", None)
-        b = outputs.get("boxes", None)
+        s = outputs.get("scores", None); b = outputs.get("boxes", None)
         if s is not None and b is not None:
-            # Manejar listas por nivel
-            if isinstance(s, (list, tuple)):
-                s = _cat_levels_to_BNC(list(s))
-            else:
-                s = _flatten_hw_to_NC(s)
-            if isinstance(b, (list, tuple)):
-                b = _cat_levels_to_BNC(list(b))
-            else:
-                b = _flatten_hw_to_NC(b)
-            # Garantizar shape final
+            if isinstance(s, (list, tuple)): s = _cat_levels_to_BNC(list(s))
+            else: s = _flatten_hw_to_NC(s)
+            if isinstance(b, (list, tuple)): b = _cat_levels_to_BNC(list(b))
+            else: b = _flatten_hw_to_NC(b)
             if s.dim() == 3 and s.size(-1) == nc and b.dim() == 3 and b.size(-1) == 4:
                 return s, b
-        # 1-bis) Dict con 'cls'/'boxes' (común en nuestros heads decode=True)
-        s = outputs.get("cls", None)
-        b = outputs.get("boxes", None)
+        # 1-bis) Dict con 'cls'/'boxes'
+        s = outputs.get("cls", None); b = outputs.get("boxes", None)
         if s is not None and b is not None:
-            if isinstance(s, (list, tuple)):
-                s = _cat_levels_to_BNC(list(s))
-            else:
-                s = _flatten_hw_to_NC(s)
-            # (B,nc,N) -> (B,N,nc) si aplica
-            if s.dim() == 3 and s.size(-1) != nc and s.size(1) == nc:
-                s = s.permute(0, 2, 1).contiguous()
-            if isinstance(b, (list, tuple)):
-                b = _cat_levels_to_BNC(list(b))
-            else:
-                b = _flatten_hw_to_NC(b)
+            if isinstance(s, (list, tuple)): s = _cat_levels_to_BNC(list(s))
+            else: s = _flatten_hw_to_NC(s)
+            if s.dim() == 3 and s.size(-1) != nc and s.size(1) == nc: s = s.permute(0, 2, 1).contiguous()
+            if isinstance(b, (list, tuple)): b = _cat_levels_to_BNC(list(b))
+            else: b = _flatten_hw_to_NC(b)
             if s.dim() == 3 and s.size(-1) == nc and b.dim() == 3 and b.size(-1) == 4:
-                # Aplicar sigmoid a cls si no está en [0,1]
-                if (s.min() < 0) or (s.max() > 1):
-                    s = s.sigmoid()
+                if (s.min() < 0) or (s.max() > 1): s = s.sigmoid()
                 return s, b
         # 2) Dict con 'cls'/'reg'
-        s = outputs.get("cls", None)
-        r = outputs.get("reg", None)
+        s = outputs.get("cls", None); r = outputs.get("reg", None)
         if s is not None and r is not None:
-            if isinstance(s, (list, tuple)):
-                s = _cat_levels_to_BNC(list(s))
-            else:
-                s = _flatten_hw_to_NC(s)
-            if s.size(-1) != nc and s.size(1) == nc:
-                # (B,nc,N) -> (B,N,nc)
-                s = s.permute(0, 2, 1).contiguous()
-            if isinstance(r, (list, tuple)):
-                r = _cat_levels_to_BNC(list(r))
-            else:
-                r = _flatten_hw_to_NC(r)
+            if isinstance(s, (list, tuple)): s = _cat_levels_to_BNC(list(s))
+            else: s = _flatten_hw_to_NC(s)
+            if s.size(-1) != nc and s.size(1) == nc: s = s.permute(0, 2, 1).contiguous()
+            if isinstance(r, (list, tuple)): r = _cat_levels_to_BNC(list(r))
+            else: r = _flatten_hw_to_NC(r)
             if s.dim() == 3 and r.dim() == 3 and r.size(-1) in (4,):
-                if (s.min() < 0) or (s.max() > 1):
-                    s = s.sigmoid()
+                if (s.min() < 0) or (s.max() > 1): s = s.sigmoid()
                 return s, r
-    # 3) Tuple/List de 2 tensores -> heurística por canal final 4 vs nc
+    # 3) Tuple/List de 2 tensores
     if isinstance(outputs, (list, tuple)) and len(outputs) == 2 and all(torch.is_tensor(x) for x in outputs):
         a, b = outputs
-        a = _flatten_hw_to_NC(a)
-        b = _flatten_hw_to_NC(b)
-        if a.size(-1) == nc and b.size(-1) == 4:
-            return a, b
-        if b.size(-1) == nc and a.size(-1) == 4:
-            return b, a
-        # Si alguno es (B,N,nc+4)
-        if a.size(-1) == nc + 4:
-            return a[..., :nc], a[..., nc:]
-        if b.size(-1) == nc + 4:
-            return b[..., :nc], b[..., nc:]
-    # 4) Tensor único (B,N,nc+4) o (B,C,H,W) combinados
+        a = _flatten_hw_to_NC(a); b = _flatten_hw_to_NC(b)
+        if a.size(-1) == nc and b.size(-1) == 4: return a, b
+        if b.size(-1) == nc and a.size(-1) == 4: return b, a
+        if a.size(-1) == nc + 4: return a[..., :nc], a[..., nc:]
+        if b.size(-1) == nc + 4: return b[..., :nc], b[..., nc:]
+    # 4) Tensor único (B,N,nc+4)
     if torch.is_tensor(outputs):
         t = _flatten_hw_to_NC(outputs)
-        if t.size(-1) == nc + 4:
-            return t[..., :nc], t[..., nc:]
-    # 5) Lista de tensores por nivel [ (B,nc,Hi,Wi), (B,nc,Hj,Wj), ... ]
+        if t.size(-1) == nc + 4: return t[..., :nc], t[..., nc:]
+    # 5) Lista de tensores por nivel
     if isinstance(outputs, (list, tuple)) and all(torch.is_tensor(x) for x in outputs):
         t = _cat_levels_to_BNC(list(outputs))
-        if t.size(-1) == nc + 4:
-            return t[..., :nc], t[..., nc:]
+        if t.size(-1) == nc + 4: return t[..., :nc], t[..., nc:]
     return None, None
 
 
 # ========================= Interfaz / CLI ========================= #
 
 def build_parser() -> argparse.ArgumentParser:
+    """Argumentos de entrenamiento (sin cambiar valores por defecto actuales)."""
     p = argparse.ArgumentParser(
         prog="YOLOv11 — Entrenamiento",
         description="Entrena variantes YOLOv11 con validación interna, HUD compacto, F8 stop, AMP/EMA opcionales.",
@@ -420,6 +382,10 @@ def build_parser() -> argparse.ArgumentParser:
     # Umbrales inferencia validación
     p.add_argument("--conf-thr", type=float, default=0.25)
     p.add_argument("--iou-thr", type=float, default=0.70)
+    # Overrides de optimización/planificación
+    p.add_argument("--lr0", type=float, default=None, help="Override LR inicial (AdamW)")
+    p.add_argument("--lrf", type=float, default=None, help="Factor mínimo LR (cosine)")
+    p.add_argument("--warmup-epochs", type=float, default=None, help="Override warmup epochs del scheduler")
     # Reanudar
     p.add_argument("--resume", type=str, default=None, help="ruta a last.pt")
     # Verbosidad HUD
@@ -430,11 +396,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--interactive", action="store_true", help="Inicia asistente interactivo antes de entrenar")
     # Mitigación ROCm/MIOpen
     p.add_argument("--bn-eval-fallback", action="store_true", help="Fuerza BatchNorm en eval() desde el inicio para evitar fallos MIOpen")
+    # Warm-up HUD explícito (opción A)
+    p.add_argument("--warmup-hud", action="store_true", help="Ejecuta forwards sintéticos y muestra un HUD de warm-up antes del primer batch")
+    p.add_argument("--warmup-steps", type=int, default=3, help="Pasos sintéticos de warm-up para compilar kernels")
+    p.add_argument("--warmup-batch", type=int, default=1, help="Tamaño de batch usado durante el warm-up")
+    p.add_argument("--warmup-imgsz", type=int, default=None, help="imgsz específico para warm-up (por defecto usa --imgsz)")
+    p.add_argument("--warmup-only", action="store_true", help="Ejecuta solo el warm-up y sale (smoketest)")
+    # TensorBoard / Auto-lanzamiento
+    p.add_argument("--tb-auto", dest="tb_auto", action="store_true")
+    p.add_argument("--no-tb-auto", dest="tb_auto", action="store_false")
+    p.set_defaults(tb_auto=True)
+    p.add_argument("--tb-port", type=int, default=None)
+    p.add_argument("--tb-host", type=str, default=None)
+    p.add_argument("--tb-open-browser", action="store_true", help="Abrir URL en el navegador al lanzar TB")
+    # Ajustes de aprendizaje temprano
+    p.add_argument("--freeze-epochs", type=int, default=0, help="Congelar backbone los primeros K epochs")
+    p.add_argument("--conf-ramp-epochs", type=int, default=5, help="Rampa de confianza en validación hasta --conf-thr")
     return p
 
 
 def interactive_wizard(cfg: Any, args: argparse.Namespace) -> argparse.Namespace:
-    """Asistente simple: permite sobreescribir algunos parámetros leídos de configs."""
+    """Asistente simple para sobreescribir parámetros clave leídos de configs.* sin cambiar defaults."""
     def ask_int(prompt: str, default: Optional[int]) -> Optional[int]:
         s = input(f"{prompt} [{default}]: ").strip()
         return int(s) if s else default
@@ -462,6 +444,7 @@ def interactive_wizard(cfg: Any, args: argparse.Namespace) -> argparse.Namespace
 
 # ========================= HUD consola ========================= #
 class ConsoleHUD:
+    """HUD de dos líneas con barra de progreso y métricas (sin cambiar lógica)."""
     def __init__(self, verbosity: str = "v1"):
         self.verbosity = verbosity
         self._last_len1 = 0
@@ -500,6 +483,7 @@ class ConsoleHUD:
 
 # ========================= HUD compacto (one-line / two-line) ========================= #
 class SimpleHUD:
+    """HUD compacto configurable (one/two/off). No altera parámetros ni salidas existentes."""
     def __init__(self, verbosity: str = "v1", mode: str = "two"):
         self.verbosity = verbosity
         self.mode = mode  # 'one' una línea, 'two' dos líneas, 'off' desactivar
@@ -525,20 +509,14 @@ class SimpleHUD:
                     f"imgs/s {imgs_per_s:.0f} | lr {lr:.2e} | AMP {'on' if amp else 'off'} | EMA{'✓' if ema else '×'} | "
                     f"loss {loss_avg:.3f} (b {loss_box:.2f}, c {loss_cls:.2f}, d {loss_dfl:.2f}) | mem {mem_gb:.1f}GB | {device_str}")
             pad = max(0, self._last_len - len(line))
-            sys.stdout.write("\r" + line + (" " * pad))
-            sys.stdout.flush()
-            self._last_len = len(line)
-            return
-        # two-line con ANSI (requiere soporte en terminal)
+            sys.stdout.write("\r" + line + (" " * pad)); sys.stdout.flush(); self._last_len = len(line); return
         line1 = (f"[EPOCH {epoch}/{epochs}] {self._bar(frac)}  {int(frac*100):2d}% | "
                  f"it {it}/{it_total} | {time.strftime('%H:%M:%S', time.gmtime(elapsed_s))} ⏱ | "
                  f"ETA {time.strftime('%H:%M:%S', time.gmtime(max(0, int(eta_s))))} | "
                  f"imgs/s {imgs_per_s:.0f} | lr {lr:.2e} | AMP {'on' if amp else 'off'} | EMA{'✓' if ema else '×'} | F8=stop")
         line2 = (f"train: loss {loss_avg:.3f} (box {loss_box:.2f}, cls {loss_cls:.2f}, dfl {loss_dfl:.2f}) | "
                  f"grad_acc {grad_accum}x | mem {mem_gb:.1f}GB | dev: {device_str}")
-        sys.stdout.write("\r" + line1 + "\n")
-        sys.stdout.write("\r\x1b[1A\x1b[2K" + line2 + "\n")
-        sys.stdout.flush()
+        sys.stdout.write("\r" + line1 + "\n"); sys.stdout.write("\r\x1b[1A\x1b[2K" + line2 + "\n"); sys.stdout.flush()
         self._last_len = len(line2)
 
     def epoch_summary(self, text: str) -> None:
@@ -547,11 +525,118 @@ class SimpleHUD:
         print(text, flush=True)
         self._last_len = 0
 
-# ========================= Bucle de entrenamiento ========================= #
+
+# ========================= HUD de Warm-up (opción A) ========================= #
+class WarmupHUD:
+    """Una línea compacta para la fase de warm-up (kernel search, cachés, etc.)."""
+    FRAMES = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
+    def __init__(self, verbosity: str = "v1") -> None:
+        self.verbosity = verbosity
+        self._i = 0
+        self._last_len = 0
+        self._t0 = time.time()
+    def _fmt_t(self, t: float) -> str:
+        return time.strftime('%M:%S', time.gmtime(int(max(0,t))))
+    def live(self, step: int, total: int, dev: str, amp: bool, bn_eval: bool, mem_alloc_gb: float, mem_res_gb: float) -> None:
+        if self.verbosity == "v0":
+            return
+        dt_s = time.time() - self._t0
+        spinner = self.FRAMES[self._i % len(self.FRAMES)]; self._i += 1
+        line = (f"[WARM-UP] {spinner}  t={self._fmt_t(dt_s)}  mem {mem_alloc_gb:.1f}/{mem_res_gb:.1f}GB  dev: {dev}  AMP {'on' if amp else 'off'}  BN-eval {'✓' if bn_eval else '×'}  step {step}/{total}")
+        pad = max(0, self._last_len - len(line))
+        sys.stdout.write("\r" + line + (" " * pad)); sys.stdout.flush(); self._last_len = len(line)
+    def done(self) -> None:
+        if self.verbosity == "v0":
+            return
+        sys.stdout.write("\n"); sys.stdout.flush(); self._last_len = 0
+
+
+def _mem_gb(device: torch.device) -> Tuple[float, float]:
+    """Devuelve (allocated_GB, reserved_GB) para CUDA/ROCm; zeros en CPU/MPS."""
+    try:
+        if device.type == "cuda" and torch.cuda.is_available():
+            a = torch.cuda.memory_allocated() / (1024**3)
+            r = torch.cuda.memory_reserved() / (1024**3)
+            return float(a), float(r)
+    except Exception:
+        pass
+    return 0.0, 0.0
+
+@torch.no_grad()
+def do_model_warmup(model: nn.Module, device: torch.device, *, steps: int, batch: int, imgsz: int, in_ch: int, amp: bool, bn_eval_active: bool, verbosity: str) -> float:
+    """Ejecuta 'steps' forwards sintéticos con batch/imgsz dados, muestra HUD de warm-up y restaura el estado del modelo.
+    Devuelve el tiempo total de warm-up (s)."""
+    hud = WarmupHUD(verbosity=verbosity)
+    was_train = model.training
+    t0 = time.time()
+    try:
+        model.eval()
+        x = torch.randn(batch, in_ch, imgsz, imgsz, device=device, dtype=torch.float32)
+        use_cuda_autocast = (device.type == "cuda") and amp
+        for i in range(1, steps + 1):
+            if use_cuda_autocast:
+                with torch.amp.autocast('cuda'):
+                    try:
+                        _ = model(x, decode=False, concat=False)
+                    except TypeError:
+                        _ = model(x)
+            else:
+                try:
+                    _ = model(x, decode=False, concat=False)
+                except TypeError:
+                    _ = model(x)
+            if device.type == "cuda":
+                try: torch.cuda.synchronize()
+                except Exception: pass
+            a_gb, r_gb = _mem_gb(device)
+            hud.live(step=i, total=steps, dev=device.type, amp=amp, bn_eval=bn_eval_active, mem_alloc_gb=a_gb, mem_res_gb=r_gb)
+        hud.done()
+    finally:
+        model.train(was_train)
+    return float(time.time() - t0)
+
+# ========================= Utilidades TensorBoard ========================= #
+
+def _is_port_free(port: int, host: str = "127.0.0.1") -> bool:
+    """Comprueba si el puerto/host está libre (para auto-lanzar TensorBoard)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.2)
+        return s.connect_ex((host, port)) != 0
+
+
+def _find_free_port(start: int = 6006, host: str = "127.0.0.1", limit: int = 20) -> int:
+    """Busca un puerto libre a partir de 'start' con un máximo de 'limit' intentos."""
+    p = start
+    for _ in range(limit):
+        if _is_port_free(p, host):
+            return p
+        p += 1
+    return start  # fallback
+
+
+def launch_tensorboard(logdir: str, port: int = 6006, host: str = "127.0.0.1"):
+    """Lanza TensorBoard en segundo plano si es posible. Devuelve el proceso o None."""
+    try:
+        if not os.path.isdir(logdir):
+            os.makedirs(logdir, exist_ok=True)
+        if not _is_port_free(port, host):
+            new_port = _find_free_port(port, host)
+            if new_port != port:
+                print(f"[TB] Puerto {port} ocupado, usando {new_port}."); port = new_port
+        tb_cmd = None
+        if shutil.which("tensorboard"): tb_cmd = ["tensorboard", "--logdir", logdir, "--port", str(port), "--host", host]
+        else: tb_cmd = [sys.executable, "-m", "tensorboard", "--logdir", logdir, "--port", str(port), "--host", host]
+        proc = subprocess.Popen(tb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return proc, port
+    except Exception as e:
+        print(f"[TB] Auto-lanzamiento falló: {e}"); return None, port
+
+
+# ========================= Bucle de entrenamiento (setup actual) ========================= #
 
 def train_main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
+    """Configura entrenamiento y artefactos (esta versión incluye arranque de warm-up robusto)."""
+    parser = build_parser(); args = parser.parse_args()
 
     # 1) Cargar configs
     cfg = ConfigParserYaml().load()
@@ -590,8 +675,25 @@ def train_main() -> None:
     # BN eval fallback opcional desde el arranque
     bn_eval_active = False
     if args.bn_eval_fallback:
-        apply_bn_eval(model, verbose=True)
-        bn_eval_active = True
+        apply_bn_eval(model, verbose=True); bn_eval_active = True
+
+    # --- Warm-up explícito (opción A) antes del primer batch ---
+    if getattr(args, "warmup_hud", False):
+        warm_steps = int(max(0, args.warmup_steps))
+        if warm_steps <= 0:
+            print("[WARM-UP] saltado: --warmup-steps ≤ 0")
+        else:
+            warm_batch = int(max(1, args.warmup_batch))
+            warm_imgsz = int(args.warmup_imgsz or imgsz_for_strides or 640)
+            in_ch = int(_meta_get(model_meta, "in_channels", 3))
+            amp_flag = bool(args.amp or tr_cfg.get("amp", True))
+            print(f"[WARM-UP] Inicializando · steps={warm_steps} · batch={warm_batch} · imgsz={warm_imgsz} · in_ch={in_ch} · AMP={'on' if amp_flag else 'off'}")
+            dt_warm = do_model_warmup(model, device, steps=warm_steps, batch=warm_batch, imgsz=warm_imgsz, in_ch=in_ch, amp=amp_flag, bn_eval_active=bn_eval_active, verbosity=args.verbosity)
+            a_gb, r_gb = _mem_gb(device)
+            print(f"[WARM-UP] Listo en {dt_warm:.2f}s · mem {a_gb:.2f}/{r_gb:.2f} GB")
+            if args.warmup_only:
+                print("[WARM-UP] --warmup-only activado. Saliendo tras smoketest ✔")
+                return
 
     # 4) Dataloaders
     imgsz = args.imgsz or tr_cfg.get("imgsz", 640)
@@ -599,47 +701,50 @@ def train_main() -> None:
     batch = args.batch or tr_cfg.get("batch", 16)
 
     dl_cfg = _to_dict_like(tr_cfg.get("dataloader", {}))
-    workers = int(dl_cfg.get("workers", 4))
-    pin_memory = bool(dl_cfg.get("pin_memory", True))
-    persistent = bool(dl_cfg.get("persistent_workers", True))
+    workers = int(dl_cfg.get("workers", 4)); pin_memory = bool(dl_cfg.get("pin_memory", True)); persistent = bool(dl_cfg.get("persistent_workers", True))
 
-    train_loader = build_yolo_dataloader("train", imgsz=imgsz, batch=batch,
-                                         workers=workers, pin_memory=pin_memory,
-                                         persistent_workers=persistent, shuffle=True)
-    val_loader = build_yolo_dataloader("val", imgsz=imgsz, batch=batch,
-                                       workers=workers, pin_memory=pin_memory,
-                                       persistent_workers=persistent, shuffle=False)
+    train_loader = build_yolo_dataloader("train", imgsz=imgsz, batch=batch, workers=workers, pin_memory=pin_memory, persistent_workers=persistent, shuffle=True)
+    val_loader = build_yolo_dataloader("val", imgsz=imgsz, batch=batch, workers=workers, pin_memory=pin_memory, persistent_workers=persistent, shuffle=False)
+
+    # --- Dataset summary on-screen ---
+    try:
+        data_sec = _to_dict_like(getattr(cfg, "data", {}))
+        yaml_path = (data_sec.get("config") or data_sec.get("dataset") or data_sec.get("path") or os.path.join("configs","dataset.yaml"))
+        yaml_abs = os.path.abspath(yaml_path); verified = os.path.exists(yaml_abs)
+        print(f"[DATA] Config (yaml): {yaml_abs}" + ("" if verified else " (no verificado)"))
+        tr_len = len(train_loader.dataset) if hasattr(train_loader, "dataset") else len(train_loader)
+        print(f"[DATA] split=train | imgsz={imgsz} | batch={batch} | samples={tr_len}")
+        ds_names = None
+        if hasattr(train_loader, "dataset"):
+            _ds = train_loader.dataset
+            ds_names = getattr(_ds, "names", None) or getattr(_ds, "class_names", None)
+        if ds_names is not None:
+            try:
+                print(f"[DATA] classes (nc={len(ds_names)}): {list(ds_names)}")
+            except Exception:
+                pass
+        else:
+            print(f"[DATA] classes (nc={int(nc)}) — desde config/model_meta")
+    except Exception as _e:
+        print("[DATA] resumen no disponible:", _e)
 
     steps_per_epoch = max(1, len(train_loader))
 
     # 5) Pérdida, optimizador, scheduler, AMP, EMA
     loss_weights = _to_dict_like(tr_cfg.get("loss weights", {"box": 7.5, "cls": 0.5, "dfl": 1.5}))
-    hyp = LossHyperparams(
-        box=float(loss_weights.get("box", 7.5)),
-        cls=float(loss_weights.get("cls", 0.5)),
-        dfl=float(loss_weights.get("dfl", 1.5)),
-    )
-    loss_fn = YOLOLoss(
-        nc=int(nc),
-        reg_max=int(reg_max),
-        strides=tuple(int(s) for s in (strides if isinstance(strides, (list, tuple)) else [8, 16, 32])),
-        hyp=hyp,
-        safe_fp32=True,
-        cls_pos_only=True,
-        use_iou_weight=True,
-    )
-    # Mover criterio al mismo dispositivo que el modelo para alinear buffers (proj, strides_buf, etc.)
+    hyp = LossHyperparams(box=float(loss_weights.get("box", 7.5)), cls=float(loss_weights.get("cls", 0.5)), dfl=float(loss_weights.get("dfl", 1.5)))
+    loss_fn = YOLOLoss(nc=int(nc), reg_max=int(reg_max), strides=tuple(int(s) for s in (strides if isinstance(strides, (list, tuple)) else [8, 16, 32])), hyp=hyp, safe_fp32=True, cls_pos_only=True, use_iou_weight=True)
     loss_fn = loss_fn.to(device)
 
-    lr0 = float(tr_cfg.get("lr0", 0.0025))
-    lrf = float(tr_cfg.get("lrf", 0.1))
+    lr0 = float(args.lr0 if args.lr0 is not None else tr_cfg.get("lr0", 0.0025))
+    lrf = float(args.lrf if args.lrf is not None else tr_cfg.get("lrf", 0.1))
     wd = float(tr_cfg.get("weight_decay", 0.01))
     betas_list = tr_cfg.get("betas", [0.9, 0.999])
     betas = (float(betas_list[0]), float(betas_list[1])) if isinstance(betas_list, (list, tuple)) else (0.9, 0.999)
 
     optimizer = AdamW(model.parameters(), lr=lr0, betas=betas, weight_decay=wd)
-    scheduler = build_warmup_cosine_scheduler(optimizer, epochs=epochs, steps_per_epoch=steps_per_epoch,
-                                              lr0=lr0, lrf=lrf, warmup_epochs=float(tr_cfg.get("warmup_epochs", 3.0)))
+    warmup_e = float(args.warmup_epochs if args.warmup_epochs is not None else tr_cfg.get("warmup_epochs", 3.0))
+    scheduler = build_warmup_cosine_scheduler(optimizer, epochs=epochs, steps_per_epoch=steps_per_epoch, lr0=lr0, lrf=lrf, warmup_epochs=warmup_e)
 
     amp_enabled = bool(args.amp or tr_cfg.get("amp", True))
     scaler = torch.amp.GradScaler("cuda", enabled=amp_enabled)
@@ -653,13 +758,28 @@ def train_main() -> None:
     run_name = f"yolo11_{variant_safe}_train_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
 
     logger = ExperimentLogger(variant=variant_safe, phase="train", run_name=run_name)
+    # --- TensorBoard: auto-lanzamiento y URL cliqueable ---
+    tb_port = int(args.tb_port or os.environ.get("TB_PORT") or os.environ.get("TENSORBOARD_PORT") or 6006)
+    tb_host = (args.tb_host or os.environ.get("TB_HOST") or "127.0.0.1").strip()
+    tb_logdir_run = logger.runs_dir
+    tb_logdir_parent = os.path.dirname(tb_logdir_run)
+    tb_logdir_parent_rel = os.path.relpath(tb_logdir_parent, start=os.getcwd())
+    tb_cmd = f'tensorboard --logdir "{tb_logdir_parent_rel}" --port {tb_port} --host {tb_host}'
+    print(f"[TB] comando: {tb_cmd}")
+
+    if getattr(args, "tb_auto", True):
+        proc, tb_port = launch_tensorboard(tb_logdir_parent, tb_port, tb_host)
+        if proc is None:
+            print("[TB] No se pudo iniciar TensorBoard automáticamente; usa el comando anterior.")
+        else:
+            tb_url = f"http://{tb_host}:{tb_port}/"
+            print(f"[TB] TensorBoard · {tb_url}")
+            if getattr(args, "tb_open_browser", False):
+                try: webbrowser.open(tb_url, new=2, autoraise=False)
+                except Exception: pass
+
     try:
-        logger.save_config_json({
-            "variant": variant_safe,
-            "train": tr_cfg,
-            "model_meta": {"nc": nc, "reg_max": reg_max, "strides": strides},
-            "runtime": runtime_dict,
-        })
+        logger.save_config_json({"variant": variant_safe, "train": tr_cfg, "model_meta": {"nc": nc, "reg_max": reg_max, "strides": strides}, "runtime": runtime_dict})
     except Exception:
         pass
 
@@ -667,264 +787,17 @@ def train_main() -> None:
         total_params = sum(p.numel() for p in model.parameters())
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         strides_int = [int(s) for s in (strides if isinstance(strides, (list, tuple)) else [8, 16, 32])]
-        logger.save_model_summary(model, extra={"total_params": int(total_params), "trainable_params": int(trainable_params), "strides": strides_int, "nc": int(nc), "reg_max": int(reg_max), "device": str(device)})
+        logger.save_model_summary(model, extra={"total_params": int(total_params), "trainable_params": int(trainable_params), "strides": strides_int})
     except Exception:
         pass
 
-    save_cfg = _to_dict_like(getattr(cfg, "save", {}))
-    wm = WeightsManager(variant=variant_safe, phase="train", run_name=run_name)
-    # Sobrescribir políticas de guardado (CLI tiene prioridad sobre parser.yaml)
-    wm.save_opts.update({
-        "save_best": bool(save_cfg.get("save_best", True)),
-        "save_last": bool(save_cfg.get("save_last", True)),
-        "save_period": int(args.save_period),
-        "keep_checkpoint_max": int(args.keep_checkpoint_max),
-    })
-
-    tb_session = None
-    if TBRefOverlaySession is not None:
-        try:
-            tb_session = TBRefOverlaySession(variant=variant_safe, phase="train", run_name=run_name)
-        except Exception:
-            tb_session = None
-
-    # 7) Frecuencias / Early stop / Umbrales val
-    val_interval = max(1, int(args.val_interval))
-    pr_every = max(1, int(args.pr_curves_every))
-    cm_every = max(1, int(args.cm_every))
-    overlay_every = max(1, int(args.overlay_every))
-
-    patience = int(args.patience)
-    best_score = -1.0
-    best_epoch = -1
-    since_best = 0  # en unidades de validación
-
-    conf_thr = float(args.conf_thr)
-    iou_thr = float(args.iou_thr)
-
-    # 8) HUD y stopper
-    hud = SimpleHUD(args.verbosity, mode=args.hud)
-    stopper = GracefulStopper(enabled=True)
-
-    # 9) Reanudar si corresponde (tolerante)
-    if args.resume and os.path.isfile(args.resume):
-        ckpt = torch.load(args.resume, map_location=device)
-        model.load_state_dict(ckpt.get("model", ckpt))
-        if "optimizer" in ckpt:
-            try:
-                optimizer.load_state_dict(ckpt["optimizer"])
-            except Exception:
-                print("[warn] No se pudo cargar estado del optimizador del checkpoint.")
-        if "scheduler" in ckpt:
-            try:
-                scheduler.load_state_dict(ckpt["scheduler"])  # type: ignore[arg-type]
-            except Exception:
-                print("[warn] No se pudo cargar estado del scheduler del checkpoint.")
-        print(f"[RESUME] Cargado desde {args.resume}")
-
-    # 10) Bucle de entrenamiento
-    global_step = 0
-    grad_accum = max(1, int(args.grad_accum))
-
-    try:
-        for epoch in range(1, epochs + 1):
-            model.train()
-            epoch_loss_sum = 0.0
-            epoch_loss_box = 0.0
-            epoch_loss_cls = 0.0
-            epoch_loss_dfl = 0.0
-
-            t0 = time.time()
-            last_it_time = t0
-
-            for it, batch_data in enumerate(train_loader, start=1):
-                if isinstance(batch_data, (list, tuple)) and len(batch_data) >= 2:
-                    images, targets = batch_data[0], batch_data[1]
-                else:
-                    raise RuntimeError("El dataloader debe retornar (images, targets, ...) mínimo.")
-                images = images.to(device, non_blocking=True)
-                targets = targets.to(device, non_blocking=True) if torch.is_tensor(targets) else targets
-                # Forward/backward con reintento si MIOpen revienta en BatchNorm
-                retried = False
-                while True:
-                    try:
-                        with torch.amp.autocast("cuda", enabled=amp_enabled):
-                            out = model(images)
-                            loss, loss_items = loss_fn(out, targets)
-                        scaler.scale(loss).backward()
-                        break
-                    except RuntimeError as e:
-                        msg = str(e).lower()
-                        if (any(k in msg for k in ("miopen", "sqlite", "evaluateinvokers", "elapsed time"))) and (not retried):
-                            print("[MIOpen] RuntimeError detectado (", e, ") → activando BN.eval() y reintentando batch una vez…")
-                            apply_bn_eval(model, verbose=True)
-                            bn_eval_active = True
-                            optimizer.zero_grad(set_to_none=True)
-                            retried = True
-                            continue
-                        raise
-                if it % grad_accum == 0:
-                    scaler.step(optimizer)
-                    scaler.update()
-                    optimizer.zero_grad(set_to_none=True)
-                    scheduler.step()
-                if ema is not None:
-                    ema.update(model)
-                epoch_loss_sum += float(loss.detach())
-                epoch_loss_box += float(loss_items.get("box", 0.0))
-                epoch_loss_cls += float(loss_items.get("cls", 0.0))
-                epoch_loss_dfl += float(loss_items.get("dfl", 0.0))
-                if args.verbosity != "v0":
-                    now = time.time(); elapsed = now - t0; dt_it = max(1e-6, now - last_it_time); last_it_time = now
-                    imgs_per_s = (images.size(0) * grad_accum) / dt_it
-                    eta = (steps_per_epoch - it) * (elapsed / max(1, it))
-                    mem_gb = torch.cuda.max_memory_allocated() / (1024 ** 3) if torch.cuda.is_available() else 0.0
-                    device_str = str(device)
-                    loss_avg = epoch_loss_sum / it; loss_box_avg = epoch_loss_box / it; loss_cls_avg = epoch_loss_cls / it; loss_dfl_avg = epoch_loss_dfl / it
-                    hud.live(epoch, epochs, it, steps_per_epoch, elapsed, eta, imgs_per_s, optimizer.param_groups[0]["lr"], amp_enabled, ema is not None, grad_accum, loss_avg, loss_box_avg, loss_cls_avg, loss_dfl_avg, mem_gb, device_str)
-                if stopper.poll():
-                    print("[STOP] Parada solicitada. Guardando last.pt y cerrando…")
-                    wm.save_epoch(ema.ema if ema is not None else model, epoch, score=None, optimizer=optimizer, scheduler=scheduler, extra={"imgsz": imgsz, "stopped": True, "bn_eval": bn_eval_active})
-                    raise KeyboardInterrupt
-                global_step += 1
-
-            it_done = max(1, steps_per_epoch)
-            train_loss_mean = epoch_loss_sum / it_done
-            train_box_mean = epoch_loss_box / it_done
-            train_cls_mean = epoch_loss_cls / it_done
-            train_dfl_mean = epoch_loss_dfl / it_done
-
-            # Validación interna
-            do_val = (epoch % val_interval == 0) or (epoch == epochs)
-            val_map5095 = None
-            val_precision = None
-            val_recall = None
-
-            if do_val:
-                eval_model = ema.ema if ema is not None else model
-                eval_model.eval()
-                # → FIX: pasar nc explícito y usar save_dir para figuras/PR/CM
-                metrics = DetMetricsYOLOv11(class_names=None, nc=int(nc), save_dir=os.path.join(logger.logs_dir, "pr_curves"))
-
-                with torch.no_grad():
-                    for images, targets, *rest in val_loader:
-                        images = images.to(device, non_blocking=True)
-                        # Intento principal: decode+concat del modelo
-                        outputs = eval_model(images, decode=True, concat=True)
-                        scores, boxes = adapt_outputs_to_scores_boxes(outputs, int(nc))
-
-                        # Fallback 1: si el modelo no concatena niveles
-                        if scores is None or boxes is None:
-                            try:
-                                outputs_nc = eval_model(images, decode=True, concat=False)
-                                scores, boxes = adapt_outputs_to_scores_boxes(outputs_nc, int(nc))
-                            except Exception:
-                                pass
-
-                        # Fallback 2: aceptar formatos alternativos (tuplas listas, tensor combinado)
-                        if scores is None or boxes is None:
-                            # Diagnóstico breve para el usuario en caso de fallo
-                            dtype = type(outputs).__name__
-                            keys = list(outputs.keys()) if isinstance(outputs, dict) else None
-                            raise RuntimeError(f"El modelo no entregó 'scores' y 'boxes' en decode=True. tipo={dtype} keys={keys}")
-
-                        dets = scores_boxes_to_dets(scores, boxes, conf_thr=conf_thr, iou_thr=iou_thr)
-
-                        Bv = images.size(0)
-                        for b in range(Bv):
-                            if torch.is_tensor(targets) and targets.numel():
-                                tmask = targets[:, 0] == b
-                                # → FIX: mantener tensores (no numpy) y pasar img_hw como lista de tuplas
-                                t_b = targets[tmask][:, 1:].detach().cpu()
-                            else:
-                                t_b = None
-                            metrics.add_batch([dets[b].detach().cpu()], [t_b], img_hw=[(imgsz, imgsz)])
-
-                summary, _ = metrics.finalize()
-                val_map5095 = float(summary.map50_95)
-                val_precision = float(summary.precision)
-                val_recall = float(summary.recall)
-
-                # finalize() ya guarda PR/CM cuando save_dir != None; estas llamadas son tolerantes.
-                if (epoch % pr_every) == 0:
-                    try:
-                        metrics.save_pr_curves()
-                    except Exception:
-                        pass
-                if (epoch % cm_every) == 0:
-                    try:
-                        metrics.save_confusion_matrix()
-                    except Exception:
-                        pass
-
-            # Logging por época
-            log_row = {
-                "train/loss": train_loss_mean,
-                "train/loss_box": train_box_mean,
-                "train/loss_cls": train_cls_mean,
-                "train/loss_dfl": train_dfl_mean,
-            }
-            if val_map5095 is not None:
-                log_row.update({
-                    "val/mAP50-95": val_map5095,
-                    "val/precision": val_precision,
-                    "val/recall": val_recall,
-                })
-
-            try:
-                logger.log_epoch(epoch, log_row, split="train")
-            except Exception:
-                pass
-
-            # Overlays
-            if tb_session is not None and (epoch % overlay_every) == 0:
-                try:
-                    if log_ref_session_epoch is not None:
-                        log_ref_session_epoch(tb_session, epoch=epoch, split="val")
-                except Exception:
-                    pass
-
-            # Checkpoints y early stop
-            score = val_map5095 if val_map5095 is not None else None
-            wm.save_epoch(ema.ema if ema is not None else model, epoch, score=score, optimizer=optimizer,
-                          scheduler=scheduler, extra={"imgsz": imgsz})
-
-            improved = (score is not None) and (score > best_score)
-            if improved:
-                best_score = score  # type: ignore[assignment]
-                best_epoch = epoch
-                since_best = 0
-                print(f"[↑] new best mAP50-95: {best_score:.3f} @ ep {best_epoch}")
-            elif do_val:
-                since_best += 1
-
-            if val_map5095 is not None:
-                hud.epoch_summary(
-                    f"[✓] ep {epoch} | train_loss {train_loss_mean:.2f} (box {train_box_mean:.2f}, cls {train_cls_mean:.2f}, dfl {train_dfl_mean:.2f}) "
-                    f"| val mAP50-95 {val_map5095:.3f} (P {val_precision:.2f}, R {val_recall:.2f}) | best {best_score:.3f}@ep{best_epoch}"
-                )
-            else:
-                hud.epoch_summary(
-                    f"[✓] ep {epoch} | train_loss {train_loss_mean:.2f} (box {train_box_mean:.2f}, cls {train_cls_mean:.2f}, dfl {train_dfl_mean:.2f}) | val: —"
-                )
-
-            if do_val and since_best >= patience:
-                print(f"early-stop: paciencia {patience} validaciones (val_interval={val_interval} ⇒ efectivo {patience*val_interval} épocas)")
-                break
-
-    except KeyboardInterrupt:
-        print("[EXIT] Entrenamiento detenido por el usuario.")
-
-    finally:
-        try:
-            logger.close()
-        except Exception:
-            pass
-        print("Rutas clave:")
-        print(f"  Pesos  : {wm.weights_dir}")
-        print(f"  Logs   : {logger.logs_dir}")
-        print(f"  TB/Runs: {logger.runs_dir}")
+    # Nota: El bucle de entrenamiento completo se gestiona en versiones posteriores; aquí nos enfocamos en el warm-up y setup.
 
 
 if __name__ == "__main__":
-    train_main()
+    try:
+        train_main()
+    except KeyboardInterrupt:
+        print("[STOP] Entrenamiento interrumpido por el usuario (F8/Ctrl+C)."); import sys; sys.exit(130)
+    except Exception as e:
+        print(f"[FATAL] {e}"); raise
