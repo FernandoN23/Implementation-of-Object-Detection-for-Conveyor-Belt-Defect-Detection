@@ -147,7 +147,7 @@ class ConfigParserYaml:
         self.train_cfg: Dict[str, Any] = {}
         self.model_meta: ModelMeta | None = None
         self.variants_map: Dict[str, Dict[str, Any]] = {}
-        self.default_variant_name: str = "m"
+        self.default_variant_name: str = "n"
 
     # -------- Carga y resolución ----------
     def load(self) -> "ConfigParserYaml":
@@ -200,8 +200,25 @@ class ConfigParserYaml:
             keep_checkpoint_max=int(save.get("keep_checkpoint_max", 5)),
         )
 
+
         # ----- Train -----
-        self.train_cfg = _read_yaml(self.paths.train_yaml)
+        raw_train = _read_yaml(self.paths.train_yaml) or {}
+        # Normalizar estructura esperada por train.py -> {'config': {...}}
+        # Añadir compatibilidad: mover claves del dataloader a un subdiccionario y alias de 'loss weights'
+        if isinstance(raw_train, dict):
+            # Construir subdict de dataloader si no existe
+            if "dataloader" not in raw_train or not isinstance(raw_train.get("dataloader"), dict):
+                dl_keys = ("workers", "pin_memory", "persistent_workers", "shuffle")
+                dl = {k: raw_train[k] for k in dl_keys if k in raw_train}
+                if dl:
+                    raw_train["dataloader"] = dl
+            # Alias para compatibilidad con versiones previas
+            if "loss" in raw_train and "loss weights" not in raw_train:
+                raw_train["loss weights"] = raw_train.get("loss", {})
+            # Alias val_interval desde val_period (YAML) si aplica
+            if "val_period" in raw_train and "val_interval" not in raw_train:
+                raw_train["val_interval"] = raw_train.get("val_period")
+        self.train_cfg = {"config": raw_train}
 
         # ----- Modelo (yolo11.yaml) -----
         yolo = _read_yaml(self.paths.yolo_yaml).get("model", {})
@@ -267,6 +284,13 @@ class ConfigParserYaml:
         return self
 
     # -------- Propiedades de conveniencia ----------
+    
+    @property
+    def default_variant(self) -> str:
+        """Alias de compatibilidad. Devuelve la variante por defecto leída desde parser.yaml
+        (o el fallback 'n' si no se define)."""
+        return getattr(self, 'default_variant_name', 'n')
+
     @property
     def train(self) -> Dict[str, Any]:  # compat con utilidades externas
         return self.train_cfg
