@@ -6,45 +6,45 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: parser.yaml
+# (Orquestador de rutas y defaults del proyecto)
 #==============================================================
-# Parser y rutas base del proyecto. Este archivo orquesta los demás YAML.
-# Nota: las rutas son relativas a la raíz del proyecto (YOLOv11/).
+
 project:
-  name: yolo11_conveyor_defects
+  # Raíz lógica del proyecto (usada para construir rutas de salida)
   root_dir: YOLOv11
-  dirs:
-    runs: runs
-    logs: logs
-    metrics: metrics
-    weights: weights
-  time_format: "%Y%m%d_%H%M%S"
+  dirs: { runs: runs, logs: logs, metrics: metrics, weights: weights }
+  time_format: "%Y%m%d_%H%M%S"   # usado para run_name; puedes mantenerlo o quitarlo si no lo usas
 
 data:
-  # YAML del dataset (incluye rutas absolutas del usuario)
+  # Ruta al YAML del dataset (absoluta o relativa)
   config: configs/dataset.yaml
 
 model:
-  # YAML estructural del modelo y archivo de variantes
+  # YAML con la estructura del modelo y, opcionalmente, variantes externas
   yolo_cfg: configs/yolo11.yaml
-  variants_cfg: configs/model_variants.yaml
-  default_variant: m   # n|s|m|l|xl
+  variants_cfg: configs/model_variants.yaml   # (opcional; si falta, usa VARIANTS internos del código)
+  default_variant: n                          # fallback en código: 'n'
+  # Los siguientes tres pueden considerarse redundantes si ya están en yolo11.yaml,
+  # pero los dejo para sobreescribir fácilmente desde aquí si lo necesitas.
   nc: 5
   in_channels: 3
   reg_max: 16
 
 train:
-  # YAML con hiperparámetros de entrenamiento
+  # YAML con hiperparámetros; train.py toma estos como defaults si no pasas flags
   config: configs/train.yaml
 
 runtime:
-  device: auto           # auto | cuda | cpu
+  # Preferencias de ejecución; si las quitas, el código cae a defaults internos (device='auto', seed=42, etc.)
+  device: auto              # auto | cuda | cpu
   seed: 42
   deterministic: false
-  compile: false         # torch.compile()
+  compile: false            # torch.compile()
   cudnn_benchmark: true
 
 save:
+  # Políticas de guardado; usadas por WeightsManager/Checkpointer y mostradas en el -h
   save_best: true
   save_last: true
-  save_period: 10        # guardar cada N epochs
-  keep_checkpoint_max: 5
+  save_period: 10           # guardar checkpoint cada N épocas, además de best/last
+  keep_checkpoint_max: 5    # MÁX de checkpoints “periódicos” a retener por run

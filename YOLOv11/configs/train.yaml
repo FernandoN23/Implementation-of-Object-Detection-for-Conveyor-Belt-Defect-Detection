@@ -6,10 +6,9 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: train.yaml
+# (Hiperparámetros y opciones por defecto para train.py; incluye
+#  guardado periódico de checkpoints y configuración para resume)
 #==============================================================
-# Hiperparámetros de entrenamiento y validación (inspirados en Ultralytics).
-# Ajustados para un dataset de defectos en correas (nc=5) y imgsz=640.
-# Estos valores pueden modificarse desde train.py via CLI o parser.
 
 # ===== Datos =====
 imgsz: 640
@@ -17,34 +16,35 @@ rect: false
 cache: false
 
 # ===== Optimizador y LR Schedule =====
-optimizer: adamw          # sgd|adam|adamw
-lr0: 0.0025               # lr inicial
-lrf: 0.1                  # factor mínimo (cosine decay)
+optimizer: adamw            # sgd|adam|adamw
+lr0: 0.0025                 # learning rate inicial
+lrf: 0.1                    # factor mínimo (cosine decay)
 weight_decay: 0.01
-momentum: 0.9             # si usas SGD
-betas: [0.9, 0.999]       # si usas Adam/AdamW
-epochs: 150
+momentum: 0.9               # si usas SGD
+betas: [0.9, 0.999]         # si usas Adam/AdamW
+epochs: 100
 batch: 16
 warmup_epochs: 3.0
 warmup_momentum: 0.8
 warmup_bias_lr: 0.05
-scheduler: cosine         # cosine|onecycle|linear
+scheduler: cosine           # cosine|onecycle|linear
 
 # ===== Dataloader =====
-workers: 4
-pin_memory: true
-persistent_workers: true
-shuffle: true
+dataloader:
+  workers: 4
+  pin_memory: true
+  persistent_workers: true
+  shuffle: true
 
 # ===== Entrenamiento =====
-amp: true                 # mixed precision
+amp: true                   # mixed precision
 ema: true
 ema_decay: 0.9999
 grad_accum: 1
-max_grad_norm: 0.0        # 0 desactiva clipping
+max_grad_norm: 0.0          # 0 desactiva clipping
 label_smoothing: 0.0
-patience: 50              # early stopping
-val_period: 1             # validar cada N epochs
+patience: 50                # early stopping
+val_interval: 1             # validar cada N epochs (antes: val_period)
 
 # ===== Pérdidas (ponderadores) =====
 loss:
@@ -58,7 +58,7 @@ hsv_s: 0.7
 hsv_v: 0.4
 degrees: 0.0
 translate: 0.10
-scale: 0.50               # ±50%
+scale: 0.50                 # ±50%
 shear: 0.0
 perspective: 0.0
 fliplr: 0.5
@@ -76,3 +76,13 @@ plots: true
 # ===== Guardado/Monitoreo =====
 tensorboard: true
 wandb: false
+
+# Checkpoints por época (activado en train.py; permite resume)
+save:
+  save_best: true
+  save_last: true
+  save_period: 10           # guardar cada N épocas (además de best/last)
+  keep_checkpoint_max: 5    # mantener como máximo N checkpoints periódicos
+
+# (Opcional) Ruta por defecto para reanudar; normalmente se pasa por CLI con --resume
+# resume: "YOLOv11/weights/m/train/yolo11_m_train_YYYY-MM-DD_hh-mm-ss/last.pt"
