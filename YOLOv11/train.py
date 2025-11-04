@@ -13,11 +13,12 @@
 #==============================================================
 
 from __future__ import annotations
-
 # ========================= Importes estándar ========================= #
 import os, sys, math, json, time, argparse, datetime as dt
+from pathlib import Path
 from dataclasses import asdict, is_dataclass
 from typing import Optional, Tuple, Dict, Any, List
+
 import subprocess, socket, webbrowser, shutil
 import warnings
 
@@ -51,6 +52,18 @@ except Exception:  # noqa: E722
 # ========================= Importes de terceros ========================= #
 import torch
 import torch.nn as nn
+# --- Utilidad BN->GN ---
+def _swap_bn_to_gn(module: nn.Module, groups: int = 32):
+    for name, child in module.named_children():
+        if isinstance(child, nn.BatchNorm2d):
+            ch = child.num_features
+            g = min(groups, ch)
+            while ch % g != 0 and g > 1:
+                g -= 1
+            setattr(module, name, nn.GroupNorm(num_groups=max(1, g), num_channels=ch, eps=1e-5, affine=True))
+        else:
+            _swap_bn_to_gn(child, groups)
+
 import torch.backends.cudnn as cudnn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
@@ -561,7 +574,7 @@ class Evaluator:
         try:
             device_eval = next(model.parameters()).device
             model.eval()
-            dm = DetMetricsYOLOv11()
+            dm = DetMetricsYOLOv11(nc=self.nc)
             for ims, tgts, *rest in loader:
                 ims = ims.to(device_eval, non_blocking=True).float()
                 try:
@@ -579,7 +592,7 @@ class Evaluator:
                     B = len(ims); batch_gt = [[] for _ in range(B)]
                     for (bi, c, x, y, w, h) in tgts_np:
                         bi = int(bi); batch_gt[bi].append([float(c), float(x), float(y), float(w), float(h)])
-                dm.add_batch(detections=[d.detach().cpu().numpy() for d in dets], ground_truth=batch_gt, imgsz=self.imgsz)
+                dm.add_batch(preds=[d for d in dets], targets=[(torch.tensor(gt, dtype=torch.float32, device=device_eval) if len(gt) else torch.zeros((0,5), dtype=torch.float32, device=device_eval)) for gt in batch_gt], img_hw=[(self.imgsz, self.imgsz)]*len(dets), labels_is_xywhn=True, conf_min_for_cm=float(self.conf_thr), iou_match_for_cm=float(self.iou_thr))
             res = dm.finalize()
             for k in ("mAP50-95", "map_50_95", "map50_95", "map5095"):
                 if k in res: metrics["mAP50-95"] = float(res[k]); break
@@ -595,13 +608,32 @@ class Evaluator:
 
 
 class Checkpointer:
-    def __init__(self, base_dir: str, variant: str, run_name: str, save_period: int = 10):
+    def __init__(self, base_dir: str, variant: str, run_name: str, save_period: int = 10, keep_max: int = 5):
         self.dir = os.path.join(base_dir, variant, "train", run_name)
         os.makedirs(self.dir, exist_ok=True)
         self.best_metric: Optional[float] = None
         self.save_period = max(1, int(save_period))
+        self.keep_max = max(1, int(keep_max))
 
-    def save(self, *, epoch: int, model_state: Dict[str, Any], optimizer_state: Dict[str, Any],
+    def _prune_old(self) -> None:
+        try:
+            files = [f for f in os.listdir(self.dir) if f.startswith('VAR_Train_Epoch_') and f.endswith('.pt')]
+            def _epoch_of(fname: str) -> int:
+                try:
+                    return int(fname.split('_')[-1].split('.')[0])
+                except Exception:
+                    return -1
+            files_sorted = sorted(files, key=_epoch_of)
+            excess = max(0, len(files_sorted) - self.keep_max)
+            for f in files_sorted[:excess]:
+                try:
+                    os.remove(os.path.join(self.dir, f))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def save(self, *, epoch: int, max_epochs: int, model_state: Dict[str, Any], optimizer_state: Dict[str, Any],
              scaler_state: Optional[Dict[str, Any]], metrics: Dict[str, Optional[float]],
              ref_metric: float) -> None:
         is_best = (self.best_metric is None) or (ref_metric > self.best_metric)
@@ -609,6 +641,7 @@ class Checkpointer:
             self.best_metric = ref_metric
         ckpt = {
             "epoch": epoch,
+            "max_epochs": int(max_epochs),
             "model_state": model_state,
             "optimizer_state": optimizer_state,
             "scaler_state": scaler_state,
@@ -620,6 +653,7 @@ class Checkpointer:
             torch.save(ckpt, os.path.join(self.dir, "best.pt"))
         if (epoch % self.save_period) == 0:
             torch.save(ckpt, os.path.join(self.dir, f"VAR_Train_Epoch_{epoch:03d}.pt"))
+            self._prune_old()
 
 
 class Trainer:
@@ -631,12 +665,17 @@ class Trainer:
             self.args = interactive_wizard(self.cfg, args)
 
         # 2) Resolver secciones
-        self.variant = self.args.variant or getattr(self.cfg, "default_variant", None)
+        self.variant = self.args.variant or getattr(self.cfg, "default_variant_name", None)
         train_section = _to_dict_like(getattr(self.cfg, "train", {}))
-        self.tr_cfg = _to_dict_like(train_section.get("config", {}))
+        # Soporta {'config': {...}} y dict plano
+        self.tr_cfg = _to_dict_like(train_section.get("config", train_section))
 
         imgsz_for_strides = self.args.imgsz or self.tr_cfg.get("imgsz", 640)
         self.model = self.cfg.build_model(variant=self.variant, imgsz_for_strides=imgsz_for_strides)
+        _miopen_dc = os.environ.get("MIOPEN_DISABLE_CACHE", None)
+        _miopen_fe = os.environ.get("MIOPEN_FIND_ENFORCE", None)
+        if _miopen_dc or _miopen_fe:
+            print(f"[MIOpen-CLI] MIOPEN_DISABLE_CACHE={_miopen_dc if _miopen_dc is not None else '∅'} | MIOPEN_FIND_ENFORCE={_miopen_fe if _miopen_fe is not None else '∅'}")
 
         # Metadata
         self.model_meta = getattr(self.cfg, "model_meta", {})
@@ -651,7 +690,10 @@ class Trainer:
         self.device = select_device(self.args.device or runtime_dict.get("device", None))
         seed_everything(int(runtime_dict.get("seed", 42)), bool(runtime_dict.get("deterministic", False)))
         compile_flag = bool(runtime_dict.get("compile", False))
-
+        if getattr(self.args, 'force_gn', False):
+            _swap_bn_to_gn(self.model, groups=getattr(self.args, 'gn_groups', 32))
+            print(f"[Norm] BatchNorm2d -> GroupNorm(g={getattr(self.args,'gn_groups',32)}) aplicado.")
+            # Importante: mover el modelo al dispositivo tras el swap para evitar desajustes CPU/GPU
         self.model.to(self.device)
         if compile_flag and hasattr(torch, "compile"):
             try:
@@ -668,8 +710,12 @@ class Trainer:
         self.imgsz = self.args.imgsz or self.tr_cfg.get("imgsz", 640)
         self.epochs = self.args.epochs or self.tr_cfg.get("epochs", 150)
         self.batch = self.args.batch or self.tr_cfg.get("batch", 16)
+        self.grad_accum = int(self.args.grad_accum) if (getattr(self.args, "grad_accum", None) is not None) else int(self.tr_cfg.get("grad_accum", 1))
+        self.grad_accum = max(1, self.grad_accum)
 
         dl_cfg = _to_dict_like(self.tr_cfg.get("dataloader", {}))
+        if not dl_cfg:
+            dl_cfg = {k: self.tr_cfg.get(k) for k in ("workers","pin_memory","persistent_workers","shuffle") if k in self.tr_cfg}
         workers = int(dl_cfg.get("workers", 4))
         pin_memory = bool(dl_cfg.get("pin_memory", True))
         persistent = bool(dl_cfg.get("persistent_workers", True))
@@ -685,7 +731,7 @@ class Trainer:
         self.steps_per_epoch = max(1, len(self.train_loader))
 
         # 5) Criterio/opt/planificador
-        loss_weights = _to_dict_like(self.tr_cfg.get("loss weights", {"box": 7.5, "cls": 0.5, "dfl": 1.5}))
+        loss_weights = _to_dict_like(self.tr_cfg.get("loss", self.tr_cfg.get("loss weights", {"box": 7.5, "cls": 0.5, "dfl": 1.5})))
         hyp = LossHyperparams(
             box=float(loss_weights.get("box", 7.5)),
             cls=float(loss_weights.get("cls", 0.5)),
@@ -717,9 +763,35 @@ class Trainer:
         ema_decay = float(self.tr_cfg.get("ema_decay", 0.9999))
         self.ema = ModelEMA(self.model, decay=ema_decay, device=self.device) if self.ema_enabled else None
 
+
+        # Políticas de guardado (cfg.save con override por CLI)
+        cfg_save = getattr(self.cfg, "save", None)
+        def _get_save_attr(name, default):
+            if self.args is not None and getattr(self.args, name.replace('-', '_'), None) is not None:
+                return getattr(self.args, name.replace('-', '_'))
+            return getattr(cfg_save, name, default) if cfg_save is not None else default
+        self.save_period = int(_get_save_attr("save_period", 10))
+        self.keep_checkpoint_max = int(_get_save_attr("keep_checkpoint_max", 5))
+
         # 6) Artefactos: logger/TB
         self.variant_safe = self.variant or getattr(self.cfg, "default_variant", "m")
-        self.run_name = f"yolo11_{self.variant_safe}_train_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        # Elegir run_name (si reanudamos y la ruta contiene '/<variant>/train/<run>/', reutilizamos ese run)
+        resume_path = getattr(self.args, "resume", None)
+        run_from_resume = None
+        if resume_path:
+            try:
+                rp = Path(resume_path).resolve()
+                # Buscamos patrón .../weights/<variant>/train/<run>/file.pt
+                parts = rp.parts
+                if 'weights' in parts:
+                    idx = parts.index('weights')
+                    if idx+3 < len(parts):
+                        # variant=parts[idx+1], 'train'=parts[idx+2], run=parts[idx+3]
+                        if parts[idx+2] == 'train':
+                            run_from_resume = parts[idx+3]
+            except Exception:
+                pass
+        self.run_name = run_from_resume or f"yolo11_{self.variant_safe}_train_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         self.logger = ExperimentLogger(variant=self.variant_safe, phase="train", run_name=self.run_name)
 
         tb_port = int(self.args.tb_port or os.environ.get("TB_PORT") or os.environ.get("TENSORBOARD_PORT") or 6006)
@@ -762,37 +834,146 @@ class Trainer:
         # 7) Utilidades de ejecución
         self.hud = SimpleHUD(verbosity=self.args.verbosity, mode=self.args.hud)
         self.stopper = GracefulStopper(enabled=True)
-        self.checkpointer = Checkpointer(base_dir="weights", variant=self.variant_safe, run_name=self.run_name, save_period=int(self.args.save_period))
+        self.checkpointer = Checkpointer(base_dir=str(self.cfg.paths.weights_dir), variant=self.variant_safe, run_name=self.run_name, save_period=self.save_period, keep_max=self.keep_checkpoint_max)
 
         # 8) Evaluador
-        self.evaluator = Evaluator(imgsz=self.imgsz, nc=self.nc, conf_thr=float(self.args.conf_thr), iou_thr=float(self.args.iou_thr))
+        conf_thr_eff = float(self.args.conf_thr) if getattr(self.args, 'conf_thr', None) is not None else float(self.tr_cfg.get('conf_thres', 0.001))
+        iou_thr_eff = float(self.args.iou_thr) if getattr(self.args, 'iou_thr', None) is not None else float(self.tr_cfg.get('iou_thres', 0.70))
+        self.evaluator = Evaluator(imgsz=self.imgsz, nc=self.nc, conf_thr=conf_thr_eff, iou_thr=iou_thr_eff)
 
         # 9) Early stop (opcional)
-        self.patience = max(0, int(self.args.patience))
-        self.val_interval = max(1, int(self.args.val_interval))
-        self.grad_accum = max(1, int(self.args.grad_accum))
+        self.patience = max(0, int(self.tr_cfg.get('patience', self.args.patience)))
+        # Reanudar entrenamiento si corresponde
+        self.start_epoch = 1
+        self.resuming = False
+        ckpt_path = getattr(self.args, "resume", None)
+        if ckpt_path:
+            try:
+                ckpt = torch.load(ckpt_path, map_location=self.device)
+                # Cargar estado del modelo
+                state = ckpt.get("model_state", None)
+                if state is not None:
+                    self.model.load_state_dict(state, strict=False)
+                    try:
+                        if self.ema is not None:
+                            self.ema.ema.load_state_dict(state, strict=False)
+                    except Exception:
+                        pass
+                # Opt/Scaler
+                opt_state = ckpt.get("optimizer_state", None)
+                if opt_state is not None:
+                    try: self.optimizer.load_state_dict(opt_state)
+                    except Exception as e: print(f"[RESUME] No se pudo cargar optimizer_state: {e}")
+                sc_state = ckpt.get("scaler_state", None)
+                if sc_state is not None and hasattr(self, "scaler") and self.scaler is not None:
+                    try: self.scaler.load_state_dict(sc_state)
+                    except Exception: pass
+                # Best metric
+                if getattr(self, "checkpointer", None):
+                    self.checkpointer.best_metric = ckpt.get("best_metric", None)
+                # Epochs
+                last_epoch = int(ckpt.get("epoch", 0))
+                max_epochs_ckpt = int(ckpt.get("max_epochs", 0) or 0)
+                # Si no se especifican --epochs, preferir el del checkpoint; si no, YAML
+                if self.args.epochs is None:
+                    self.epochs = int(max(max_epochs_ckpt, int(self.epochs)))
+                # Definir inicio
+                self.start_epoch = last_epoch + 1
+                self.resuming = True
+                # Ajustar scheduler al número de pasos ya recorridos
+                try:
+                    if hasattr(self, 'scheduler') and hasattr(self, 'steps_per_epoch'):
+                        self.scheduler.last_epoch = int(max(0, (self.start_epoch - 1) * self.steps_per_epoch - 1))
+                except Exception:
+                    pass
+                print(f"[RESUME] Reanudando desde epoch {last_epoch} → {self.start_epoch} / {self.epochs}")
+            except Exception as e:
+                print(f"[RESUME] No se pudo cargar el checkpoint: {e}")
+        self.val_interval = int(self.args.val_interval) if (getattr(self.args, "val_interval", None) is not None) else int(self.tr_cfg.get("val_interval", self.tr_cfg.get("val_period", 1)))
+        self.val_interval = max(1, self.val_interval)
         self.best_epoch_seen = 0
 
     def _compute_loss(self, preds, targets):
+        """
+        Normaliza la salida de self.loss_fn a: (loss_tensor, lbox_float, lcls_float, ldfl_float).
+        Acepta salidas tipo Tensor, tuple/list o dict.
+        """
         out = self.loss_fn(preds, targets)
-        # Soporte tuple/list/dict
-        if isinstance(out, (tuple, list)):
-            loss = out[0]; lbox = float(out[1]) if len(out) > 1 else 0.0; lcls = float(out[2]) if len(out) > 2 else 0.0; ldfl = float(out[3]) if len(out) > 3 else 0.0
-            return loss, lbox, lcls, ldfl
-        if isinstance(out, dict):
-            return out.get("loss", None), float(out.get("loss_box", out.get("box", 0.0))), float(out.get("loss_cls", out.get("cls", 0.0))), float(out.get("loss_dfl", out.get("dfl", 0.0)))
-        return out, 0.0, 0.0, 0.0
 
+        def _to_float(x):
+            import torch
+            if isinstance(x, (int, float)):
+                return float(x)
+            if hasattr(x, 'item'):
+                try:
+                    return float(x.item())
+                except Exception:
+                    pass
+            try:
+                return float(x)
+            except Exception:
+                return 0.0
+
+        import torch
+        lbox = lcls = ldfl = 0.0
+
+        if torch.is_tensor(out):
+            loss = out
+        elif isinstance(out, (list, tuple)):
+            loss = out[0]
+            if len(out) > 1 and isinstance(out[1], dict):
+                d = out[1]
+                lbox = _to_float(d.get('box', d.get('loss_box', 0.0)))
+                lcls = _to_float(d.get('cls', d.get('loss_cls', 0.0)))
+                ldfl = _to_float(d.get('dfl', d.get('loss_dfl', 0.0)))
+            else:
+                lbox = _to_float(out[1]) if len(out) > 1 else 0.0
+                lcls = _to_float(out[2]) if len(out) > 2 else 0.0
+                ldfl = _to_float(out[3]) if len(out) > 3 else 0.0
+        elif isinstance(out, dict):
+            loss = out.get('loss', out.get('total_loss', out.get('total', None)))
+            lbox = _to_float(out.get('box', out.get('loss_box', 0.0)))
+            lcls = _to_float(out.get('cls', out.get('loss_cls', 0.0)))
+            ldfl = _to_float(out.get('dfl', out.get('loss_dfl', 0.0)))
+            if loss is None:
+                total = _to_float(lbox) + _to_float(lcls) + _to_float(ldfl)
+                loss = torch.tensor(total, dtype=torch.float32, device=self.device, requires_grad=True)
+            elif not torch.is_tensor(loss):
+                loss = torch.tensor(_to_float(loss), dtype=torch.float32, device=self.device, requires_grad=True)
+            else:
+                loss = loss.to(self.device)
+        else:
+            raise TypeError(f"Unsupported loss output type: {type(out)}")
+
+        if hasattr(loss, 'device') and loss.device != self.device:
+            loss = loss.to(self.device)
+
+        return loss, lbox, lcls, ldfl
     def warmup_if_needed(self) -> bool:
         steps = int(max(0, getattr(self.args, "warmup_steps", 0)))
         if steps <= 0:
             return True
         runner = WarmupRunner(self.model, self.device, verbosity=self.args.verbosity)
         batch = int(max(1, getattr(self.args, "warmup_batch", self.batch)))
-        imgsz = int(getattr(self.args, "warmup_imgsz", self.imgsz))
-        amp_flag = bool(self.args.amp or self.tr_cfg.get("amp", True))
+        imgsz = int(self.args.warmup_imgsz or self.imgsz)
+        amp_flag = self.amp_enabled if (getattr(self.args, 'warmup_amp', None) is None) else bool(self.args.warmup_amp)
         print(f"[WARM-UP] steps={steps} · batch={batch} · imgsz={imgsz} · AMP={'on' if amp_flag else 'off'}")
-        dt_warm = runner.run(steps=steps, batch=batch, imgsz=imgsz, in_ch=int(_meta_get(self.model_meta, "in_channels", 3)), amp=amp_flag, bn_eval_active=self.bn_eval_active)
+        try:
+            dt_warm = runner.run(steps=steps, batch=batch, imgsz=imgsz, in_ch=int(_meta_get(self.model_meta, "in_channels", 3)), amp=amp_flag, bn_eval_active=self.bn_eval_active)
+        except Exception as e:
+            if not getattr(self.args, 'force_gn', False):
+                try:
+                    _swap_bn_to_gn(self.model, groups=getattr(self.args, 'gn_groups', 32))
+                    # Mover los nuevos parámetros de GroupNorm al dispositivo actual
+                    self.model.to(self.device)
+                    print(f"[Norm] BatchNorm2d -> GroupNorm(g={getattr(self.args,'gn_groups',32)}) aplicado automáticamente tras fallo en warm-up.")
+                    runner = WarmupRunner(self.model, self.device, verbosity=self.args.verbosity)
+                    dt_warm = runner.run(steps=steps, batch=batch, imgsz=imgsz, in_ch=int(_meta_get(self.model_meta, 'in_channels', 3)), amp=amp_flag, bn_eval_active=self.bn_eval_active)
+                except Exception as e2:
+                    raise e2
+            else:
+                raise e
+
         a_gb, _r_gb, t_gb, a_pct, _r_pct = _mem_stats(self.device)
         print(f"[WARM-UP] {dt_warm:.2f}s · VRAM {a_pct:.2f}% ({a_gb:.2f}GB de {t_gb:.2f}GB)")
         if getattr(self.args, "warmup_only", False):
@@ -804,10 +985,14 @@ class Trainer:
         if not self.warmup_if_needed():
             try: self.logger.close()
             except Exception: pass
+            print(f"[DONE] Entrenamiento finalizado. Revisa '{self.checkpointer.dir}' (best.pt, last.pt).")
             return
 
+        print("Inicializando entrenamiento (tiempo estimado: 3-7 min)")
+
+
         # Loop de épocas
-        for epoch in range(1, int(self.epochs) + 1):
+        for epoch in range(int(getattr(self, 'start_epoch', 1)), int(self.epochs) + 1):
             self.model.train()
             t_epoch0 = time.time()
             loss_m = box_m = cls_m = dfl_m = 0.0
@@ -823,11 +1008,51 @@ class Trainer:
 
                 imgs = imgs.to(self.device, non_blocking=True).float()
 
-                with torch.amp.autocast('cuda', enabled=self.amp_enabled):
+                
+                if targets is None:
+                    targets = torch.zeros((0, 6), device=self.device, dtype=torch.float32)
+                else:
                     try:
-                        preds = self.model(imgs, decode=False, concat=False)
-                    except TypeError:
-                        preds = self.model(imgs)
+                        targets = targets.to(self.device, non_blocking=True).float()
+                    except AttributeError:
+                        import numpy as _np
+                        if isinstance(targets, _np.ndarray):
+                            targets = torch.from_numpy(targets).to(self.device).float()
+                        else:
+                            targets = torch.as_tensor(targets, device=self.device, dtype=torch.float32)
+                with torch.amp.autocast('cuda', enabled=self.amp_enabled):
+                    # Forward con fallback MIOpen (BN.eval() → GN)
+                    for _attempt in range(3):
+                        try:
+                            try:
+                                preds = self.model(imgs, decode=False, concat=False)
+                            except TypeError:
+                                preds = self.model(imgs)
+                            break
+                        except RuntimeError as e:
+                            _msg = str(e).lower()
+                            if ("miopen" in _msg) or ("evaluateinvokers" in _msg) or ("sqlite" in _msg) or ("miopenstatusinternalerror" in _msg):
+                                if not getattr(self, 'bn_eval_active', False):
+                                    print("[MIOpen] RuntimeError en forward → activando BN.eval() y reintentando…")
+                                    try:
+                                        apply_bn_eval(self.model, verbose=True)
+                                        self.bn_eval_active = True
+                                    except Exception:
+                                        pass
+                                    continue
+                                if not getattr(self, '_miopen_auto_gn', False):
+                                    _g = int(getattr(self.args, 'gn_groups', 32)) if hasattr(self, 'args') else 32
+                                    try:
+                                        _swap_bn_to_gn(self.model, groups=_g)
+                                        # Asegurar que los nuevos módulos GroupNorm residan en el mismo dispositivo
+                                        self.model.to(self.device)
+                                        self._miopen_auto_gn = True
+                                        print(f"[MIOpen] Persisten fallos → BatchNorm2d → GroupNorm(g={_g}) aplicado (fallback runtime). Reintentando…")
+                                    except Exception:
+                                        pass
+                                    continue
+                            raise
+
                     loss, lbox, lcls, ldfl = self._compute_loss(preds, targets)
 
                 loss_scaled = loss / self.grad_accum
@@ -897,6 +1122,7 @@ class Trainer:
             # Logging
             epoch_log = {
                 "epoch": int(epoch),
+                "max_epochs": int(self.epochs),
                 "loss": float(loss_epoch),
                 "loss_box": float(box_epoch),
                 "loss_cls": float(cls_epoch),
@@ -912,7 +1138,8 @@ class Trainer:
             ref_metric = val_metrics["mAP50-95"] if val_metrics["mAP50-95"] is not None else (-loss_epoch)
             model_state = (self.ema.ema.state_dict() if self.ema is not None else self.model.state_dict())
             self.checkpointer.save(
-                epoch=epoch, model_state=model_state, optimizer_state=self.optimizer.state_dict(),
+                epoch=epoch, max_epochs=int(self.epochs),
+                model_state=model_state, optimizer_state=self.optimizer.state_dict(),
                 scaler_state=(self.scaler.state_dict() if self.amp_enabled else None),
                 metrics=val_metrics, ref_metric=ref_metric
             )
@@ -937,60 +1164,111 @@ class Trainer:
 
         try: self.logger.close()
         except Exception: pass
+        # Mensaje final de confirmación de entrenamiento completado
+        print(f"[DONE] Entrenamiento completado. Revisa '{self.checkpointer.dir}' (best.pt, last.pt).")
 
 
 # ========================= Interfaz / CLI ========================= #
+
 def build_parser() -> argparse.ArgumentParser:
-    """Argumentos de entrenamiento (conserva defaults del proyecto)."""
+    """Argumentos de entrenamiento con *ayuda enriquecida* mostrando defaults efectivos
+    (leídos desde configs/train.yaml y parser.yaml). Los valores por defecto del CLI
+    permanecen en None para permitir que Trainer use los del YAML.
+    """
+    # Leer configs para informar defaults en -h
+    try:
+        _cfg = ConfigParserYaml().load()
+        _train_section = _to_dict_like(getattr(_cfg, "train", {}))
+        _tr = _to_dict_like(_train_section.get("config", _train_section))
+        _save = getattr(_cfg, "save", None)
+        _runtime = _to_dict_like(getattr(_cfg, "runtime", {}))
+    except Exception:
+        _tr, _save, _runtime = {}, None, {}
+
+    # Helpers
+    def _d(key, fallback):
+        return _tr.get(key, fallback)
+    _valint = _tr.get("val_interval", _tr.get("val_period", 1))
+    _amp = bool(_tr.get("amp", True))
+    _ema = bool(_tr.get("ema", True))
+    _ema_decay = float(_tr.get("ema_decay", 0.9999))
+    _lr0 = float(_tr.get("lr0", 0.0025))
+    _lrf = float(_tr.get("lrf", 0.1))
+    _wu = float(_tr.get("warmup_epochs", 3.0))
+    _batch = int(_tr.get("batch", 16))
+    _imgsz = int(_tr.get("imgsz", 640))
+    _epochs = int(_tr.get("epochs", 150))
+    _ga = int(_tr.get("grad_accum", 1))
+    _conf = float(_tr.get("conf_thres", 0.001))
+    _iou = float(_tr.get("iou_thres", 0.70))
+    _workers = int(_to_dict_like(_tr.get("dataloader", {})).get("workers", _tr.get("workers", 4)))
+    _save_period = int(getattr(_save, "save_period", 10) if _save is not None else 10)
+    _keep_max = int(getattr(_save, "keep_checkpoint_max", 5) if _save is not None else 5)
+
     p = argparse.ArgumentParser(
         prog="YOLOv11 — Entrenamiento",
-        description="Entrena variantes YOLOv11 con validación interna, HUD compacto, F8 stop, AMP/EMA opcionales.",
+        description=(
+            "Entrena variantes YOLOv11 con validación interna, HUD compacto, F8 stop, AMP/EMA opcionales.\n"
+            f"Defaults YAML → imgsz={_imgsz}, epochs={_epochs}, batch={_batch}, grad_accum={_ga}, "
+            f"val_interval={_valint}, lr0={_lr0}, lrf={_lrf}, warmup_epochs={_wu}, "
+            f"amp={'on' if _amp else 'off'}, ema={'on' if _ema else 'off'}."
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
     )
-    p.add_argument("--variant", type=str, default=None, help="n/s/m/l/xl o usar default del parser.yaml")
-    p.add_argument("--epochs", type=int, default=None)
-    p.add_argument("--batch", type=int, default=None)
-    p.add_argument("--imgsz", type=int, default=None)
-    p.add_argument("--device", type=str, default=None)
-    p.add_argument("--amp", action="store_true")
-    p.add_argument("--ema", action="store_true")
-    p.add_argument("--grad-accum", type=int, default=1)
+    p.add_argument("--variant", type=str, default=None, help=f"n/s/m/l/xl (default YAML: {_cfg.default_variant_name})")
+    p.add_argument("--epochs", type=int, default=None, help=f"Épocas totales (default YAML: {_epochs})")
+    p.add_argument("--batch", type=int, default=None, help=f"Tamaño de batch (default YAML: {_batch})")
+    p.add_argument("--imgsz", type=int, default=None, help=f"Tamaño de imagen cuadrado (default YAML: {_imgsz})")
+    p.add_argument("--device", type=str, default=None, help=f"cpu/cuda/mps (default runtime: {_runtime.get('device', 'auto')})")
+    p.add_argument("--amp", action="store_true", help=f"Habilitar AMP explícitamente (default YAML: {'on' if _amp else 'off'})")
+    p.add_argument("--ema", action="store_true", help=f"Habilitar EMA explícitamente (default YAML: {'on' if _ema else 'off'}, decay={_ema_decay})")
+    p.add_argument("--grad-accum", type=int, default=None, help=f"Acumulación de gradiente (default YAML: {_ga})")
     # Frecuencias
-    p.add_argument("--val-interval", type=int, default=1)
-    p.add_argument("--pr-curves-every", type=int, default=10)
-    p.add_argument("--cm-every", type=int, default=10)
-    p.add_argument("--overlay-every", type=int, default=10)
+    p.add_argument("--val-interval", type=int, default=None, help=f"Validar cada N épocas (default YAML: {_valint})")
+    p.add_argument("--pr-curves-every", type=int, default=10, help="Guardar PR-curves cada N val. (default: 10)")
+    p.add_argument("--cm-every", type=int, default=10, help="Guardar matriz de confusión cada N val. (default: 10)")
+    p.add_argument("--overlay-every", type=int, default=10, help="Guardar overlays GT/Pred cada N val. (default: 10)")
     # Checkpoints / early stop
-    p.add_argument("--save-period", type=int, default=10)
-    p.add_argument("--keep-checkpoint-max", type=int, default=5)
+    p.add_argument("--save-period", type=int, default=None, help=f"Guardar checkpoint cada N épocas (default YAML: {_save_period})")
+    p.add_argument("--keep-checkpoint-max", type=int, default=None, help=f"Nº máx de checkpoints periódicos (default YAML: {_keep_max})")
     p.add_argument("--patience", type=int, default=50, help="en unidades de validación (se multiplica por val_interval)")
     # Umbrales inferencia validación
-    p.add_argument("--conf-thr", type=float, default=0.25)
-    p.add_argument("--iou-thr", type=float, default=0.70)
+    p.add_argument("--conf-thr", type=float, default=None, help=f"Umbral de confianza (default YAML: {_conf})")
+    p.add_argument("--iou-thr", type=float, default=None, help=f"Umbral de IoU para NMS (default YAML: {_iou})")
     # Overrides de optimización/planificación
-    p.add_argument("--lr0", type=float, default=None, help="Override LR inicial (AdamW)")
-    p.add_argument("--lrf", type=float, default=None, help="Factor mínimo LR (cosine)")
-    p.add_argument("--warmup-epochs", type=float, default=None, help="Override warmup epochs del scheduler")
+    p.add_argument("--lr0", type=float, default=None, help=f"Override LR inicial (AdamW) — default YAML: {_lr0}")
+    p.add_argument("--lrf", type=float, default=None, help=f"Factor mínimo LR (cosine) — default YAML: {_lrf}")
+    p.add_argument("--warmup-epochs", type=float, default=None, help=f"Override warmup epochs del scheduler — default YAML: {_wu}")
     # Reanudar
-    p.add_argument("--resume", type=str, default=None, help="ruta a last.pt (no implementado en esta versión)")
+    p.add_argument("--resume", type=str, default=None, help="Ruta a un checkpoint .pt para reanudar (last.pt o VAR_Train_Epoch_XXX.pt)")
     # Verbosidad HUD
-    p.add_argument("--verbosity", type=str, choices=["v0", "v1", "v2"], default="v1")
+    p.add_argument("--verbosity", type=str, choices=["v0", "v1", "v2"], default="v1", help="Nivel de logs en consola (v1 por defecto)")
     # HUD (one/two/off)
-    p.add_argument("--hud", type=str, choices=["one", "two", "off"], default="two")
+    p.add_argument("--hud", type=str, choices=["one", "two", "off"], default="two", help="Formato del HUD en consola (two por defecto)")
     # Wizard interactivo
     p.add_argument("--interactive", action="store_true", help="Inicia asistente interactivo antes de entrenar")
     # Mitigación ROCm/MIOpen
     p.add_argument("--bn-eval-fallback", action="store_true", help="Fuerza BatchNorm en eval() desde el inicio para evitar fallos MIOpen")
+
+    # MIOpen (variables de entorno controladas por CLI)
+    p.add_argument("--miopen-disable-cache", action="store_true",
+                   help="Establece MIOPEN_DISABLE_CACHE=1 para esta ejecución")
+    p.add_argument("--miopen-find-enforce", type=int, choices=[0,1,2,3], default=None,
+                   help="Establece MIOPEN_FIND_ENFORCE={0,1,2,3} (1=fuerza búsqueda, 3=Find+Immediate)")
+    p.add_argument('--force-gn', action='store_true', help='Reemplaza BatchNorm2d por GroupNorm')
+    p.add_argument('--gn-groups', type=int, default=32, help='Grupos para GroupNorm (default 32)')
     # Warm-up (integrado)
-    p.add_argument("--warmup-steps", type=int, default=3, help="Pasos sintéticos de warm-up para compilar kernels")
-    p.add_argument("--warmup-batch", type=int, default=1, help="Tamaño de batch usado durante el warm-up")
-    p.add_argument("--warmup-imgsz", type=int, default=None, help="imgsz específico para warm-up (por defecto usa --imgsz)")
+    p.add_argument("--warmup-steps", type=int, default=3, help="Pasos sintéticos de warm-up para compilar kernels (default: 3)")
+    p.add_argument("--warmup-batch", type=int, default=1, help=f"Tamaño de batch usado durante el warm-up (default: 1; entrena con batch={_batch})")
+    p.add_argument("--warmup-imgsz", type=int, default=None, help=f"imgsz específico para warm-up (por defecto usa --imgsz / YAML: {_imgsz})")
+    p.add_argument('--warmup-amp', type=int, choices=[0,1], default=None, help='Forzar AMP en warm-up (1=on, 0=off; default: usa AMP del entrenamiento)')
     p.add_argument("--warmup-only", action="store_true", help="Ejecuta solo el warm-up y sale (smoketest)")
     # TensorBoard / Auto-lanzamiento
-    p.add_argument("--tb-auto", dest="tb_auto", action="store_true")
-    p.add_argument("--no-tb-auto", dest="tb_auto", action="store_false")
+    p.add_argument("--tb-auto", dest="tb_auto", action="store_true", help="Auto-lanzar TensorBoard (default: on)")
+    p.add_argument("--no-tb-auto", dest="tb_auto", action="store_false", help="No lanzar TensorBoard automáticamente")
+    p.add_argument("--tb-port", type=int, default=None, help="Puerto TensorBoard (default: 6006)")
+    p.add_argument("--tb-host", type=str, default=None, help="Host TensorBoard (default: 127.0.0.1)")
     p.set_defaults(tb_auto=True)
-    p.add_argument("--tb-port", type=int, default=None)
-    p.add_argument("--tb-host", type=str, default=None)
     p.add_argument("--tb-open-browser", action="store_true", help="Abrir URL en el navegador al lanzar TB")
     # Ajustes de aprendizaje temprano
     p.add_argument("--freeze-epochs", type=int, default=0, help="Congelar backbone los primeros K epochs (no implementado)")
@@ -1030,6 +1308,12 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+
+    # === MIOpen via CLI (aplica variables de entorno para esta ejecución) ===
+    if getattr(args, "miopen_disable_cache", False):
+        os.environ["MIOPEN_DISABLE_CACHE"] = "1"
+    if getattr(args, "miopen_find_enforce", None) is not None:
+        os.environ["MIOPEN_FIND_ENFORCE"] = str(int(args.miopen_find_enforce))
     # Construcción + Entrenamiento
     trainer = Trainer(args)
     try:
@@ -1041,3 +1325,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+# ==============================================================
