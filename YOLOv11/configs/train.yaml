@@ -17,16 +17,14 @@ cache: false
 
 # ===== Optimizador y LR Schedule =====
 optimizer: adamw            # sgd|adam|adamw
-lr0: 0.0025                 # learning rate inicial
-lrf: 0.1                    # factor mínimo (cosine decay)
+lr0: 0.0015                 # learning rate inicial
+lrf: 0.2                    # factor mínimo (cosine decay)
 weight_decay: 0.01
 momentum: 0.9               # si usas SGD
 betas: [0.9, 0.999]         # si usas Adam/AdamW
-epochs: 100
+epochs: 150
 batch: 16
-warmup_epochs: 3.0
-warmup_momentum: 0.8
-warmup_bias_lr: 0.05
+warmup_steps: 3             # (estricto) usado por el parser; alias: warmup_epochs
 scheduler: cosine           # cosine|onecycle|linear
 
 # ===== Dataloader =====
@@ -37,14 +35,20 @@ dataloader:
   shuffle: true
 
 # ===== Entrenamiento =====
-amp: true                   # mixed precision
+amp: true                   # mixed precision (default desde YAML; CLI invierte)
 ema: true
 ema_decay: 0.9999
-grad_accum: 1
+grad_accum: 1               # acumulación de gradiente
 max_grad_norm: 0.0          # 0 desactiva clipping
 label_smoothing: 0.0
 patience: 50                # early stopping
-val_interval: 1             # validar cada N epochs (antes: val_period)
+val_interval: 1             # validar cada N epochs
+overlay_every: 0            # predicciones/overlays cada N epochs (0 desactiva)
+pr_curves_every: 0          # curvas P-R cada N epochs (0 desactiva)
+cm_every: 0                 # matriz de confusión cada N epochs (0 desactiva)
+verbosity: v1               # v0|v1|v2 (HUD/log)
+hud: one                    # off|one|two
+bn_eval_fallback: false     # si quisieras fijar un default desde YAML
 
 # ===== Pérdidas (ponderadores) =====
 loss:
@@ -69,20 +73,17 @@ copy_paste: 0.0
 erasing: 0.0
 
 # ===== Evaluación =====
-conf_thres: 0.001
-iou_thres: 0.70
+conf_thr: 0.10              # alias soportado: conf_thres
+iou_thr: 0.50               # alias soportado: iou_thres
 plots: true
 
 # ===== Guardado/Monitoreo =====
 tensorboard: true
 wandb: false
 
-# Checkpoints por época (activado en train.py; permite resume)
+# Checkpoints por época (activado en train.py; política definida en parser.yaml)
 save:
   save_best: true
   save_last: true
-  save_period: 10           # guardar cada N épocas (además de best/last)
-  keep_checkpoint_max: 5    # mantener como máximo N checkpoints periódicos
-
-# (Opcional) Ruta por defecto para reanudar; normalmente se pasa por CLI con --resume
-# resume: "YOLOv11/weights/m/train/yolo11_m_train_YYYY-MM-DD_hh-mm-ss/last.pt"
+  save_period: 10           # (desde parser.yaml en producción; aquí solo referencial)
+  keep_checkpoint_max: 5
