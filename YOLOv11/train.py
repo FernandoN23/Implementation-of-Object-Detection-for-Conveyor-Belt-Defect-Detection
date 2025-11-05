@@ -367,12 +367,17 @@ def adapt_outputs_to_scores_boxes(outputs: Any, nc: int) -> Tuple[Optional[torch
 
 # ========================= HUD consola ========================= #
 class SimpleHUD:
-    """HUD compacto configurable (one/two/off)."""
+    """HUD compacto configurable (one/two/off) con control de frecuencia para evitar saturación de consola."""
     def __init__(self, verbosity: str = "v1", mode: str = "two"):
         self.verbosity = verbosity
         self.mode = mode  # 'one' una línea, 'two' dos líneas, 'off' desactivar
         self._last_len = 0
         self._ansi_ok = sys.stdout.isatty()
+        # Control anti-spam: refresco mínimo temporal y por avance en %
+        self._last_update_t = 0.0
+        self._next_percent = 0  # próximo % mínimo que gatilla actualización
+        self._min_interval = 0.25  # segundos
+        self._step_percent = 1     # actualizar cada 1% de progreso
 
     @staticmethod
     def _bar(frac: float, width: int = 10) -> str:
@@ -386,21 +391,39 @@ class SimpleHUD:
              mem_gb: float, device_str: str) -> None:
         if self.verbosity == "v0" or self.mode == "off":
             return
+
+        # Gating de actualización para evitar “scroll infinito”
+        now = time.time()
         frac = it / max(1, it_total)
+        percent = int(frac * 100)
+        # Siempre permitir el último repaint del iterador
+        if it < it_total:
+            if (percent < self._next_percent) and ((now - self._last_update_t) < self._min_interval):
+                return
+            self._last_update_t = now
+            self._next_percent = min(100, percent + self._step_percent)
+
         if self.mode == "one" or not self._ansi_ok:
             line = (f"[EPOCH {epoch}/{epochs}] {self._bar(frac)} {int(frac*100):2d}% | it {it}/{it_total} | "
                     f"{time.strftime('%H:%M:%S', time.gmtime(elapsed_s))} ⏱ | ETA {time.strftime('%H:%M:%S', time.gmtime(max(0,int(eta_s))))} | "
                     f"imgs/s {imgs_per_s:.0f} | lr {lr:.2e} | AMP {'on' if amp else 'off'} | EMA{'✓' if ema else '×'} | "
                     f"loss {loss_avg:.3f} (b {loss_box:.2f}, c {loss_cls:.2f}, d {loss_dfl:.2f}) | mem {mem_gb:.1f}GB | {device_str}")
             pad = max(0, self._last_len - len(line))
-            sys.stdout.write("\r" + line + (" " * pad)); sys.stdout.flush(); self._last_len = len(line); return
+            sys.stdout.write("\r" + line + (" " * pad))
+            sys.stdout.flush()
+            self._last_len = len(line)
+            return
+
         line1 = (f"[EPOCH {epoch}/{epochs}] {self._bar(frac)}  {int(frac*100):2d}% | "
                  f"it {it}/{it_total} | {time.strftime('%H:%M:%S', time.gmtime(elapsed_s))} ⏱ | "
                  f"ETA {time.strftime('%H:%M:%S', time.gmtime(max(0, int(eta_s))))} | "
                  f"imgs/s {imgs_per_s:.0f} | lr {lr:.2e} | AMP {'on' if amp else 'off'} | EMA{'✓' if ema else '×'} | F8=stop")
         line2 = (f"train: loss {loss_avg:.3f} (box {loss_box:.2f}, cls {loss_cls:.2f}, dfl {loss_dfl:.2f}) | "
                  f"grad_acc {grad_accum}x | mem {mem_gb:.1f}GB | dev: {device_str}")
-        sys.stdout.write("\r" + line1 + "\n"); sys.stdout.write("\r\x1b[1A\x1b[2K" + line2 + "\n"); sys.stdout.flush()
+        # Doble línea con reposicionamiento ANSI
+        sys.stdout.write("\r" + line1 + "\n")
+        sys.stdout.write("\r\x1b[1A\x1b[2K" + line2 + "\n")
+        sys.stdout.flush()
         self._last_len = len(line2)
 
     def epoch_summary(self, text: str) -> None:
@@ -408,6 +431,7 @@ class SimpleHUD:
             sys.stdout.write("\n")
         print(text, flush=True)
         self._last_len = 0
+
 
 
 class WarmupHUD:
@@ -893,6 +917,12 @@ class Trainer:
         self.val_interval = max(1, self.val_interval)
         self.best_epoch_seen = 0
 
+        # Frecuencias de visualización (overlays/PR-curves/CM) provenientes del CLI
+        self.overlay_every = int(getattr(self.args, "overlay_every", 0) or 0)
+        self.pr_curves_every = int(getattr(self.args, "pr_curves_every", 0) or 0)
+        self.cm_every = int(getattr(self.args, "cm_every", 0) or 0)
+
+
     def _compute_loss(self, preds, targets):
         """
         Normaliza la salida de self.loss_fn a: (loss_tensor, lbox_float, lcls_float, ldfl_float).
@@ -988,7 +1018,7 @@ class Trainer:
             print(f"[DONE] Entrenamiento finalizado. Revisa '{self.checkpointer.dir}' (best.pt, last.pt).")
             return
 
-        print("Inicializando entrenamiento (tiempo estimado: 3-7 min)")
+        print("Inicializando entrenamiento (tiempo estimado: 2-5 min)")
 
 
         # Loop de épocas
@@ -1008,7 +1038,7 @@ class Trainer:
 
                 imgs = imgs.to(self.device, non_blocking=True).float()
 
-                
+
                 if targets is None:
                     targets = torch.zeros((0, 6), device=self.device, dtype=torch.float32)
                 else:
@@ -1119,21 +1149,26 @@ class Trainer:
                 model_eval = (self.ema.ema if self.ema is not None else self.model)
                 val_metrics = self.evaluator(model_eval, self.val_loader)
 
+
             # Logging
-            epoch_log = {
-                "epoch": int(epoch),
-                "max_epochs": int(self.epochs),
+            train_metrics = {
                 "loss": float(loss_epoch),
                 "loss_box": float(box_epoch),
                 "loss_cls": float(cls_epoch),
                 "loss_dfl": float(dfl_epoch),
             }
-            for k, v in val_metrics.items():
-                if v is not None:
-                    epoch_log[f"val/{k}"] = float(v)
-            try: self.logger.log_epoch(epoch_log, split="train")
-            except Exception: pass
-
+            try:
+                # Escalares de entrenamiento
+                self.logger.log_epoch(epoch, train_metrics, split="train")
+            except Exception as e:
+                print(f"[logger] fallo al registrar train scalars: {e}")
+            # Escalares de validación (si existen)
+            valid_metrics = {k: float(v) for k, v in val_metrics.items() if v is not None}
+            if valid_metrics:
+                try:
+                    self.logger.log_epoch(epoch, valid_metrics, split="valid")
+                except Exception as e:
+                    print(f"[logger] fallo al registrar valid scalars: {e}")
             # Checkpoints
             ref_metric = val_metrics["mAP50-95"] if val_metrics["mAP50-95"] is not None else (-loss_epoch)
             model_state = (self.ema.ema.state_dict() if self.ema is not None else self.model.state_dict())
@@ -1154,6 +1189,24 @@ class Trainer:
             if val_metrics["precision"] is not None and val_metrics["recall"] is not None:
                 parts.append(f"P {val_metrics['precision']:.3f} | R {val_metrics['recall']:.3f}")
             self.hud.epoch_summary(" | ".join(parts))
+
+            # Visualizaciones en TensorBoard: overlays (GT/Pred) si corresponde
+            if (TBRefOverlaySession is not None) and (self.overlay_every > 0) and ((epoch % self.overlay_every) == 0):
+                try:
+                    log_ref_session_epoch(
+                        variant=self.variant_safe,
+                        split="train",
+                        run_name=self.run_name,
+                        dataset_base=None,           # usa DEFAULT_DATASET_BASE de visualization.py
+                        epoch=epoch,
+                        pred_json=None,              # si luego guardas predicciones por imagen, pásalas aquí
+                        conf_thr=float(self.args.conf_thr) if getattr(self.args, "conf_thr", None) is not None else 0.25,
+                        topk=5,
+                        nrow=3,
+                        size=(int(self.imgsz), int(self.imgsz)),
+                    )
+                except Exception as e:
+                    print(f"[vis] overlay omitido: {e}")
 
             # Early stopping (si aplica)
             if self.patience > 0 and val_metrics["mAP50-95"] is not None:
@@ -1326,6 +1379,4 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-
-
-# ==============================================================
+# =============================================================
