@@ -1,4 +1,3 @@
-
 # ==============================================================
 # Departamento de Ingeniería Mecánica - Universidad de Chile
 # Trabajo de Memoria de Título:
@@ -7,10 +6,7 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: train.py
-# Script principal de entrenamiento para YOLOv11
-# con diseño orientado a clases para facilitar su lectura en PyCharm.
-# Incluye: warm-up, AMP/EMA opcional, fallback BN.eval() (ROCm/MIOpen),
-# validación periódica, overlays en TensorBoard y guardado con ExperimentLogger.
+# Entrenamiento YOLOv11 con mitigación MIOpen encapsulada en MIOpenMitigator
 #==============================================================
 
 from __future__ import annotations
@@ -29,14 +25,14 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-# --- Resolver raíz del proyecto (asumir que este archivo vive en YOLOv11/) ---
+# Resolver raíz del proyecto (asumir que este archivo vive en YOLOv11/)
 THIS = Path(__file__).resolve().parent
 if not (THIS / "configs").exists():
     if (THIS / "YOLOv11" / "configs").exists():
         os.chdir(THIS / "YOLOv11")
         THIS = Path.cwd()
 
-# --- Imports del proyecto ---
+# Imports del proyecto
 sys.path.insert(0, str(THIS))
 from models.parser_yaml import ConfigParserYaml   # type: ignore
 from utility.losses import YOLOLoss               # type: ignore
@@ -47,14 +43,13 @@ from utility.logger import ExperimentLogger             # type: ignore
 # Visualización / TensorBoard (opcional)
 try:
     from utility.visualization import TBRefOverlaySession, log_ref_session_epoch  # type: ignore
-except Exception:  # noqa: E722
+except Exception:
     TBRefOverlaySession, log_ref_session_epoch = None, None
 
 
-# ============================== Utilidades ============================== #
+# ============================== Utilidades básicas ============================== #
 
 class Environment:
-    """Gestión del entorno: dispositivo y semillas."""
     @staticmethod
     def select_device(device: str = "auto") -> torch.device:
         if device != "auto":
@@ -78,21 +73,89 @@ class Environment:
             torch.backends.cudnn.benchmark = True
 
 
+# ============================== MIOpen Mitigator ============================== #
+
+class MIOpenMitigator:
+    # Encapsula mitigaciones frente a errores de MIOpen/SQLite en Windows (ROCm).
+    def __init__(self, model: nn.Module, *, enable_bn_eval_fallback: bool = False,
+                 swap_bn_to_gn: bool = False, gn_groups: int = 32, verbose: bool = True):
+        self.model = model
+        self.enable_bn_eval_fallback = bool(enable_bn_eval_fallback)
+        self.swap_bn_to_gn = bool(swap_bn_to_gn)
+        self.gn_groups = int(gn_groups)
+        self.verbose = bool(verbose)
+
+        self.applied_bn_eval: bool = False
+        self.gn_replacements: int = 0
+
+    @staticmethod
+    def _set_bn_eval(module: nn.Module) -> int:
+        # Coloca todas las capas BatchNorm en eval(). Devuelve cuántas afectadas.
+        count = 0
+        for m in module.modules():
+            if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
+                m.eval()
+                count += 1
+        return count
+
+    @staticmethod
+    def _replace_bn_with_gn(module: nn.Module, groups: int = 32, eps: float = 1e-5, affine: bool = True) -> int:
+        # Reemplaza recursivamente BatchNorm2d por GroupNorm. Devuelve conteo de reemplazos.
+        count = 0
+        for name, child in list(module.named_children()):
+            if isinstance(child, nn.BatchNorm2d):
+                C = child.num_features
+                g = max(1, min(groups, C))
+                setattr(module, name, nn.GroupNorm(num_groups=g, num_channels=C, eps=eps, affine=affine))
+                count += 1
+            else:
+                count += MIOpenMitigator._replace_bn_with_gn(child, groups=groups, eps=eps, affine=affine)
+        return count
+
+    def apply_startup(self) -> None:
+        # Ejecuta medidas proactivas de mitigación antes de warm-up.
+        if self.swap_bn_to_gn:
+            n = self._replace_bn_with_gn(self.model, groups=self.gn_groups)
+            self.gn_replacements = n
+            if self.verbose:
+                print(f"[MIOpenMitigator] BN->GN aplicado: {n} reemplazos.")
+        if self.enable_bn_eval_fallback:
+            affected = self._set_bn_eval(self.model)
+            self.applied_bn_eval = True
+            if self.verbose:
+                print(f"[MIOpenMitigator] BN.eval() proactivo activado, capas afectadas: {affected}.")
+
+    def on_exception(self, exc: Exception) -> bool:
+        # Si ocurre excepción (típicamente en warm-up o backward), activar BN.eval() una vez.
+        if (not self.applied_bn_eval) and self.enable_bn_eval_fallback:
+            affected = self._set_bn_eval(self.model)
+            self.applied_bn_eval = True
+            if self.verbose:
+                print(f"[MIOpenMitigator] BN.eval() activado por excepción ({type(exc).__name__}). Capas afectadas: {affected}.")
+            return True
+        return False
+
+    def metrics(self) -> Dict[str, float]:
+        return {
+            "bn_eval": float(self.applied_bn_eval),
+            "gn_replacements": float(self.gn_replacements),
+        }
+
+
+# ============================== Post-proceso detección ============================== #
+
 class DetectionPostprocessor:
-    """Conversión flexible de salidas del modelo y NMS batched."""
     @staticmethod
     def adapt_outputs_to_scores_boxes(out: Any, nc: int) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
-        """Devuelve (scores[B,N,C], boxes[B,N,4] en xyxy) cuando es posible."""
         if out is None:
             return None, None
-        # Diccionario con claves comunes
         if isinstance(out, dict):
             scores = out.get("scores", out.get("cls", None))
             boxes = out.get("boxes", out.get("xyxy", out.get("reg", None)))
             if scores is not None and boxes is not None:
                 if isinstance(scores, (list, tuple)):
                     scores = torch.cat([s.flatten(2).permute(0, 2, 1) for s in scores], dim=1)
-                elif isinstance(scores, torch.Tensor) and scores.ndim == 4:  # (B,C,H,W) -> (B,N,C)
+                elif isinstance(scores, torch.Tensor) and scores.ndim == 4:
                     scores = scores.flatten(2).permute(0, 2, 1).contiguous()
                 if isinstance(boxes, (list, tuple)):
                     boxes = torch.cat([b.flatten(2).permute(0, 2, 1) for b in boxes], dim=1)
@@ -101,10 +164,8 @@ class DetectionPostprocessor:
                     if Cb == 4:
                         boxes = boxes.flatten(2).permute(0, 2, 1).contiguous()
                     else:
-                        # Si viene DFL sin decodificar no podemos mapear aquí
                         return None, None
                 return scores, boxes
-        # Tupla/lista: (scores, boxes) posiblemente por niveles
         if isinstance(out, (list, tuple)) and len(out) >= 2:
             scores, boxes = out[0], out[1]
             if isinstance(scores, (list, tuple)):
@@ -147,8 +208,9 @@ class DetectionPostprocessor:
         return outs
 
 
+# ============================== EMA y Optimizador ============================== #
+
 class EMAHelper:
-    """Mantenimiento de un modelo EMA ligero."""
     def __init__(self, model: nn.Module, enabled: bool = True, decay: float = 0.9999, device: Optional[torch.device] = None):
         self.enabled = enabled
         self.decay = decay
@@ -168,7 +230,6 @@ class EMAHelper:
 
 
 class OptimizerFactory:
-    """Crea optimizador y scheduler coherentes con los argumentos."""
     @staticmethod
     def build(model: nn.Module, lr0: float, weight_decay: float, epochs: int, lrf: float) -> Tuple[optim.Optimizer, CosineAnnealingLR]:
         opt = optim.AdamW(model.parameters(), lr=lr0, weight_decay=weight_decay)
@@ -176,8 +237,9 @@ class OptimizerFactory:
         return opt, sch
 
 
+# ============================== Overlay Manager ============================== #
+
 class OverlayManager:
-    """Soporte para overlays en TensorBoard usando imágenes pivote."""
     def __init__(self, variant: str, run_name: str, imgsz: int, conf_thr: float, iou_thr: float,
                  device: torch.device, model: nn.Module, ema: Optional[EMAHelper]) -> None:
         self.variant = variant
@@ -228,7 +290,7 @@ class OverlayManager:
                 arr = dets[i].detach().cpu().tolist() if i < len(dets) else []
                 preds: List[Dict[str, Any]] = []
                 for d in arr:
-                    if len(d) < 6:  # x1,y1,x2,y2,conf,cls
+                    if len(d) < 6:
                         continue
                     x1, y1, x2, y2, conf, cls = d
                     w = max(0.0, x2 - x1); h = max(0.0, y2 - y1)
@@ -240,7 +302,7 @@ class OverlayManager:
             jpath = out_dir / f"pivot_preds_epoch_{epoch:03d}.json"
             jpath.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
             return str(jpath)
-        except Exception as e:  # pragma: no cover
+        except Exception as e:
             print(f"[vis] dump preds omitido: {e}")
             return None
 
@@ -270,8 +332,9 @@ class OverlayManager:
             print(f"[vis] overlay(pred) omitido: {e}")
 
 
+# ============================== Validador ============================== #
+
 class Validator:
-    """Lazo de validación independiente del entrenador."""
     def __init__(self, nc: int, imgsz: int, conf_thr: float, iou_thr: float, device: torch.device):
         self.nc = int(nc)
         self.imgsz = int(imgsz)
@@ -281,7 +344,7 @@ class Validator:
 
     def run(self, model: nn.Module, val_loader) -> Dict[str, float]:
         model.eval()
-        m = DetMetricsYOLOv11(num_classes=self.nc)
+        m = DetMetricsYOLOv11(nc=self.nc)
         with torch.no_grad():
             for imgs, targets, meta in val_loader:
                 imgs = imgs.to(self.device, non_blocking=True)
@@ -296,13 +359,13 @@ class Validator:
                                                                    conf_thr=self.conf_thr, iou_thr=self.iou_thr, max_det=300)
                 preds_b = [d.cpu().numpy() for d in dets]
                 gts = targets.cpu().numpy() if targets is not None else None
-                m.add_batch(preds_b, gts, imgsz=self.imgsz)
-        res = m.finalize(save_dir=None)
+                m.add_batch(preds_b, gts, img_hw=(self.imgsz, self.imgsz), labels_is_xywhn=True)
+        summary, _ = m.finalize()
         return {
-            "precision": float(res.metrics.get("precision", 0.0)),
-            "recall": float(res.metrics.get("recall", 0.0)),
-            "mAP50": float(res.metrics.get("mAP@0.50", 0.0)),
-            "mAP50-95": float(res.metrics.get("mAP@0.50-0.95", 0.0)),
+            "precision": float(getattr(summary, "precision", 0.0)),
+            "recall": float(getattr(summary, "recall", 0.0)),
+            "mAP50": float(getattr(summary, "map50", 0.0)),
+            "mAP50-95": float(getattr(summary, "map50_95", 0.0)),
         }
 
 
@@ -321,6 +384,7 @@ class TrainArgs:
     amp: bool = True
     ema: bool = True
     bn_eval_fallback: bool = False
+    swap_bn_to_gn: bool = False
     val_interval: int = 1
     overlay_every: int = 0
     pr_curves_every: int = 0
@@ -337,59 +401,63 @@ class TrainArgs:
 
 
 class Trainer:
-    """Orquesta la preparación, el bucle de entrenamiento y la validación."""
     def __init__(self, args: TrainArgs):
         self.args = args
 
-        # Entorno
         Environment.seed_everything(args.seed, args.deterministic)
         self.device = Environment.select_device(args.device)
         self.imgsz = int(args.imgsz)
 
-        # Configs y modelo
         self.cfg = ConfigParserYaml(project_root=str(THIS)).load()
         self.variant = str(args.variant)
-        model, meta = self.cfg.build_model(variant=self.variant)
+        model = self.cfg.build_model(variant=self.variant)
+        meta = {}
+        if hasattr(self.cfg, "model_meta") and isinstance(self.cfg.model_meta, dict):
+            meta = self.cfg.model_meta
+        elif hasattr(model, "meta") and isinstance(getattr(model, "meta"), dict):
+            meta = getattr(model, "meta")
         self.model = model.to(self.device)
-        self.nc = int(meta.get("nc", 5))
-        self.reg_max = int(meta.get("reg_max", 16))
+        self.nc = int(meta.get("nc", getattr(model, "nc", 5)))
+        self.reg_max = int(meta.get("reg_max", getattr(model, "reg_max", 16)))
 
-        # Optimizador y scheduler
+        # Inicializar mitigador y aplicar medidas proactivas
+        self.mio = MIOpenMitigator(self.model,
+                                   enable_bn_eval_fallback=bool(args.bn_eval_fallback),
+                                   swap_bn_to_gn=bool(args.swap_bn_to_gn),
+                                   gn_groups=32,
+                                   verbose=True)
+        self.mio.apply_startup()
+
         self.optimizer, self.scheduler = OptimizerFactory.build(
             self.model, lr0=args.lr0, weight_decay=args.weight_decay, epochs=args.epochs, lrf=args.lrf
         )
 
-        # AMP y scaler
         self.use_amp = bool(args.amp)
-        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        self.autocast_device = 'cuda' if self.device.type == 'cuda' else 'cpu'
+        try:
+            self.scaler = torch.amp.GradScaler(enabled=self.use_amp)
+        except Exception:
+            self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp) if self.device.type == 'cuda' else None
 
-        # EMA opcional
         self.ema = EMAHelper(self.model, enabled=bool(args.ema), decay=0.9999, device=self.device)
 
-        # Criterio y métricas
-        self.criterion = YOLOLoss(reg_max=self.reg_max)
-        self.metrics = DetMetricsYOLOv11(num_classes=self.nc)
+        self.criterion = YOLOLoss(nc=self.nc, reg_max=self.reg_max, strides=(8,16,32))
+        self.criterion = self.criterion.to(self.device)
+        self.metrics = DetMetricsYOLOv11(nc=self.nc)
 
-        # Logger
-        self.logger = ExperimentLogger(variant=self.variant, phase="train")
-        self.run_name = self.logger.run_name
+        self.logger = ExperimentLogger(project_root=THIS, variant=self.variant, phase="train")
+        self.run_name = getattr(self.logger, "run_name", "yolo11_run")
 
-        # Directorio de pesos
         self.weights_dir = THIS / "weights" / self.variant / "train" / self.run_name
         self.weights_dir.mkdir(parents=True, exist_ok=True)
-        self.best_metric = -1.0  # para mAP50-95
+        self.best_metric = -1.0
 
-        # Overlays
         self.overlay_mgr = OverlayManager(
             variant=self.variant, run_name=self.run_name, imgsz=self.imgsz,
             conf_thr=args.conf_thr, iou_thr=args.iou_thr,
             device=self.device, model=self.model, ema=self.ema
         )
 
-        # Estado fallback BN
-        self.bn_fallback_applied = False
-
-    # --------------------------- Warm-up --------------------------- #
     def warmup_if_needed(self) -> None:
         steps = max(0, int(self.args.warmup_steps))
         if steps <= 0:
@@ -397,62 +465,85 @@ class Trainer:
         self.model.train()
         x = torch.randn(1, 3, self.imgsz, self.imgsz, device=self.device)
         for _ in range(steps):
-            with torch.cuda.amp.autocast(enabled=self.use_amp):
-                out = self.model(x)
-                loss = (out[0].mean() if isinstance(out, (list, tuple)) and len(out) else 0.0) + 0.0 * sum(p.sum() for p in self.model.parameters())
-            self.scaler.scale(loss).backward(retain_graph=True)
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-            self.optimizer.zero_grad(set_to_none=True)
+            try:
+                with torch.amp.autocast(self.autocast_device, enabled=self.use_amp):
+                    out = self.model(x)
+                    loss = 0.0
+                    if isinstance(out, torch.Tensor):
+                        loss = out.float().mean()
+                    elif isinstance(out, (list, tuple)) and len(out) and isinstance(out[0], torch.Tensor):
+                        loss = out[0].float().mean()
+                    else:
+                        loss = sum(p.float().abs().mean() for p in self.model.parameters()) * 0.0
+                if self.scaler is not None:
+                    self.scaler.scale(loss).backward(retain_graph=True)
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    loss.backward(retain_graph=True)
+                    self.optimizer.step()
+                self.optimizer.zero_grad(set_to_none=True)
+            except RuntimeError as e:
+                # Activar BN.eval() una vez si procede y reintentar
+                if self.mio.on_exception(e):
+                    continue
+                raise
         if self.device.type == "cuda":
             torch.cuda.synchronize()
 
-    # --------------------- Forward/Backward seguro --------------------- #
     def _train_step(self, imgs: torch.Tensor, targets: Optional[torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, float]]:
-        """Un paso de train con fallback BN.eval() si se solicita y hay error MIOpen."""
         try:
-            with torch.cuda.amp.autocast(enabled=self.use_amp):
+            with torch.amp.autocast(self.autocast_device, enabled=self.use_amp):
                 preds = self.model(imgs)
-                loss, parts = self.criterion(preds, targets)
-            self.scaler.scale(loss).backward()
-            return loss.detach(), {"box": float(parts.get("box", 0.0)), "cls": float(parts.get("cls", 0.0)), "dfl": float(parts.get("dfl", 0.0))}
-        except RuntimeError as e:
-            if (not self.bn_fallback_applied) and self.args.bn_eval_fallback:
-                print("[BN-eval fallback] Activando BatchNorm.eval() por error en backward:", repr(e))
-                self._set_bn_eval(self.model)
-                self.bn_fallback_applied = True
-                with torch.cuda.amp.autocast(enabled=self.use_amp):
-                    preds = self.model(imgs)
-                    loss, parts = self.criterion(preds, targets)
+                loss_dict = self.criterion(preds, targets)
+                loss = loss_dict.get("loss", None)
+                if loss is None:
+                    raise RuntimeError("YOLOLoss no entregó 'loss' en el dict.")
+            if self.scaler is not None:
                 self.scaler.scale(loss).backward()
-                return loss.detach(), {"box": float(parts.get("box", 0.0)), "cls": float(parts.get("cls", 0.0)), "dfl": float(parts.get("dfl", 0.0))}
+            else:
+                loss.backward()
+            parts = {
+                "box": float(loss_dict.get("loss_box", 0.0)),
+                "cls": float(loss_dict.get("loss_cls", 0.0)),
+                "dfl": float(loss_dict.get("loss_dfl", 0.0)),
+            }
+            return loss.detach(), parts
+        except RuntimeError as e:
+            if self.mio.on_exception(e):
+                with torch.amp.autocast(self.autocast_device, enabled=self.use_amp):
+                    preds = self.model(imgs)
+                    loss_dict = self.criterion(preds, targets)
+                    loss = loss_dict.get("loss")
+                if self.scaler is not None:
+                    self.scaler.scale(loss).backward()
+                else:
+                    loss.backward()
+                parts = {
+                    "box": float(loss_dict.get("loss_box", 0.0)),
+                    "cls": float(loss_dict.get("loss_cls", 0.0)),
+                    "dfl": float(loss_dict.get("loss_dfl", 0.0)),
+                }
+                return loss.detach(), parts
             raise
 
-    @staticmethod
-    def _set_bn_eval(module: nn.Module) -> None:
-        for m in module.modules():
-            if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
-                m.eval()
-
-    # --------------------------- Guardado --------------------------- #
     def _save_ckpt(self, epoch: int, tag: str) -> None:
         state = {
             "epoch": epoch,
             "model": (self.ema.ema.state_dict() if (self.ema is not None and self.ema.ema is not None) else self.model.state_dict()),
             "optimizer": self.optimizer.state_dict(),
-            "scaler": self.scaler.state_dict() if isinstance(self.scaler, torch.cuda.amp.GradScaler) else None,
+            "scaler": (self.scaler.state_dict() if self.scaler is not None else None),
             "variant": self.variant,
             "imgsz": self.imgsz,
         }
         path = self.weights_dir / f"VAR_train_Epoch_{epoch:03d}_{tag}.pt"
         torch.save(state, path)
 
-    # --------------------------- Entrenar --------------------------- #
     def train(self) -> None:
         train_loader = build_yolo_dataloader(split="train", imgsz=self.imgsz, batch=int(self.args.batch), shuffle=True)
         val_loader = build_yolo_dataloader(split="val", imgsz=self.imgsz, batch=max(1, int(self.args.batch)//2), shuffle=False)
 
-        self.WARMUP()
+        self.warmup_if_needed()
 
         if (TBRefOverlaySession is not None) and (self.args.overlay_every and self.args.overlay_every > 0):
             self.overlay_mgr.overlay_epoch0_gt(conf_thr=self.args.conf_thr)
@@ -471,8 +562,11 @@ class Trainer:
                 loss_t, parts = self._train_step(imgs, targets)
 
                 if bi % max(1, int(self.args.grad_accum)) == 0:
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
+                    if self.scaler is not None:
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
+                    else:
+                        self.optimizer.step()
                     self.optimizer.zero_grad(set_to_none=True)
 
                 running_loss += float(loss_t.detach().cpu())
@@ -495,11 +589,14 @@ class Trainer:
                 valid_metrics = validator.run(mdl_eval, val_loader)
 
             try:
+                # Métricas del mitigador
+                mio_stats = self.mio.metrics()
                 self.logger.log_epoch(epoch, {
                     "loss": float(loss_epoch),
                     "loss_box": float(box_epoch),
                     "loss_cls": float(cls_epoch),
                     "loss_dfl": float(dfl_epoch),
+                    **mio_stats,
                 }, split="train")
                 if valid_metrics:
                     self.logger.log_epoch(epoch, {k: float(v) for k, v in valid_metrics.items()}, split="valid")
@@ -509,7 +606,7 @@ class Trainer:
                     except Exception:
                         pass
             except Exception as e:
-                print(f"[logger] fallo al registrar métricas: {e}")
+                print(f="[logger] fallo al registrar métricas: {e}")
 
             if self.args.save_period and (epoch % int(self.args.save_period) == 0):
                 self._save_ckpt(epoch, tag="period")
@@ -564,8 +661,6 @@ def _save_dict(cfg) -> Dict[str, Any]:
     return _as_dict(sv)
 
 def _req(d: Dict[str, Any], keys: Iterable[str], cast: Optional[Callable[[Any], Any]] = None, *, ctx: str = "train.yaml") -> Any:
-    """Obtiene el primer valor presente en 'keys'. Error explícito si falta.
-    Evita defaults numéricos en el código y obliga a definirlo en YAML."""
     if isinstance(keys, str):
         keys = (keys,)
     for k in keys:
@@ -579,13 +674,11 @@ def _to_int(v: Any) -> int:
     return int(round(float(v)))
 
 def build_argparser() -> argparse.ArgumentParser:
-    """Genera el parser tomando **defaults estrictamente desde los YAML** y mostrándolos en -h."""
     cfg = ConfigParserYaml(project_root=str(THIS)).load()
     tr = _train_cfg_dict(cfg)
     rt = _runtime_dict(cfg)
     sv = _save_dict(cfg)
 
-    # === Defaults sin literales fijos ===
     d_imgsz         = _req(tr, ("imgsz",), _to_int)
     d_epochs        = _req(tr, ("epochs",), _to_int)
     d_batch         = _req(tr, ("batch",), _to_int)
@@ -605,49 +698,49 @@ def build_argparser() -> argparse.ArgumentParser:
     d_verbosity     = _req(tr, ("verbosity",), str)
     d_hud           = _req(tr, ("hud",), str)
 
-    # Desde parser.yaml
     d_save_period   = int(sv["save_period"])
     d_device        = str(rt["device"])
     d_seed          = int(rt["seed"])
     d_det           = bool(rt["deterministic"])
 
     p = argparse.ArgumentParser(
-        "YOLOv11 — Entrenamiento (modular)",
+        "YOLOv11 — Entrenamiento con MIOpenMitigator",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    # Variante por defecto desde parser.yaml
     p.add_argument("--variant", type=str,
                    default=getattr(cfg, "default_variant", getattr(cfg, "default_variant_name", "n")),
                    help="Variante del modelo (n/s/m/l/xl).")
-    p.add_argument("--epochs", type=int, default=d_epochs, help="Número de épocas (train.yaml::epochs).")
-    p.add_argument("--batch", type=int, default=d_batch, help="Tamaño de batch (train.yaml::batch).")
-    p.add_argument("--imgsz", type=int, default=d_imgsz, help="Tamaño de imagen (train.yaml::imgsz).")
-    p.add_argument("--lr0", type=float, default=d_lr0, help="LR inicial AdamW (train.yaml::lr0).")
-    p.add_argument("--lrf", type=float, default=d_lrf, help="LR mínimo relativo en Cosine (train.yaml::lrf).")
-    p.add_argument("--weight-decay", type=float, default=d_wd, help="Weight decay AdamW (train.yaml::weight_decay).")
-    p.add_argument("--warmup-steps", type=int, default=d_warmup_steps, help="Pasos de warm-up (train.yaml::warmup_steps|warmup_epochs).")
+    p.add_argument("--epochs", type=int, default=d_epochs, help="Número de épocas.")
+    p.add_argument("--batch", type=int, default=d_batch, help="Tamaño de batch.")
+    p.add_argument("--imgsz", type=int, default=d_imgsz, help="Tamaño de imagen.")
+    p.add_argument("--lr0", type=float, default=d_lr0, help="LR inicial AdamW.")
+    p.add_argument("--lrf", type=float, default=d_lrf, help="LR mínimo relativo en Cosine.")
+    p.add_argument("--weight-decay", type=float, default=d_wd, help="Weight decay AdamW.")
+    p.add_argument("--warmup-steps", type=int, default=d_warmup_steps, help="Pasos de warm-up.")
 
     p.add_argument("--amp", action=("store_false" if d_amp else "store_true"),
-                   default=d_amp, help=f"Habilita AMP (YAML={d_amp}). Usar el flag para invertir.")
+                   default=d_amp, help=f"Habilita AMP (YAML={d_amp}).")
     p.add_argument("--ema", action=("store_false" if d_ema else "store_true"),
-                   default=d_ema, help=f"Habilita EMA (YAML={d_ema}). Usar el flag para invertir.")
+                   default=d_ema, help=f"Habilita EMA (YAML={d_ema}).")
     p.add_argument("--bn-eval-fallback", action="store_true",
-                   help="Activa fallback BatchNorm.eval() si el backward falla (MIOpen/ROCm en Windows).")
+                   help="Pone BatchNorm en eval() proactivamente y si ocurren errores en warm-up/train (mitigación MIOpen).")
+    p.add_argument("--swap-bn-to-gn", action="store_true",
+                   help="Reemplaza BatchNorm2d por GroupNorm (32 grupos) para evitar MIOpen por completo.")
 
-    p.add_argument("--val-interval", type=int, default=d_val_interval, help="Validación cada N épocas (train.yaml::val_interval).")
-    p.add_argument("--overlay-every", type=int, default=d_overlay_every, help="Overlays TB cada N épocas (train.yaml::overlay_every).")
-    p.add_argument("--pr-curves-every", type=int, default=d_pr_every, help="Curvas P-R cada N épocas (train.yaml::pr_curves_every).")
-    p.add_argument("--cm-every", type=int, default=d_cm_every, help="Matriz de confusión cada N épocas (train.yaml::cm_every).")
-    p.add_argument("--save-period", type=int, default=d_save_period, help="Checkpoint periódico (parser.yaml::save.save_period).")
-    p.add_argument("--grad-accum", type=int, default=d_grad_accum, help="Acumulación de gradiente (train.yaml::grad_accum).")
-    p.add_argument("--device", type=str, default=d_device, help="Dispositivo (parser.yaml::runtime.device).")
-    p.add_argument("--seed", type=int, default=d_seed, help="Semilla (parser.yaml::runtime.seed).")
+    p.add_argument("--val-interval", type=int, default=d_val_interval, help="Validación cada N épocas.")
+    p.add_argument("--overlay-every", type=int, default=d_overlay_every, help="Overlays TB cada N épocas.")
+    p.add_argument("--pr-curves-every", type=int, default=d_pr_every, help="Curvas P-R cada N épocas.")
+    p.add_argument("--cm-every", type=int, default=d_cm_every, help="Matriz de confusión cada N épocas.")
+    p.add_argument("--save-period", type=int, default=d_save_period, help="Checkpoint periódico.")
+    p.add_argument("--grad-accum", type=int, default=d_grad_accum, help="Acumulación de gradiente.")
+    p.add_argument("--device", type=str, default=d_device, help="Dispositivo.")
+    p.add_argument("--seed", type=int, default=d_seed, help="Semilla.")
     p.add_argument("--deterministic", action=("store_false" if d_det else "store_true"),
-                   default=d_det, help=f"CUDA determinista (YAML={d_det}). Usar el flag para invertir.")
-    p.add_argument("--verbosity", type=str, default=d_verbosity, choices=["v0", "v1", "v2"], help="Nivel de verbosidad del HUD/log (train.yaml::verbosity).")
-    p.add_argument("--hud", type=str, default=d_hud, choices=["off", "one", "two"], help="Modo del HUD (train.yaml::hud).")
-    p.add_argument("--conf-thr", type=float, default=d_conf, help="Confianza mínima NMS (train.yaml::conf_thr).")
-    p.add_argument("--iou-thr", type=float, default=d_iou, help="IoU para NMS (train.yaml::iou_thr).")
+                   default=d_det, help=f"CUDA determinista (YAML={d_det}).")
+    p.add_argument("--verbosity", type=str, default=d_verbosity, choices=["v0", "v1", "v2"], help="Nivel de verbosidad del HUD/log.")
+    p.add_argument("--hud", type=str, default=d_hud, choices=["off", "one"], help="Modo del HUD.")
+    p.add_argument("--conf-thr", type=float, default=d_conf, help="Confianza mínima NMS.")
+    p.add_argument("--iou-thr", type=float, default=d_iou, help="IoU para NMS.")
     return p
 
 def _resolve_bool_flag(ns_value: bool) -> bool:
@@ -673,6 +766,7 @@ def main() -> None:
         amp=amp_final,
         ema=ema_final,
         bn_eval_fallback=bool(args_ns.bn_eval_fallback),
+        swap_bn_to_gn=bool(args_ns.swap_bn_to_gn),
         val_interval=args_ns.val_interval,
         overlay_every=args_ns.overlay_every,
         pr_curves_every=args_ns.pr_curves_every,
