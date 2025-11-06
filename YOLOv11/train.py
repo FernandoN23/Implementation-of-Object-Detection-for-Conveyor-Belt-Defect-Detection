@@ -279,9 +279,9 @@ class Validator:
         self.iou_thr = float(iou_thr)
         self.device = device
 
-    def run(self, model: nn.Module, val_loader, save_dir: Optional[Path] = None) -> Dict[str, float]:
+    def run(self, model: nn.Module, val_loader) -> Dict[str, float]:
         model.eval()
-        m = DetMetricsYOLOv11(nc=self.nc, save_dir=save_dir)
+        m = DetMetricsYOLOv11(num_classes=self.nc)
         with torch.no_grad():
             for imgs, targets, meta in val_loader:
                 imgs = imgs.to(self.device, non_blocking=True)
@@ -294,51 +294,47 @@ class Validator:
                     continue
                 dets = DetectionPostprocessor.scores_boxes_to_dets(scores, boxes,
                                                                    conf_thr=self.conf_thr, iou_thr=self.iou_thr, max_det=300)
-                B = len(dets)
-                if targets is None:
-                    targets_list = [torch.zeros((0, 6), device=self.device)] * B
-                else:
-                    t = targets.to(self.device)
-                    targets_list = [t[t[:, 0] == i] if (t.numel() and (t[:, 0] == i).any()) else torch.zeros((0, 6), device=self.device) for i in range(B)]
-                hw_list = [(self.imgsz, self.imgsz)] * B
-                m.add_batch(dets, targets_list, hw_list, labels_is_xywhn=True,
-                            conf_min_for_cm=self.conf_thr, iou_match_for_cm=self.iou_thr)
-        det_summary, _ = m.finalize()
-        return det_summary.to_dict()
+                preds_b = [d.cpu().numpy() for d in dets]
+                gts = targets.cpu().numpy() if targets is not None else None
+                m.add_batch(preds_b, gts, imgsz=self.imgsz)
+        res = m.finalize(save_dir=None)
+        return {
+            "precision": float(res.metrics.get("precision", 0.0)),
+            "recall": float(res.metrics.get("recall", 0.0)),
+            "mAP50": float(res.metrics.get("mAP@0.50", 0.0)),
+            "mAP50-95": float(res.metrics.get("mAP@0.50-0.95", 0.0)),
+        }
 
 
 # ============================== Entrenamiento ============================== #
 
 @dataclass
 class TrainArgs:
-    """Contenedor tipado de argumentos efectivos.
-    Importante: los *defaults reales* provienen de los YAML (train.yaml/parser.yaml) a través del CLI.
-    Aquí los campos son Optional y se completan siempre desde el parser.
-    """
-    variant: str | None = None
-    epochs: int | None = None
-    batch: int | None = None
-    imgsz: int | None = None
-    lr0: float | None = None
-    lrf: float | None = None
-    weight_decay: float | None = None
-    warmup_steps: int | None = None
-    amp: bool | None = None
-    ema: bool | None = None
-    bn_eval_fallback: bool | None = None
-    val_interval: int | None = None
-    overlay_every: int | None = None
-    pr_curves_every: int | None = None
-    cm_every: int | None = None
-    save_period: int | None = None
-    device: str | None = None
-    seed: int | None = None
-    deterministic: bool | None = None
-    verbosity: str | None = None
-    hud: str | None = None
-    conf_thr: float | None = None
-    iou_thr: float | None = None
-    grad_accum: int | None = None
+    variant: str = "n"
+    epochs: int = 1
+    batch: int = 2
+    imgsz: int = 640
+    lr0: float = 1.5e-3
+    lrf: float = 0.2
+    weight_decay: float = 0.01
+    warmup_steps: int = 3
+    amp: bool = True
+    ema: bool = True
+    bn_eval_fallback: bool = False
+    val_interval: int = 1
+    overlay_every: int = 0
+    pr_curves_every: int = 0
+    cm_every: int = 0
+    save_period: int = 10
+    device: str = "auto"
+    seed: int = 42
+    deterministic: bool = False
+    verbosity: str = "v1"
+    hud: str = "one"
+    conf_thr: float = 0.25
+    iou_thr: float = 0.70
+    grad_accum: int = 1
+
 
 class Trainer:
     """Orquesta la preparación, el bucle de entrenamiento y la validación."""
@@ -353,37 +349,10 @@ class Trainer:
         # Configs y modelo
         self.cfg = ConfigParserYaml(project_root=str(THIS)).load()
         self.variant = str(args.variant)
-        built = self.cfg.build_model(variant=self.variant)
-        if isinstance(built, tuple) and len(built) >= 2:
-            model, meta = built[0], (built[1] or {})
-        else:
-            model, meta = built, getattr(self.cfg, 'model_meta', {}) or {}
-        # Complementar meta con atributos del modelo si faltan
-        if not isinstance(meta, dict):
-            meta = {}
-        try:
-            if hasattr(model, 'nc'):
-                meta.setdefault('nc', int(getattr(model, 'nc')))
-        except Exception:
-            pass
-        try:
-            if hasattr(model, 'reg_max'):
-                meta.setdefault('reg_max', int(getattr(model, 'reg_max')))
-        except Exception:
-            pass
-        try:
-            if hasattr(model, 'strides'):
-                s = getattr(model, 'strides')
-                if isinstance(s, torch.Tensor):
-                    meta.setdefault('strides', [int(x) for x in s.tolist()])
-                else:
-                    meta.setdefault('strides', [int(x) for x in s])
-        except Exception:
-            pass
+        model, meta = self.cfg.build_model(variant=self.variant)
         self.model = model.to(self.device)
-        self.nc = int(meta.get('nc', 5))
-        self.reg_max = int(meta.get('reg_max', 16))
-        self.strides = tuple(int(x) for x in (meta.get('strides', [8,16,32])))
+        self.nc = int(meta.get("nc", 5))
+        self.reg_max = int(meta.get("reg_max", 16))
 
         # Optimizador y scheduler
         self.optimizer, self.scheduler = OptimizerFactory.build(
@@ -398,7 +367,9 @@ class Trainer:
         self.ema = EMAHelper(self.model, enabled=bool(args.ema), decay=0.9999, device=self.device)
 
         # Criterio y métricas
-        self.criterion = YOLOLoss(nc=self.nc, reg_max=self.reg_max, strides=self.strides)
+        self.criterion = YOLOLoss(reg_max=self.reg_max)
+        self.metrics = DetMetricsYOLOv11(num_classes=self.nc)
+
         # Logger
         self.logger = ExperimentLogger(variant=self.variant, phase="train")
         self.run_name = self.logger.run_name
@@ -419,7 +390,7 @@ class Trainer:
         self.bn_fallback_applied = False
 
     # --------------------------- Warm-up --------------------------- #
-    def warmup(self) -> None:
+    def warmup_if_needed(self) -> None:
         steps = max(0, int(self.args.warmup_steps))
         if steps <= 0:
             return
@@ -435,7 +406,6 @@ class Trainer:
             self.optimizer.zero_grad(set_to_none=True)
         if self.device.type == "cuda":
             torch.cuda.synchronize()
-        print("[Warm-up] done")
 
     # --------------------- Forward/Backward seguro --------------------- #
     def _train_step(self, imgs: torch.Tensor, targets: Optional[torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, float]]:
@@ -482,15 +452,13 @@ class Trainer:
         train_loader = build_yolo_dataloader(split="train", imgsz=self.imgsz, batch=int(self.args.batch), shuffle=True)
         val_loader = build_yolo_dataloader(split="val", imgsz=self.imgsz, batch=max(1, int(self.args.batch)//2), shuffle=False)
 
-        self.warmup()
+        self.WARMUP()
 
         if (TBRefOverlaySession is not None) and (self.args.overlay_every and self.args.overlay_every > 0):
             self.overlay_mgr.overlay_epoch0_gt(conf_thr=self.args.conf_thr)
 
         global_step = 0
-        hud = SimpleHUD(verbosity=self.args.verbosity, mode=self.args.hud)
         for epoch in range(1, int(self.args.epochs) + 1):
-            hud.epoch_header(epoch, int(self.args.epochs))
             self.model.train()
             running_loss = 0.0
             running_parts = {"box": 0.0, "cls": 0.0, "dfl": 0.0}
@@ -514,14 +482,7 @@ class Trainer:
                 global_step += 1
 
                 self.ema.update(self.model)
-                # HUD update
-                try:
-                    nb = len(train_loader)
-                except Exception:
-                    nb = max(n_batches, 1)
-                hud.live(epoch, int(self.args.epochs), bi, nb, running_loss/max(1,n_batches), self.optimizer.param_groups[0]['lr'])
 
-            hud.newline()
             loss_epoch = running_loss / max(1, n_batches)
             box_epoch  = running_parts["box"] / max(1, n_batches)
             cls_epoch  = running_parts["cls"] / max(1, n_batches)
@@ -531,12 +492,7 @@ class Trainer:
             if (self.args.val_interval > 0) and (epoch % self.args.val_interval == 0):
                 validator = Validator(self.nc, self.imgsz, self.args.conf_thr, self.args.iou_thr, self.device)
                 mdl_eval = self.ema.ema if (self.ema is not None and self.ema.ema is not None) else self.model
-                save_curves = (self.args.pr_curves_every and (epoch % int(self.args.pr_curves_every) == 0))
-                save_cm = (self.args.cm_every and (epoch % int(self.args.cm_every) == 0))
-                save_dir = None
-                if save_curves or save_cm:
-                    save_dir = THIS / 'logs' / self.variant / 'valid' / self.run_name / f'epoch_{epoch:03d}'
-                valid_metrics = validator.run(mdl_eval, val_loader, save_dir=save_dir)
+                valid_metrics = validator.run(mdl_eval, val_loader)
 
             try:
                 self.logger.log_epoch(epoch, {
@@ -590,9 +546,28 @@ def _as_dict(obj) -> Dict[str, Any]:
     except Exception:
         return {}
 
+def _train_cfg_dict(cfg) -> Dict[str, Any]:
+    if hasattr(cfg, "train"):
+        t = cfg.train
+        if isinstance(t, dict):
+            return t.get("config", t)
+        if hasattr(t, "config") and isinstance(t.config, dict):
+            return t.config
+    return {}
 
+def _runtime_dict(cfg) -> Dict[str, Any]:
+    rt = getattr(cfg, "runtime", None)
+    return _as_dict(rt)
 
+def _save_dict(cfg) -> Dict[str, Any]:
+    sv = getattr(cfg, "save", None)
+    return _as_dict(sv)
 
+def _req(d: Dict[str, Any], keys: Iterable[str], cast: Optional[Callable[[Any], Any]] = None, *, ctx: str = "train.yaml") -> Any:
+    """Obtiene el primer valor presente en 'keys'. Error explícito si falta.
+    Evita defaults numéricos en el código y obliga a definirlo en YAML."""
+    if isinstance(keys, str):
+        keys = (keys,)
     for k in keys:
         if k in d:
             v = d[k]
@@ -600,211 +575,120 @@ def _as_dict(obj) -> Dict[str, Any]:
     ks = " | ".join(keys)
     raise KeyError(f"[{ctx}] Parámetro requerido ausente: {ks}")
 
+def _to_int(v: Any) -> int:
+    return int(round(float(v)))
 
+def build_argparser() -> argparse.ArgumentParser:
+    """Genera el parser tomando **defaults estrictamente desde los YAML** y mostrándolos en -h."""
+    cfg = ConfigParserYaml(project_root=str(THIS)).load()
+    tr = _train_cfg_dict(cfg)
+    rt = _runtime_dict(cfg)
+    sv = _save_dict(cfg)
+
+    # === Defaults sin literales fijos ===
+    d_imgsz         = _req(tr, ("imgsz",), _to_int)
+    d_epochs        = _req(tr, ("epochs",), _to_int)
+    d_batch         = _req(tr, ("batch",), _to_int)
+    d_lr0           = _req(tr, ("lr0",), float)
+    d_lrf           = _req(tr, ("lrf",), float)
+    d_wd            = _req(tr, ("weight_decay",), float)
+    d_warmup_steps  = _req(tr, ("warmup_steps","warmup_epochs"), _to_int)
+    d_amp           = _req(tr, ("amp",), bool)
+    d_ema           = _req(tr, ("ema",), bool)
+    d_grad_accum    = _req(tr, ("grad_accum","grad_accumulation"), _to_int)
+    d_val_interval  = _req(tr, ("val_interval",), _to_int)
+    d_overlay_every = _req(tr, ("overlay_every",), _to_int)
+    d_pr_every      = _req(tr, ("pr_curves_every",), _to_int)
+    d_cm_every      = _req(tr, ("cm_every",), _to_int)
+    d_conf          = _req(tr, ("conf_thr","conf_thres"), float)
+    d_iou           = _req(tr, ("iou_thr","iou_thres"), float)
+    d_verbosity     = _req(tr, ("verbosity",), str)
+    d_hud           = _req(tr, ("hud",), str)
+
+    # Desde parser.yaml
+    d_save_period   = int(sv["save_period"])
+    d_device        = str(rt["device"])
+    d_seed          = int(rt["seed"])
+    d_det           = bool(rt["deterministic"])
+
+    p = argparse.ArgumentParser(
+        "YOLOv11 — Entrenamiento (modular)",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    # Variante por defecto desde parser.yaml
+    p.add_argument("--variant", type=str,
+                   default=getattr(cfg, "default_variant", getattr(cfg, "default_variant_name", "n")),
+                   help="Variante del modelo (n/s/m/l/xl).")
+    p.add_argument("--epochs", type=int, default=d_epochs, help="Número de épocas (train.yaml::epochs).")
+    p.add_argument("--batch", type=int, default=d_batch, help="Tamaño de batch (train.yaml::batch).")
+    p.add_argument("--imgsz", type=int, default=d_imgsz, help="Tamaño de imagen (train.yaml::imgsz).")
+    p.add_argument("--lr0", type=float, default=d_lr0, help="LR inicial AdamW (train.yaml::lr0).")
+    p.add_argument("--lrf", type=float, default=d_lrf, help="LR mínimo relativo en Cosine (train.yaml::lrf).")
+    p.add_argument("--weight-decay", type=float, default=d_wd, help="Weight decay AdamW (train.yaml::weight_decay).")
+    p.add_argument("--warmup-steps", type=int, default=d_warmup_steps, help="Pasos de warm-up (train.yaml::warmup_steps|warmup_epochs).")
+
+    p.add_argument("--amp", action=("store_false" if d_amp else "store_true"),
+                   default=d_amp, help=f"Habilita AMP (YAML={d_amp}). Usar el flag para invertir.")
+    p.add_argument("--ema", action=("store_false" if d_ema else "store_true"),
+                   default=d_ema, help=f"Habilita EMA (YAML={d_ema}). Usar el flag para invertir.")
+    p.add_argument("--bn-eval-fallback", action="store_true",
+                   help="Activa fallback BatchNorm.eval() si el backward falla (MIOpen/ROCm en Windows).")
+
+    p.add_argument("--val-interval", type=int, default=d_val_interval, help="Validación cada N épocas (train.yaml::val_interval).")
+    p.add_argument("--overlay-every", type=int, default=d_overlay_every, help="Overlays TB cada N épocas (train.yaml::overlay_every).")
+    p.add_argument("--pr-curves-every", type=int, default=d_pr_every, help="Curvas P-R cada N épocas (train.yaml::pr_curves_every).")
+    p.add_argument("--cm-every", type=int, default=d_cm_every, help="Matriz de confusión cada N épocas (train.yaml::cm_every).")
+    p.add_argument("--save-period", type=int, default=d_save_period, help="Checkpoint periódico (parser.yaml::save.save_period).")
+    p.add_argument("--grad-accum", type=int, default=d_grad_accum, help="Acumulación de gradiente (train.yaml::grad_accum).")
+    p.add_argument("--device", type=str, default=d_device, help="Dispositivo (parser.yaml::runtime.device).")
+    p.add_argument("--seed", type=int, default=d_seed, help="Semilla (parser.yaml::runtime.seed).")
+    p.add_argument("--deterministic", action=("store_false" if d_det else "store_true"),
+                   default=d_det, help=f"CUDA determinista (YAML={d_det}). Usar el flag para invertir.")
+    p.add_argument("--verbosity", type=str, default=d_verbosity, choices=["v0", "v1", "v2"], help="Nivel de verbosidad del HUD/log (train.yaml::verbosity).")
+    p.add_argument("--hud", type=str, default=d_hud, choices=["off", "one", "two"], help="Modo del HUD (train.yaml::hud).")
+    p.add_argument("--conf-thr", type=float, default=d_conf, help="Confianza mínima NMS (train.yaml::conf_thr).")
+    p.add_argument("--iou-thr", type=float, default=d_iou, help="IoU para NMS (train.yaml::iou_thr).")
+    return p
 
 def _resolve_bool_flag(ns_value: bool) -> bool:
     return bool(ns_value)
 
-class CLI:
-    """Constructor del parser con defaults desde YAML y resolución de flags."""
-    def __init__(self, project_root: str):
-        self.project_root = project_root
-        self.cfg = ConfigParserYaml(project_root=project_root).load()
-
-    @staticmethod
-    def _as_dict(obj) -> dict:
-        if obj is None:
-            return {}
-        if isinstance(obj, dict):
-            return obj
-        try:
-            return {k: getattr(obj, k) for k in dir(obj) if not k.startswith("_")}
-        except Exception:
-            return {}
-
-    def _train_cfg_dict(self) -> dict:
-        if hasattr(self.cfg, "train"):
-            t = self.cfg.train
-            if isinstance(t, dict):
-                return t.get("config", t)
-            if hasattr(t, "config") and isinstance(t.config, dict):
-                return t.config
-        return {}
-
-    def _runtime_dict(self) -> dict:
-        rt = getattr(self.cfg, "runtime", None)
-        return self._as_dict(rt)
-
-    def _save_dict(self) -> dict:
-        sv = getattr(self.cfg, "save", None)
-        return self._as_dict(sv)
-
-    @staticmethod
-    def _req(d: dict, keys, cast=None, *, ctx="train.yaml"):
-        if isinstance(keys, str):
-            keys = (keys,)
-        for k in keys:
-            if k in d:
-                v = d[k]
-                return cast(v) if cast else v
-        ks = " | ".join(keys)
-        raise KeyError(f"[{ctx}] Parámetro requerido ausente: {ks}")
-
-    @staticmethod
-    def _to_int(v):
-        return int(round(float(v)))
-
-    def build_parser(self) -> argparse.ArgumentParser:
-        tr = self._train_cfg_dict()
-        rt = self._runtime_dict()
-        sv = self._save_dict()
-
-        d_imgsz         = self._req(tr, ("imgsz",), self._to_int)
-        d_epochs        = self._req(tr, ("epochs",), self._to_int)
-        d_batch         = self._req(tr, ("batch",), self._to_int)
-        d_lr0           = self._req(tr, ("lr0",), float)
-        d_lrf           = self._req(tr, ("lrf",), float)
-        d_wd            = self._req(tr, ("weight_decay",), float)
-        d_warmup_steps  = self._req(tr, ("warmup_steps","warmup_epochs"), self._to_int)
-        d_amp           = self._req(tr, ("amp",), bool)
-        d_ema           = self._req(tr, ("ema",), bool)
-        d_grad_accum    = self._req(tr, ("grad_accum","grad_accumulation"), self._to_int)
-        d_val_interval  = self._req(tr, ("val_interval",), self._to_int)
-        d_overlay_every = self._req(tr, ("overlay_every",), self._to_int)
-        d_pr_every      = self._req(tr, ("pr_curves_every",), self._to_int)
-        d_cm_every      = self._req(tr, ("cm_every",), self._to_int)
-        d_conf          = self._req(tr, ("conf_thr","conf_thres"), float)
-        d_iou           = self._req(tr, ("iou_thr","iou_thres"), float)
-        d_verbosity     = self._req(tr, ("verbosity",), str)
-        d_hud           = self._req(tr, ("hud",), str)
-
-        d_save_period   = int(sv["save_period"])
-        d_device        = str(rt["device"])
-        d_seed          = int(rt["seed"])
-        d_det           = bool(rt["deterministic"])
-
-        p = argparse.ArgumentParser(
-            "YOLOv11 — Entrenamiento (modular)",
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        )
-        p.add_argument("--variant", type=str,
-                       default=getattr(self.cfg, "default_variant", getattr(self.cfg, "default_variant_name", "n")),
-                       help="Variante del modelo (n/s/m/l/xl).")
-        p.add_argument("--epochs", type=int, default=d_epochs, help="Número de épocas (train.yaml::epochs).")
-        p.add_argument("--batch", type=int, default=d_batch, help="Tamaño de batch (train.yaml::batch).")
-        p.add_argument("--imgsz", type=int, default=d_imgsz, help="Tamaño de imagen (train.yaml::imgsz).")
-        p.add_argument("--lr0", type=float, default=d_lr0, help="LR inicial AdamW (train.yaml::lr0).")
-        p.add_argument("--lrf", type=float, default=d_lrf, help="LR mínimo relativo en Cosine (train.yaml::lrf).")
-        p.add_argument("--weight-decay", type=float, default=d_wd, help="Weight decay AdamW (train.yaml::weight_decay).")
-        p.add_argument("--warmup-steps", type=int, default=d_warmup_steps, help="Pasos de warm-up (train.yaml::warmup_steps|warmup_epochs).")
-
-        p.add_argument("--amp", action=("store_false" if d_amp else "store_true"),
-                       default=d_amp, help=f"Habilita AMP (YAML={d_amp}). Usar el flag para invertir.")
-        p.add_argument("--ema", action=("store_false" if d_ema else "store_true"),
-                       default=d_ema, help=f"Habilita EMA (YAML={d_ema}). Usar el flag para invertir.")
-        p.add_argument("--bn-eval-fallback", action="store_true",
-                       help="Activa fallback BatchNorm.eval() si el backward falla (MIOpen/ROCm en Windows).")
-
-        p.add_argument("--val-interval", type=int, default=d_val_interval, help="Validación cada N épocas (train.yaml::val_interval).")
-        p.add_argument("--overlay-every", type=int, default=d_overlay_every, help="Overlays TB cada N épocas (train.yaml::overlay_every).")
-        p.add_argument("--pr-curves-every", type=int, default=d_pr_every, help="Curvas P-R cada N épocas (train.yaml::pr_curves_every).")
-        p.add_argument("--cm-every", type=int, default=d_cm_every, help="Matriz de confusión cada N épocas (train.yaml::cm_every).")
-        p.add_argument("--save-period", type=int, default=d_save_period, help="Checkpoint periódico (parser.yaml::save.save_period).")
-        p.add_argument("--grad-accum", type=int, default=d_grad_accum, help="Acumulación de gradiente (train.yaml::grad_accum).")
-        p.add_argument("--device", type=str, default=d_device, help="Dispositivo (parser.yaml::runtime.device).")
-        p.add_argument("--seed", type=int, default=d_seed, help="Semilla (parser.yaml::runtime.seed).")
-        p.add_argument("--deterministic", action=("store_false" if d_det else "store_true"),
-                       default=d_det, help=f"CUDA determinista (YAML={d_det}). Usar el flag para invertir.")
-        p.add_argument("--verbosity", type=str, default=d_verbosity, choices=["v0", "v1", "v2"], help="Nivel de verbosidad del HUD/log (train.yaml::verbosity).")
-        p.add_argument("--hud", type=str, default=d_hud, choices=["off", "one", "two"], help="Modo del HUD (train.yaml::hud).")
-        p.add_argument("--conf-thr", type=float, default=d_conf, help="Confianza mínima NMS (train.yaml::conf_thr).")
-        p.add_argument("--iou-thr", type=float, default=d_iou, help="IoU para NMS (train.yaml::iou_thr).")
-        return p
-
-    @staticmethod
-    def _resolve_bool_flag(ns_value: bool) -> bool:
-        return bool(ns_value)
-
-    def parse(self) -> TrainArgs:
-        parser = self.build_parser()
-        ns = parser.parse_args()
-
-        amp_final = self._resolve_bool_flag(ns.amp)
-        ema_final = self._resolve_bool_flag(ns.ema)
-        det_final = self._resolve_bool_flag(ns.deterministic)
-
-        return TrainArgs(
-            variant=ns.variant,
-            epochs=ns.epochs,
-            batch=ns.batch,
-            imgsz=ns.imgsz,
-            lr0=ns.lr0,
-            lrf=ns.lrf,
-            weight_decay=ns.weight_decay,
-            warmup_steps=ns.warmup_steps,
-            amp=amp_final,
-            ema=ema_final,
-            bn_eval_fallback=bool(ns.bn_eval_fallback),
-            val_interval=ns.val_interval,
-            overlay_every=ns.overlay_every,
-            pr_curves_every=ns.pr_curves_every,
-            cm_every=ns.cm_every,
-            save_period=ns.save_period,
-            device=ns.device,
-            seed=ns.seed,
-            deterministic=det_final,
-            verbosity=ns.verbosity,
-            hud=ns.hud,
-            conf_thr=ns.conf_thr,
-            iou_thr=ns.iou_thr,
-            grad_accum=ns.grad_accum,
-        )
-
-
 def main() -> None:
-    cli = CLI(project_root=str(THIS))
-    args = cli.parse()
+    parser = build_argparser()
+    args_ns = parser.parse_args()
+
+    amp_final = _resolve_bool_flag(args_ns.amp)
+    ema_final = _resolve_bool_flag(args_ns.ema)
+    det_final = _resolve_bool_flag(args_ns.deterministic)
+
+    args = TrainArgs(
+        variant=args_ns.variant,
+        epochs=args_ns.epochs,
+        batch=args_ns.batch,
+        imgsz=args_ns.imgsz,
+        lr0=args_ns.lr0,
+        lrf=args_ns.lrf,
+        weight_decay=args_ns.weight_decay,
+        warmup_steps=args_ns.warmup_steps,
+        amp=amp_final,
+        ema=ema_final,
+        bn_eval_fallback=bool(args_ns.bn_eval_fallback),
+        val_interval=args_ns.val_interval,
+        overlay_every=args_ns.overlay_every,
+        pr_curves_every=args_ns.pr_curves_every,
+        cm_every=args_ns.cm_every,
+        save_period=args_ns.save_period,
+        device=args_ns.device,
+        seed=args_ns.seed,
+        deterministic=det_final,
+        verbosity=args_ns.verbosity,
+        hud=args_ns.hud,
+        conf_thr=args_ns.conf_thr,
+        iou_thr=args_ns.iou_thr,
+        grad_accum=args_ns.grad_accum,
+    )
     trainer = Trainer(args)
     trainer.train()
 
 if __name__ == "__main__":
     main()
-
-class SimpleHUD:
-    "HUD compacto ('one'/'two'/'off') con impresión segura en consola."
-    def __init__(self, verbosity: str = "v1", mode: str = "one"):
-        self.verbosity = verbosity
-        self.mode = mode  # 'one', 'two', 'off'
-        self._ansi_ok = sys.stdout.isatty()
-        self._last_line_len = 0
-
-    @staticmethod
-    def _bar(frac: float, width: int = 20) -> str:
-        k = max(0, min(width, int(round(frac * width))))
-        return "▰" * k + "▱" * (width - k)
-
-    def epoch_header(self, epoch: int, epochs: int) -> None:
-        if self.mode == "off":
-            return
-        msg = f"EPOCH {epoch}/{epochs} — train"
-        print(msg)
-
-    def live(self, epoch: int, epochs: int, bi: int, nb: int, loss: float, lr: float) -> None:
-        if self.mode == "off":
-            return
-        frac = 0.0 if nb <= 0 else bi / nb
-        line = f"[{self._bar(frac)}] {bi}/{nb}  loss={loss:.3f}  lr={lr:.6f}"
-        if self._ansi_ok:
-            sys.stdout.write("\r" + line + " " * max(0, self._last_line_len - len(line)))
-            sys.stdout.flush()
-            self._last_line_len = len(line)
-        else:
-            print(line)
-
-    def newline(self) -> None:
-        if self.mode == "off":
-            return
-        if self._ansi_ok:
-            sys.stdout.write("\n")
-            sys.stdout.flush()
-        self._last_line_len = 0
