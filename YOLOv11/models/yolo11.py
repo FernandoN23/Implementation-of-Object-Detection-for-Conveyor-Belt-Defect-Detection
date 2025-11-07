@@ -8,14 +8,13 @@
 # Archivo: yolo11.py
 # Ensamblado de YOLOv11: Backbone + Neck + Head (anchor-free).
 # - Parametrización por variantes (d, w, mc).
-# - Head decouplada con clasificación para nc clases y regresión DFL.
+# - Head desacoplada con clasificación para nc clases y regresión DFL.
 # - Utilidades: actualización de strides, decodificación de cajas.
 #==============================================================
 
 from __future__ import annotations
 from typing import Dict, List, Tuple, Optional
 
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
