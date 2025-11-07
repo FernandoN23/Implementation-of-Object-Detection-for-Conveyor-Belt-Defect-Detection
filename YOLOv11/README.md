@@ -110,56 +110,13 @@ Permite monitorear loss, overlay de bboxes c/r al real y métricas en tiempo rea
 
 7. Métricas y Resultados (metrics.py)
 
-    Calcula y guarda métricas clave post-entrenamiento:
+    Calcula y guarda métricas clave al entrenar mediante validación interna.
 
-    Precision, Recall, AP, mAP, F-beta, IoU.
-.
+    Ej: Precision, Recall, AP, mAP, F-beta, IoU.
 
 ### 🚀 Flujo del Script train.py
 
-1. Inicialización
-
-2. Lectura de configuración desde parser.yaml y train.yaml.
-
-3. Selección de variante del modelo (YOLOv11-n, YOLOv11-s, etc.).
-
-4. Configuración del entorno TensorBoard.
-
-5. Carga de Datos
-
-6. Creación de train_loader con create_dataloader().
-
-7. Verificación de estructura y clases del dataset.
-
-8. Construcción del Modelo
-
-9. Instanciación de YOLOv11(...).
-
-10. Envío a dispositivo (cuda o cpu).
-
-11. Inicialización de optimizador (AdamW, SGD, etc.).
-
-12. Bucle de Entrenamiento
-
-13. Forward → cálculo de pérdidas con YoloLoss.
-
-14. Backward → actualización de pesos.
-
-15. Registro de métricas en TensorBoard y logs/.
-
-16. Guardado de checkpoints cada N épocas (weights/).
-
-17. Validación
-
-18. Evaluación periódica según validate_every en train.yaml.
-
-19. Cálculo de métricas (metrics.py) y guardado de resultados.
-
-20. Finalización
-
-21. Cierre de TensorBoard y logger.
-
-22. Limpieza opcional de checkpoints con clean_checkpoints.py.
+1. Inicialización mediante CLI ingresando argumentos: variante, configs, etc.
 
 ### 📊 Salidas para pruebas
 
