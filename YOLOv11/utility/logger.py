@@ -9,26 +9,29 @@
 # Registrador de experimentos para YOLOv11. Crea estructuras en logs/ y runs/ (TensorBoard).
 # Registra configuración, resumen de modelo y métricas por época para train/valid con
 # fecha completa, variante, número de época y volcado JSONL/LOG por época.
+# Ahora soporta "slots" de ejecución: pruebas (tests/<run_name>) y final (final/),
+# análogo a weights.py. El slot "final" es único y reanudable.
 #==============================================================
 
-import os
+from __future__ import annotations
+
 import csv
 import json
 import socket
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 try:
-    from torch.utils.tensorboard import SummaryWriter  # opcional si TensorBoard está instalado
+    from torch.utils.tensorboard import SummaryWriter  # opcional
 except Exception:  # pragma: no cover
     SummaryWriter = None  # type: ignore
 
 
 # ---------------- Utilidades de ruta/tiempo ----------------
 
-def _find_project_root(start: Path = None) -> Path:
+def _find_project_root(start: Path | None = None) -> Path:
     p = (start or Path(__file__)).resolve()
     for parent in [p] + list(p.parents):
         if (parent / "configs").exists() and (parent / "models").exists():
@@ -41,7 +44,7 @@ def _timestamp_compact() -> str:
 
 
 def _timestamp_iso() -> str:
-    # Fecha completa en ISO 8601 con zona horaria local (incluye offset, ej: 2025-10-30T15:42:10-03:00)
+    # Fecha completa en ISO‑8601 con zona horaria local
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
@@ -51,16 +54,19 @@ class ExperimentLogger:
     """
     Logger científico para entrenamiento/validación.
 
-    - Estructura de carpetas:
-        logs/<variant>/<phase>/<run_name>/
-        runs/<variant>/<phase>/<run_name>/   (archivos de TensorBoard)
-    - Archivos clave:
-        config_snapshot.json/yaml (opcional, vía save_config*)
-        model_summary.txt / model_summary.json
-        train.csv / valid.csv  (métricas por época; cabecera dinámica)
-        train_epochs.jsonl / valid_epochs.jsonl (registro JSONL por época)
-        train_epochs.log / valid_epochs.log     (registro texto por época)
-    - Soporta TensorBoard (si está disponible): agrega scalars con prefijo 'train/' o 'valid/'
+    Estructura de carpetas:
+        logs/<variant>/<phase>/<slot>/
+        runs/<variant>/<phase>/<slot>/
+    donde <slot> es "tests/<run_name>" si is_test=True, y "final" si is_test=False.
+
+    Archivos clave en logs/<...>/<slot>/ :
+        - run_manifest.json (metadatos de la corrida)
+        - model_summary.txt / model_summary.json
+        - <split>.csv (train.csv, valid.csv) — cabecera dinámica
+        - <split>_epochs.jsonl — 1 JSON por línea
+        - <split>_epochs.log   — texto legible por humanos
+
+    Soporte TensorBoard (si está disponible) en runs/<...>/<slot>/.
     """
 
     def __init__(
@@ -69,23 +75,41 @@ class ExperimentLogger:
         variant: str = "m",
         phase: str = "train",
         run_name: Optional[str] = None,
+        is_test: bool = False,
+        reset_final: bool = False,
         enable_tensorboard: bool = True,
         flush_secs: int = 10,
     ) -> None:
         self.root = project_root or _find_project_root()
         self.variant = str(variant).lower()
         self.phase = str(phase).lower()
-        self.run_name = run_name or f"yolo11_{self.variant}_{self.phase}_{_timestamp_compact()}"
-        # Directorios
-        self.logs_dir = self.root / "logs" / self.variant / self.phase / self.run_name
-        self.runs_dir = self.root / "runs" / self.variant / self.phase / self.run_name
+        self.is_test = bool(is_test)
+
+        # Resolución de slot
+        if self.is_test:
+            # pruebas aisladas por run_name (no reescribibles)
+            self.run_name = run_name or f"yolo11_{self.variant}_{self.phase}_{_timestamp_compact()}"
+            slot = Path("tests") / self.run_name
+        else:
+            # final: slot único y reanudable (se puede limpiar con reset_final)
+            self.run_name = run_name or "final"
+            slot = Path("final")
+            slot_dir = self.root / "logs" / self.variant / self.phase / slot
+            if reset_final and slot_dir.exists():
+                # borrar logs final previos (equivalente a empezar de cero)
+                import shutil
+                shutil.rmtree(slot_dir, ignore_errors=True)
+
+        # Directorios base
+        self.logs_dir = self.root / "logs" / self.variant / self.phase / slot
+        self.runs_dir = self.root / "runs" / self.variant / self.phase / slot
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.runs_dir.mkdir(parents=True, exist_ok=True)
 
         # CSV writers por split
         self._csv_files: Dict[str, Any] = {}
         self._csv_writers: Dict[str, csv.DictWriter] = {}
-        self._headers: Dict[str, list] = {}
+        self._headers: Dict[str, List[str]] = {}
 
         # TensorBoard
         self.tb: Optional[SummaryWriter] = None
@@ -97,6 +121,7 @@ class ExperimentLogger:
             "run_name": self.run_name,
             "variant": self.variant,
             "phase": self.phase,
+            "slot_type": "test" if self.is_test else "final",
             "host": socket.gethostname(),
             "start_time_iso": _timestamp_iso(),
             "start_time_compact": _timestamp_compact(),
@@ -109,7 +134,9 @@ class ExperimentLogger:
 
     def _write_run_manifest(self) -> None:
         man = self.meta.copy()
-        (self.logs_dir / "run_manifest.json").write_text(json.dumps(man, indent=2, ensure_ascii=False), encoding="utf-8")
+        (self.logs_dir / "run_manifest.json").write_text(
+            json.dumps(man, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     def save_config_json(self, cfg: Dict, fname: str = "config_snapshot.json") -> Path:
         path = self.logs_dir / fname
@@ -124,13 +151,11 @@ class ExperimentLogger:
         return path
 
     def save_model_summary(self, model, extra: Optional[Dict[str, Any]] = None) -> Path:
-        import torch
-
         total = sum(p.numel() for p in model.parameters())
         trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
         lines = [
             f"Run: {self.run_name}",
-            f"Variant: {self.variant} | Phase: {self.phase}",
+            f"Variant: {self.variant} | Phase: {self.phase} | Slot: {'test' if self.is_test else 'final'}",
             f"Started at: {self.meta['start_time_iso']}",
             f"Total params: {total:,}",
             f"Trainable params: {trainable:,}",
@@ -141,17 +166,22 @@ class ExperimentLogger:
         path = self.logs_dir / "model_summary.txt"
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
-        # JSON
+        # JSON espejo
         jpath = self.logs_dir / "model_summary.json"
         with open(jpath, "w", encoding="utf-8") as f:
-            json.dump({"total_params": total, "trainable_params": trainable, **(extra or {}), **self.meta}, f, indent=2, ensure_ascii=False)
+            json.dump({
+                "total_params": total,
+                "trainable_params": trainable,
+                **(extra or {}),
+                **self.meta,
+            }, f, indent=2, ensure_ascii=False)
         return path
 
     # ---------------- Métricas por época ----------------
 
-    def _ensure_csv(self, split: str, columns: Optional[list] = None):
+    def _ensure_csv(self, split: str, columns: Optional[List[str]] = None):
         split = split.lower()
-        base_cols = ["epoch", "date_iso", "variant", "phase"]
+        base_cols = ["epoch", "date_iso", "variant", "phase", "run_name", "slot_type"]
         if split not in self._csv_writers:
             csv_path = self.logs_dir / f"{split}.csv"
             cols = base_cols + (columns or [])
@@ -170,7 +200,7 @@ class ExperimentLogger:
                 header.extend(need)
                 self._rewrite_csv(split, header)
 
-    def _rewrite_csv(self, split: str, header: list) -> None:
+    def _rewrite_csv(self, split: str, header: List[str]) -> None:
         csv_path = self.logs_dir / f"{split}.csv"
         # cierra y reabre
         try:
@@ -178,7 +208,7 @@ class ExperimentLogger:
         except Exception:
             pass
         # lee todo
-        rows = []
+        rows: List[Dict[str, Any]] = []
         if csv_path.exists() and csv_path.stat().st_size > 0:
             with open(csv_path, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
@@ -188,8 +218,12 @@ class ExperimentLogger:
             writer = csv.DictWriter(f, fieldnames=header)
             writer.writeheader()
             for r in rows:
-                for base_k in ["variant", "phase", "date_iso"]:
-                    r.setdefault(base_k, self.variant if base_k == "variant" else (split if base_k == "phase" else self.meta.get("start_time_iso", _timestamp_iso())))
+                # defaults para nuevas columnas base
+                r.setdefault("variant", self.variant)
+                r.setdefault("phase", split)
+                r.setdefault("date_iso", self.meta.get("start_time_iso", _timestamp_iso()))
+                r.setdefault("run_name", self.run_name)
+                r.setdefault("slot_type", "test" if self.is_test else "final")
                 writer.writerow(r)
         # reabrir para append
         f = open(csv_path, "a", newline="", encoding="utf-8")
@@ -206,7 +240,7 @@ class ExperimentLogger:
             self._ensure_csv(split, current_keys)
         # Extiende cabecera si aparecen nuevas métricas o faltan base_cols
         header = self._headers[split]
-        base_cols = ["epoch", "date_iso", "variant", "phase"]
+        base_cols = ["epoch", "date_iso", "variant", "phase", "run_name", "slot_type"]
         new_keys = [k for k in (current_keys + base_cols) if k not in header]
         if new_keys:
             header.extend([k for k in new_keys if k not in header])
@@ -218,6 +252,8 @@ class ExperimentLogger:
             "date_iso": date_iso,
             "variant": self.variant,
             "phase": split,
+            "run_name": self.run_name,
+            "slot_type": "test" if self.is_test else "final",
             **metrics,
         }
         self._csv_writers[split].writerow(row)
@@ -225,14 +261,24 @@ class ExperimentLogger:
 
         # JSONL: una línea por época
         jsonl_path = self.logs_dir / f"{split}_epochs.jsonl"
-        record = {"run_name": self.run_name, "variant": self.variant, "phase": split, "epoch": int(epoch), "date_iso": date_iso, **metrics}
+        record = {
+            "run_name": self.run_name,
+            "variant": self.variant,
+            "phase": split,
+            "slot_type": "test" if self.is_test else "final",
+            "epoch": int(epoch),
+            "date_iso": date_iso,
+            **metrics,
+        }
         with open(jsonl_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
         # LOG texto humano-legible
         kv = " ".join([f"{k}={v:.6g}" if isinstance(v, (int, float)) else f"{k}={v}" for k, v in sorted(metrics.items())])
         with open(self.logs_dir / f"{split}_epochs.log", "a", encoding="utf-8") as f:
-            f.write(f"[{date_iso}] variant={self.variant} epoch={int(epoch)} {kv}\n")
+            f.write(
+                f"[{date_iso}] variant={self.variant} slot={'test' if self.is_test else 'final'} run={self.run_name} epoch={int(epoch)} {kv}\n"
+            )
 
         # TensorBoard
         if self.tb is not None:
@@ -270,14 +316,13 @@ class ExperimentLogger:
 EXAMPLE = """
 from YOLOv11.utility.logger import ExperimentLogger
 
-logger = ExperimentLogger(variant='m', phase='train')
-logger.save_config_json({'imgsz':640, 'epochs':150, 'optimizer':'adamw'})
-logger.save_model_summary(model, extra={'strides':[8,16,32]})
+# Slot de PRUEBAS (separado por run_name)
+logger_test = ExperimentLogger(variant='n', phase='train', is_test=True, run_name='ablation_lr0.001')
+logger_test.log_epoch(1, {'loss': 1.2, 'mAP50': 0.62}, split='train')
+logger_test.close()
 
-for epoch in range(1, 151):
-    train_metrics = {'loss': 1.23, 'loss_box':0.90, 'loss_cls':0.10, 'loss_dfl':0.23, 'mAP50':0.65, 'mAP50-95':0.42, 'precision':0.71, 'recall':0.60}
-    val_metrics   = {'loss': 1.10, 'mAP50':0.67, 'mAP50-95':0.44, 'precision':0.73, 'recall':0.62}
-    logger.log_epoch(epoch, train_metrics, split='train')
-    logger.log_epoch(epoch, val_metrics, split='valid')
-logger.close()
+# Slot FINAL (único y reanudable)
+logger_final = ExperimentLogger(variant='m', phase='train', is_test=False, reset_final=False)
+logger_final.log_epoch(1, {'loss': 1.1, 'mAP50': 0.67}, split='train')
+logger_final.close()
 """

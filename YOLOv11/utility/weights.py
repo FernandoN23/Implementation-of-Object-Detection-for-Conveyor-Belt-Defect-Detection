@@ -6,30 +6,34 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: weights.py
-# Gestión de pesos/checkpoints para YOLOv11. Guarda por variante/fase/run con convenciones de nombre y retención.
+# Gestión de pesos/checkpoints para YOLOv11. Guarda por variante/fase con
+# slots de ejecución ("tests/<run_name>" o "final") y soporte de reanudación.
 #==============================================================
 
-import os
+from __future__ import annotations
+
 import re
 import time
 import json
 import shutil
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, List
 
 import torch
 
 # ---------------- Utilidades de ruta y tiempo ----------------
 
-def _find_project_root(start: Path = None) -> Path:
+def _find_project_root(start: Path | None = None) -> Path:
     p = (start or Path(__file__)).resolve()
     for parent in [p] + list(p.parents):
         if (parent / "configs").exists() and (parent / "models").exists():
             return parent
     return Path.cwd()
 
+
 def _timestamp() -> str:
     return time.strftime("%Y%m%d_%H%M%S")
+
 
 # ---------------- Carga de opciones de guardado desde parser.yaml (opcional) ----------------
 
@@ -55,21 +59,26 @@ def _load_save_opts(root: Path) -> Dict[str, Any]:
         pass
     return cfg
 
+
 # ---------------- Clase principal ----------------
 
 class WeightsManager:
     """
     Maneja guardado de checkpoints con estructura coherente con scripts de limpieza.
 
-    Estructura:
-        weights/<variant>/<phase>/<run_name>/
+    Estructura base:
+        weights/<variant>/<phase>/<slot>/
             ├─ N_Train_Epoch_001.pt   (ejemplo)
             ├─ last.pt
             ├─ best.pt
             └─ meta.json
 
+    Donde <slot> puede ser:
+        - tests/<run_name>   (si is_test=True)
+        - final              (si is_test=False; carpeta única para reanudar)
+
     Convención de nombres por época:
-        {VAR}_{{Train|Valid}}_Epoch_{epoch:03d}.pt
+        {VAR}_{Train|Valid}_Epoch_{epoch:03d}.pt
     """
 
     def __init__(
@@ -78,12 +87,27 @@ class WeightsManager:
         variant: str = "m",
         phase: str = "train",
         run_name: Optional[str] = None,
+        is_test: bool = False,
+        reset_final: bool = False,
     ) -> None:
         self.root = project_root or _find_project_root()
         self.variant = str(variant).lower()
         self.phase = str(phase).lower()
-        self.run_name = run_name or f"yolo11_{self.variant}_{self.phase}_{_timestamp()}"
-        self.weights_dir = self.root / "weights" / self.variant / self.phase / self.run_name
+        self.is_test = bool(is_test)
+
+        # Slot de guardado
+        if self.is_test:
+            # pruebas aisladas por run_name
+            self.run_name = run_name or f"test_{_timestamp()}"
+            slot = Path("tests") / self.run_name
+        else:
+            # final: slot único (reanudable). run_name es opcional/informativo.
+            self.run_name = run_name or "final"
+            slot = Path("final")
+            if reset_final and (self.root / "weights" / self.variant / self.phase / slot).exists():
+                shutil.rmtree(self.root / "weights" / self.variant / self.phase / slot, ignore_errors=True)
+
+        self.weights_dir = self.root / "weights" / self.variant / self.phase / slot
         self.weights_dir.mkdir(parents=True, exist_ok=True)
 
         self.save_opts = _load_save_opts(self.root)
@@ -99,6 +123,7 @@ class WeightsManager:
             "run_name": self.run_name,
             "variant": self.variant,
             "phase": self.phase,
+            "slot_type": "test" if self.is_test else "final",
             "created_at": _timestamp(),
             "save_options": self.save_opts,
         }
@@ -151,6 +176,7 @@ class WeightsManager:
             "epoch": int(epoch),
             "variant": self.variant,
             "phase": self.phase,
+            "slot_type": "test" if self.is_test else "final",
             "run_name": self.run_name,
             "timestamp": _timestamp(),
             "state_dict": None if save_full_model else model.state_dict(),
@@ -186,19 +212,77 @@ class WeightsManager:
 
         return epoch_path
 
+    # ---- Utilidades de carga/paths ----
+
+    def get_last_path(self) -> Path:
+        return self.weights_dir / "last.pt"
+
+    def get_best_path(self) -> Path:
+        return self.weights_dir / "best.pt"
+
     def load(self, path: Path) -> Dict[str, Any]:
         """Carga un checkpoint desde 'path' y lo retorna como dict."""
         return torch.load(path, map_location="cpu")
+
+    def try_resume(self, model, optimizer=None, scheduler=None, prefer: str = "last") -> Dict[str, Any]:
+        """Intenta reanudar desde 'last.pt' (o 'best.pt' si prefer!='last' o no existe last).
+        Carga los estados en model/optimizer/scheduler si están presentes.
+        Devuelve: {resumed: bool, start_epoch: int, ckpt_path: Optional[Path]}.
+        """
+        path = None
+        last = self.get_last_path()
+        best = self.get_best_path()
+        if prefer == "last" and last.exists():
+            path = last
+        elif best.exists():
+            path = best
+        elif last.exists():
+            path = last
+
+        if path is None:
+            return {"resumed": False, "start_epoch": 1, "ckpt_path": None}
+
+        ckpt = self.load(path)
+        # Cargar modelo
+        if "state_dict" in ckpt and ckpt["state_dict"] is not None:
+            model.load_state_dict(ckpt["state_dict"], strict=False)
+        elif "model" in ckpt:
+            # fallback: el checkpoint trae el objeto completo
+            model.load_state_dict(ckpt["model"].state_dict(), strict=False)
+
+        # Opt/Sched
+        if optimizer is not None and ckpt.get("optimizer") is not None:
+            try:
+                optimizer.load_state_dict(ckpt["optimizer"])
+            except Exception:
+                pass
+        if scheduler is not None and ckpt.get("scheduler") is not None:
+            try:
+                scheduler.load_state_dict(ckpt["scheduler"])
+            except Exception:
+                pass
+
+        start_epoch = int(ckpt.get("epoch", 0)) + 1
+        return {"resumed": True, "start_epoch": start_epoch, "ckpt_path": path}
+
 
 # ---------------- Ejemplo de uso (documentación) ----------------
 EXAMPLE = """
 from YOLOv11.utility.weights import WeightsManager
 
-wm = WeightsManager(variant='n', phase='train')
-for epoch in range(1, 151):
+# Caso de PRUEBAS (aislado por run_name)
+wm = WeightsManager(variant='n', phase='train', is_test=True, run_name='ablation_lr0.001')
+
+# Caso FINAL (slot único reanudable)
+wm_final = WeightsManager(variant='m', phase='train', is_test=False)
+resume_info = wm_final.try_resume(model, optimizer=opt, scheduler=sched, prefer='last')
+start_epoch = resume_info['start_epoch'] if resume_info['resumed'] else 1
+
+for epoch in range(start_epoch, 151):
     # ... entrenamiento ...
-    score = val_map50  # la métrica que desees para decidir 'best.pt'
-    wm.save_epoch(model, epoch, score=score, optimizer=opt, scheduler=sched, extra={'imgsz':640})
-# Para cargar:
-# ckpt = wm.load(wm.weights_dir/'best.pt')
+    score = val_map50
+    wm_final.save_epoch(model, epoch, score=score, optimizer=opt, scheduler=sched, extra={'imgsz':640})
+
+# Para cargar manualmente:
+# ckpt = wm_final.load(wm_final.get_best_path())
 """

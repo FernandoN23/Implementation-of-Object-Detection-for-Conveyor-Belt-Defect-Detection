@@ -11,6 +11,9 @@
 # por variante (n/s/m/l/xl) y fase (train/val/test). Soporta
 # imágenes negativas (sin etiquetas) y se integra con el logger
 # del proyecto para guardar curvas y CSV por época.
+# Ahora soporta "slots" de ejecución (tests/<run_name> y final/) para
+# separar métricas de PRUEBAS y métricas FINALES, en espejo a logger.py y
+# weights.py.
 #==============================================================
 from __future__ import annotations
 
@@ -30,6 +33,42 @@ except Exception:  # pragma: no cover
     sns = None
 
 TensorOrArray = Union[torch.Tensor, np.ndarray, None]
+
+# ==============================================================
+# Helpers de slot y proyecto
+# ==============================================================
+
+def _find_project_root(start: Optional[Path] = None) -> Path:
+    p = (start or Path(__file__)).resolve()
+    for parent in [p] + list(p.parents):
+        if (parent / "configs").exists() and (parent / "models").exists():
+            return parent
+    return Path.cwd()
+
+
+def _resolve_slot_dir(root: Path, variant: str, phase: str, *, is_test: bool,
+                      run_name: Optional[str], reset_final: bool = False,
+                      base: str = "metrics") -> Path:
+    """Devuelve la carpeta base (root/<base>/<variant>/<phase>/<slot>/).
+    - Si is_test=True → slot = tests/<run_name> (run_name obligatorio; si None, usa timestamp).
+    - Si is_test=False → slot = final (si reset_final y existe, se borra).
+    """
+    variant = str(variant).lower()
+    phase = str(phase).lower()
+
+    if is_test:
+        rn = run_name or "test"
+        slot = Path("tests") / rn
+        out = root / base / variant / phase / slot
+    else:
+        slot = Path("final")
+        out = root / base / variant / phase / slot
+        if reset_final and out.exists():
+            import shutil
+            shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True, exist_ok=True)
+    return out
+
 
 # ==============================================================
 # Utilidades geométricas
@@ -300,14 +339,35 @@ class DetMetricsYOLOv11:
                  class_names: Optional[Dict[int, str]] = None,
                  save_dir: Optional[Path] = None,
                  iou_thresholds: Iterable[float] = np.linspace(0.5, 0.95, 10),
-                 nc: Optional[int] = None) -> None:
+                 nc: Optional[int] = None,
+                 # --- slots opcionales (si no se pasa save_dir) ---
+                 project_root: Optional[Path] = None,
+                 variant: Optional[str] = None,
+                 phase: Optional[str] = None,
+                 is_test: bool = False,
+                 run_name: Optional[str] = None,
+                 reset_final: bool = False,
+                 base_for_save: str = "metrics") -> None:
+        """
+        Si 'save_dir' es None y se proveen project_root+variant+phase, se construye automáticamente
+        la carpeta de guardado por slot: <project_root>/<base_for_save>/<variant>/<phase>/<slot>/
+        donde slot = tests/<run_name> (is_test=True) o final (is_test=False).
+        """
         if class_names is None:
             if nc is None:
                 raise ValueError("DetMetricsYOLOv11: debes proveer 'class_names' o 'nc'.")
             self.names: Dict[int, str] = {i: str(i) for i in range(int(nc))}
         else:
             self.names = class_names
-        self.save_dir = Path(save_dir) if save_dir is not None else None
+
+        if save_dir is None and (project_root is not None and variant is not None and phase is not None):
+            root = Path(project_root)
+            slot_dir = _resolve_slot_dir(root, str(variant), str(phase), is_test=is_test,
+                                         run_name=run_name, reset_final=reset_final, base=base_for_save)
+            self.save_dir = slot_dir
+        else:
+            self.save_dir = Path(save_dir) if save_dir is not None else None
+
         self.iouv = np.array(list(iou_thresholds), dtype=np.float64)
         self.stats_tp: List[np.ndarray] = []
         self.stats_conf: List[np.ndarray] = []
@@ -451,26 +511,30 @@ class DetMetricsYOLOv11:
 
 
 # ==============================================================
-# Escritura de métricas por época (CSV)
+# Escritura de métricas por época (CSV largo) — por slot
 # ==============================================================
 
 class MetricsWriter:
-    def __init__(self, root: Path, variant: str, phase: str, run_name: str):
+    def __init__(self, root: Path, variant: str, phase: str, run_name: str,
+                 *, is_test: bool = False, reset_final: bool = False):
         self.root = Path(root)
-        self.variant = variant
-        self.phase = phase
+        self.variant = str(variant).lower()
+        self.phase = str(phase).lower()
         self.run_name = run_name
-        self.logs_dir = self.root / "logs" / variant / phase / run_name
+        # Guardar CSV en logs/ por slot (tests/<run_name> o final)
+        self.logs_dir = _resolve_slot_dir(self.root, self.variant, self.phase,
+                                          is_test=is_test, run_name=run_name,
+                                          reset_final=reset_final, base="logs")
         self.logs_dir.mkdir(parents=True, exist_ok=True)
-        self.csv_path = self.logs_dir / ("train.csv" if phase == "train" else f"{phase}.csv")
+        self.csv_path = self.logs_dir / ("train.csv" if self.phase == "train" else f"{self.phase}.csv")
         if not self.csv_path.exists():
-            with self.csv_path.open("w", newline="") as f:
+            with self.csv_path.open("w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(["epoch", "split", "metric", "value"])  # formato largo
 
     def write_epoch(self, epoch: int, scalars: Dict[str, float]) -> None:
         rows = [(epoch, self.phase, k, float(v)) for k, v in sorted(scalars.items())]
-        with self.csv_path.open("a", newline="") as f:
+        with self.csv_path.open("a", newline="", encoding="utf-8") as f:
             csv.writer(f).writerows(rows)
 
 
@@ -506,4 +570,4 @@ def summarize_validation(det_summary: DetMetricsSummary, loss_means: Optional[Di
 
 
 if __name__ == "__main__":
-    print("metrics.py módulo - ejecutar test_metrics.py para prueba funcional")
+    print("metrics.py módulo — slots (tests/final) listos. Integrar con train.py y logger.py")
