@@ -16,12 +16,12 @@ El flujo integra los componentes principales del proyecto: *modelos, configuraci
 YOLOv11/
 │
 ├── configs/
-│   ├── dataset.yaml                ← rutas y clases del dataset
-│   ├── yolo11.yaml                 ← definición estructural del modelo
-│   ├── model_variants.yaml         ← parámetros de escalado (depth/width)
-│   ├── train.yaml                  ← hiperparámetros de entrenamiento
-│   ├── valid.yaml                  ← validación y métricas
-│   └── parser.yaml                 ← rutas y opciones globales
+│   ├── dataset.yaml                ← Rutas y clases del dataset
+│   ├── model_variants.yaml         ← Parámetros de escalado (depth/width/channels)
+│   ├── parser.yaml                 ← Rutas y configuraciones globales
+│   ├── train.yaml                  ← Hiperparámetros de entrenamiento
+│   ├── valid.yaml                  ← Hiperparámetros de validación
+│   └── yolo11.yaml                 ← Definición estructural del modelo
 │
 ├── logs/                           ← Logs de entrenamiento y ejecución del modelo
 ├── metrics/                        ← Carpeta de almacenamiento de métricas
@@ -47,6 +47,7 @@ YOLOv11/
 │   ├── logger.py                   ← Script para registrar eventos
 │   ├── losses.py                   ← Función de pérdida de YOLOv11
 │   ├── metrics.py                  ← Métricas a utilizar en el modelo
+│   ├── test_metrics.py             ← Script para probar el modelo antes de entrenar
 │   ├── test_model.py               ← Script para probar el modelo antes de entrenar
 │   ├── visualization.py            ← Visualización de entrenamiento en Tensorboard
 │   └── weights.py                  ← Script para el manejo de checkpoints y pesos.
@@ -60,7 +61,7 @@ YOLOv11/
 
 ```
 
-⚙️ Componentes Principales
+### ⚙️ Componentes Principales
 1. Parser YAML (parser_yaml.py)
 
     Lee las configuraciones del modelo, dataset y entrenamiento desde archivos .yaml.
@@ -97,13 +98,13 @@ Usando funciones SmoothL1, BCE y MSE respectivamente.
     logger.py → registra mensajes de entrenamiento y validación.
 
     visualization.py → activa TensorBoard con subcarpetas por variante (n, s, m...).
-Permite monitorear loss, mAP, precision y recall en tiempo real.
+Permite monitorear loss, overlay de bboxes c/r al real y métricas en tiempo real.
 
 6. Gestión de Pesos (weights.py)
 
     Guarda y carga checkpoints:
 
-    save_checkpoint() → crea epoch_xx.pt y latest.pt.
+    save_checkpoint() → crear last.pt y best.pt (mejor ó último)
 
     load_checkpoint() → permite reanudar entrenamientos interrumpidos.
 
@@ -112,10 +113,9 @@ Permite monitorear loss, mAP, precision y recall en tiempo real.
     Calcula y guarda métricas clave post-entrenamiento:
 
     Precision, Recall, AP, mAP, F-beta, IoU.
+.
 
-    Genera gráficos .png y resúmenes .txt por prueba (test_000X).
-
-🚀 Flujo del Script train.py
+### 🚀 Flujo del Script train.py
 
 1. Inicialización
 
@@ -161,12 +161,33 @@ Permite monitorear loss, mAP, precision y recall en tiempo real.
 
 22. Limpieza opcional de checkpoints con clean_checkpoints.py.
 
-📊 Salidas del Entrenamiento
+### 📊 Salidas para pruebas
 
-- Checkpoints: YOLOv11/checkpoints/{variant}/yolo11_epoch_X.pt
+- **Checkpoints:**  
+  `YOLOv11/weights/{variant}/{phase}/tests/{run_name}/yolo11_{variant}_epoch_X.pt`
 
-- Logs: YOLOv11/logs/{variant}/train_yolo11.log
+- **Logs:**  
+  `YOLOv11/logs/{variant}/{phase}/tests/{run_name}/yolo11_{variant}_{phase}_{date}.log`
 
-- TensorBoard: YOLOv11/runs/{variant}/
+- **TensorBoard:**  
+  `YOLOv11/runs/{variant}/{phase}/tests/{run_name}/`
 
-- Métricas finales: YOLOv11/metrics/{variant}/test_XXXX/
+- **Métricas finales:**  
+  `YOLOv11/metrics/{variant}/{phase}/tests/{run_name}/`
+
+---
+
+### 📊 Salidas para entrenamiento final
+
+- **Checkpoints:**  
+  `YOLOv11/weights/{variant}/{phase}/final/yolo11_{variant}_epoch_X.pt`
+
+- **Logs:**  
+  `YOLOv11/logs/{variant}/{phase}/final/yolo11_{variant}_{phase}.log`
+
+- **TensorBoard:**  
+  `YOLOv11/runs/{variant}/{phase}/final/`
+
+- **Métricas finales:**  
+  `YOLOv11/metrics/{variant}/{phase}/final/`
+
