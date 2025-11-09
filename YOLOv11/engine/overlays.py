@@ -14,9 +14,8 @@
 
 from __future__ import annotations
 
-import os
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass  # stdlib: contenedores inmutables/ligeros de datos
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -24,19 +23,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-# Opcional: usar visualizador del proyecto si está disponible
-try:
-    from utility.visualization import draw_detections, draw_targets  # type: ignore
-except Exception:
-    draw_detections = None  # type: ignore
-    draw_targets = None  # type: ignore
-
+# NOTA: No dependemos de utility.visualization para dibujar;
+# aquí implementamos un trazador minimal consistente en colores/etiquetas.
 try:
     import cv2  # type: ignore
 except Exception:  # pragma: no cover
     cv2 = None  # type: ignore
 
 __all__ = ["OverlayConfig", "OverlaysManager", "save_overlays"]
+
+# Paleta consistente con utility/visualization.py
+COLOR_GT = (0, 220, 130)     # "real"
+COLOR_PRED = (255, 80, 90)   # "pred"
 
 
 # -------------------------------
@@ -71,23 +69,20 @@ def _select_device(spec: str) -> torch.device:
     if spec == "auto":
         if torch.cuda.is_available():
             return torch.device("cuda")
-        if hasattr(torch, "hip") and torch.hip.is_available():  # type: ignore[attr-defined]
-            return torch.device("hip")
+        # Compatibilidad ROCm (Windows Preview): torch.cuda expone backend HIP; mantenemos fallback a CPU
         return torch.device("cpu")
     return torch.device(spec)
 
 
 def _to_numpy_image(t: torch.Tensor) -> np.ndarray:
-    # t: [C,H,W] en [0,1] o [0,255]; devuelve uint8 BGR para OpenCV
+    """Convierte CHW [0,1] en imagen uint8 BGR para OpenCV."""
     t = t.detach().float().cpu()
     if t.ndim == 3 and t.size(0) in (1, 3):
         if t.size(0) == 1:
             t = t.repeat(3, 1, 1)
         img = (t.clamp(0, 1) * 255.0).byte().permute(1, 2, 0).numpy()
-    elif t.ndim == 3 and t.size(-1) in (1, 3):
-        img = t.byte().numpy()
     else:
-        # fallback: intentar reshape
+        # fallback conservador
         arr = t.reshape(-1).numpy()
         side = int(np.sqrt(arr.size // 3) * 3)
         img = arr[: side * side].reshape(side, side, 3).astype(np.uint8)
@@ -105,18 +100,36 @@ def _xywhn_to_xyxy(x: np.ndarray, w: int, h: int) -> np.ndarray:
     return xy
 
 
+def _put_label_bg(img: np.ndarray, x: int, y: int, text: str, color: Tuple[int, int, int]) -> None:
+    if cv2 is None:
+        return
+    (tw, th), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+    y1 = max(0, y - th - baseline - 4)
+    cv2.rectangle(img, (x, y1), (x + tw + 6, y), color, thickness=-1)
+    cv2.putText(img, text, (x + 3, y - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
+
 def _draw_boxes_cv2(img: np.ndarray,
                     boxes: np.ndarray,
                     labels: Sequence[str],
-                    color: Tuple[int, int, int]) -> np.ndarray:
+                    color: Tuple[int, int, int],
+                    prefix: str) -> np.ndarray:
     if cv2 is None:
         return img
     out = img.copy()
     for b in boxes:
-        x1, y1, x2, y2, conf, cls = b
-        cv2.rectangle(out, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-        txt = f"{labels[int(cls)] if 0 <= int(cls) < len(labels) else int(cls)} {conf:.2f}"
-        cv2.putText(out, txt, (int(x1), int(y1) - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
+        # formatos admitidos: [x1,y1,x2,y2,conf,cls] o [x1,y1,x2,y2,cls] (sin conf)
+        if len(b) >= 6:
+            x1, y1, x2, y2, conf, cls = b[:6]
+            label = labels[int(cls)] if 0 <= int(cls) < len(labels) else str(int(cls))
+            txt = f"{prefix}:{label} {float(conf):.2f}" if prefix == "pred" else f"{prefix}:{label}"
+        else:
+            x1, y1, x2, y2, cls = b[:5]
+            label = labels[int(cls)] if 0 <= int(cls) < len(labels) else str(int(cls))
+            txt = f"{prefix}:{label}"
+        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+        cv2.rectangle(out, (x1, y1), (x2, y2), color, 2)
+        _put_label_bg(out, x1, y1, txt, color)
     return out
 
 
@@ -137,33 +150,32 @@ class OverlaysManager:
     @torch.inference_mode()
     def _predict(self, model: nn.Module, imgs: torch.Tensor) -> List[torch.Tensor]:
         model.eval()
-        dev = imgs.device
-        if hasattr(model, "predict"):
-            out = model.predict(imgs)
-        else:
-            try:
-                out = model(imgs)
-            except Exception:
-                out = model({"img": imgs})
-        # Normalizar a lista
+        # Compatibilidad básica: permitimos model(imgs) o model({"img": imgs})
+        try:
+            out = model(imgs)
+        except Exception:
+            out = model({"img": imgs})
+
+        # Normalizamos a lista de tensores [N_i, >=6] -> [x1,y1,x2,y2,conf,cls]
         if isinstance(out, torch.Tensor):
             preds = [o for o in out]
         else:
             preds = list(out)
-        # Limitar por max_det si se puede
+
         results: List[torch.Tensor] = []
         for p in preds:
             if p.ndim == 2 and p.size(-1) >= 6:
                 det = p
             else:
-                # asumir cxcywh + conf + cls
+                # Asumimos [cx,cy,w,h,conf,cls] -> convertimos a xyxy
                 cxcywh = p[:, :4]
                 x1y1 = cxcywh[:, :2] - cxcywh[:, 2:] / 2
                 x2y2 = cxcywh[:, :2] + cxcywh[:, 2:] / 2
-                det = torch.cat([x1y1, x2y2, p[:, 4:6]], 1)
+                others = p[:, 4:6] if p.size(-1) >= 6 else torch.ones((p.size(0), 2), device=p.device)
+                det = torch.cat([x1y1, x2y2, others], 1)
             if self.cfg.max_det > 0 and det.numel():
                 det = det[: self.cfg.max_det]
-            results.append(det.to(dev))
+            results.append(det.to(imgs.device))
         return results
 
     def _pick_indices(self, n: int, k: int) -> List[int]:
@@ -173,41 +185,35 @@ class OverlaysManager:
 
     def _save_one(self,
                   img_t: torch.Tensor,
-                  det: torch.Tensor,
+                  det: Optional[torch.Tensor],
                   tgt: Optional[torch.Tensor],
                   names: List[str],
                   out_path: Path) -> None:
         img = _to_numpy_image(img_t)
         H, W = img.shape[:2]
 
-        # Dibujar GT
-        if tgt is not None and tgt.numel():
-            if tgt.size(-1) == 5:  # [cls, cx, cy, w, h] normalizado
-                t = tgt.detach().float().cpu().numpy()
+        # Dibujar GT (admite [cls, cx, cy, w, h] normalizado o [x1,y1,x2,y2,cls])
+        if tgt is not None and getattr(tgt, "numel", lambda: 0)():
+            t = tgt.detach().float().cpu().numpy()
+            if t.ndim == 2 and t.shape[-1] == 5:
                 cls = t[:, 0:1]
                 xyxy = _xywhn_to_xyxy(t[:, 1:], W, H)
-                gt = np.concatenate([xyxy, np.ones((xyxy.shape[0], 1)), cls], 1)
+                gt = np.concatenate([xyxy, cls], 1)  # [x1,y1,x2,y2,cls]
             else:
-                gt = tgt.detach().float().cpu().numpy()
-            if draw_targets is not None:
-                img = draw_targets(img, gt, names)  # type: ignore
-            else:
-                img = _draw_boxes_cv2(img, gt, names, (0, 200, 255))  # naranja GT
+                # intentamos usar los primeros 5 valores como [x1,y1,x2,y2,cls]
+                gt = t[:, :5]
+            img = _draw_boxes_cv2(img, gt, names, COLOR_GT, prefix="real")
 
-        # Dibujar pred
-        if det is not None and det.numel():
+        # Dibujar pred ([x1,y1,x2,y2,conf,cls])
+        if det is not None and getattr(det, "numel", lambda: 0)():
             pr = det.detach().float().cpu().numpy()
-            if draw_detections is not None:
-                img = draw_detections(img, pr, names)  # type: ignore
-            else:
-                img = _draw_boxes_cv2(img, pr, names, (50, 220, 50))  # verde pred
+            img = _draw_boxes_cv2(img, pr, names, COLOR_PRED, prefix="pred")
 
         # Guardar
         out_path.parent.mkdir(parents=True, exist_ok=True)
         if cv2 is not None:
             cv2.imwrite(str(out_path), img)
         else:
-            # fallback numpy -> .npy
             np.save(str(out_path.with_suffix(".npy")), img)
 
     @torch.inference_mode()
@@ -239,7 +245,7 @@ class OverlaysManager:
 
         imgs = batch["img"] if isinstance(batch, dict) else batch[0]
         tgts = batch.get("targets", []) if isinstance(batch, dict) else batch[1]
-        imgs = imgs.to(_select_device(self.cfg.device), non_blocking=True).float()
+        imgs = imgs.to(self.device, non_blocking=True).float()
 
         preds = self._predict(model, imgs)
 
@@ -248,7 +254,7 @@ class OverlaysManager:
 
         for j, i in enumerate(idxs):
             img_t = imgs[i]
-            det = preds[i]
+            det = preds[i] if i < len(preds) else None
             tgt = tgts[i] if isinstance(tgts, list) else tgts
             out_path = out_dir / f"overlay_{j:02d}.jpg"
             self._save_one(img_t, det, tgt, names, out_path)

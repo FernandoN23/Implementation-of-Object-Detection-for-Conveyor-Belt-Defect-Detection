@@ -7,15 +7,15 @@
 # --------------------------------------------------------------
 # Archivo: engine/validator.py
 # Descripción: Bucle de validación/evaluación para detección. Ejecuta
-#              inferencia, NMS, emparejamiento pred–GT y calcula
-#              métricas (P/R, mAP@0.5, mAP@[.5:.95], F1, AR, fitness).
-#              Se integra con utility/metrics.py para AP por clase.
+#              inferencia, NMS, emparejamiento pred–GT y delega el
+#              cómputo de métricas (P/R, mAP@0.5, mAP@[.5:.95], F1,
+#              matrices de confusión, curvas) a utility/metrics.py.
+#              Soporta "slots" de guardado para organización estándar.
 #==============================================================
 
 from __future__ import annotations
 
 import json
-import math
 import os
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -29,11 +29,11 @@ try:
 except Exception:  # pragma: no cover
     tv_nms = None  # type: ignore
 
-# Integra utilidades del proyecto (AP por clase, IoU, etc.)
+# Métricas oficiales del proyecto (estilo YOLOv11)
 try:
-    from utility.metrics import ap_per_class  # type: ignore
-except Exception:  # fallback mínimo si el módulo no está disponible
-    ap_per_class = None  # type: ignore
+    from utility.metrics import DetMetricsYOLOv11  # type: ignore
+except Exception:  # pragma: no cover
+    DetMetricsYOLOv11 = None  # type: ignore
 
 __all__ = ["ValConfig", "Validator", "validate"]
 
@@ -57,10 +57,20 @@ class ValConfig:
     plots: bool = False
     verbose: int = 1
 
-    # Para cómputo de métricas
+    # Para cómputo de métricas AP
     map_iou_lo: float = 0.5
     map_iou_hi: float = 0.95
     map_iou_step: float = 0.05
+
+    # Slots de guardado (estructura estándar del proyecto)
+    # phase: "train"|"val"|"test" afecta la ruta base de métricas
+    phase: str = "val"
+    # slot: "epoch", "tests", "final" o personalizado
+    slot: str = "epoch"
+    # si slot == "tests", se recomienda proveer run_name (p.ej., fecha o hash)
+    run_name: Optional[str] = None
+    # etiqueta opcional para el paso/época (p.ej., "epoch_012")
+    step_tag: Optional[str] = None
 
 
 # -------------------------------
@@ -77,20 +87,9 @@ def _select_device(spec: str) -> torch.device:
     if spec == "auto":
         if torch.cuda.is_available():
             return torch.device("cuda")
-        if hasattr(torch, "hip") and torch.hip.is_available():  # type: ignore[attr-defined]
-            return torch.device("hip")
+        # En Windows ROCm preview, torch.cuda abstrae HIP; mantenemos fallback a CPU
         return torch.device("cpu")
     return torch.device(spec)
-
-
-def _xywhn_to_xyxy(x: torch.Tensor, w: int, h: int) -> torch.Tensor:
-    # x: [N, 4] en formato xywh normalizado (0-1)
-    xy = x.clone()
-    xy[:, 0] = (x[:, 0] - x[:, 2] / 2) * w
-    xy[:, 1] = (x[:, 1] - x[:, 3] / 2) * h
-    xy[:, 2] = (x[:, 0] + x[:, 2] / 2) * w
-    xy[:, 3] = (x[:, 1] + x[:, 3] / 2) * h
-    return xy
 
 
 def _box_iou_xyxy(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor:
@@ -130,16 +129,42 @@ def _nms(boxes: torch.Tensor, scores: torch.Tensor, iou_thres: float) -> torch.T
 # -------------------------------
 
 class Validator:
-    """Validador estilo Ultralytics: acumula TP/FP y calcula AP/mAP."""
+    """Validador estilo Ultralytics que **delegá métricas** a utility.metrics.DetMetricsYOLOv11.
+
+    Soporta "slots" de guardado compatibles con utility/metrics.py:
+      - metrics/<phase>/tests/<run_name>/
+      - metrics/<phase>/final/
+      - metrics/<phase>/epoch/<step_tag>/
+      - o carpeta personalizada (slot)
+    """
 
     def __init__(self, cfg: Optional[ValConfig] = None) -> None:
         self.cfg = cfg or ValConfig()
         self.device = _select_device(self.cfg.device)
-        self.stats: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.seen: int = 0
-        self.save_dir: Optional[Path] = Path(self.cfg.save_dir) if self.cfg.save_dir else None
-        if self.save_dir:
-            os.makedirs(self.save_dir, exist_ok=True)
+        self.base_dir: Optional[Path] = Path(self.cfg.save_dir) if self.cfg.save_dir else None
+        self.save_dir: Optional[Path] = None  # resuelto por slot/step en validate()
+
+    def _resolve_save_dir(self, *, phase: Optional[str] = None, slot: Optional[str] = None,
+                          run_name: Optional[str] = None, step_tag: Optional[str] = None) -> Optional[Path]:
+        if self.base_dir is None:
+            return None
+        phase = phase or self.cfg.phase
+        slot = (slot or self.cfg.slot).lower()
+        root = self.base_dir / "metrics" / phase
+        if slot == "tests":
+            rn = run_name or self.cfg.run_name or "unnamed"
+            out = root / "tests" / rn
+        elif slot == "final":
+            out = root / "final"
+        elif slot == "epoch":
+            tag = step_tag or self.cfg.step_tag or "epoch_000"
+            out = root / "epoch" / tag
+        else:
+            tag = step_tag or self.cfg.step_tag or slot
+            out = root / tag
+        out.mkdir(parents=True, exist_ok=True)
+        return out
 
     # ---------- Modelo/inferencia ----------
     @torch.inference_mode()
@@ -148,15 +173,12 @@ class Validator:
         model.eval()
         dev = images.device
         # Intentos progresivos para compatibilidad
-        # 1) Método predict habitual
         if hasattr(model, "predict"):
             out = model.predict(images)
         else:
-            # 2) Intentar forward directo
             try:
                 out = model(images)
             except Exception:
-                # 3) Intentar contrato tipo batch dict
                 out = model({"img": images})
         # Normalizar a lista por imagen
         if isinstance(out, (list, tuple)) and len(out) and isinstance(out[0], torch.Tensor):
@@ -187,153 +209,85 @@ class Validator:
             results.append(det.to(dev))
         return results
 
-    # ---------- Acumulación de métricas ----------
-    def _process_batch(self, detections: torch.Tensor, labels: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Empareja predicciones con etiquetas por IoU y devuelve (tp, conf, pred_cls, target_cls).
-        - detections: [N,6] (x1,y1,x2,y2,conf,cls)
-        - labels: [M,5] (cls, x1,y1,x2,y2)
-        """
-        if detections.numel() == 0:
-            return (torch.zeros(0), torch.zeros(0), torch.zeros(0), labels[:, 0])
-
-        iou = _box_iou_xyxy(detections[:, :4], labels[:, 1:])  # [N,M]
-        # Para cada etiqueta, escoger la pred con IoU máximo por clase coincidente
-        correct = torch.zeros((detections.size(0),), dtype=torch.bool, device=detections.device)
-        detected = []
-        tcls = labels[:, 0]
-        for j, lab in enumerate(labels):
-            ti = int(lab[0].item())
-            # filtrar por clase
-            same_cls = (detections[:, 5].round().long() == ti)
-            iou_j = iou[:, j] * same_cls.float()
-            iou_max, imax = iou_j.max(0)
-            if iou_max >= self.cfg.iou_thres and imax.item() not in detected:
-                correct[imax] = True
-                detected.append(int(imax))
-        return correct.cpu(), detections[:, 4].cpu(), detections[:, 5].cpu(), tcls.cpu()
-
     # ---------- Loop principal ----------
     @torch.inference_mode()
     def validate(self,
                  model: nn.Module,
                  loader: Iterable[Dict[str, Any]],
                  *,
-                 names: Optional[List[str]] = None) -> Dict[str, Any]:
-        dev = self.device
-        names = names or self.cfg.names or []
+                 names: Optional[List[str]] = None,
+                 phase: Optional[str] = None,
+                 slot: Optional[str] = None,
+                 run_name: Optional[str] = None,
+                 step_tag: Optional[str] = None) -> Dict[str, Any]:
+        if DetMetricsYOLOv11 is None:
+            raise ImportError("utility.metrics.DetMetricsYOLOv11 no disponible")
 
-        self.stats.clear()
-        self.seen = 0
+        dev = self.device
+        names_list = names or self.cfg.names or []
+        names_dict = {i: n for i, n in enumerate(names_list)} if names_list else {}
+
+        # Resolver directorio de guardado con slots
+        self.save_dir = self._resolve_save_dir(
+            phase=phase, slot=slot, run_name=run_name, step_tag=step_tag
+        )
+
+        met = DetMetricsYOLOv11(
+            class_names=names_dict if names_dict else None,
+            nc=(len(names_list) if names_list else self.cfg.nc),
+            save_dir=self.save_dir,
+            iou_thresholds=torch.arange(self.cfg.map_iou_lo, self.cfg.map_iou_hi + 1e-9, self.cfg.map_iou_step).tolist(),
+        )
 
         for batch in loader:
-            # Estructura flexible del batch (compatibilidad con utility/data_loader)
             if isinstance(batch, dict) and "img" in batch:
                 imgs = batch["img"]
                 targets_list = batch.get("targets", [])
-                paths = batch.get("paths", None)
             else:
-                # fallback: suponer (imgs, targets)
                 imgs, targets_list = batch
-                paths = None
 
             imgs = imgs.to(dev, non_blocking=True).float()
-
-            # Inferencia + NMS
             dets = self._model_predict(model, imgs)
 
-            # Preparar GT por imagen
             bs, _, H, W = imgs.shape
-            for i in range(bs):
-                self.seen += 1
-                targets_i = targets_list[i] if isinstance(targets_list, list) else targets_list
-                if targets_i is None or len(targets_i) == 0:
-                    labels = torch.zeros((0, 5), device=imgs.device)
-                else:
-                    # targets_i formato esperado: [cls, cx, cy, w, h] normalizado
-                    if targets_i.size(-1) == 5:
-                        xyxy = _xywhn_to_xyxy(targets_i[:, 1:], W, H)
-                        cls = targets_i[:, 0:1].to(xyxy.dtype)
-                        labels = torch.cat([cls, xyxy], 1)
-                    else:
-                        # si ya viene en xyxy absol.
-                        labels = targets_i
-                det = dets[i]
-                tp, conf, pred_cls, tcls = self._process_batch(det, labels)
-                self.stats.append((tp, conf, pred_cls, tcls))
+            img_hw = [(H, W)] * bs
 
-        # Agregar métricas
-        metrics = self._compute_metrics(names)
+            preds_list = dets
+            if isinstance(targets_list, list):
+                t_list = targets_list
+            else:
+                t_list = [targets_list] * bs
 
-        # Guardado opcional JSON resumido
+            met.add_batch(preds_list, t_list, img_hw,
+                          labels_is_xywhn=True,
+                          conf_min_for_cm=self.cfg.conf_thres,
+                          iou_match_for_cm=0.50)
+            self.seen += bs
+
+        det_summary, curves = met.finalize()
+        metrics = {
+            "precision": round(det_summary.precision, 6),
+            "recall": round(det_summary.recall, 6),
+            "map50": round(det_summary.map50, 6),
+            "map5095": round(det_summary.map50_95, 6),
+            "f1": round((2*det_summary.precision*det_summary.recall)/(det_summary.precision+det_summary.recall+1e-9), 6),
+            "seen": int(self.seen),
+            "fitness": round(0.1*det_summary.map50 + 0.9*det_summary.map50_95, 6),
+        }
+
+        # Guardado JSON si corresponde
         if self.save_dir and self.cfg.save_json:
             out = {"metrics": metrics, "config": asdict(self.cfg)}
-            p = Path(self.save_dir) / "val_metrics.json"
+            p = self.save_dir / "val_metrics.json"
             with open(p, "w", encoding="utf-8") as f:
                 json.dump(out, f, ensure_ascii=False, indent=2)
             _log(f"Métricas guardadas en {p}", self.cfg, 1)
 
         return metrics
 
-    # ---------- Cálculo de métricas agregadas ----------
-    def _compute_metrics(self, names: List[str]) -> Dict[str, Any]:
-        if len(self.stats) == 0:
-            return {
-                "precision": 0.0,
-                "recall": 0.0,
-                "map50": 0.0,
-                "map5095": 0.0,
-                "f1": 0.0,
-                "seen": self.seen,
-                "fitness": 0.0,
-            }
-        tp, conf, pred_cls, tcls = [torch.cat(x, 0).cpu().numpy() for x in zip(*self.stats)]
-
-        if ap_per_class is None:
-            # Fallback: estimaciones mínimas (sin AP real)
-            # precision/recall aproximadas
-            eps = 1e-9
-            precision = float((tp > 0).sum()) / float(len(tp) + eps)
-            recall = precision  # sin info de GT por clase no podemos estimar recall real
-            map50 = precision
-            map5095 = precision
-            f1 = 2 * precision * recall / (precision + recall + eps)
-        else:
-            p, r, ap, f1, ap_class = ap_per_class(
-                tp,
-                conf,
-                pred_cls,
-                tcls,
-                iouv=torch.arange(self.cfg.map_iou_lo, self.cfg.map_iou_hi + 1e-9, self.cfg.map_iou_step),
-            )
-            precision = float(p.mean()) if len(p) else 0.0
-            recall = float(r.mean()) if len(r) else 0.0
-            ap = ap if hasattr(ap, "mean") else ap
-            map50 = float(ap[:, 0].mean()) if hasattr(ap, "__getitem__") else 0.0
-            map5095 = float(ap.mean()) if hasattr(ap, "mean") else 0.0
-            f1 = float(f1.mean()) if hasattr(f1, "mean") else 0.0
-
-        # Fitness estilo Ultralytics (pondera mAP50-95)
-        fitness = 0.1 * map50 + 0.9 * map5095
-
-        metrics = {
-            "precision": round(precision, 6),
-            "recall": round(recall, 6),
-            "map50": round(map50, 6),
-            "map5095": round(map5095, 6),
-            "f1": round(f1, 6),
-            "seen": int(self.seen),
-            "fitness": round(fitness, 6),
-        }
-        _log(
-            f"P={metrics['precision']:.4f} R={metrics['recall']:.4f} mAP50={metrics['map50']:.4f} mAP50-95={metrics['map5095']:.4f} F1={metrics['f1']:.4f}",
-            self.cfg,
-            1,
-        )
-        return metrics
-
 
 # -------------------------------
-# Función de conveniencia
+# Función de conveniencia (API de módulo)
 # -------------------------------
 
 def validate(model: nn.Module,
@@ -347,7 +301,12 @@ def validate(model: nn.Module,
              agnostic_nms: bool = False,
              device: str = "auto",
              plots: bool = False,
-             save_json: bool = False) -> Dict[str, Any]:
+             save_json: bool = False,
+             # --- parámetros de slot ---
+             phase: str = "val",
+             slot: str = "epoch",
+             run_name: Optional[str] = None,
+             step_tag: Optional[str] = None) -> Dict[str, Any]:
     cfg = ValConfig(
         conf_thres=conf_thres,
         iou_thres=iou_thres,
@@ -358,6 +317,11 @@ def validate(model: nn.Module,
         save_json=save_json,
         save_dir=save_dir,
         names=names,
+        phase=phase,
+        slot=slot,
+        run_name=run_name,
+        step_tag=step_tag,
     )
     v = Validator(cfg)
-    return v.validate(model, loader, names=names)
+    return v.validate(model, loader, names=names,
+                      phase=phase, slot=slot, run_name=run_name, step_tag=step_tag)
