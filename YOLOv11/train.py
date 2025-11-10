@@ -20,6 +20,7 @@ import json
 import argparse
 from datetime import datetime
 from typing import Any, Dict, Tuple
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # 1) Bootstrap ROCm/MIOpen DEBE ocurrir antes de importar torch
@@ -81,6 +82,7 @@ def _lazy_import_engine():
         overlays as _engine_overlays,  # usado por callbacks
         hud as engine_hud,
     )
+    from YOLOv11.utility.weights import WeightsManager
     import torch  # ahora sí
     return dict(
         amp=engine_amp,
@@ -93,6 +95,7 @@ def _lazy_import_engine():
         b2g=b2g,
         hud=engine_hud,
         torch=torch,
+        WeightsManager=WeightsManager,
     )
 
 
@@ -179,25 +182,18 @@ class Trainer:
             # 'auto' ya fue resuelto antes con utils.auto_amp_mode(); por compatibilidad, asuma fp16
             amp_cfg = AmpConfig(enabled=True, dtype="fp16")
         self.ampmgr = engine["amp"].AmpManager(amp_cfg)
-        optcfg = dict(
-            epochs=cfg.epochs,
-            base_lr=cfg.lr,
-            weight_decay=cfg.wd,
-            warmup_type="linear",
-            cosine=True,
-            clip_norm=cfg.clip_norm,
-            clip_mode=cfg.clip_mode,
-            iters_per_epoch=iters_per_epoch,
-        )
-        self.optimizer, self.scheduler, self.accumulate = engine["optim"].build_optimizer_and_scheduler(
+
+        # Delegar completamente en engine.optim para obtener configuraciones desde parser
+        self.optimizer, self.scheduler, self.accumulate, self._optim_cfg = engine["optim"].build_optim_from_parser(
             self.model,
-            engine["optim"].OptimConfig(**optcfg),
+            None,  # el optimizador resolverá internamente el parser/config
+            iters_per_epoch=iters_per_epoch,
             batch_per_gpu=cfg.batch,
             world_size=cfg.world_size,
         )
 
         # EMA
-        self.ema = engine["ema"].ModelEMA(self.model, cfg=DotDict(enabled=bool(cfg.ema))) if cfg.ema else None
+        self.ema = engine["ema"].ModelEMA(self.model, cfg=engine["ema"].EMAConfig()) if cfg.ema else None
 
         # Callbacks
         self.cb = engine["callbacks"].build_default_callbacks(self.save_dir, cfg=DotDict(overlays_interval=cfg.overlays_interval))
@@ -205,10 +201,38 @@ class Trainer:
         # HUD
         self.hud = engine["hud"].HUD(engine["hud"].HUDConfig(enable=cfg.hud)) if cfg.hud else None
 
-        # Checkpoints
-        self.ckpt = ut.CheckpointManager(self.save_dir)
+        # Weights Manager (reemplazo de CheckpointManager)
+        self.wm = engine["WeightsManager"](
+            project_root=Path(__file__).resolve().parent,
+            variant=cfg.variant,
+            phase="train",
+            run_name=cfg.name,
+            is_test=cfg.test,
+            reset_final=False,
+        )
         self.start_epoch = 0
         self.best_fitness = -1e9
+
+        # Reanudación si corresponde
+        if cfg.resume:
+            prefer = str(cfg.resume).lower()
+            info = None
+            if prefer in ("last", "best"):
+                info = self.wm.try_resume(self.model, optimizer=self.optimizer, scheduler=self.scheduler, prefer=prefer)
+            else:
+                try:
+                    # Interpretar cfg.resume como ruta explícita
+                    ckpt = self.wm.load(Path(prefer))
+                    if "state_dict" in ckpt and ckpt["state_dict"] is not None:
+                        self.model.load_state_dict(ckpt["state_dict"], strict=False)
+                    if self.optimizer is not None and ckpt.get("optimizer") is not None:
+                        self.optimizer.load_state_dict(ckpt["optimizer"])
+                    if self.scheduler is not None and ckpt.get("scheduler") is not None:
+                        self.scheduler.load_state_dict(ckpt["scheduler"])
+                    info = {"resumed": True, "start_epoch": int(ckpt.get("epoch", 0)) + 1, "ckpt_path": Path(prefer)}
+                except Exception:
+                    info = {"resumed": False, "start_epoch": 0, "ckpt_path": None}
+            self.start_epoch = int((info or {}).get("start_epoch", 0))
 
         # Límite de tiempo (0 = ilimitado)
         self.timer = ut.timed_stop(cfg.time_limit)
@@ -273,7 +297,17 @@ class Trainer:
             fit = _fitness(val_metrics)
             best = fit > self.best_fitness
             self.best_fitness = max(self.best_fitness, fit)
-            path, _ = self.ckpt.save(epoch, self.model, self.optimizer, self.scheduler, self.ema, val_metrics, best=best, best_fitness=self.best_fitness)
+
+            # Guardado de pesos mediante WeightsManager
+            path = self.wm.save_epoch(
+                self.model,
+                epoch,
+                score=fit,
+                optimizer=self.optimizer,
+                scheduler=self.scheduler,
+                extra={"val": val_metrics, "imgsz": self.cfg.imgsz, "batch": self.cfg.batch},
+                save_full_model=False,
+            )
             self.cb.on_model_save(self, path, best)
 
             self.cb.on_fit_epoch_end(self, epoch, train_stats={}, val_stats=val_metrics)
@@ -331,7 +365,6 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument('--data', type=str, required=True, help='dataset.yaml')
     p.add_argument('--model', type=str, required=True, help='yolo11.yaml')
     p.add_argument('--parser', type=str, required = True, help='parser.yaml')
-
     # variantes y params clave
     p.add_argument('--variant', type=str, default='s', choices=['n','s','m','l','x'])
     p.add_argument('--epochs', type=int, default=100)

@@ -8,25 +8,20 @@
 # Archivo: engine/utils.py
 # Descripción: Utilitarios de orquestación para el pipeline de
 #              entrenamiento: seeds/dispositivos, save_dir,
-#              ResultsCSV, CheckpointManager, resume, timed_stop,
-#              nan_recovery, maybe_compile y helpers varios.
+#              ResultsCSV, timed_stop, nan_recovery, maybe_compile
+#              y helpers varios (sin gestión de checkpoints aquí).
 #==============================================================
 
 from __future__ import annotations
 
 import csv
 import dataclasses
-import json
-import os
 import random
-import re
-import shutil
 import signal
-import sys
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -38,10 +33,6 @@ __all__ = [
     "select_device",
     "setup_save_dir",
     "ResultsCSV",
-    "CheckpointManager",
-    "TrainingState",
-    "save_training_state",
-    "load_training_state",
     "maybe_compile",
     "timed_stop",
     "nan_recovery",
@@ -126,92 +117,6 @@ class ResultsCSV:
             self._fh.close()
         except Exception:
             pass
-
-
-# -------------------------------
-# Checkpoints y reanudar (resume)
-# -------------------------------
-
-@dataclass
-class TrainingState:
-    epoch: int
-    model_state: Dict[str, Any]
-    optimizer_state: Dict[str, Any]
-    scheduler_state: Optional[Dict[str, Any]]
-    ema_state: Optional[Dict[str, Any]]
-    metrics_val: Optional[Dict[str, float]]
-    best_fitness: float
-
-
-def _ckpt_paths(save_dir: str) -> Dict[str, Path]:
-    d = Path(save_dir)
-    return {
-        "last": d / "last.pt",
-        "best": d / "best.pt",
-        "state": d / "last_state.pth",
-        "meta": d / "meta.json",
-    }
-
-
-class CheckpointManager:
-    def __init__(self, save_dir: str) -> None:
-        self.save_dir = Path(save_dir)
-        self.save_dir.mkdir(parents=True, exist_ok=True)
-        self.paths = _ckpt_paths(save_dir)
-
-    def save(self,
-             epoch: int,
-             model: torch.nn.Module,
-             optimizer: torch.optim.Optimizer,
-             scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
-             ema: Optional[Any],
-             val_metrics: Dict[str, float],
-             *,
-             best: bool,
-             best_fitness: float) -> Tuple[str, bool]:
-        state = TrainingState(
-            epoch=epoch,
-            model_state=model.state_dict(),
-            optimizer_state=optimizer.state_dict(),
-            scheduler_state=scheduler.state_dict() if scheduler is not None else None,
-            ema_state=(ema.state_dict() if ema is not None and hasattr(ema, "state_dict") else None),
-            metrics_val=val_metrics,
-            best_fitness=float(best_fitness),
-        )
-        torch.save(state, self.paths["state"])
-        torch.save(model.state_dict(), self.paths["last"])
-        if best:
-            shutil.copy2(self.paths["last"], self.paths["best"])
-        meta = {
-            "epoch": epoch,
-            "best_fitness": float(best_fitness),
-            "val": val_metrics,
-            "last": str(self.paths["last"]),
-            "best": str(self.paths["best"]),
-        }
-        with open(self.paths["meta"], "w", encoding="utf-8") as f:
-            json.dump(meta, f, ensure_ascii=False, indent=2)
-        return str(self.paths["last"]), best
-
-    def load_last(self) -> Optional[TrainingState]:
-        p = self.paths["state"]
-        if not p.exists():
-            return None
-        state = torch.load(p, map_location="cpu")
-        if isinstance(state, dict) and "epoch" in state and not isinstance(state, TrainingState):
-            return TrainingState(**state)  # type: ignore[arg-type]
-        return state  # type: ignore[return-value]
-
-
-def save_training_state(path: str, state: TrainingState) -> None:
-    torch.save(dataclasses.asdict(state), path)
-
-
-def load_training_state(path: str) -> TrainingState:
-    d = torch.load(path, map_location="cpu")
-    if isinstance(d, dict) and "epoch" in d:
-        return TrainingState(**d)
-    raise RuntimeError("training state inválido/inesperado")
 
 
 # -------------------------------
