@@ -13,19 +13,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
 import torch
 import torch.nn as nn
-
-try:
-    import torch.cuda.amp as torch_amp
-except Exception:  # CPU-only fallback
-    class _Dummy:
-        def __getattr__(self, name):
-            raise AttributeError("AMP no disponible en esta plataforma")
-    torch_amp = _Dummy()  # type: ignore
 
 __all__ = [
     "AmpConfig",
@@ -42,20 +34,22 @@ __all__ = [
 
 @dataclass
 class AmpConfig:
-    enabled: bool = True           # habilitar AMP
-    dtype: str = "fp16"            # "fp16" | "bf16"
-    init_scale: float = 65536.0    # escala inicial del GradScaler
+    enabled: bool = True            # habilitar AMP
+    dtype: str = "fp16"             # "fp16" | "bf16"
+    init_scale: float = 65536.0     # escala inicial del GradScaler
     growth_factor: float = 2.0
     backoff_factor: float = 0.5
     growth_interval: int = 2000
-    hysteresis: int = 2            # sensibilidad a overflows (GradScaler >= 2.1)
-    detect_anomaly: bool = False   # habilitar detect_anomaly() de autograd (costoso)
+    hysteresis: int = 2             # (no usado por torch.amp)
+    detect_anomaly: bool = False    # habilitar detect_anomaly() de autograd (costoso)
     verbose: int = 1
 
     def torch_dtype(self):
-        if self.dtype == "bf16":
-            return torch.bfloat16
-        return torch.float16
+        return torch.bfloat16 if self.dtype == "bf16" else torch.float16
+
+    def device_type(self) -> str:
+        # En ROCm (Windows Preview) torch.cuda.is_available() suele ser True
+        return "cuda" if torch.cuda.is_available() else "cpu"
 
 
 # -------------------------------
@@ -69,14 +63,20 @@ def _log(msg: str, cfg: Optional[AmpConfig] = None, level: int = 1) -> None:
 
 
 # -------------------------------
-# Construcción de GradScaler y autocast
+# Construcción de GradScaler y autocast (API unificada torch.amp)
 # -------------------------------
 
-def build_grad_scaler(cfg: AmpConfig) -> Optional["torch_amp.GradScaler"]:
+def build_grad_scaler(cfg: AmpConfig) -> Optional[Any]:
+    """Crea GradScaler usando torch.amp. En bf16 no se crea scaler."""
     if not cfg.enabled:
         return None
+    # En bf16 no es necesario GradScaler
+    if str(cfg.dtype).lower() != "fp16":
+        _log("GradScaler omitido (dtype != fp16)", cfg, 2)
+        return None
     try:
-        scaler = torch_amp.GradScaler(
+        scaler = torch.amp.GradScaler(
+            cfg.device_type(),
             init_scale=cfg.init_scale,
             growth_factor=cfg.growth_factor,
             backoff_factor=cfg.backoff_factor,
@@ -101,7 +101,11 @@ class autocast_ctx:
         if not self.cfg.enabled:
             return None
         try:
-            self._ctx = torch_amp.autocast(enabled=True, dtype=self.cfg.torch_dtype())
+            self._ctx = torch.amp.autocast(
+                self.cfg.device_type(),
+                dtype=self.cfg.torch_dtype(),
+                enabled=True,
+            )
             return self._ctx.__enter__()
         except Exception:
             # fallback silencioso
@@ -132,6 +136,8 @@ class AmpManager:
 
     def __init__(self, cfg: AmpConfig) -> None:
         self.cfg = cfg
+        if self.cfg.detect_anomaly:
+            torch.autograd.set_detect_anomaly(True)
         self.scaler = build_grad_scaler(cfg)
         self._last_overflow: bool = False
 
@@ -181,8 +187,7 @@ class AmpManager:
 
         # Detección de overflow básica
         self._last_overflow = False
-        if self.scaler is not None and hasattr(self.scaler, "_scale"):
-            # Heurística: escala demasiado pequeña suele indicar overflow recurrente
+        if self.scaler is not None and hasattr(self.scaler, "get_scale"):
             try:
                 scale_val = float(self.scaler.get_scale())
                 info["scale"] = scale_val
@@ -213,10 +218,7 @@ def safe_backward_step(loss: torch.Tensor,
     """
     if amp is None or amp.scaler is None:
         loss.backward()
-        if clip_fn is not None:
-            clipped = float(clip_fn())
-        else:
-            clipped = 0.0
+        clipped = float(clip_fn()) if clip_fn is not None else 0.0
         optimizer.step()
         if zero_grad:
             optimizer.zero_grad(set_to_none=set_to_none)
@@ -240,11 +242,12 @@ if __name__ == "__main__":  # pragma: no cover
 
     cfg = AmpConfig(enabled=True, dtype="fp16", verbose=2)
     amp = AmpManager(cfg)
-    net = Toy().cuda() if torch.cuda.is_available() else Toy()
+    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    net = Toy().to(dev)
     opt = torch.optim.AdamW(net.parameters(), lr=1e-3)
 
     for i in range(5):
-        x = torch.randn(32, 16, device=next(net.parameters()).device)
+        x = torch.randn(32, 16, device=dev)
         with amp.autocast():
             loss, _ = net(x)
         stats = safe_backward_step(loss, opt, amp, clip_fn=None)

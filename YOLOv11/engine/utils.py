@@ -8,13 +8,12 @@
 # Archivo: engine/utils.py
 # Descripción: Utilitarios de orquestación para el pipeline de
 #              entrenamiento: seeds/dispositivos, save_dir,
-#              ResultsCSV, timed_stop, nan_recovery, maybe_compile
+#              timed_stop, nan_recovery, maybe_compile
 #              y helpers varios (sin gestión de checkpoints aquí).
 #==============================================================
 
 from __future__ import annotations
 
-import csv
 import dataclasses
 import random
 import signal
@@ -32,7 +31,6 @@ __all__ = [
     "seed_everything",
     "select_device",
     "setup_save_dir",
-    "ResultsCSV",
     "maybe_compile",
     "timed_stop",
     "nan_recovery",
@@ -91,32 +89,6 @@ def setup_save_dir(project: str = "runs/train", name: str = "exp", exist_ok: boo
         save_dir = root / name
     save_dir.mkdir(parents=True, exist_ok=exist_ok)
     return str(save_dir.resolve())
-
-
-# -------------------------------
-# CSV de resultados por época
-# -------------------------------
-
-class ResultsCSV:
-    def __init__(self, save_dir: str, filename: str = "results.csv") -> None:
-        self.path = Path(save_dir) / filename
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._fh = open(self.path, "a", newline="", encoding="utf-8")
-        self._writer = None
-
-    def write(self, row: Dict[str, Any]) -> None:
-        if self._writer is None:
-            self._writer = csv.DictWriter(self._fh, fieldnames=list(row.keys()))
-            if self._fh.tell() == 0:
-                self._writer.writeheader()
-        self._writer.writerow(row)
-        self._fh.flush()
-
-    def close(self) -> None:
-        try:
-            self._fh.close()
-        except Exception:
-            pass
 
 
 # -------------------------------

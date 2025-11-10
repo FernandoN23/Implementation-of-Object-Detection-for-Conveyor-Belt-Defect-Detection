@@ -1,0 +1,123 @@
+Manual_Canvas_Workflow_v1.2.txt
+Última actualización: 2025-11-08
+Autor: Feña / Asistente técnico (“Jarvis”)
+-------------------------------------------------------------------------------
+
+0) PROPÓSITO
+   Establecer reglas operativas para crear, segmentar, revisar y ensamblar
+   “lienzos” (canvas) con código, documentación y artefactos del proyecto,
+   garantizando reproducibilidad, orden y build segura.
+
+1) ALCANCE Y CONVENCIONES
+   • Idioma: español técnico.
+   • Formato esperado: uno o varios lienzos por chat.
+   • Máximo por chat: 20 lienzos.
+   • Máximo por lienzo: 800 líneas (hard cap).
+   • Umbral de segmentación preventiva: 750 líneas.
+   • Nombres de lienzo/archivo: usar el nombre real del script o doc; evitar
+     nombres genéricos. Para splits: sufijos _part2, _part3 o módulos temáticos
+     (p. ej., parser_yaml_io.py, parser_yaml_schema.py).
+   • No generar código extenso en el chat si puede ir a lienzo.
+   • El nombre del chat, al aplicar “Manual Canvas”, debe corresponder a los
+     archivos o códigos trabajados (no inferencias libres).
+
+2) LÍMITES Y SEGMENTACIÓN
+   • Al aproximarse a 750 líneas, dividir en módulos lógicos o en “parts”.
+   • No exceder 800 líneas. Si por razones operativas se requiere completar
+     el proceso, se permite crear un archivo de reserva (stub) siguiendo 3).
+
+3) ARCHIVOS DE RESERVA (STUBS) — POLÍTICA
+   • Objetivo: permitir terminar un paso del flujo sin rebasar el límite del
+     lienzo ni romper importaciones temporales durante el desarrollo.
+   • Naming: __reserve_*.py  (ej.: __reserve_parser_stub__.py)
+   • Contenido permitido: SOLO docstring y lógica “fail-fast” para evitar
+     su uso en runtime. Prohibidos: imports, I/O, efectos laterales.
+   • Plantilla recomendada:
+
+     """RESERVED STUB: archivo de relleno para respetar límites de Canvas.
+     Este módulo no debe importarse en ejecución ni distribuirse."""
+     if __name__ != "__main__":
+         raise RuntimeError("Módulo reservado: no debe importarse en el paquete.")
+
+   • Cobertura: añadir comentario “# pragma: no cover” si se usa cobertura.
+   • Descubrimiento/paquetizado: el stub DEBE quedar fuera de:
+       - __all__ en los __init__.py del paquete
+       - listas de empaquetado / pyproject.toml / MANIFEST / setup
+       - cualquier auto-descubrimiento (plug-ins, entry points, glob recursivo)
+   • Uso temporal: permitido SOLO en ramas WIP. En ramas de release está
+     estrictamente prohibido (ver 6).
+
+4) LISTAS BLANCAS DE EXPORTACIÓN (PAQUETES PYTHON)
+   • En cada paquete relevante, declarar explícitamente __all__ con los módulos
+     públicos. Ejemplo:
+
+     # models/__init__.py
+     __all__ = ["backbone", "neck", "head", "parser_yaml"]  # sin stubs
+
+   • Evitar “from pkg import *” fuera de estos puntos de control.
+   • Los stubs jamás deben aparecer en __all__.
+
+5) ENSAMBLADO Y VERIFICACIÓN (PRE-ZIP / PRE-RELEASE)
+   Antes de empaquetar/zippear:
+   5.1 Escaneo de stubs:
+       - Buscar archivos que cumplan patrón __reserve_*.py
+       - Verificar que NO estén en __all__, ni en listas de empaquetado.
+   5.2 Verificación de importabilidad:
+       - Intentar importar con importlib TODOS los módulos listados en __all__;
+         fallar si hay import roto o dependencia de un stub.
+   5.3 Reglas de higiene:
+       - No debe haber prints/side-effects en import time.
+       - Lint básico pasa (flake/ruff) y tipado opcional (mypy/pyright).
+   5.4 Resultado:
+       - Si existe un stub o una referencia a él → FALLAR el ensamblado.
+
+   Nota: Este check puede ejecutarse localmente y en CI. Ver 7) para script.
+
+6) POLÍTICA DE CI/LINT (RAMAS Y PR)
+   • Ramas de release/main: FAIL si se detecta cualquier __reserve_*.py
+   • PR Checklist:
+       - “No stubs incluidos”
+       - “__all__ actualizado y coherente”
+       - “Build de verificación de importlib OK”
+       - “Cobertura no cuenta stubs (# pragma: no cover)”
+   • Sólo se permiten stubs en WIP/feature branches y nunca en artefactos
+     publicados.
+
+7) SCRIPT DE VERIFICACIÓN (PLANTILLA)
+   Objetivo: ejecutar en “pre-ensamblado” y en CI.
+
+   Pseudocódigo:
+   ------------------------------------------------------------
+   - Enumerar archivos __reserve_*.py → if count > 0: exit(1)
+   - Abrir __init__.py de paquetes y extraer __all__
+   - Para cada módulo en __all__:
+       try:
+           importlib.import_module(f"{package}.{module}")
+       except Exception as e:
+           imprimir(error y módulo) → exit(1)
+   - Confirmar que ningún patrón __reserve_* aparece en:
+       • __all__       • listas de empaquetado
+   - (Opcional) Ejecutar linter y type-checker
+   - exit(0)
+   ------------------------------------------------------------
+
+8) FLUJO OPERATIVO (CHECKLIST RÁPIDO)
+   [ ] Crear/actualizar lienzos con nombres reales de archivo
+   [ ] Mantener ≤800 líneas; segmentar a ~750 líneas
+   [ ] Si es imprescindible, generar stub __reserve_*.py con fail-fast
+   [ ] Actualizar __all__ (listas blancas); excluir stubs
+   [ ] Correr script de verificación (stubs, importlib, empaquetado)
+   [ ] Lint y (opcional) type-check
+   [ ] Ensamblar ZIP/proyecto sólo si todo pasa en verde
+
+9) BUENAS PRÁCTICAS DE MODULARIDAD
+   • Preferir separación por responsabilidad (IO, schema, core, utils)
+   • Evitar módulos “monolíticos”; usar paquetes con __init__.py claros
+   • Mantener dependencias internas acíclicas o con capas bien definidas
+   • Documentar puntos de entrada (CLI/APIs) y evitar efectos en import time
+
+10) NOTAS FINALES
+   • Este manual gobierna el uso del intérprete/canvas y el proceso de build.
+   • Cambios de política deben versionarse (v1.2, v1.3, …) y registrarse.
+-------------------------------------------------------------------------------
+FIN

@@ -19,7 +19,7 @@ import time
 import json
 import argparse
 from datetime import datetime
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Iterable, Iterator
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -82,6 +82,11 @@ def _lazy_import_engine():
         overlays as _engine_overlays,  # usado por callbacks
         hud as engine_hud,
     )
+    # Utilidades solicitadas: DataLoader, Losses y Logger desde utility/
+    from YOLOv11.utility import data_loader as util_data
+    from YOLOv11.utility.losses import YOLOLoss
+    from YOLOv11.utility.logger import ExperimentLogger
+
     from YOLOv11.utility.weights import WeightsManager
     import torch  # ahora sí
     return dict(
@@ -89,13 +94,16 @@ def _lazy_import_engine():
         optim=engine_optim,
         ema=engine_ema,
         callbacks=engine_callbacks,
-        validator=engine_validator,
+        validator=engine_validator,  # importado pero no usado si no hay validación
         warmup=engine_warmup,
         utils=ut,
         b2g=b2g,
         hud=engine_hud,
         torch=torch,
         WeightsManager=WeightsManager,
+        util_data=util_data,
+        YOLOLoss=YOLOLoss,
+        ExperimentLogger=ExperimentLogger,
     )
 
 
@@ -123,18 +131,82 @@ def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
     )
 
 
+class _DictLoaderAdapter:
+    """Adaptador minimal para que entrenamiento reciba batches en dict.
+    Envuelve un DataLoader que entrega (imgs, targets, meta) y produce
+    {"img": imgs, "targets": targets, "meta": meta}.
+    """
+    def __init__(self, base_loader: Iterable, device) -> None:
+        self.base = base_loader
+        self._len = None
+        try:
+            self._len = len(base_loader)  # tipo DataLoader tiene __len__
+        except Exception:
+            self._len = None
+        self.device = device
+
+    def __len__(self) -> int:
+        if self._len is None:
+            raise TypeError("Base loader no expone __len__")
+        return int(self._len)
+
+    def __iter__(self) -> Iterator[Dict[str, Any]]:
+        for b in self.base:
+            if isinstance(b, tuple) and len(b) == 3:
+                imgs, targets, meta = b
+                yield {"img": imgs.to(self.device), "targets": targets.to(self.device), "meta": meta}
+            elif isinstance(b, dict):
+                d = dict(b)
+                if "img" in d and hasattr(d["img"], "to"):
+                    d["img"] = d["img"].to(self.device)
+                if "targets" in d and hasattr(d["targets"], "to"):
+                    d["targets"] = d["targets"].to(self.device)
+                yield d
+            else:
+                yield b
+
+
 def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
-    """Construye modelo y dataloaders usando utilidades del proyecto.
-    Requiere que YOLOv11/engine/utils.py provea funciones compatibles:
-      - build_model(model_yaml, variant) -> nn.Module
-      - build_dataloaders(data_yaml, imgsz, batch, workers) -> (train_loader, val_loader, names)
+    """Construye modelo y dataloader de entrenamiento usando utilidades del proyecto.
+
+    Cambio solicitado:
+      - Adoptar `utility/data_loader.py` para los datos reales de *train*.
+      - Mantener `engine.utils.build_model` para el ensamblado del modelo.
+      - **Excluir** la partición de validación (no se crea `val_loader`).
     """
     ut = engine["utils"]
+
+    # 1) Modelo (igual que antes)
     model = ut.build_model(cfg.model, variant=cfg.variant)
-    train_loader, val_loader, names = ut.build_dataloaders(
-        cfg.data, imgsz=cfg.imgsz, batch=cfg.batch, workers=cfg.workers
+
+    # 2) DataLoader de entrenamiento desde utility/data_loader.py
+    project_root = Path(__file__).resolve().parent  # raíz que contiene configs/ y models/
+    udata = engine["util_data"]
+
+    train_loader = udata.build_yolo_dataloader(
+        split="train", batch=cfg.batch, imgsz=cfg.imgsz, workers=cfg.workers, project_root=project_root
     )
-    return model, train_loader, val_loader, names
+
+    # 3) Nombres/clases desde dataset.yaml
+    ds_yaml = udata.load_dataset_yaml(project_root)
+    names = ds_yaml.get("names", {})
+    if isinstance(names, dict):
+        names = {int(k): v for k, v in names.items()}
+
+    # 4) (Opcional) Mostrar info del dataset si se activa el flag (solo train)
+    if cfg.get("dl_info", False):
+        try:
+            nc = len(names) if hasattr(names, "__len__") else int(names)
+        except Exception:
+            nc = 0
+        try:
+            n_train = len(getattr(train_loader, "dataset", []))
+        except Exception:
+            n_train = "?"
+        train_path = str(Path(ds_yaml.get("train", "")).resolve())
+        print(f"Dataset cargado / partición: train / N° imágenes = {n_train} / nc = {nc} / ruta: {train_path}")
+
+    return model, train_loader, names
 
 
 def _fitness(metrics: Dict[str, float]) -> float:
@@ -149,10 +221,9 @@ def _fitness(metrics: Dict[str, float]) -> float:
 # ---------------------------------------------------------------------------
 
 class Trainer:
-    def __init__(self, model, train_loader, val_loader, names, cfg: DotDict, engine: Dict[str, Any]):
+    def __init__(self, model, train_loader, names, cfg: DotDict, engine: Dict[str, Any]):
         self.model = model
         self.train_loader = train_loader
-        self.val_loader = val_loader
         self.names = names
         self.cfg = cfg
         self.engine = engine
@@ -162,6 +233,34 @@ class Trainer:
         ut.seed_everything(cfg.seed)
         self.save_dir = ut.setup_save_dir(cfg.project, cfg.name, exist_ok=cfg.exist_ok)
         self.cfg.save_dir = self.save_dir  # para banner
+
+        # === Logger de experimento (utility/logger.py) ===
+        self.logger = engine["ExperimentLogger"](
+            variant=cfg.variant,
+            phase="train",
+            is_test=cfg.test,
+            run_name=cfg.name,
+            reset_final=not cfg.exist_ok,
+        )
+        # Snapshot de config y resumen del modelo
+        try:
+            cfg_dict = dict(self.cfg)
+            self.logger.save_config_json(cfg_dict)
+        except Exception:
+            pass
+        try:
+            n_params = sum(p.numel() for p in model.parameters())
+            extra = {
+                "imgsz": cfg.imgsz,
+                "batch": cfg.batch,
+                "amp": cfg.amp,
+                "device": str(self.device),
+                "params": int(n_params),
+                "variant": cfg.variant,
+            }
+            self.logger.save_model_summary(self.model, extra=extra)
+        except Exception:
+            pass
 
         # compile opcional
         self.model.to(self.device)
@@ -213,6 +312,13 @@ class Trainer:
         self.start_epoch = 0
         self.best_fitness = -1e9
 
+        # === Criterio de pérdida (utility/losses.YOLOLoss) ===
+        try:
+            nc = len(self.names) if hasattr(self.names, "__len__") else int(self.names)
+        except Exception:
+            nc = 80
+        self.criterion = engine["YOLOLoss"](nc=nc).to(self.device)
+
         # Reanudación si corresponde
         if cfg.resume:
             prefer = str(cfg.resume).lower()
@@ -237,6 +343,9 @@ class Trainer:
         # Límite de tiempo (0 = ilimitado)
         self.timer = ut.timed_stop(cfg.time_limit)
 
+        # Adaptador de loader a dict en dispositivo
+        self.train_loader_adapt = _DictLoaderAdapter(self.train_loader, self.device)
+
     # -----------------------------
     def fit(self) -> None:
         self._print_mode_banner()
@@ -245,6 +354,10 @@ class Trainer:
         if self.cfg.test:
             self._assembly_test()
             print("[TEST] Assembly test passed ✔")
+            try:
+                self.logger.close()
+            except Exception:
+                pass
             return
 
         engine = self.engine
@@ -258,10 +371,26 @@ class Trainer:
             if self.hud:
                 self.hud.on_epoch_start(epoch, self.cfg.epochs, iters_per_epoch)
 
+            # Acumuladores de métricas de entrenamiento por época
+            sum_loss = 0.0
+            count = 0
+            scalars_sum: Dict[str, float] = {}
+
             t_iter = time.perf_counter()
-            for i, batch in enumerate(self.train_loader, start=1):
+            for i, batch in enumerate(self.train_loader_adapt, start=1):
                 with self.ampmgr.autocast():
-                    loss, items = self.model(batch)  # contrato: (Tensor, dict)
+                    # forward del core + pérdida YOLOLoss
+                    x = batch["img"]
+                    core = getattr(self.model, "core", self.model)
+                    preds = core(x)
+                    loss, scalars = self.criterion(preds, batch["targets"])
+                    items = {"loss": float(loss.detach()), **{k: float(v) for k, v in scalars.items()}}
+
+                # acumular métricas
+                sum_loss += float(loss.item())
+                count += 1
+                for k, v in scalars.items():
+                    scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v)
 
                 do_step = (i % self.accumulate) == 0
                 engine["amp"].safe_backward_step(
@@ -287,53 +416,120 @@ class Trainer:
             if self.hud:
                 self.hud.on_epoch_end()
 
-            # Validación
-            model_eval = self.ema.ema if self.ema else self.model
-            val_metrics = self.engine["validator"].validate(
-                model_eval, self.val_loader, names=self.names,
-                save_dir=self.save_dir, phase="val", slot="epoch", step_tag=f"epoch_{epoch:03d}"
-            )
+            # Métricas promedio de train por época
+            train_metrics: Dict[str, float] = {"loss": (sum_loss / max(1, count))}
+            for k, v in scalars_sum.items():
+                train_metrics[k] = v / max(1, count)
 
-            fit = _fitness(val_metrics)
-            best = fit > self.best_fitness
-            self.best_fitness = max(self.best_fitness, fit)
-
-            # Guardado de pesos mediante WeightsManager
+            # Guardado de pesos mediante WeightsManager (sin validación)
             path = self.wm.save_epoch(
                 self.model,
                 epoch,
-                score=fit,
+                score=0.0,  # sin métrica de validación
                 optimizer=self.optimizer,
                 scheduler=self.scheduler,
-                extra={"val": val_metrics, "imgsz": self.cfg.imgsz, "batch": self.cfg.batch},
+                extra={"imgsz": self.cfg.imgsz, "batch": self.cfg.batch},
                 save_full_model=False,
             )
-            self.cb.on_model_save(self, path, best)
+            self.cb.on_model_save(self, path, best=False)
 
-            self.cb.on_fit_epoch_end(self, epoch, train_stats={}, val_stats=val_metrics)
+            # Logging de época (train)
+            try:
+                self.logger.log_epoch(epoch, train_metrics, split="train")
+            except Exception:
+                pass
+
+            # Callback de fin de época (usar métricas de train)
+            self.cb.on_fit_epoch_end(self, epoch, train_stats=train_metrics, val_stats={})
             if self.hud:
-                self.hud.update_epoch(epoch, **val_metrics)
+                self.hud.update_epoch(epoch)
 
             if ut.SIGNALS.stop or self.timer.expired():
                 break
 
         if self.hud:
             self.hud.close()
+        try:
+            self.logger.close()
+        except Exception:
+            pass
 
     # -----------------------------
     def _assembly_test(self) -> None:
         engine = self.engine
         ut = engine["utils"]
-        iters_per_epoch = len(self.train_loader)
 
-        # sanity: dummy + un minibatch real con backward/step
+        # Warm-up robusto con configuración completa
         if self.cfg.warmup in ("sanity", "fast", "full"):
-            engine["warmup"].warmup_sanity(self.model, device=self.device, cfg=DotDict(mode=self.cfg.warmup))
+            # Inferir stride desde el modelo o usar fallback 32
+            torch_mod = engine["torch"]
+            core = getattr(self.model, "core", self.model)
+            stride = None
+            # Buscar atributos típicos de stride
+            for obj in (core, getattr(core, "model", None)):
+                if obj is None:
+                    continue
+                for attr in ("stride", "strides", "max_stride"):
+                    if hasattr(obj, attr):
+                        stride = getattr(obj, attr)
+                        break
+                if stride is not None:
+                    break
+            # Normalizar a entero
+            try:
+                if isinstance(stride, (list, tuple)):
+                    stride = int(max(stride))
+                elif isinstance(stride, dict):
+                    stride = int(max(int(v) for v in stride.values()))
+                elif hasattr(stride, "max"):
+                    try:
+                        stride = int(getattr(stride, "max")().item())
+                    except Exception:
+                        stride = int(stride)
+                elif isinstance(stride, (int, float)):
+                    stride = int(stride)
+                else:
+                    stride = None
+            except Exception:
+                stride = None
+            if not stride or stride <= 0:
+                stride = 32
 
+            # Mapear dtype según AMP
+            amp_mode = str(self.cfg.amp).lower()
+            if amp_mode == "bf16":
+                dtype = "bf16"
+            elif amp_mode == "fp16":
+                dtype = "fp16"
+            else:
+                dtype = "fp32"
+
+            # Iteraciones por modo
+            iters = 2 if self.cfg.warmup == "sanity" else (5 if self.cfg.warmup == "fast" else 10)
+
+            WarmupConfig = engine["warmup"].WarmupConfig
+            warm_cfg = WarmupConfig(
+                imgsz=int(self.cfg.imgsz),
+                bs=int(self.cfg.batch),
+                nc=(len(self.names) if hasattr(self.names, "__len__") else int(self.names)),
+                amp=(amp_mode != "off"),
+                device=str(self.device),
+                channels=3,
+                stride=int(stride),
+                iters=int(iters),
+                compile=bool(self.cfg.compile),
+                dtype=dtype,
+                verbose=1,
+            )
+            engine["warmup"].warmup_sanity(self.model, device=self.device, cfg=warm_cfg)
+
+        # sanity: un minibatch real con backward/step
         self.model.train()
-        for i, batch in enumerate(self.train_loader, start=1):
+        for i, batch in enumerate(self.train_loader_adapt, start=1):
             with self.ampmgr.autocast():
-                loss, items = self.model(batch)
+                core = getattr(self.model, "core", self.model)
+                preds = core(batch["img"])  # forward
+                loss, _ = self.criterion(preds, batch["targets"])  # pérdida
             engine["amp"].safe_backward_step(
                 loss, self.optimizer, self.ampmgr,
                 clip_fn=lambda: engine["optim"].clip_gradients(self.model, self.cfg.clip_norm, self.cfg.clip_mode),
@@ -342,13 +538,6 @@ class Trainer:
             if self.ema:
                 self.ema.update(self.model)
             break  # solo 1 minibatch
-
-        self.model.eval()
-        with engine["torch"].inference_mode():
-            _ = self.engine["validator"].validate(
-                self.model, self.val_loader, names=self.names,
-                save_dir=self.save_dir, phase="val", slot="test", step_tag="assembly_test"
-            )
 
     # -----------------------------
     def _print_mode_banner(self):
@@ -399,6 +588,9 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument('--name', type=str, default=None)
     p.add_argument('--exist-ok', action='store_true', default=False)
     p.add_argument('--time-limit', type=float, default=0.0)
+
+    # info de data_loader (flag solicitado)
+    p.add_argument('--dl-info', action='store_true', help='Muestra info del dataset por partición al cargar')
 
     # modo prueba
     p.add_argument('--test', action='store_true', help='Ejecuta prueba de ensamblado y sale')
@@ -455,18 +647,16 @@ def main(cli: argparse.Namespace) -> None:
         time_limit=cli.time_limit,
         world_size=int(os.environ.get('WORLD_SIZE', '1')),
         test=bool(cli.test),
+        dl_info=bool(cli.dl_info),
     )
 
-    # Construcción de modelo y dataloaders
-    model, train_loader, val_loader, names = _build_model_and_data(cfg, engine)
+    # Construcción de modelo y dataloader (sin validación)
+    model, train_loader, names = _build_model_and_data(cfg, engine)
 
     # Instanciar trainer
-    trainer = Trainer(model, train_loader, val_loader, names, cfg, engine)
+    trainer = Trainer(model, train_loader, names, cfg, engine)
 
-    # Banner de configuración efectiva
-    _print_banner(cfg, engine)
-
-    # Ejecutar
+    # Ejecutar (el banner se imprime dentro de Trainer.fit())
     trainer.fit()
 
 

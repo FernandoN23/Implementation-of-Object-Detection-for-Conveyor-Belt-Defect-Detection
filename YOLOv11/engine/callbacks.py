@@ -10,24 +10,21 @@
 #              eventos del ciclo de entrenamiento/validación sin
 #              contaminar el bucle principal. Incluye un gestor
 #              (CallbackManager), interfaz base y callbacks ejemplo
-#              (CSV/TensorBoard/Overlays/Checkpoints).
+#              (TensorBoard/Overlays/Checkpoints). CSV eliminado.
 #==============================================================
 
 from __future__ import annotations
 
-import csv
 import importlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol
-
+from typing import Any, Dict, Iterable, List, Optional, Protocol
 
 __all__ = [
     "Callback",
     "CallbackManager",
     "CallbackConfig",
-    "CSVCallback",
     "TensorBoardCallback",
     "OverlaysCallback",
     "CheckpointCallback",
@@ -50,6 +47,7 @@ class Callback(Protocol):
     def on_train_batch_start(self, trainer: Any, step: int, batch: Any) -> None: ...
     def on_train_batch_end(self, trainer: Any, step: int, loss: float, items: Dict[str, float]) -> None: ...
     def on_train_epoch_end(self, trainer: Any, epoch: int, train_stats: Dict[str, float]) -> None: ...
+    def on_train_end(self, trainer: Any) -> None: ...  # ← cierre ordenado
 
     # Validación
     def on_val_start(self, trainer: Any, epoch: int) -> None: ...
@@ -71,12 +69,13 @@ class Callback(Protocol):
 
 @dataclass
 class CallbackConfig:
-    enable_tb: bool = False
-    enable_csv: bool = True
+    enable_tb: bool = True
     enable_overlays: bool = True
     enable_ckpt: bool = True
     overlays_interval: int = 10
     overlays_samples: int = 8
+    overlays_tb: bool = True                 # enviar overlays a TensorBoard
+    overlays_train_fallback: bool = True     # usar train_loader si no hay val_loader
 
 
 class CallbackManager:
@@ -130,6 +129,9 @@ class CallbackManager:
     def on_train_epoch_end(self, trainer: Any, epoch: int, train_stats: Dict[str, float]) -> None:
         self._safe_call("on_train_epoch_end", trainer, epoch, train_stats)
 
+    def on_train_end(self, trainer: Any) -> None:
+        self._safe_call("on_train_end", trainer)
+
     def on_val_start(self, trainer: Any, epoch: int) -> None:
         self._safe_call("on_val_start", trainer, epoch)
 
@@ -147,61 +149,8 @@ class CallbackManager:
 
 
 # -------------------------------
-# Callbacks de ejemplo incluidos
+# Callbacks incluidos
 # -------------------------------
-
-class _CSVWriter:
-    """Escritor CSV mínimo por si no existe trainer.logger_csv (utils)."""
-
-    def __init__(self, path: str) -> None:
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._fh = open(self.path, "a", newline="", encoding="utf-8")
-        self._writer = None
-
-    def write(self, row: Dict[str, Any]) -> None:
-        if self._writer is None:
-            self._writer = csv.DictWriter(self._fh, fieldnames=list(row.keys()))
-            if self._fh.tell() == 0:
-                self._writer.writeheader()
-        self._writer.writerow(row)
-        self._fh.flush()
-
-    def close(self) -> None:
-        try:
-            self._fh.close()
-        except Exception:
-            pass
-
-
-class CSVCallback:
-    """Registra métricas por época en results.csv del experimento."""
-
-    def __init__(self, save_dir: str) -> None:
-        self.save_dir = Path(save_dir)
-        self.writer: Optional[_CSVWriter] = None
-
-    def on_train_start(self, trainer: Any) -> None:
-        csv_path = self.save_dir / "results.csv"
-        self.writer = _CSVWriter(str(csv_path))
-
-    def on_fit_epoch_end(self, trainer: Any, epoch: int, train_stats: Dict[str, float], val_stats: Dict[str, float]) -> None:
-        if self.writer is None:
-            return
-        row = {"epoch": epoch}
-        # aplanar con prefijos
-        row.update({f"train_{k}": float(v) for k, v in (train_stats or {}).items()})
-        row.update({f"val_{k}": float(v) for k, v in (val_stats or {}).items()})
-        self.writer.write(row)
-
-    def on_exception(self, trainer: Any, exc: BaseException) -> None:
-        if self.writer:
-            self.writer.close()
-
-    def on_train_end(self, trainer: Any) -> None:
-        if self.writer:
-            self.writer.close()
-
 
 class TensorBoardCallback:
     """Emite scalars a TensorBoard si tensorboard está disponible y habilitado."""
@@ -239,23 +188,70 @@ class TensorBoardCallback:
 
 
 class OverlaysCallback:
-    """Genera overlays pred–GT cada N épocas usando engine.overlays."""
+    """Genera overlays pred–GT cada N épocas usando engine.overlays.
 
-    def __init__(self, save_dir: str, interval: int = 10, samples: int = 8) -> None:
+    Si no existe `trainer.val_loader`, usa `trainer.train_loader` (fallback)
+    para una validación interna con el mismo set de entrenamiento.
+    Opcionalmente publica las imágenes en TensorBoard.
+    """
+
+    def __init__(self, save_dir: str, interval: int = 10, samples: int = 8, to_tensorboard: bool = True) -> None:
         from .overlays import OverlaysManager, OverlayConfig  # import local
         self.save_dir = Path(save_dir) / "overlays"
         self.mgr = OverlaysManager(OverlayConfig(save_dir=str(self.save_dir), interval=interval, num_samples=samples))
+        self.to_tb = to_tensorboard
+        self.tb = None  # SummaryWriter opcional
+
+    def on_train_start(self, trainer: Any) -> None:
+        if not self.to_tb:
+            return
+        try:
+            from torch.utils.tensorboard import SummaryWriter  # type: ignore
+            tb_dir = Path(getattr(trainer, "save_dir", self.save_dir.parent)) / "tb"
+            self.tb = SummaryWriter(log_dir=str(tb_dir))
+        except Exception as e:
+            print(f"[callbacks] TensorBoard (overlays) no disponible: {e}")
+            self.to_tb = False
 
     def on_fit_epoch_end(self, trainer: Any, epoch: int, train_stats: Dict[str, float], val_stats: Dict[str, float]) -> None:
-        if not hasattr(trainer, "val_loader") or trainer.val_loader is None:
+        # Seleccionar loader: validación real o fallback a train
+        loader = getattr(trainer, "val_loader", None)
+        if loader is None:
+            loader = getattr(trainer, "train_loader", None)
+        if loader is None:
             return
+
         names = getattr(trainer, "names", None)
         try:
-            out = self.mgr.run(epoch, getattr(trainer, "model_eval", trainer.model), trainer.val_loader, names=names)
+            out = self.mgr.run(epoch, getattr(trainer, "model_eval", trainer.model), loader, names=names)
             if out:
                 print(f"[callbacks] overlays → {out}")
+                if self.to_tb and self.tb is not None:
+                    # Cargar y publicar algunas imágenes en TB (mejor esfuerzo)
+                    try:
+                        from PIL import Image  # type: ignore
+                        import numpy as np
+                        paths = out if isinstance(out, (list, tuple)) else [out]
+                        for i, p in enumerate(paths):
+                            if i >= 4:  # publicar pocas por época
+                                break
+                            img = Image.open(p).convert("RGB")
+                            arr = np.asarray(img)
+                            # HWC→CHW
+                            chw = arr.transpose(2, 0, 1)
+                            self.tb.add_image(f"overlays/epoch_{epoch}/sample_{i}", chw, epoch)
+                        self.tb.flush()
+                    except Exception as e:
+                        print(f"[callbacks] overlays→TB error: {e}")
         except Exception as e:
             print(f"[callbacks] overlays error: {e}")
+
+    def on_train_end(self, trainer: Any) -> None:
+        if self.tb:
+            try:
+                self.tb.flush(); self.tb.close()
+            except Exception:
+                pass
 
 
 class CheckpointCallback:
@@ -277,12 +273,10 @@ def build_default_callbacks(save_dir: str, cfg: Optional[CallbackConfig] = None)
     cfg = cfg or CallbackConfig()
     mgr = CallbackManager(save_dir, cfg)
 
-    if cfg.enable_csv:
-        mgr.add(CSVCallback(save_dir))
     if cfg.enable_tb:
         mgr.add(TensorBoardCallback(save_dir, enabled=True))
     if cfg.enable_overlays:
-        mgr.add(OverlaysCallback(save_dir, interval=cfg.overlays_interval, samples=cfg.overlays_samples))
+        mgr.add(OverlaysCallback(save_dir, interval=cfg.overlays_interval, samples=cfg.overlays_samples, to_tensorboard=cfg.overlays_tb))
     if cfg.enable_ckpt:
         mgr.add(CheckpointCallback())
 
