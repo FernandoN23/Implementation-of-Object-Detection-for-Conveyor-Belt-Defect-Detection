@@ -130,82 +130,51 @@ def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
     )
 
 
-class _DictLoaderAdapter:
-    """Adaptador minimal para que entrenamiento reciba batches en dict.
-    Envuelve un DataLoader que entrega (imgs, targets, meta) y produce
-    {"img": imgs, "targets": targets, "meta": meta}.
-    """
-    def __init__(self, base_loader: Iterable, device) -> None:
-        self.base = base_loader
-        self._len = None
-        try:
-            self._len = len(base_loader)  # tipo DataLoader tiene __len__
-        except Exception:
-            self._len = None
-        self.device = device
-
-    def __len__(self) -> int:
-        if self._len is None:
-            raise TypeError("Base loader no expone __len__")
-        return int(self._len)
-
-    def __iter__(self) -> Iterator[Dict[str, Any]]:
-        for b in self.base:
-            if isinstance(b, tuple) and len(b) == 3:
-                imgs, targets, meta = b
-                yield {"img": imgs.to(self.device), "targets": targets.to(self.device), "meta": meta}
-            elif isinstance(b, dict):
-                d = dict(b)
-                if "img" in d and hasattr(d["img"], "to"):
-                    d["img"] = d["img"].to(self.device)
-                if "targets" in d and hasattr(d["targets"], "to"):
-                    d["targets"] = d["targets"].to(self.device)
-                yield d
-            else:
-                yield b
-
+# ---------------------------------------------------------------------------
+# 3.1) Construcción de modelo y datos (delegando en data_loader.py)
+# ---------------------------------------------------------------------------
 
 def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
     """Construye modelo y dataloader de entrenamiento usando utilidades del proyecto.
 
-    Cambio solicitado:
-      - Adoptar `utility/data_loader.py` para los datos reales de *train*.
-      - Mantener `engine.utils.build_model` para el ensamblado del modelo.
-      - **Excluir** la partición de validación (no se crea `val_loader`).
+    Cambios:
+      - Delegación total al `utility/data_loader.py` (API `build_train_bundle`).
+      - Normalización de `names` a lista y telemetría de dataset impresa aquí.
+      - **Sin** crear partición de validación externa.
     """
     ut = engine["utils"]
 
     # 1) Modelo (igual que antes)
     model = ut.build_model(cfg.model, variant=cfg.variant)
 
-    # 2) DataLoader de entrenamiento desde utility/data_loader.py
+    # 2) DataLoader + names + resumen desde utility/data_loader.py
     project_root = Path(__file__).resolve().parent  # raíz que contiene configs/ y models/
     udata = engine["util_data"]
 
-    train_loader = udata.build_yolo_dataloader(
-        split="train", batch=cfg.batch, imgsz=cfg.imgsz, workers=cfg.workers, project_root=project_root
+    train_loader, names_list, info = udata.build_train_bundle(
+        project_root=project_root,
+        split="train",
+        batch=cfg.batch,
+        imgsz=cfg.imgsz,
+        workers=cfg.workers,
+        augment=True,
     )
 
-    # 3) Nombres/clases desde dataset.yaml
-    ds_yaml = udata.load_dataset_yaml(project_root)
-    names = ds_yaml.get("names", {})
-    if isinstance(names, dict):
-        names = {int(k): v for k, v in names.items()}
-
-    # 4) (Opcional) Mostrar info del dataset si se activa el flag (solo train)
+    # 3) Telemetría de datos
     if cfg.get("dl_info", False):
-        try:
-            nc = len(names) if hasattr(names, "__len__") else int(names)
-        except Exception:
-            nc = 0
-        try:
-            n_train = len(getattr(train_loader, "dataset", []))
-        except Exception:
-            n_train = "?"
-        train_path = str(Path(ds_yaml.get("train", "")).resolve())
-        print(f"Dataset cargado / partición: train / N° imágenes = {n_train} / nc = {nc} / ruta: {train_path}")
+        names_fmt = "[" + ", ".join(str(n) for n in names_list) + "]"
+        msg = (
+            f"[data_loader] split={info.split}\n"
+            f"[data_loader] images={info.images_dir}\n"
+            f"[data_loader] labels={info.labels_dir}\n"
+            f"[data_loader] count={info.count} nc={info.nc}  names={names_fmt}\n"
+            f"[data_loader] names={names_fmt}\n"
+            f"[data_loader] imgsz={info.imgsz}  workers={info.workers}"
+            f"pin_memory={info.pin_memory}  persistent={info.persistent_workers}"
+        )
+        print(msg, flush=True)
 
-    return model, train_loader, names
+    return model, train_loader, names_list
 
 
 def _fitness(metrics: Dict[str, float]) -> float:
@@ -230,8 +199,14 @@ class Trainer:
         ut = engine["utils"]
         self.device = ut.select_device(cfg.device)
         ut.seed_everything(cfg.seed)
-        self.save_dir = ut.setup_save_dir(cfg.project, cfg.name, exist_ok=cfg.exist_ok)
+        # --- FIX ruta de runs anclada a YOLOv11/ ---
+        project_path = Path(cfg.project)
+        if not project_path.is_absolute():
+            project_path = Path(__file__).resolve().parent / project_path
+        project_path = project_path.resolve()
+        self.save_dir = ut.setup_save_dir(str(project_path), cfg.name, exist_ok=cfg.exist_ok)
         self.cfg.save_dir = self.save_dir  # para banner
+        self.cfg.project = str(project_path)  # reflejar ruta absoluta en banner y downstream
 
         # === Logger de experimento (utility/logger.py) ===
         self.logger = engine["ExperimentLogger"](
@@ -342,8 +317,8 @@ class Trainer:
         # Límite de tiempo (0 = ilimitado)
         self.timer = ut.timed_stop(cfg.time_limit)
 
-        # Adaptador de loader a dict en dispositivo
-        self.train_loader_adapt = _DictLoaderAdapter(self.train_loader, self.device)
+        # Adaptador de loader a dict en dispositivo (delegado al módulo utility.data_loader)
+        self.train_loader_adapt = engine["util_data"].as_dict_loader(self.train_loader, self.device)
 
     # -----------------------------
     def fit(self) -> None:
