@@ -8,7 +8,7 @@
 # Archivo: YOLOv11/train.py
 # Descripción: Script principal de entrenamiento. Orquesta bootstrap ROCm,
 #  construcción de modelo/datos, loop de entrenamiento con AMP/EMA,
-#  callbacks/overlays, validación y HUD de consola. Incluye modo --test
+#  callbacks, validación interna (val_int) y HUD de consola. Incluye modo --test
 #  para prueba de ensamblado y warmup configurable.
 #==============================================================
 
@@ -19,7 +19,7 @@ import time
 import json
 import argparse
 from datetime import datetime
-from typing import Any, Dict, Tuple, Iterable, Iterator
+from typing import Any, Dict, Tuple, Iterable, Iterator, List
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -79,7 +79,6 @@ def _lazy_import_engine():
         warmup_sanity as engine_warmup,
         utils as ut,
         bn2gn_patch as b2g,
-        overlays as _engine_overlays,  # usado por callbacks
         hud as engine_hud,
     )
     # Utilidades solicitadas: DataLoader, Losses y Logger desde utility/
@@ -94,7 +93,7 @@ def _lazy_import_engine():
         optim=engine_optim,
         ema=engine_ema,
         callbacks=engine_callbacks,
-        validator=engine_validator,  # importado pero no usado si no hay validación
+        validator=engine_validator,  # usado para validación interna (val_int)
         warmup=engine_warmup,
         utils=ut,
         b2g=b2g,
@@ -127,7 +126,7 @@ def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
         f"AMP={cfg.amp}  EMA={'ON' if cfg.ema else 'OFF'}  HUD={'ON' if cfg.hud else 'OFF'}\n"
         f"Device={device_info}  Batch={cfg.batch}  ImgSz={cfg.imgsz}  Epochs={cfg.epochs}\n"
         f"Project={cfg.project}  SaveDir={cfg.save_dir}\n"
-        f"Warmup={cfg.warmup}  Overlays every {cfg.overlays_interval} epochs\n"
+        f"Warmup={cfg.warmup}  ValInt every {cfg.val_int_interval} epochs\n"
     )
 
 
@@ -294,8 +293,8 @@ class Trainer:
         # EMA
         self.ema = engine["ema"].ModelEMA(self.model, cfg=engine["ema"].EMAConfig()) if cfg.ema else None
 
-        # Callbacks
-        self.cb = engine["callbacks"].build_default_callbacks(self.save_dir, cfg=DotDict(overlays_interval=cfg.overlays_interval))
+        # Callbacks (sin overlays)
+        self.cb = engine["callbacks"].build_default_callbacks(self.save_dir, cfg=DotDict(val_int_interval=cfg.val_int_interval))
 
         # HUD
         self.hud = engine["hud"].HUD(engine["hud"].HUDConfig(enable=cfg.hud)) if cfg.hud else None
@@ -366,6 +365,12 @@ class Trainer:
         self.cb.on_train_start(trainer=self)
         iters_per_epoch = len(self.train_loader)
 
+        # Preparar nombres como lista para validator (si vienen como dict)
+        if isinstance(self.names, dict):
+            names_list: List[str] = [self.names[i] for i in sorted(self.names.keys())]
+        else:
+            names_list = list(self.names) if hasattr(self.names, "__iter__") else []
+
         for epoch in range(self.start_epoch, self.cfg.epochs):
             self.model.train()
             if self.hud:
@@ -421,26 +426,71 @@ class Trainer:
             for k, v in scalars_sum.items():
                 train_metrics[k] = v / max(1, count)
 
-            # Guardado de pesos mediante WeightsManager (sin validación)
+            # ===== Validación interna (val_int) por intervalo =====
+            val_metrics: Dict[str, float] = {}
+            run_val_int = (epoch % max(1, int(self.cfg.val_int_interval)) == 0) or (epoch == 0)
+            if run_val_int:
+                model_eval = self.ema.ema if self.ema is not None else self.model
+                try:
+                    val_metrics = engine["validator"].validate_interna(
+                        model_eval,
+                        loader=self.train_loader_adapt if self.cfg.val_int_use_train_subset else None,
+                        names=names_list,
+                        save_dir=str(self.save_dir),
+                        conf_thres=float(self.cfg.val_int_conf),
+                        iou_thres=0.60,
+                        device=str(self.device),
+                        # internos
+                        epoch=int(epoch),
+                        max_batches=int(self.cfg.val_int_max_batches),
+                        split=str(self.cfg.val_int_split),
+                        use_pivots=bool(self.cfg.val_int_pivots),
+                        # TB
+                        tb_enable=bool(self.cfg.val_int_tb),
+                        tb_variant=str(self.cfg.variant),
+                        tb_run_name=str(self.cfg.name),
+                        tb_nrow=int(self.cfg.val_int_tb_nrow),
+                        tb_conf_thr=float(self.cfg.val_int_tb_conf),
+                        tb_topk=int(self.cfg.val_int_tb_topk),
+                        dataset_base=self.cfg.dataset_base,
+                        # slots
+                        phase="val",
+                        slot="epoch",
+                        run_name=str(self.cfg.name),
+                        step_tag=f"epoch_{epoch:03d}",
+                        verbose=1,
+                    )
+                except Exception as e:
+                    print(f"[val_int] Advertencia: validación interna falló en época {epoch}: {e}")
+                    val_metrics = {}
+
+            # Fitness y guardado de pesos
+            fitness = _fitness(val_metrics) if val_metrics else -1e9
+            is_best = fitness > self.best_fitness
+            if is_best:
+                self.best_fitness = fitness
+
             path = self.wm.save_epoch(
                 self.model,
                 epoch,
-                score=0.0,  # sin métrica de validación
+                score=(fitness if fitness > -1e8 else 0.0),
                 optimizer=self.optimizer,
                 scheduler=self.scheduler,
                 extra={"imgsz": self.cfg.imgsz, "batch": self.cfg.batch},
                 save_full_model=False,
             )
-            self.cb.on_model_save(self, path, best=False)
+            self.cb.on_model_save(self, path, best=is_best)
 
-            # Logging de época (train)
+            # Logging de época (train + val_int si existió)
             try:
                 self.logger.log_epoch(epoch, train_metrics, split="train")
+                if val_metrics:
+                    self.logger.log_epoch(epoch, val_metrics, split="val_int")
             except Exception:
                 pass
 
-            # Callback de fin de época (usar métricas de train)
-            self.cb.on_fit_epoch_end(self, epoch, train_stats=train_metrics, val_stats={})
+            # Callback de fin de época (usar métricas disponibles)
+            self.cb.on_fit_epoch_end(self, epoch, train_stats=train_metrics, val_stats=(val_metrics or {}))
             if self.hud:
                 self.hud.update_epoch(epoch)
 
@@ -579,8 +629,7 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument('--no-ema', dest='ema', action='store_false')
     p.add_argument('--compile', action='store_true', default=False)
 
-    # overlays / hud / resume / tiempo / outputs
-    p.add_argument('--overlays-interval', type=int, default=5)
+    # HUD / resume / tiempo / outputs
     p.add_argument('--hud', action='store_true', default=None)
     p.add_argument('--no-hud', dest='hud', action='store_false')
     p.add_argument('--resume', type=str, default=None)
@@ -591,6 +640,26 @@ def build_argparser() -> argparse.ArgumentParser:
 
     # info de data_loader (flag solicitado)
     p.add_argument('--dl-info', action='store_true', help='Muestra info del dataset por partición al cargar')
+
+    # === Validación interna (val_int) ===
+    p.add_argument('--val-int-interval', type=int, default=5, help='Intervalo de épocas para validación interna')
+    p.add_argument('--val-int-max-batches', type=int, default=1, help='Nº de batches (subset) para métrica rápida')
+    p.add_argument('--val-int-use-train-subset', action='store_true', default=False,
+                   help='Usa subset del train_loader para métricas internas (si no, sólo pivotes/TB)')
+    p.add_argument('--val-int-conf', type=float, default=0.25, help='Confianza mínima para val_int/TB')
+    p.add_argument('--val-int-split', type=str, default='val', choices=['train','val'],
+                   help='Split de pivotes para TB (visualización)')
+    p.add_argument('--val-int-pivots', action='store_true', default=True,
+                   help='Dibujar también imágenes pivote en TB (GT o GT+Pred)')
+    p.add_argument('--no-val-int-pivots', dest='val_int_pivots', action='store_false')
+
+    # TensorBoard para val_int
+    p.add_argument('--val-int-tb', action='store_true', default=True, help='Habilita TB en validación interna')
+    p.add_argument('--no-val-int-tb', dest='val_int_tb', action='store_false')
+    p.add_argument('--val-int-tb-nrow', type=int, default=3)
+    p.add_argument('--val-int-tb-conf', type=float, default=0.25)
+    p.add_argument('--val-int-tb-topk', type=int, default=5)
+    p.add_argument('--dataset-base', type=str, default=None, help='Ruta base del dataset (para pivotes TB)')
 
     # modo prueba
     p.add_argument('--test', action='store_true', help='Ejecuta prueba de ensamblado y sale')
@@ -638,7 +707,6 @@ def main(cli: argparse.Namespace) -> None:
         amp=amp_mode,
         ema=bool(cli.ema),
         compile=bool(cli.compile),
-        overlays_interval=cli.overlays_interval,
         hud=bool(cli.hud),
         resume=cli.resume,
         project=cli.project,
@@ -648,9 +716,21 @@ def main(cli: argparse.Namespace) -> None:
         world_size=int(os.environ.get('WORLD_SIZE', '1')),
         test=bool(cli.test),
         dl_info=bool(cli.dl_info),
+        # val_int
+        val_int_interval=int(cli.val_int_interval),
+        val_int_max_batches=int(cli.val_int_max_batches),
+        val_int_use_train_subset=bool(cli.val_int_use_train_subset),
+        val_int_conf=float(cli.val_int_conf),
+        val_int_split=str(cli.val_int_split),
+        val_int_pivots=bool(cli.val_int_pivots),
+        val_int_tb=bool(cli.val_int_tb),
+        val_int_tb_nrow=int(cli.val_int_tb_nrow),
+        val_int_tb_conf=float(cli.val_int_tb_conf),
+        val_int_tb_topk=int(cli.val_int_tb_topk),
+        dataset_base=cli.dataset_base,
     )
 
-    # Construcción de modelo y dataloader (sin validación)
+    # Construcción de modelo y dataloader (sin validación externa)
     model, train_loader, names = _build_model_and_data(cfg, engine)
 
     # Instanciar trainer
