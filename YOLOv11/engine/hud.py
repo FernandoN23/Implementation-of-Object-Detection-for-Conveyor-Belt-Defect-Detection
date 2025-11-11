@@ -6,11 +6,10 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: engine/hud.py
-# Descripción: HUD minimalista para consola con telemetría de
-#              entrenamiento (época, iteración, LR, pérdidas,
-#              tiempo/iter, VRAM reservada/máxima, etc.). Incluye
-#              control de frecuencia (throttle) y compatibilidad con
-#              DDP (solo rank 0).
+# Descripción: HUD unificado para consola con telemetría de warmup y
+#              entrenamiento: progreso, LR, pérdidas, tiempos (ms/it,
+#              it/s, ETA), VRAM (alloc/reserved/peak y % global) y
+#              cabeceras de fase. Incluye throttle y compatibilidad DDP.
 #==============================================================
 
 from __future__ import annotations
@@ -18,8 +17,10 @@ from __future__ import annotations
 import os
 import sys
 import time
+from collections import deque
 from dataclasses import dataclass
-from typing import Dict, Optional
+from statistics import mean
+from typing import Dict, Optional, List
 
 import torch
 
@@ -40,19 +41,53 @@ def format_bytes(n: int) -> str:
     return f"{f:.2f} PB"
 
 
-def _device_mem() -> Dict[str, int]:
-    """Lee memoria de dispositivo (CUDA/HIP)."""
-    out = {"reserved": 0, "allocated": 0, "max_allocated": 0}
+def _format_eta(seconds: float) -> str:
+    if seconds <= 0 or not (seconds < 1e7):
+        return "--:--"
+    m, s = divmod(int(seconds + 0.5), 60)
+    h, m = divmod(m, 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
+
+def _device_mem() -> Dict[str, float]:
+    """Lee memoria del dispositivo (CUDA/HIP) y % de uso global si está disponible.
+
+    Retorna:
+        dict con claves: reserved, allocated, max_allocated (bytes), total (bytes, 0 si no disponible),
+        used_pct (0–100, -1 si no disponible).
+    """
+    out = {
+        "reserved": 0.0,
+        "allocated": 0.0,
+        "max_allocated": 0.0,
+        "total": 0.0,
+        "used_pct": -1.0,
+    }
     try:
         if torch.cuda.is_available():
-            out["reserved"] = int(torch.cuda.memory_reserved())
-            out["allocated"] = int(torch.cuda.memory_allocated())
-            out["max_allocated"] = int(torch.cuda.max_memory_allocated())
+            out["reserved"] = float(torch.cuda.memory_reserved())
+            out["allocated"] = float(torch.cuda.memory_allocated())
+            out["max_allocated"] = float(torch.cuda.max_memory_allocated())
+            # mem_get_info existe en CUDA y ROCm modernos
+            try:
+                free, total = torch.cuda.mem_get_info()  # type: ignore[attr-defined]
+                out["total"] = float(total)
+                used_pct = 100.0 * (1.0 - float(free) / float(total)) if total > 0 else -1.0
+                out["used_pct"] = used_pct
+            except Exception:
+                pass
         elif hasattr(torch, "hip") and torch.hip.is_available():  # type: ignore[attr-defined]
-            # PyTorch ROCm expone la misma API de cuda.*
-            out["reserved"] = int(torch.cuda.memory_reserved())  # type: ignore[attr-defined]
-            out["allocated"] = int(torch.cuda.memory_allocated())  # type: ignore[attr-defined]
-            out["max_allocated"] = int(torch.cuda.max_memory_allocated())  # type: ignore[attr-defined]
+            # En ROCm Windows Preview, la API cuda.* apunta a HIP
+            out["reserved"] = float(torch.cuda.memory_reserved())  # type: ignore[attr-defined]
+            out["allocated"] = float(torch.cuda.memory_allocated())  # type: ignore[attr-defined]
+            out["max_allocated"] = float(torch.cuda.max_memory_allocated())  # type: ignore[attr-defined]
+            try:
+                free, total = torch.cuda.mem_get_info()  # type: ignore[attr-defined]
+                out["total"] = float(total)
+                used_pct = 100.0 * (1.0 - float(free) / float(total)) if total > 0 else -1.0
+                out["used_pct"] = used_pct
+            except Exception:
+                pass
     except Exception:
         pass
     return out
@@ -70,14 +105,24 @@ def _is_main_process() -> bool:
 
 @dataclass
 class HUDConfig:
+    # Visual
     width: int = 80                  # ancho de barra
-    interval: float = 0.05           # fracción de época entre updates (5%)
+    interval: float = 0.05           # fracción de época/iter entre updates
     min_update_s: float = 0.25       # límite temporal mínimo entre updates
-    enable: bool = True
-    show_vram: bool = True
-    show_items: bool = True          # mostrar desglose de pérdidas (box/cls/dfl)
     precision: int = 4
     stream: object = sys.stdout
+    enable: bool = True
+
+    # Qué mostrar
+    show_vram: bool = True
+    show_items: bool = True          # desglose de pérdidas
+    show_rate: bool = True           # it/s y samples/s
+    show_eta: bool = True            # ETA por época (train)
+
+    # Contexto opcional
+    batch: Optional[int] = None      # para calcular samples/s
+    phase_label_train: str = "TRAIN"
+    phase_label_warmup: str = "WARMUP"
 
 
 # -------------------------------
@@ -85,15 +130,21 @@ class HUDConfig:
 # -------------------------------
 
 class HUD:
-    """HUD simple y estable para bucles de entrenamiento.
+    """HUD unificado para warmup y entrenamiento.
 
-    Uso típico:
+    Uso típico (train):
         hud = HUD(HUDConfig(interval=0.05))
         hud.on_epoch_start(epoch, epochs, iters_per_epoch)
-        for i, batch in enumerate(loader):
-            ...
-            hud.update(epoch, i+1, iters_per_epoch, lr, loss, items, dt_ms)
+        for i, batch in enumerate(loader, 1):
+            hud.update(epoch, i, iters_per_epoch, lr, loss, items, dt_ms)
         hud.on_epoch_end()
+
+    Uso típico (warmup):
+        hud.on_warmup_start(total_iters, dtype="fp16", compile=False, stride=32,
+                            bn2gn="on", amp=True, find_mode="FAST", cache_disabled=True)
+        for i in range(1, total_iters+1):
+            hud.update_warmup(i, total_iters, dt_ms)
+        hud.on_warmup_end()
     """
 
     def __init__(self, cfg: Optional[HUDConfig] = None) -> None:
@@ -103,24 +154,32 @@ class HUD:
         self._epoch = 0
         self._epochs = 0
         self._iters_per_epoch = 0
+        # Ventana de tiempos (ms) para ETA y estadísticas
+        self._dt_window: deque[float] = deque(maxlen=50)
+        # Warmup context
+        self._wu_total = 0
+        self._wu_times: List[float] = []  # ms por iter
+        self._wu_ctx: Dict[str, object] = {}
 
-    # Eventos
+    # ---------------------------
+    # Entrenamiento (épocas)
+    # ---------------------------
     def on_epoch_start(self, epoch: int, epochs: int, iters_per_epoch: int) -> None:
         if not self.cfg.enable or not _is_main_process():
             return
         self._epoch = epoch
         self._epochs = epochs
         self._iters_per_epoch = max(1, iters_per_epoch)
+        self._dt_window.clear()
         self._last_print_t = 0.0
         self._last_progress_bucket = -1
-        self._writeln(f"Epoch {epoch+1}/{epochs}")
+        self._writeln(f"[{self.cfg.phase_label_train:>5}] Epoch {epoch+1}/{epochs}")
 
     def on_epoch_end(self) -> None:
         if not self.cfg.enable or not _is_main_process():
             return
         self._writeln("")  # salto de línea para separar épocas
 
-    # Núcleo
     def update(self,
                epoch: int,
                it: int,
@@ -133,23 +192,42 @@ class HUD:
             return
 
         now = time.perf_counter()
-        progress = min(0.9999, max(0.0, (it / float(max(1, iters_per_epoch)))))
+        progress = min(0.9999, max(0.0, it / float(max(1, iters_per_epoch))))
         bucket = int(progress / max(1e-6, self.cfg.interval))
         if bucket == self._last_progress_bucket and (now - self._last_print_t) < self.cfg.min_update_s:
             return
         self._last_progress_bucket = bucket
         self._last_print_t = now
 
+        self._dt_window.append(max(1e-6, float(dt_ms)))
+        mean_dt = mean(self._dt_window) if self._dt_window else float(dt_ms)
+        it_per_s = 1000.0 / mean_dt
+        smp_per_s = it_per_s * (self.cfg.batch or 0)
+        eta_s = (iters_per_epoch - it) * (mean_dt / 1000.0)
+
         bar = self._render_bar(progress)
-        vram = _device_mem() if self.cfg.show_vram else {"reserved": 0, "allocated": 0, "max_allocated": 0}
-        mem_txt = f"VRAM {format_bytes(vram['allocated'])} / {format_bytes(vram['reserved'])} (peak {format_bytes(vram['max_allocated'])})"
+        vram = _device_mem() if self.cfg.show_vram else {"reserved": 0.0, "allocated": 0.0, "max_allocated": 0.0, "total": 0.0, "used_pct": -1.0}
+        mem_txt = (
+            f"VRAM {format_bytes(int(vram['allocated']))} / {format_bytes(int(vram['reserved']))} "
+            f"(peak {format_bytes(int(vram['max_allocated']))}"
+        )
+        if vram.get("used_pct", -1.0) >= 0:
+            mem_txt += f", {vram['used_pct']:.1f}%"
+        mem_txt += ")"
+
         base = (
-            f"{bar}  it {it:>4}/{iters_per_epoch:<4}  lr {lr:.6f}  "
+            f"[{self.cfg.phase_label_train:>5}] {bar}  it {it:>4}/{iters_per_epoch:<4}  lr {lr:.6f}  "
             f"loss {loss:.{self.cfg.precision}f}  {dt_ms:.1f} ms/it"
         )
+        if self.cfg.show_rate:
+            base += f"  {it_per_s:5.1f} it/s"
+            if self.cfg.batch:
+                base += f"  {smp_per_s:6.1f} samp/s"
         if self.cfg.show_items and items:
             parts = [f"{k}:{float(v):.{self.cfg.precision}f}" for k, v in sorted(items.items())]
             base += "  [" + ", ".join(parts) + "]"
+        if self.cfg.show_eta:
+            base += f"  ETA {_format_eta(eta_s)}"
         if self.cfg.show_vram:
             base += "  |  " + mem_txt
 
@@ -157,13 +235,118 @@ class HUD:
         if it == iters_per_epoch:
             self._writeln("")
 
-    # Renderizado
+    # ---------------------------
+    # Warmup (iteraciones)
+    # ---------------------------
+    def on_warmup_start(self,
+                        total_iters: int,
+                        *,
+                        dtype: str,
+                        compile: bool,
+                        stride: int,
+                        bn2gn: str,
+                        amp: bool,
+                        find_mode: Optional[str] = None,
+                        cache_disabled: Optional[bool] = None) -> None:
+        if not self.cfg.enable or not _is_main_process():
+            return
+        self._wu_total = max(1, int(total_iters))
+        self._wu_times.clear()
+        self._wu_ctx = {
+            "dtype": str(dtype),
+            "compile": bool(compile),
+            "stride": int(stride),
+            "bn2gn": str(bn2gn),
+            "amp": bool(amp),
+            "find_mode": (str(find_mode) if find_mode is not None else None),
+            "cache_disabled": (bool(cache_disabled) if cache_disabled is not None else None),
+        }
+        head = (
+            f"[{self.cfg.phase_label_warmup:>6}] iters={self._wu_total}  dtype={dtype}  "
+            f"compile={bool(compile)}  stride={stride}  bn2gn={bn2gn}  amp={bool(amp)}"
+        )
+        if find_mode is not None:
+            head += f"  miopen.find={find_mode}"
+        if cache_disabled is not None:
+            head += f"  miopen.cache={'OFF' if cache_disabled else 'ON'}"
+        self._writeln(head)
+
+    def update_warmup(self, iter_idx: int, total_iters: int, dt_ms: float) -> None:
+        if not self.cfg.enable or not _is_main_process():
+            return
+
+        now = time.perf_counter()
+        progress = min(0.9999, max(0.0, iter_idx / float(max(1, total_iters))))
+        bucket = int(progress / max(1e-6, self.cfg.interval))
+        if bucket == self._last_progress_bucket and (now - self._last_print_t) < self.cfg.min_update_s:
+            # Aún así guardamos tiempo para estadísticas finales
+            self._wu_times.append(max(1e-6, float(dt_ms)))
+            return
+        self._last_progress_bucket = bucket
+        self._last_print_t = now
+
+        self._wu_times.append(max(1e-6, float(dt_ms)))
+        mean_dt = mean(self._wu_times) if self._wu_times else float(dt_ms)
+        it_per_s = 1000.0 / (mean_dt if mean_dt > 0 else 1e-6)
+
+        bar = self._render_bar(progress)
+        vram = _device_mem() if self.cfg.show_vram else {"reserved": 0.0, "allocated": 0.0, "max_allocated": 0.0, "total": 0.0, "used_pct": -1.0}
+        mem_txt = (
+            f"VRAM {format_bytes(int(vram['allocated']))} / {format_bytes(int(vram['reserved']))} "
+            f"(peak {format_bytes(int(vram['max_allocated']))}"
+        )
+        if vram.get("used_pct", -1.0) >= 0:
+            mem_txt += f", {vram['used_pct']:.1f}%"
+        mem_txt += ")"
+
+        base = (
+            f"[{self.cfg.phase_label_warmup:>6}] {bar}  it {iter_idx:>4}/{total_iters:<4}  "
+            f"{dt_ms:.1f} ms/it  {it_per_s:5.1f} it/s"
+        )
+        if self.cfg.batch:
+            base += f"  {(it_per_s * self.cfg.batch):6.1f} samp/s"
+        if self.cfg.show_vram:
+            base += "  |  " + mem_txt
+
+        self._write("\r" + base)
+        if iter_idx == total_iters:
+            self._writeln("")
+
+    def on_warmup_end(self) -> None:
+        if not self.cfg.enable or not _is_main_process():
+            return
+        if not self._wu_times:
+            self._writeln(f"[{self.cfg.phase_label_warmup:>6}] sin métricas")
+            return
+        t_first_ms = self._wu_times[0]
+        rest = self._wu_times[1:] if len(self._wu_times) > 1 else self._wu_times
+        t_mean_ms = mean(rest)
+        # p95 simple
+        p95_ms = sorted(rest)[max(0, int(0.95 * (len(rest) - 1)))] if rest else t_mean_ms
+        vram = _device_mem() if self.cfg.show_vram else {"reserved": 0.0, "allocated": 0.0, "max_allocated": 0.0, "total": 0.0, "used_pct": -1.0}
+
+        summary = (
+            f"[{self.cfg.phase_label_warmup:>6}] t_first={t_first_ms/1000.0:.3f} s  "
+            f"t_mean={t_mean_ms:.1f} ms  p95={p95_ms:.1f} ms"
+        )
+        if self.cfg.show_vram:
+            summary += (
+                f"  |  VRAM {format_bytes(int(vram['allocated']))} / {format_bytes(int(vram['reserved']))} "
+                f"(peak {format_bytes(int(vram['max_allocated']))}"
+            )
+            if vram.get("used_pct", -1.0) >= 0:
+                summary += f", {vram['used_pct']:.1f}%"
+            summary += ")"
+        self._writeln(summary)
+
+    # ---------------------------
+    # Renderizado / Salida
+    # ---------------------------
     def _render_bar(self, progress: float) -> str:
         w = max(10, self.cfg.width)
         fill = int(progress * w)
         return "[" + "#" * fill + "-" * (w - fill) + f"] {progress*100:5.1f}%"
 
-    # Salida
     def _write(self, s: str) -> None:
         try:
             self.cfg.stream.write(s)
@@ -181,8 +364,20 @@ class HUD:
 if __name__ == "__main__":  # pragma: no cover
     import random
 
-    hud = HUD(HUDConfig(width=40, interval=0.1, min_update_s=0.0))
-    epochs, iters = 1, 50
+    hud = HUD(HUDConfig(width=40, interval=0.1, min_update_s=0.0, batch=4))
+
+    # Warmup demo
+    hud.on_warmup_start(3, dtype="fp16", compile=False, stride=32, bn2gn="on", amp=True, find_mode="FAST", cache_disabled=True)
+    t = time.perf_counter()
+    for i in range(1, 4):
+        time.sleep(0.05)
+        dt_ms = (time.perf_counter() - t) * 1000.0
+        hud.update_warmup(i, 3, dt_ms)
+        t = time.perf_counter()
+    hud.on_warmup_end()
+
+    # Train demo
+    epochs, iters = 1, 20
     hud.on_epoch_start(0, epochs, iters)
     t0 = time.perf_counter()
     for i in range(1, iters + 1):

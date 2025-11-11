@@ -42,7 +42,7 @@ def _bootstrap_before_torch(args: argparse.Namespace) -> None:
     # Lee posibles overrides desde el entorno. Si no existen, usa defaults.
     find_mode = os.environ.get("MIOPEN_FIND_MODE", "FAST")
     user_db_path = os.environ.get("MIOPEN_USER_DB_PATH", None)
-    disable_cache_env = os.environ.get("MIOPEN_DISABLE_CACHE", "0").strip().lower() in {"1","true","yes"}
+    disable_cache_env = os.environ.get("MIOPEN_DISABLE_CACHE", "1").strip().lower() in {"1","true","yes"}
     log_level_env = os.environ.get("MIOPEN_LOG_LEVEL", "0")
 
     try:
