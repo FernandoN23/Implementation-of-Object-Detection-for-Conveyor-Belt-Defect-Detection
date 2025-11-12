@@ -16,10 +16,9 @@ from __future__ import annotations
 import os
 import sys
 import time
-import json
 import argparse
 from datetime import datetime
-from typing import Any, Dict, Tuple, Iterable, Iterator, List
+from typing import Any, Dict, List
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -69,7 +68,9 @@ def _bootstrap_before_torch(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 def _lazy_import_engine():
-    """Importa módulos del engine una vez realizado el bootstrap."""
+    """Importa módulos del engine una vez realizado el bootstrap.
+    Nota: no importar `engine.CLI` aquí; el parser se usa sólo en `__main__`.
+    """
     from YOLOv11.engine import (
         amp as engine_amp,
         optim as engine_optim,
@@ -120,13 +121,14 @@ def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
     ut = engine["utils"]
     device_info = ut.device_info()
     mode = "TEST" if cfg.test else ("WARMUP" if cfg.warmup != "off" else "TRAIN")
+    warm_ep = f" (epochs={cfg.warmup_epochs})" if int(cfg.get("warmup_epochs", 0)) > 0 else ""
     print(
         "\n[YOLOv11] "
         f"MODE={mode}  VARIANT={cfg.variant}  BN2GN={cfg.bn2gn}  "
         f"AMP={cfg.amp}  EMA={'ON' if cfg.ema else 'OFF'}  HUD={'ON' if cfg.hud else 'OFF'}\n"
         f"Device={device_info}  Batch={cfg.batch}  ImgSz={cfg.imgsz}  Epochs={cfg.epochs}\n"
         f"Project={cfg.project}  SaveDir={cfg.save_dir}\n"
-        f"Warmup={cfg.warmup}  ValInt every {cfg.val_int_interval} epochs\n"
+        f"Warmup={cfg.warmup}{warm_ep}  ValInt every {cfg.val_int_interval} epochs\n"
     )
 
 
@@ -160,7 +162,7 @@ def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
         augment=True,
     )
 
-    # 3) Telemetría de datos
+    # 3) Telemetría de datos (el prefijo [data_loader] se emite desde train.py)
     if cfg.get("dl_info", False):
         names_fmt = "[" + ", ".join(str(n) for n in names_list) + "]"
         msg = (
@@ -168,8 +170,7 @@ def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
             f"[data_loader] images={info.images_dir}\n"
             f"[data_loader] labels={info.labels_dir}\n"
             f"[data_loader] count={info.count} nc={info.nc}  names={names_fmt}\n"
-            f"[data_loader] names={names_fmt}\n"
-            f"[data_loader] imgsz={info.imgsz}  workers={info.workers}"
+            f"[data_loader] imgsz={info.imgsz}  workers={info.workers}  "
             f"pin_memory={info.pin_memory}  persistent={info.persistent_workers}"
         )
         print(msg, flush=True)
@@ -324,6 +325,10 @@ class Trainer:
     def fit(self) -> None:
         self._print_mode_banner()
 
+        # Warm-up previo a TRAIN si se solicita por CLI (no interrumpe flujo normal)
+        if not self.cfg.test and int(self.cfg.get("warmup_epochs", 0)) > 0 and self.hud:
+            self._run_warmup_hud(loops=int(self.cfg.warmup_epochs))
+
         # Modo --test: prueba de ensamblado rápida y salida
         if self.cfg.test:
             self._assembly_test()
@@ -373,9 +378,9 @@ class Trainer:
                     scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v)
 
                 do_step = (i % self.accumulate) == 0
-                engine["amp"].safe_backward_step(
+                self.engine["amp"].safe_backward_step(
                     loss, self.optimizer, self.ampmgr,
-                    clip_fn=lambda: engine["optim"].clip_gradients(self.model, self.cfg.clip_norm, self.cfg.clip_mode),
+                    clip_fn=lambda: self.engine["optim"].clip_gradients(self.model, self.cfg.clip_norm, self.cfg.clip_mode),
                     zero_grad=do_step, set_to_none=True,
                 )
                 if do_step:
@@ -407,7 +412,7 @@ class Trainer:
             if run_val_int:
                 model_eval = self.ema.ema if self.ema is not None else self.model
                 try:
-                    val_metrics = engine["validator"].validate_interna(
+                    val_metrics = self.engine["validator"].validate_interna(
                         model_eval,
                         loader=self.train_loader_adapt if self.cfg.val_int_use_train_subset else None,
                         names=names_list,
@@ -480,73 +485,111 @@ class Trainer:
             pass
 
     # -----------------------------
-    def _assembly_test(self) -> None:
+    def _run_warmup_hud(self, loops: int = 1) -> None:
+        """Ejecuta warm-up sintético con HUD durante `loops` épocas virtuales.
+        Usa **exclusivamente** la API de warmup del HUD (on_warmup_*),
+        separada del HUD de TRAIN, para evitar encabezados como `[TRAIN] 2/1`.
+        """
         engine = self.engine
-        ut = engine["utils"]
+        torch_mod = engine["torch"]
+        core = getattr(self.model, "core", self.model)
 
-        # Warm-up robusto con configuración completa
-        if self.cfg.warmup in ("sanity", "fast", "full"):
-            # Inferir stride desde el modelo o usar fallback 32
-            torch_mod = engine["torch"]
-            core = getattr(self.model, "core", self.model)
-            stride = None
-            # Buscar atributos típicos de stride
-            for obj in (core, getattr(core, "model", None)):
-                if obj is None:
-                    continue
-                for attr in ("stride", "strides", "max_stride"):
-                    if hasattr(obj, attr):
-                        stride = getattr(obj, attr)
-                        break
-                if stride is not None:
+        # Inferir stride del modelo (fallback 32)
+        stride = None
+        for obj in (core, getattr(core, "model", None)):
+            if obj is None:
+                continue
+            for attr in ("stride", "strides", "max_stride"):
+                if hasattr(obj, attr):
+                    stride = getattr(obj, attr)
                     break
-            # Normalizar a entero
-            try:
-                if isinstance(stride, (list, tuple)):
-                    stride = int(max(stride))
-                elif isinstance(stride, dict):
-                    stride = int(max(int(v) for v in stride.values()))
-                elif hasattr(stride, "max"):
-                    try:
-                        stride = int(getattr(stride, "max")().item())
-                    except Exception:
-                        stride = int(stride)
-                elif isinstance(stride, (int, float)):
+            if stride is not None:
+                break
+        try:
+            if isinstance(stride, (list, tuple)):
+                stride = int(max(stride))
+            elif isinstance(stride, dict):
+                stride = int(max(int(v) for v in stride.values()))
+            elif hasattr(stride, "max"):
+                try:
+                    stride = int(getattr(stride, "max")().item())
+                except Exception:
                     stride = int(stride)
-                else:
-                    stride = None
-            except Exception:
-                stride = None
-            if not stride or stride <= 0:
-                stride = 32
-
-            # Mapear dtype según AMP
-            amp_mode = str(self.cfg.amp).lower()
-            if amp_mode == "bf16":
-                dtype = "bf16"
-            elif amp_mode == "fp16":
-                dtype = "fp16"
+            elif isinstance(stride, (int, float)):
+                stride = int(stride)
             else:
-                dtype = "fp32"
+                stride = None
+        except Exception:
+            stride = None
+        if not stride or stride <= 0:
+            stride = 32
 
-            # Iteraciones por modo
-            iters = 2 if self.cfg.warmup == "sanity" else (5 if self.cfg.warmup == "fast" else 10)
+        # Determinar dtype por AMP (para HUD)
+        amp_mode = str(self.cfg.amp).lower()
+        if amp_mode == "bf16":
+            dtype = "bf16"
+        elif amp_mode == "fp16":
+            dtype = "fp16"
+        else:
+            dtype = "fp32"
 
-            WarmupConfig = engine["warmup"].WarmupConfig
-            warm_cfg = WarmupConfig(
-                imgsz=int(self.cfg.imgsz),
-                bs=int(self.cfg.batch),
-                nc=(len(self.names) if hasattr(self.names, "__len__") else int(self.names)),
-                amp=(amp_mode != "off"),
-                device=str(self.device),
-                channels=3,
-                stride=int(stride),
-                iters=int(iters),
-                compile=bool(self.cfg.compile),
+        # Iteraciones por modo warmup
+        iters = 2 if self.cfg.warmup == "sanity" else (5 if self.cfg.warmup == "fast" else 10)
+        bs = int(self.cfg.batch)
+        imgsz = int(self.cfg.imgsz)
+        channels = 3
+        x = torch_mod.randn(bs, channels, imgsz, imgsz, device=self.device, dtype=torch_mod.float32)
+
+        # Contexto MIOpen para HUD
+        find_mode = os.environ.get("MIOPEN_FIND_MODE", None)
+        cache_env = os.environ.get("MIOPEN_DISABLE_CACHE", None)
+        cache_disabled = None
+        if cache_env is not None:
+            try:
+                cache_disabled = cache_env.strip().lower() in {"1", "true", "yes"}
+            except Exception:
+                cache_disabled = None
+
+        # Cabecera de warmup
+        print("[Warmup] Comenzando warmup...", flush=True)
+        if self.hud:
+            self.hud.on_warmup_start(
+                total_iters=iters,
                 dtype=dtype,
-                verbose=1,
+                compile=bool(self.cfg.compile),
+                stride=int(stride),
+                bn2gn=str(self.cfg.bn2gn),
+                amp=(amp_mode != "off"),
+                find_mode=find_mode,
+                cache_disabled=cache_disabled,
             )
-            engine["warmup"].warmup_sanity(self.model, device=self.device, cfg=warm_cfg)
+
+        # Épocas sintéticas de warmup
+        for ep in range(int(max(1, loops))):
+            print(f"[Warmup] Epoch {ep+1}/{int(max(1, loops))}", flush=True)
+            for i in range(1, iters + 1):
+                t0 = time.perf_counter()
+                with self.ampmgr.autocast():
+                    _ = core(x)
+                if torch_mod.cuda.is_available():
+                    try:
+                        torch_mod.cuda.synchronize()
+                    except Exception:
+                        pass
+                dt_ms = (time.perf_counter() - t0) * 1000.0
+                if self.hud:
+                    self.hud.update_warmup(i, iters, dt_ms)
+
+        # Resumen y cierre de warmup
+        if self.hud:
+            self.hud.on_warmup_end()
+        print("[Warmup] Finalizado.", flush=True)
+
+    # -----------------------------
+    def _assembly_test(self) -> None:
+        # Ejecuta warm-up con HUD si se solicitó por modo o por `warmup_epochs`
+        if self.cfg.warmup in ("sanity", "fast", "full") or int(self.cfg.get("warmup_epochs", 0)) > 0:
+            self._run_warmup_hud(loops=int(max(1, int(self.cfg.get("warmup_epochs", 0)))))
 
         # sanity: un minibatch real con backward/step
         self.model.train()
@@ -555,9 +598,9 @@ class Trainer:
                 core = getattr(self.model, "core", self.model)
                 preds = core(batch["img"])  # forward
                 loss, _ = self.criterion(preds, batch["targets"])  # pérdida
-            engine["amp"].safe_backward_step(
+            self.engine["amp"].safe_backward_step(
                 loss, self.optimizer, self.ampmgr,
-                clip_fn=lambda: engine["optim"].clip_gradients(self.model, self.cfg.clip_norm, self.cfg.clip_mode),
+                clip_fn=lambda: self.engine["optim"].clip_gradients(self.model, self.cfg.clip_norm, self.cfg.clip_mode),
                 zero_grad=True, set_to_none=True,
             )
             if self.ema:
@@ -570,80 +613,7 @@ class Trainer:
 
 
 # ---------------------------------------------------------------------------
-# 5) Argumentos CLI
-# ---------------------------------------------------------------------------
-
-def build_argparser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser("YOLOv11 Trainer")
-    # rutas / datos / modelo
-    p.add_argument('--data', type=str, required=True, help='dataset.yaml')
-    p.add_argument('--model', type=str, required=True, help='yolo11.yaml')
-    p.add_argument('--parser', type=str, required = True, help='parser.yaml')
-    # variantes y params clave
-    p.add_argument('--variant', type=str, default='s', choices=['n','s','m','l','x'])
-    p.add_argument('--epochs', type=int, default=100)
-    p.add_argument('--batch', type=int, default=16)
-    p.add_argument('--imgsz', type=int, default=640)
-    p.add_argument('--workers', type=int, default=8)
-
-    # sistema/semilla/device
-    p.add_argument('--device', type=str, default='auto')
-    p.add_argument('--seed', type=int, default=42)
-
-    # optim
-    p.add_argument('--lr', type=float, default=0.01)
-    p.add_argument('--wd', type=float, default=5e-4)
-    p.add_argument('--clip-norm', type=float, default=0.0)
-    p.add_argument('--clip-mode', type=str, default='norm', choices=['norm','value'])
-
-    # mitigaciones / precisión / ema / compile
-    p.add_argument('--warmup', type=str, default='sanity', choices=['off','sanity','fast','full'])
-    p.add_argument('--bn2gn', type=str, default='on_error', choices=['off','on','on_error'])
-    p.add_argument('--amp', type=str, default='auto', choices=['auto','off','fp16','bf16'])
-    p.add_argument('--ema', action='store_true', default=True)
-    p.add_argument('--no-ema', dest='ema', action='store_false')
-    p.add_argument('--compile', action='store_true', default=False)
-
-    # HUD / resume / tiempo / outputs
-    p.add_argument('--hud', action='store_true', default=None)
-    p.add_argument('--no-hud', dest='hud', action='store_false')
-    p.add_argument('--resume', type=str, default=None)
-    p.add_argument('--project', type=str, default='runs/train')
-    p.add_argument('--name', type=str, default=None)
-    p.add_argument('--exist-ok', action='store_true', default=False)
-    p.add_argument('--time-limit', type=float, default=0.0)
-
-    # info de data_loader (flag solicitado)
-    p.add_argument('--dl-info', action='store_true', help='Muestra info del dataset por partición al cargar')
-
-    # === Validación interna (val_int) ===
-    p.add_argument('--val-int-interval', type=int, default=5, help='Intervalo de épocas para validación interna')
-    p.add_argument('--val-int-max-batches', type=int, default=1, help='Nº de batches (subset) para métrica rápida')
-    p.add_argument('--val-int-use-train-subset', action='store_true', default=False,
-                   help='Usa subset del train_loader para métricas internas (si no, sólo pivotes/TB)')
-    p.add_argument('--val-int-conf', type=float, default=0.25, help='Confianza mínima para val_int/TB')
-    p.add_argument('--val-int-split', type=str, default='val', choices=['train','val'],
-                   help='Split de pivotes para TB (visualización)')
-    p.add_argument('--val-int-pivots', action='store_true', default=True,
-                   help='Dibujar también imágenes pivote en TB (GT o GT+Pred)')
-    p.add_argument('--no-val-int-pivots', dest='val_int_pivots', action='store_false')
-
-    # TensorBoard para val_int
-    p.add_argument('--val-int-tb', action='store_true', default=True, help='Habilita TB en validación interna')
-    p.add_argument('--no-val-int-tb', dest='val_int_tb', action='store_false')
-    p.add_argument('--val-int-tb-nrow', type=int, default=3)
-    p.add_argument('--val-int-tb-conf', type=float, default=0.25)
-    p.add_argument('--val-int-tb-topk', type=int, default=5)
-    p.add_argument('--dataset-base', type=str, default=None, help='Ruta base del dataset (para pivotes TB)')
-
-    # modo prueba
-    p.add_argument('--test', action='store_true', help='Ejecuta prueba de ensamblado y sale')
-
-    return p
-
-
-# ---------------------------------------------------------------------------
-# 6) main
+# 5) main
 # ---------------------------------------------------------------------------
 
 def main(cli: argparse.Namespace) -> None:
@@ -656,8 +626,8 @@ def main(cli: argparse.Namespace) -> None:
     if amp_mode == 'auto':
         amp_mode = ut.auto_amp_mode()  # bf16 si disponible, luego fp16, si no off
 
-    # HUD por defecto: ON si stdout es TTY
-    if cli.hud is None:
+    # HUD por defecto: ON si stdout es TTY (si CLI no lo resolvió)
+    if getattr(cli, 'hud', None) is None:
         cli.hud = sys.stdout.isatty()
 
     # nombre por timestamp si no se especifica
@@ -678,31 +648,32 @@ def main(cli: argparse.Namespace) -> None:
         clip_norm=cli.clip_norm,
         clip_mode=cli.clip_mode,
         warmup=cli.warmup,
+        warmup_epochs=int(cli.warmup_epochs) if getattr(cli, 'warmup_epochs', None) is not None else 0,
         bn2gn=cli.bn2gn,
         amp=amp_mode,
         ema=bool(cli.ema),
         compile=bool(cli.compile),
         hud=bool(cli.hud),
         resume=cli.resume,
-        project=cli.project,
+        project=cli.project or 'runs/train',
         name=name,
-        exist_ok=cli.exist_ok,
-        time_limit=cli.time_limit,
+        exist_ok=bool(getattr(cli, 'exist_ok', False)),
+        time_limit=float(getattr(cli, 'time_limit', 0.0)),
         world_size=int(os.environ.get('WORLD_SIZE', '1')),
         test=bool(cli.test),
-        dl_info=bool(cli.dl_info),
+        dl_info=bool(getattr(cli, 'dl_info', False)),
         # val_int
-        val_int_interval=int(cli.val_int_interval),
-        val_int_max_batches=int(cli.val_int_max_batches),
-        val_int_use_train_subset=bool(cli.val_int_use_train_subset),
-        val_int_conf=float(cli.val_int_conf),
-        val_int_split=str(cli.val_int_split),
-        val_int_pivots=bool(cli.val_int_pivots),
-        val_int_tb=bool(cli.val_int_tb),
-        val_int_tb_nrow=int(cli.val_int_tb_nrow),
-        val_int_tb_conf=float(cli.val_int_tb_conf),
-        val_int_tb_topk=int(cli.val_int_tb_topk),
-        dataset_base=cli.dataset_base,
+        val_int_interval=int(getattr(cli, 'val_int_interval', 5)),
+        val_int_max_batches=int(getattr(cli, 'val_int_max_batches', 1)),
+        val_int_use_train_subset=bool(getattr(cli, 'val_int_use_train_subset', False)),
+        val_int_conf=float(getattr(cli, 'val_int_conf', 0.25)),
+        val_int_split=str(getattr(cli, 'val_int_split', 'val')),
+        val_int_pivots=bool(getattr(cli, 'val_int_pivots', True)),
+        val_int_tb=bool(getattr(cli, 'val_int_tb', True)),
+        val_int_tb_nrow=int(getattr(cli, 'val_int_tb_nrow', 3)),
+        val_int_tb_conf=float(getattr(cli, 'val_int_tb_conf', 0.25)),
+        val_int_tb_topk=int(getattr(cli, 'val_int_tb_topk', 5)),
+        dataset_base=getattr(cli, 'dataset_base', None),
     )
 
     # Construcción de modelo y dataloader (sin validación externa)
@@ -716,6 +687,7 @@ def main(cli: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = build_argparser()
-    args = parser.parse_args()
+    # Parseo modular en dos etapas (presets + YAML) sin dependencias a torch
+    from YOLOv11.engine.CLI import parse_args_two_stage
+    args = parse_args_two_stage(sys.argv[1:])
     main(args)
