@@ -471,30 +471,77 @@ def build_train_bundle(
     return loader, names_list, info
 
 
-def as_dict_loader(loader: Iterable, device: torch.device | str) -> Iterable[Dict[str, Any]]:
+def as_dict_loader(loader: Iterable, device: torch.device | str, *, debug: bool = False, debug_max: int = 2) -> Iterable[Dict[str, Any]]:
     """Adaptador para producir batches tipo dict (img/targets/meta) en dispositivo.
-    Sustituye el adaptador local de train.py.
+
+    Si `debug=True`, imprime telemetría básica de los primeros `debug_max` batches:
+      - tipo de batch entrante (tuple/dict/otro)
+      - estructura básica (len, keys, shapes)
+      - claves del dict de salida.
     """
     dev = torch.device(device)
+    seen = 0
     for b in loader:
+        if debug and seen < debug_max:
+            print("[debug] as_dict_loader: incoming batch type:", type(b))
+            if isinstance(b, tuple):
+                print("[debug]   tuple len:", len(b))
+                for i, part in enumerate(b):
+                    if hasattr(part, "shape"):
+                        try:
+                            shape = tuple(part.shape)
+                        except Exception:
+                            shape = "<no-shape>"
+                        print(f"[debug]   part[{i}] shape={shape} dtype={getattr(part, 'dtype', None)}")
+                    else:
+                        print(f"[debug]   part[{i}] type={type(part)}")
+            elif isinstance(b, dict):
+                print("[debug]   dict keys:", list(b.keys()))
+            else:
+                print("[debug]   other type:", type(b))
+
         if isinstance(b, tuple):
             if len(b) == 3:
                 imgs, targets, meta = b
-                yield {"img": imgs.to(dev, non_blocking=True), "targets": targets.to(dev, non_blocking=True), "meta": meta}
+                batch = {
+                    "img": imgs.to(dev, non_blocking=True),
+                    "targets": targets.to(dev, non_blocking=True),
+                    "meta": meta,
+                }
             elif len(b) == 2:
                 imgs, targets = b
-                yield {"img": imgs.to(dev, non_blocking=True), "targets": targets.to(dev, non_blocking=True)}
+                batch = {
+                    "img": imgs.to(dev, non_blocking=True),
+                    "targets": targets.to(dev, non_blocking=True),
+                }
             else:
-                yield {"data": b}
+                batch = {"data": b}
         elif isinstance(b, dict):
             d = dict(b)
             if "img" in d and hasattr(d["img"], "to"):
                 d["img"] = d["img"].to(dev, non_blocking=True)
             if "targets" in d and hasattr(d["targets"], "to"):
                 d["targets"] = d["targets"].to(dev, non_blocking=True)
-            yield d
+            batch = d
         else:
-            yield {"data": b}
+            batch = {"data": b}
+
+        if debug and seen < debug_max:
+            print("[debug] as_dict_loader: outgoing batch keys:", list(batch.keys()))
+            if "img" in batch and hasattr(batch["img"], "shape"):
+                try:
+                    print("[debug]   img.shape=", tuple(batch["img"].shape), "dtype=", batch["img"].dtype)
+                except Exception:
+                    print("[debug]   img: shape no disponible")
+            if "targets" in batch and hasattr(batch["targets"], "shape"):
+                try:
+                    print("[debug]   targets.shape=", tuple(batch["targets"].shape), "dtype=", batch["targets"].dtype)
+                except Exception:
+                    print("[debug]   targets: shape no disponible")
+            seen += 1
+
+        yield batch
+
 
 # =============================================================================
 # CLI de prueba
@@ -506,6 +553,11 @@ if __name__ == "__main__":
     parser.add_argument("--split", type=str, default="train", choices=["train", "valid", "test"])
     parser.add_argument("--batch", type=int, default=None)
     parser.add_argument("--imgsz", type=int, default=None)
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Imprime telemetría extendida del DataLoader y del adaptador as_dict_loader (primeros batches).",
+    )
     args = parser.parse_args()
 
     root = find_project_root()
@@ -519,9 +571,28 @@ if __name__ == "__main__":
     print(f"Count: {info.count}  nc: {info.nc}  names: {names}")
     print(f"imgsz={info.imgsz}  workers={info.workers}  pin_memory={info.pin_memory}  persistent={info.persistent_workers}")
 
-    # Itera primer batch
+    if args.debug:
+        print("[debug] DatasetInfo:", asdict(info))
+
+    # Itera primer batch crudo desde loader
     imgs, targets, meta = next(iter(loader))
     print(f"Batch imgs: {tuple(imgs.shape)}  dtype={imgs.dtype}  range=({imgs.min():.3f},{imgs.max():.3f})")
     print(f"Targets shape: {tuple(targets.shape)}  Ejemplo (hasta 5 filas):\n{targets[:5]}")
     print(f"Paths[0]: {meta['paths'][0]}")
     print(f"Resized shape: {meta['resized_shape']}  Negativos en batch: {sum(meta['is_empty'])}/{len(meta['is_empty'])}")
+
+    # Telemetría adicional usando as_dict_loader en modo CPU
+    if args.debug:
+        print("[debug] ===== as_dict_loader (device='cpu') =====")
+        dict_loader = as_dict_loader(loader, device="cpu", debug=True, debug_max=1)
+        batch_dict = next(iter(dict_loader))
+        print("[debug] as_dict_loader -> batch_dict keys:", list(batch_dict.keys()))
+        for k, v in batch_dict.items():
+            if hasattr(v, "shape"):
+                try:
+                    shape = tuple(v.shape)
+                except Exception:
+                    shape = "<no-shape>"
+                print(f"[debug]   {k}: shape={shape} dtype={getattr(v, 'dtype', None)}")
+            else:
+                print(f"[debug]   {k}: type={type(v)}")

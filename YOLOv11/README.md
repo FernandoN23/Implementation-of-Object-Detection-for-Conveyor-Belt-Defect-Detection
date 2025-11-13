@@ -23,9 +23,21 @@ YOLOv11/
 │   ├── valid.yaml                  ← Hiperparámetros de validación
 │   └── yolo11.yaml                 ← Definición estructural del modelo
 │
+├── engine/
+│   ├── amp.py                      ← Precisión Mixta Automática (Automatic Mixed Precision)
+│   ├── bn2gn_patch.py              ← Parche para normalización por lotes
+│   ├── bootstrap_miopen.py         ← Interfaz de mitigación de MIOpen
+│   ├── callbacks.py                ← Módulo de llamadas y gestión de eventos
+│   ├── CLI.py                      ← Interfaz de Línea de Comandos
+│   ├── ema.py                      ← Media Móvil Exponencial (Exponential Moving Average)
+│   ├── hud.py                      ← Barra de estado (Head-up Display) 
+│   ├── optim.py                    ← Optimizador y parámetros de entrenamiento
+│   ├── utils.py                    ← Utilidades (seeds, helpers y varios)
+│   ├── validator.py                ← Módulo de validación interna/externa
+│   └── warmup_sanity.py            ← Módulo de calentamiento del entrenamiento
+│
 ├── logs/                           ← Logs de entrenamiento y ejecución del modelo
 ├── metrics/                        ← Carpeta de almacenamiento de métricas
-├── runs/                           ← Carpeta de almacenamiento de ejecuciones
 │
 ├── models/
 │   ├── nn/         
@@ -37,6 +49,8 @@ YOLOv11/
 │   ├── neck.py                     ← Fusión de características multiescala
 │   ├── parser_yaml.py              ← Módulo auxiliar de configuración y parámetros
 │   └── yolo11.py                   ← Integración de la arquitectura de YOLOv11
+│
+├── runs/                           ← Carpeta de almacenamiento de ejecuciones
 │
 ├── utility/
 │   ├── check_dataset.py            ← Revisa formato dataset para modelo a entrenar                   
@@ -51,8 +65,6 @@ YOLOv11/
 │   ├── test_model.py               ← Script para probar el modelo antes de entrenar
 │   ├── visualization.py            ← Visualización de entrenamiento en Tensorboard
 │   └── weights.py                  ← Script para el manejo de checkpoints y pesos.
-│
-├── metrics/                        ← Carpeta de almacenamiento de los pesos de cada modelo entrenado
 │
 ├── train.py                        ← Script principal de entrenamiento
 ├── valid.py                        ← Script principal de validación

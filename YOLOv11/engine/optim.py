@@ -570,7 +570,7 @@ def build_optim_from_parser(model: nn.Module,
         try:
             from YOLOv11.models.parser_yaml import ConfigParserYaml
         except Exception:
-            from models.parser_yaml import ConfigParserYaml  # fallback
+            from ..models.parser_yaml import ConfigParserYaml  # fallback
         project_root = Path(__file__).resolve().parents[1]  # …/<repo>/YOLOv11
         parser = ConfigParserYaml(project_root=str(project_root)).load()
 

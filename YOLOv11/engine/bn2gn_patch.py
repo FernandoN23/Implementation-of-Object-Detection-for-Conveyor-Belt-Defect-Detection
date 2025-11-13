@@ -72,13 +72,33 @@ def _best_group_count(C: int, max_groups: int = 32, min_channels_per_group: int 
 
 
 def _make_gn_from_bn(bn: nn.BatchNorm2d, groups: int) -> nn.GroupNorm:
+    """Crea una GroupNorm clonando parámetros de una BatchNorm/SyncBatchNorm.
+
+    **Punto crítico**: la nueva capa se coloca explícitamente en el mismo
+    dispositivo y con el mismo dtype que la BN original para evitar mismatches
+    tipo "weight en cpu, input en cuda" cuando el modelo ya está en GPU.
+    """
     C = bn.num_features
+
+    # Inferir device y dtype desde los parámetros/buffers de BN
+    if bn.affine and bn.weight is not None:
+        dev = bn.weight.device
+        dtype = bn.weight.dtype
+    else:
+        # BatchNorm siempre tiene running_mean/var como buffers
+        dev = bn.running_mean.device
+        dtype = bn.running_mean.dtype
+
+    # Crear GN y moverla al mismo device/dtype que la BN original
     gn = nn.GroupNorm(num_groups=groups, num_channels=C, eps=bn.eps, affine=True)
+    gn.to(device=dev, dtype=dtype)
+
     # Copiar parámetros si existen (gamma/beta ↦ weight/bias)
     with torch.no_grad():
         if bn.affine:
-            gn.weight.copy_(bn.weight)
-            gn.bias.copy_(bn.bias)
+            gn.weight.copy_(bn.weight.to(device=dev, dtype=dtype))
+            gn.bias.copy_(bn.bias.to(device=dev, dtype=dtype))
+
     return gn
 
 

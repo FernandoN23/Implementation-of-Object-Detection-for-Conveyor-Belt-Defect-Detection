@@ -237,12 +237,14 @@ class Trainer:
         except Exception:
             pass
 
-        # compile opcional
-        self.model.to(self.device)
-        self.model = ut.maybe_compile(self.model, cfg.compile)
-
-        # BN→GN
+        # BN→GN antes de fijar device/compile para evitar capas nuevas en CPU
         engine["b2g"].apply_bn2gn_patch(self.model, policy=cfg.bn2gn, verbose=1)
+
+        # Mover modelo (ya parcheado) al dispositivo destino
+        self.model.to(self.device)
+
+        # compile opcional
+        self.model = ut.maybe_compile(self.model, cfg.compile)
 
         # AMP, Optim, Scheduler, Accumulate
         iters_per_epoch = len(self.train_loader)
@@ -551,7 +553,7 @@ class Trainer:
                 cache_disabled = None
 
         # Cabecera de warmup
-        print("[Warmup] Comenzando warmup...", flush=True)
+        print("[WARMUP] Comenzando warmup...", flush=True)
         if self.hud:
             self.hud.on_warmup_start(
                 total_iters=iters,
@@ -566,7 +568,7 @@ class Trainer:
 
         # Épocas sintéticas de warmup
         for ep in range(int(max(1, loops))):
-            print(f"[Warmup] Epoch {ep+1}/{int(max(1, loops))}", flush=True)
+            print(f"[WARMUP] Epoch {ep+1}/{int(max(1, loops))}", flush=True)
             for i in range(1, iters + 1):
                 t0 = time.perf_counter()
                 with self.ampmgr.autocast():
@@ -583,7 +585,7 @@ class Trainer:
         # Resumen y cierre de warmup
         if self.hud:
             self.hud.on_warmup_end()
-        print("[Warmup] Finalizado.", flush=True)
+        print("[WARMUP] Finalizado.", flush=True)
 
     # -----------------------------
     def _assembly_test(self) -> None:
