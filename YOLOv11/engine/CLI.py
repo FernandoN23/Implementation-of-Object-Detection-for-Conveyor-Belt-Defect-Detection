@@ -9,21 +9,21 @@
 # Descripción: CLI profesional y modular para YOLOv11. Implementa una
 #  clase constructora con atributos, presets documentados (--test-A, etc.) y
 #  parseo en dos etapas con precedencia: CLI explícito > preset > YAML > defaults.
-#  Sin dependencias a torch/ROCm.
+#  Integración torch‑free con importador ligero de configs de YOLOv11/configs/*.
 #==============================================================
 
 from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Any, Optional, Iterable, List
+from typing import Dict, Any, Optional, Iterable, List, Tuple
 
 try:
     import yaml  # type: ignore
 except Exception:  # pragma: no cover
-    yaml = None  # lectura YAML es opcional; si no hay PyYAML, se ignora con warning
+    yaml = None  # lectura YAML opcional; el CLI funciona con defaults seguros
 
 __all__ = [
     # API pública (wrappers sobre la clase)
@@ -34,6 +34,200 @@ __all__ = [
     "resolve_and_validate",
     "parse_args_two_stage",
 ]
+
+# ==============================================================
+# Importador seguro de configuraciones (sin torch)
+# Lee configs/parser.yaml y configs/train.yaml para generar defaults tipados
+# y SIN None, respetando el dominio esperado por train.py
+# ==============================================================
+
+@dataclass
+class ConfigDefaultsLoader:
+    yolo_root: Path
+
+    # --- helpers ---
+    def _read_yaml(self, p: Path) -> Dict[str, Any]:
+        if yaml is None:
+            return {}
+        try:
+            if not p.exists() or not p.is_file():
+                return {}
+            return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+        except Exception:
+            return {}
+
+    @staticmethod
+    def _get(d: Dict[str, Any], keys: Iterable[str], default: Any = None) -> Any:
+        cur: Any = d
+        for k in keys:
+            if not isinstance(cur, dict):
+                return default
+            if k in cur:
+                cur = cur[k]
+            else:
+                return default
+        return cur
+
+    @staticmethod
+    def _b(x: Any, default: bool = False) -> bool:
+        if isinstance(x, bool):
+            return x
+        if isinstance(x, (int, float)):
+            return bool(x)
+        if isinstance(x, str):
+            s = x.strip().lower()
+            if s in {"1", "true", "yes", "on"}:
+                return True
+            if s in {"0", "false", "no", "off"}:
+                return False
+            # valores tipo 'one'/'two' para HUD → True
+            if s in {"one", "two"}:
+                return True
+        return default
+
+    @staticmethod
+    def _i(x: Any, default: int = 0) -> int:
+        try:
+            return int(x)
+        except Exception:
+            return default
+
+    @staticmethod
+    def _f(x: Any, default: float = 0.0) -> float:
+        try:
+            return float(x)
+        except Exception:
+            return default
+
+    @staticmethod
+    def _amp_from_yaml(v: Any) -> str:
+        # YAML puede traer bool o string
+        if isinstance(v, bool):
+            return "auto" if v else "off"
+        if isinstance(v, str):
+            s = v.strip().lower()
+            if s in {"auto", "off", "fp16", "bf16"}:
+                return s
+            if s in {"true", "1", "on"}:
+                return "auto"
+            if s in {"false", "0", "off"}:
+                return "off"
+        return "auto"
+
+    def _resolve_path(self, p: Optional[str]) -> Optional[str]:
+        if not p:
+            return None
+        P = Path(p)
+        if P.is_absolute():
+            return str(P)
+        return str((self.yolo_root / P).resolve())
+
+    # --- carga principal ---
+    def load(self, parser_yaml_path: Optional[str]) -> Dict[str, Any]:
+        # Defaults base (nunca None)
+        out: Dict[str, Any] = {
+            # rutas
+            "data": None, "model": None, "parser": None,
+            # escala/modelo
+            "variant": "n",
+            # training
+            "epochs": 150, "batch": 16, "imgsz": 640, "workers": 4,
+            # runtime
+            "device": "auto", "seed": 42, "compile": False,
+            # optim
+            "lr": 0.001, "wd": 0.0, "clip_norm": 0.0, "clip_mode": "norm",
+            # amp/ema/mitigaciones
+            "amp": "auto", "ema": True, "bn2gn": "on_error",
+            "warmup": "off", "warmup_epochs": 0,
+            # hud/logging
+            "hud": None,  # se resolverá a TTY si sigue None
+            # proyecto/guardado
+            "project": "runs/train", "name": None, "exist_ok": False, "time_limit": 0.0,
+            # val_int
+            "dl_info": False,
+            "val_int_interval": 5, "val_int_max_batches": 1, "val_int_use_train_subset": False,
+            "val_int_conf": 0.25, "val_int_split": "val", "val_int_pivots": True,
+            "val_int_tb": True, "val_int_tb_nrow": 3, "val_int_tb_conf": 0.25, "val_int_tb_topk": 5,
+            "dataset_base": None,
+            # modo
+            "test": False,
+        }
+
+        # --- parser.yaml ---
+        p_path = Path(parser_yaml_path) if parser_yaml_path else (self.yolo_root / "configs" / "parser.yaml")
+        p_yaml = self._read_yaml(p_path)
+        if p_yaml:
+            # rutas de otros YAML
+            data_cfg = self._get(p_yaml, ("data", "config"), None)
+            yolo_cfg = self._get(p_yaml, ("model", "yolo_cfg"), None)
+            out["data"] = data_cfg or out["data"]
+            out["model"] = yolo_cfg or out["model"]
+            out["parser"] = str(p_path)
+
+            # variant por defecto
+            dv = self._get(p_yaml, ("model", "default_variant"), None)
+            if isinstance(dv, str) and dv:
+                out["variant"] = dv.strip().lower()
+
+            # runtime
+            dev = self._get(p_yaml, ("runtime", "device"), None)
+            if isinstance(dev, str) and dev:
+                out["device"] = dev
+            out["seed"] = self._i(self._get(p_yaml, ("runtime", "seed"), out["seed"]), out["seed"])
+            out["compile"] = self._b(self._get(p_yaml, ("runtime", "compile"), out["compile"]), out["compile"])
+
+            # project
+            runs_dir = self._get(p_yaml, ("project", "dirs", "runs"), None)
+            if isinstance(runs_dir, str) and runs_dir:
+                out["project"] = runs_dir
+
+        # --- train.yaml ---
+        train_cfg_rel = self._get(p_yaml, ("train", "config"), "configs/train.yaml")
+        t_path = (self.yolo_root / train_cfg_rel) if not Path(str(train_cfg_rel)).is_absolute() else Path(str(train_cfg_rel))
+        t_yaml = self._read_yaml(t_path)
+        if t_yaml:
+            out["imgsz"] = self._i(t_yaml.get("imgsz"), out["imgsz"])
+            out["epochs"] = self._i(t_yaml.get("epochs"), out["epochs"])
+            out["batch"] = self._i(t_yaml.get("batch"), out["batch"])
+
+            # dataloader.workers
+            if isinstance(t_yaml.get("dataloader"), dict):
+                out["workers"] = self._i(t_yaml["dataloader"].get("workers"), out["workers"])
+
+            # optim
+            out["lr"] = self._f(t_yaml.get("lr0"), out["lr"])
+            out["wd"] = self._f(t_yaml.get("weight_decay"), out["wd"])
+            out["clip_norm"] = self._f(t_yaml.get("max_grad_norm"), out["clip_norm"])
+            out["clip_mode"] = t_yaml.get("clip_mode", out["clip_mode"]) if t_yaml.get("clip_mode") in {"norm", "value"} else out["clip_mode"]
+
+            # amp/ema
+            out["amp"] = self._amp_from_yaml(t_yaml.get("amp", out["amp"]))
+            out["ema"] = self._b(t_yaml.get("ema", out["ema"]), out["ema"])
+
+            # warmup
+            if "warmup_steps" in t_yaml:
+                out["warmup_epochs"] = self._i(t_yaml.get("warmup_steps"), out["warmup_epochs"])
+            if "warmup_epochs" in t_yaml:
+                out["warmup_epochs"] = self._i(t_yaml.get("warmup_epochs"), out["warmup_epochs"])
+
+            # val_int (hereda valores afines del YAML)
+            if "val_interval" in t_yaml:
+                out["val_int_interval"] = self._i(t_yaml.get("val_interval"), out["val_int_interval"])
+            if "conf_thr" in t_yaml:
+                out["val_int_conf"] = self._f(t_yaml.get("conf_thr"), out["val_int_conf"])
+                out["val_int_tb_conf"] = self._f(t_yaml.get("conf_thr"), out["val_int_tb_conf"])
+
+            # HUD
+            hud_yaml = t_yaml.get("hud", None)
+            if hud_yaml is not None:
+                out["hud"] = self._b(hud_yaml, None)  # puede quedar None → se resolverá por TTY
+
+        # resolver rutas relativas (solo data/model/parser; project se ancla en resolve_and_validate)
+        for k in ("data", "model", "parser"):
+            out[k] = self._resolve_path(out.get(k)) or out.get(k)
+
+        return out
+
 
 # --------------------------------------------------------------
 # Presets (definidos como dataclass para claridad y validación simple)
@@ -204,17 +398,6 @@ class CLIBuilder:
     def _yolo_root() -> Path:
         return Path(__file__).resolve().parents[1]
 
-    @staticmethod
-    def _flatten(d: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
-        out: Dict[str, Any] = {}
-        for k, v in (d or {}).items():
-            key = f"{prefix}{k}" if not prefix else f"{prefix}.{k}"
-            if isinstance(v, dict):
-                out.update(CLIBuilder._flatten(v, key))
-            else:
-                out[key] = v
-        return out
-
     def _filter_known(self, candidates: Dict[str, Any]) -> Dict[str, Any]:
         ks = set(self.known_keys)
         return {k: v for k, v in candidates.items() if k in ks}
@@ -320,6 +503,7 @@ class CLIBuilder:
     # YAML y presets
     # ---------------------------
     def merge_with_yaml(self, parser_yaml_path: Optional[str]) -> Dict[str, Any]:
+        # Conservado por compatibilidad: ahora preferimos ConfigDefaultsLoader
         if not parser_yaml_path:
             return {}
         p = Path(parser_yaml_path)
@@ -329,10 +513,8 @@ class CLIBuilder:
             data = yaml.safe_load(p.read_text(encoding='utf-8')) or {}
         except Exception:
             return {}
-        # Preferir sección train si existe
         base = data.get('train', data) if isinstance(data, dict) else {}
-        base_known = self._filter_known(base)
-        return base_known
+        return self._filter_known(base)
 
     def apply_preset(self, ns: argparse.Namespace) -> Dict[str, Any]:
         chosen = getattr(ns, 'preset', None) or getattr(ns, '_preset', None)
@@ -356,7 +538,7 @@ class CLIBuilder:
             if not p.is_absolute():
                 ns.project = str((self._yolo_root() / p).resolve())
 
-        # Normalizar booleanos (por si vienen como strings)
+        # Normalizar booleanos recibidos como texto
         for key in ("ema","compile","dl_info","val_int_use_train_subset","val_int_pivots","val_int_tb","test","exist_ok"):
             val = getattr(ns, key, None)
             if isinstance(val, str):
@@ -367,6 +549,36 @@ class CLIBuilder:
         # Clip mode seguro
         if getattr(ns, 'clip_mode', None) not in (None, 'norm', 'value'):
             ns.clip_mode = 'norm'
+
+        # Valores seguros si algo quedó en None (evita TypeError aguas arriba)
+        safe_numbers: List[Tuple[str, Any]] = [
+            ("epochs", 150), ("batch", 16), ("imgsz", 640), ("workers", 4),
+            ("lr", 0.001), ("wd", 0.0), ("clip_norm", 0.0), ("time_limit", 0.0),
+            ("val_int_interval", 5), ("val_int_max_batches", 1), ("val_int_conf", 0.25),
+            ("val_int_tb_nrow", 3), ("val_int_tb_conf", 0.25), ("val_int_tb_topk", 5), ("warmup_epochs", 0),
+        ]
+        for k, dv in safe_numbers:
+            if getattr(ns, k, None) is None:
+                setattr(ns, k, dv)
+
+        safe_strings: List[Tuple[str, str]] = [
+            ("variant", "n"), ("device", "auto"), ("clip_mode", "norm"), ("val_int_split", "val"), ("warmup", "off"),
+        ]
+        for k, dv in safe_strings:
+            if getattr(ns, k, None) in (None, ""):
+                setattr(ns, k, dv)
+
+        safe_bools: List[Tuple[str, bool]] = [
+            ("ema", True), ("compile", False), ("dl_info", False), ("val_int_use_train_subset", False),
+            ("val_int_pivots", True), ("val_int_tb", True), ("exist_ok", False), ("test", False),
+        ]
+        for k, dv in safe_bools:
+            if getattr(ns, k, None) is None:
+                setattr(ns, k, dv)
+
+        # AMP normalizado (si viniera None)
+        if getattr(ns, 'amp', None) in (None, ""):
+            ns.amp = 'auto'
 
         # Exponer nombre del preset aplicado (si lo hay) para banner aguas arriba
         chosen = getattr(ns, 'preset', None) or getattr(ns, '_preset', None)
@@ -382,18 +594,26 @@ class CLIBuilder:
         parser = self.build_common_parser()
         prelim, _ = parser.parse_known_args(argv)
 
-        yaml_defaults = self.merge_with_yaml(getattr(prelim, 'parser', None))
-        preset_defaults = self.apply_preset(prelim)
+        # 1) Determinar preset y parser.yaml efectivo ANTES de cargar YAML
+        chosen = getattr(prelim, 'preset', None) or getattr(prelim, '_preset', None)
+        preset_defaults = self.apply_preset(prelim) if chosen else {}
+        parser_path = getattr(prelim, 'parser', None) or preset_defaults.get('parser') or str(self._yolo_root() / 'configs' / 'parser.yaml')
 
+        # 2) Cargar defaults tipados desde YAMLs (sin None)
+        yaml_defaults = ConfigDefaultsLoader(self._yolo_root()).load(parser_path)
+
+        # 3) Establecer defaults en el parser respetando precedencia declarada
+        #    YAML primero, luego PRESET (CLI explícito anula ambos en el parse final)
         if yaml_defaults:
-            parser.set_defaults(**yaml_defaults)
+            parser.set_defaults(**self._filter_known(yaml_defaults))
         if preset_defaults:
-            parser.set_defaults(**preset_defaults)
+            parser.set_defaults(**self._filter_known(preset_defaults))
 
         if getattr(prelim, 'help', False):
             parser.print_help()
             sys.exit(0)
 
+        # 4) Parse final y resolución/saneamiento
         final = parser.parse_args(argv)
         final = self.resolve_and_validate(final)
         return final
