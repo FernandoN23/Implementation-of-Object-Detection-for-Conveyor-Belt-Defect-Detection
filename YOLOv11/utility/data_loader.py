@@ -475,7 +475,7 @@ def as_dict_loader(loader: Iterable, device: torch.device | str, *, debug: bool 
     """Adaptador para producir batches tipo dict (img/targets/meta) en dispositivo.
 
     Si `debug=True`, imprime telemetría básica de los primeros `debug_max` batches:
-      - tipo de batch entrante (tuple/dict/otro)
+      - tipo de batch entrante (tuple/list/dict/otro)
       - estructura básica (len, keys, shapes)
       - claves del dict de salida.
     """
@@ -484,8 +484,8 @@ def as_dict_loader(loader: Iterable, device: torch.device | str, *, debug: bool 
     for b in loader:
         if debug and seen < debug_max:
             print("[debug] as_dict_loader: incoming batch type:", type(b))
-            if isinstance(b, tuple):
-                print("[debug]   tuple len:", len(b))
+            if isinstance(b, (tuple, list)):
+                print("[debug]   seq len:", len(b))
                 for i, part in enumerate(b):
                     if hasattr(part, "shape"):
                         try:
@@ -500,7 +500,8 @@ def as_dict_loader(loader: Iterable, device: torch.device | str, *, debug: bool 
             else:
                 print("[debug]   other type:", type(b))
 
-        if isinstance(b, tuple):
+        # Soportar batches como tupla o lista: (imgs, targets[, meta])
+        if isinstance(b, (tuple, list)):
             if len(b) == 3:
                 imgs, targets, meta = b
                 batch = {
@@ -515,6 +516,8 @@ def as_dict_loader(loader: Iterable, device: torch.device | str, *, debug: bool 
                     "targets": targets.to(dev, non_blocking=True),
                 }
             else:
+                # Formato inesperado: se entrega como 'data' para no
+                # romper ejecución; el caller debería activar debug.
                 batch = {"data": b}
         elif isinstance(b, dict):
             d = dict(b)
