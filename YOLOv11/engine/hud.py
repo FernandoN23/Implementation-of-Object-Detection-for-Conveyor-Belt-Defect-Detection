@@ -106,7 +106,7 @@ def _is_main_process() -> bool:
 @dataclass
 class HUDConfig:
     # Visual
-    width: int = 80                  # ancho de barra
+    width: int = 20                  # ancho de barra (caracteres internos del bloque)
     interval: float = 0.05           # fracción de época/iter entre updates
     min_update_s: float = 0.25       # límite temporal mínimo entre updates
     precision: int = 4
@@ -117,7 +117,7 @@ class HUDConfig:
     show_vram: bool = True
     show_items: bool = True          # desglose de pérdidas
     show_rate: bool = True           # it/s y samples/s
-    show_eta: bool = True            # ETA por época (train)
+    show_eta: bool = False           # ETA por época (train) → opcional para no ensanchar demasiado
 
     # Contexto opcional
     batch: Optional[int] = None      # para calcular samples/s
@@ -131,6 +131,12 @@ class HUDConfig:
 
 class HUD:
     """HUD unificado para warmup y entrenamiento.
+
+    Modo "full" (compacto dinámico) para consola, pensado para caber en una sola
+    línea y actualizarse in-place con `\r`, por ejemplo:
+
+        [TRN] ▕████████████░░░░░░▏ 405/406 (99.8%) | lr 3.1e-05 | L 20.96 |
+        380ms | 2.8 it/s | b:1.71 c:0.23 d:5.36 | VRAM 286M|1.65G
 
     Uso típico (train):
         hud = HUD(HUDConfig(interval=0.05))
@@ -199,39 +205,63 @@ class HUD:
         self._last_progress_bucket = bucket
         self._last_print_t = now
 
+        # Estadísticas de tiempo
         self._dt_window.append(max(1e-6, float(dt_ms)))
         mean_dt = mean(self._dt_window) if self._dt_window else float(dt_ms)
         it_per_s = 1000.0 / mean_dt
         smp_per_s = it_per_s * (self.cfg.batch or 0)
         eta_s = (iters_per_epoch - it) * (mean_dt / 1000.0)
 
+        # Barra + progreso
+        phase = self.cfg.phase_label_train[:3].upper()
         bar = self._render_bar(progress)
-        vram = _device_mem() if self.cfg.show_vram else {"reserved": 0.0, "allocated": 0.0, "max_allocated": 0.0, "total": 0.0, "used_pct": -1.0}
-        mem_txt = (
-            f"VRAM {format_bytes(int(vram['allocated']))} / {format_bytes(int(vram['reserved']))} "
-            f"(peak {format_bytes(int(vram['max_allocated']))}"
-        )
-        if vram.get("used_pct", -1.0) >= 0:
-            mem_txt += f", {vram['used_pct']:.1f}%"
-        mem_txt += ")"
+        pct = progress * 100.0
 
-        base = (
-            f"[{self.cfg.phase_label_train:>5}] {bar}  it {it:>4}/{iters_per_epoch:<4}  lr {lr:.6f}  "
-            f"loss {loss:.{self.cfg.precision}f}  {dt_ms:.1f} ms/it"
-        )
-        if self.cfg.show_rate:
-            base += f"  {it_per_s:5.1f} it/s"
-            if self.cfg.batch:
-                base += f"  {smp_per_s:6.1f} samp/s"
+        # VRAM (compacto: alloc MB | peak GB)
+        vram = _device_mem() if self.cfg.show_vram else {
+            "reserved": 0.0,
+            "allocated": 0.0,
+            "max_allocated": 0.0,
+            "total": 0.0,
+            "used_pct": -1.0,
+        }
+        alloc_mb = vram["allocated"] / (1024.0 ** 2)
+        peak_gb = vram["max_allocated"] / (1024.0 ** 3)
+        mem_txt = f"VRAM {alloc_mb:.0f}M|{peak_gb:.2f}G"
+
+        # Métricas de items (compactas: b:1.71 c:0.23 d:5.36)
+        items_txt = ""
         if self.cfg.show_items and items:
-            parts = [f"{k}:{float(v):.{self.cfg.precision}f}" for k, v in sorted(items.items())]
-            base += "  [" + ", ".join(parts) + "]"
-        if self.cfg.show_eta:
-            base += f"  ETA {_format_eta(eta_s)}"
-        if self.cfg.show_vram:
-            base += "  |  " + mem_txt
+            alias_map = {"box": "b", "cls": "c", "dfl": "d"}
+            parts: List[str] = []
+            for k, v in sorted(items.items()):
+                alias = alias_map.get(k, (k[:1] if k else "?"))
+                parts.append(f"{alias}:{float(v):.2f}")
+            items_txt = " ".join(parts)
 
-        self._write("\r" + base)
+        # Construcción de línea compacta
+        line_parts: List[str] = []
+        line_parts.append(f"[{phase}] {bar} {it}/{iters_per_epoch} ({pct:4.1f}%)")
+        line_parts.append(f"lr {lr:.2e}")
+        line_parts.append(f"L {loss:.2f}")
+        line_parts.append(f"{dt_ms:.0f}ms")
+
+        if self.cfg.show_rate:
+            line_parts.append(f"{it_per_s:.1f} it/s")
+            if self.cfg.batch:
+                line_parts.append(f"{smp_per_s:.1f} samp/s")
+
+        if items_txt:
+            line_parts.append(items_txt)
+
+        if self.cfg.show_eta:
+            line_parts.append(f"ETA {_format_eta(eta_s)}")
+
+        if self.cfg.show_vram:
+            line_parts.append(mem_txt)
+
+        line = " | ".join(line_parts)
+        self._write("\r" + line)
         if it == iters_per_epoch:
             self._writeln("")
 
@@ -270,6 +300,9 @@ class HUD:
         if cache_disabled is not None:
             head += f"  miopen.cache={'OFF' if cache_disabled else 'ON'}"
         self._writeln(head)
+        # Reset de throttle para warmup
+        self._last_print_t = 0.0
+        self._last_progress_bucket = -1
 
     def update_warmup(self, iter_idx: int, total_iters: int, dt_ms: float) -> None:
         if not self.cfg.enable or not _is_main_process():
@@ -278,37 +311,44 @@ class HUD:
         now = time.perf_counter()
         progress = min(0.9999, max(0.0, iter_idx / float(max(1, total_iters))))
         bucket = int(progress / max(1e-6, self.cfg.interval))
+
+        # Siempre guardamos tiempo para estadísticas finales
+        self._wu_times.append(max(1e-6, float(dt_ms)))
+
         if bucket == self._last_progress_bucket and (now - self._last_print_t) < self.cfg.min_update_s:
-            # Aún así guardamos tiempo para estadísticas finales
-            self._wu_times.append(max(1e-6, float(dt_ms)))
             return
         self._last_progress_bucket = bucket
         self._last_print_t = now
 
-        self._wu_times.append(max(1e-6, float(dt_ms)))
         mean_dt = mean(self._wu_times) if self._wu_times else float(dt_ms)
         it_per_s = 1000.0 / (mean_dt if mean_dt > 0 else 1e-6)
 
+        phase = self.cfg.phase_label_warmup[:3].upper()
         bar = self._render_bar(progress)
-        vram = _device_mem() if self.cfg.show_vram else {"reserved": 0.0, "allocated": 0.0, "max_allocated": 0.0, "total": 0.0, "used_pct": -1.0}
-        mem_txt = (
-            f"VRAM {format_bytes(int(vram['allocated']))} / {format_bytes(int(vram['reserved']))} "
-            f"(peak {format_bytes(int(vram['max_allocated']))}"
-        )
-        if vram.get("used_pct", -1.0) >= 0:
-            mem_txt += f", {vram['used_pct']:.1f}%"
-        mem_txt += ")"
+        pct = progress * 100.0
 
-        base = (
-            f"[{self.cfg.phase_label_warmup:>6}] {bar}  it {iter_idx:>4}/{total_iters:<4}  "
-            f"{dt_ms:.1f} ms/it  {it_per_s:5.1f} it/s"
-        )
+        vram = _device_mem() if self.cfg.show_vram else {
+            "reserved": 0.0,
+            "allocated": 0.0,
+            "max_allocated": 0.0,
+            "total": 0.0,
+            "used_pct": -1.0,
+        }
+        alloc_mb = vram["allocated"] / (1024.0 ** 2)
+        peak_gb = vram["max_allocated"] / (1024.0 ** 3)
+        mem_txt = f"VRAM {alloc_mb:.0f}M|{peak_gb:.2f}G"
+
+        line_parts: List[str] = []
+        line_parts.append(f"[{phase}] {bar} {iter_idx}/{total_iters} ({pct:4.1f}%)")
+        line_parts.append(f"{dt_ms:.0f}ms")
+        line_parts.append(f"{it_per_s:.1f} it/s")
         if self.cfg.batch:
-            base += f"  {(it_per_s * self.cfg.batch):6.1f} samp/s"
+            line_parts.append(f"{(it_per_s * self.cfg.batch):.1f} samp/s")
         if self.cfg.show_vram:
-            base += "  |  " + mem_txt
+            line_parts.append(mem_txt)
 
-        self._write("\r" + base)
+        line = " | ".join(line_parts)
+        self._write("\r" + line)
         if iter_idx == total_iters:
             self._writeln("")
 
@@ -323,7 +363,13 @@ class HUD:
         t_mean_ms = mean(rest)
         # p95 simple
         p95_ms = sorted(rest)[max(0, int(0.95 * (len(rest) - 1)))] if rest else t_mean_ms
-        vram = _device_mem() if self.cfg.show_vram else {"reserved": 0.0, "allocated": 0.0, "max_allocated": 0.0, "total": 0.0, "used_pct": -1.0}
+        vram = _device_mem() if self.cfg.show_vram else {
+            "reserved": 0.0,
+            "allocated": 0.0,
+            "max_allocated": 0.0,
+            "total": 0.0,
+            "used_pct": -1.0,
+        }
 
         summary = (
             f"[{self.cfg.phase_label_warmup:>6}] t_first={t_first_ms/1000.0:.3f} s  "
@@ -343,9 +389,17 @@ class HUD:
     # Renderizado / Salida
     # ---------------------------
     def _render_bar(self, progress: float) -> str:
-        w = max(10, self.cfg.width)
-        fill = int(progress * w)
-        return "[" + "#" * fill + "-" * (w - fill) + f"] {progress*100:5.1f}%"
+        """Barra de progreso compacta con bloques Unicode.
+
+        Ejemplo para width=16:
+            ▕████████████░░░░░░▏
+        """
+        w = max(4, int(self.cfg.width))
+        fill = int(progress * w + 0.5)
+        fill = max(0, min(w, fill))
+        empty = w - fill
+        bar_inner = "█" * fill + "░" * empty
+        return "▕" + bar_inner + "▏"
 
     def _write(self, s: str) -> None:
         try:
@@ -364,7 +418,7 @@ class HUD:
 if __name__ == "__main__":  # pragma: no cover
     import random
 
-    hud = HUD(HUDConfig(width=40, interval=0.1, min_update_s=0.0, batch=4))
+    hud = HUD(HUDConfig(width=16, interval=0.1, min_update_s=0.0, batch=4))
 
     # Warmup demo
     hud.on_warmup_start(3, dtype="fp16", compile=False, stride=32, bn2gn="on", amp=True, find_mode="FAST", cache_disabled=True)

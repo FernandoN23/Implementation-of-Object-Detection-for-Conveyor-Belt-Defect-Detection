@@ -22,7 +22,7 @@ from typing import Any, Dict, List
 from pathlib import Path
 import warnings
 
-#Advertencias
+
 def Warnings() -> None:
     """Configura filtros y manejadores de warnings específicos del proyecto.
 
@@ -387,6 +387,7 @@ class Trainer:
 
         self.cb.on_train_start(trainer=self)
         iters_per_epoch = len(self.train_loader)
+        print("[TRAIN] >>> Inicio entrenamiento (~2-5 min)", flush=True)
 
         # Preparar nombres como lista para validator (si vienen como dict)
         if isinstance(self.names, dict):
@@ -520,6 +521,7 @@ class Trainer:
             if ut.SIGNALS.stop or self.timer.expired():
                 break
 
+        print("[TRAIN] <<< Fin entrenamiento (~2-5 min)", flush=True)
         if self.hud:
             self.hud.close()
         try:
@@ -594,7 +596,7 @@ class Trainer:
                 cache_disabled = None
 
         # Cabecera de warmup
-        print("[WARMUP] Comenzando warmup...", flush=True)
+        print("[WARMUP] >>> Inicio warmup (~2-5 min)", flush=True)
         if self.hud:
             self.hud.on_warmup_start(
                 total_iters=iters,
@@ -626,7 +628,7 @@ class Trainer:
         # Resumen y cierre de warmup
         if self.hud:
             self.hud.on_warmup_end()
-        print("[WARMUP] Finalizado.", flush=True)
+        print("[WARMUP] <<< Fin warmup (~2-5 min)", flush=True)
 
     # -----------------------------
     def _assembly_test(self) -> None:
