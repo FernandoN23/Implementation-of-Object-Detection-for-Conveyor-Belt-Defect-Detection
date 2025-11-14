@@ -20,6 +20,18 @@ import argparse
 from datetime import datetime
 from typing import Any, Dict, List
 from pathlib import Path
+import warnings
+
+# Filtro específico para warning interno de pin_memory (cosmético, no funcional)
+warnings.filterwarnings(
+    "ignore",
+    message=(
+        r".*Cannot set number of intraop threads after parallel work has started "
+        r"or after set_num_threads call when using native parallel backend.*"
+    ),
+    category=UserWarning,
+    module=r"torch\.utils\.data\._utils\.pin_memory",
+)
 
 # ---------------------------------------------------------------------------
 # 1) Bootstrap ROCm/MIOpen DEBE ocurrir antes de importar torch
@@ -127,8 +139,9 @@ def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
         "\n[YOLOv11] "
         f"MODE={mode}  VARIANT={cfg.variant}  BN2GN={cfg.bn2gn}  "
         f"AMP={cfg.amp}  EMA={'ON' if cfg.ema else 'OFF'}  HUD={'ON' if cfg.hud else 'OFF'}\n"
-        f"Device={device_info}  Batch={cfg.batch}  ImgSz={cfg.imgsz}  Epochs={cfg.epochs}\n"
-        f"Project={cfg.project}  SaveDir={cfg.save_dir}\n"
+        f"Device={device_info}  Batch={cfg.batch}  Imgsize={cfg.imgsz}  Epochs={cfg.epochs}\n"
+        f"Project={cfg.project} \n"
+        f"SaveDir={cfg.save_dir}\n"
         f"Warmup={cfg.warmup}{warm_ep}  ValInt every {cfg.val_int_interval} epochs\n"
     )
 
