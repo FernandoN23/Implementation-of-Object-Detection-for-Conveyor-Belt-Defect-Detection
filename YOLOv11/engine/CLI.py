@@ -413,12 +413,6 @@ class CLIBuilder:
     # Parser
     # ---------------------------
     def build_common_parser(self) -> argparse.ArgumentParser:
-        epilog_lines: List[str] = [
-            "Presets disponibles:",
-        ]
-        for name, preset in self.presets.items():
-            epilog_lines.append(f"  --{name:<14} |  --preset {name:<14} → {preset.overrides}")
-        epilog_lines.append("\nPrecedencia: CLI explícito > preset > YAML > defaults")
 
         p = argparse.ArgumentParser(
             prog="YOLOv11 CLI",
@@ -427,7 +421,6 @@ class CLIBuilder:
                 "normalización de rutas, sin dependencias a torch."
             ),
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            epilog="\n".join(epilog_lines),
             add_help=False,
         )
 
@@ -504,7 +497,7 @@ class CLIBuilder:
         parser.add_argument('--preset', type=str, choices=sorted(self.presets.keys()), help='Selecciona un preset predefinido')
         for name in self.presets.keys():
             parser.add_argument(f'--{name}', dest='_preset', action='store_const', const=name,
-                                help=f'Alias para --preset {name}')
+                                help=f'--{name}')
 
     # ---------------------------
     # YAML y presets
