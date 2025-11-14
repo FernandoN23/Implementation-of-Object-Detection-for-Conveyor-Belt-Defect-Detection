@@ -22,16 +22,40 @@ from typing import Any, Dict, List
 from pathlib import Path
 import warnings
 
-# Filtro específico para warning interno de pin_memory (cosmético, no funcional)
-warnings.filterwarnings(
-    "ignore",
-    message=(
-        r".*Cannot set number of intraop threads after parallel work has started "
-        r"or after set_num_threads call when using native parallel backend.*"
-    ),
-    category=UserWarning,
-    module=r"torch\.utils\.data\._utils\.pin_memory",
-)
+#Advertencias
+def Warnings() -> None:
+    """Configura filtros y manejadores de warnings específicos del proyecto.
+
+    Se agrupan aquí para poder colapsar fácilmente en el IDE (PyCharm/VSCode).
+    """
+    # Filtro específico para warning interno de pin_memory (cosmético, no funcional)
+    warnings.filterwarnings(
+        "ignore",
+        message=(
+            r".*Cannot set number of intraop threads after parallel work has started "
+            r"or after set_num_threads call when using native parallel backend.*"
+        ),
+        category=UserWarning,
+        module=r"torch\.utils\.data\._utils\.pin_memory",
+    )
+
+    # Filtro/reformateo de warning interno MIOpen "elapsed <= 0"
+    original_showwarning = warnings.showwarning
+
+    def _y11_showwarning(message, category, filename, lineno, file=None, line=None):
+        text = str(message)
+        if "Invalid elapsed time detected in EvaluateInvokers" in text:
+            # Mensaje breve y reconocible en consola (≤30 caracteres aprox.)
+            print("[Warning]: MIOpen elapsed", flush=True)
+            return
+        original_showwarning(message, category, filename, lineno, file=file, line=line)
+
+    warnings.showwarning = _y11_showwarning
+
+
+# Aplicar configuración de warnings al importar el módulo
+Warnings()
+
 
 # ---------------------------------------------------------------------------
 # 1) Bootstrap ROCm/MIOpen DEBE ocurrir antes de importar torch

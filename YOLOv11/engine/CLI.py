@@ -259,9 +259,10 @@ PRESETS: Dict[str, Preset] = {
             "test": True,
             "warmup_epochs": 1,
             "warmup": "sanity",
-            "bn2gn": "on",
+            "bn2gn": "on",              # TODO: todo GN
             "amp": "fp16",
             "hud": True,
+            "miopen_disable_cache": True,  # TODO: cache OFF en smoketest
         },
     ),
     # Warmup más agresivo para medir estabilidad MIOpen/AMP rápidamente
@@ -278,10 +279,11 @@ PRESETS: Dict[str, Preset] = {
             "imgsz": 640,
             "test": True,
             "warmup_epochs": 1,
-            "warmup": "fast",  # más iters
-            "bn2gn": "on_error",
-            "amp": "auto",     # intenta bf16 si disponible
+            "warmup": "fast",           # más iters
+            "bn2gn": "on",              # TODO: todo GN
+            "amp": "auto",              # intenta bf16 si disponible
             "hud": True,
+            "miopen_disable_cache": True,
         },
     ),
     # Smoke corto de entrenamiento real (1 época) sin test, para verificar loop completo
@@ -298,11 +300,12 @@ PRESETS: Dict[str, Preset] = {
             "test": False,
             "warmup_epochs": 0,
             "warmup": "off",
-            "bn2gn": "on_error",
+            "bn2gn": "on",              # TODO: todo GN
             "amp": "fp16",
             "hud": True,
-            "val_int_interval": 5,         # prácticamente no corre en 1 epoca
+            "val_int_interval": 5,      # prácticamente no corre en 1 epoca
             "val_int_tb": False,
+            "miopen_disable_cache": True,
         },
     ),
     # Entrenamiento corto (3 épocas) para revisar pérdidas/EMA/scheduler
@@ -319,11 +322,12 @@ PRESETS: Dict[str, Preset] = {
             "test": False,
             "warmup_epochs": 1,
             "warmup": "sanity",
-            "bn2gn": "on_error",
+            "bn2gn": "on",              # TODO: todo GN
             "amp": "fp16",
             "hud": True,
             "val_int_interval": 3,
             "val_int_tb": True,
+            "miopen_disable_cache": True,
         },
     ),
     # Forward real del primer minibatch del dataloader (sin warmup)
@@ -338,12 +342,13 @@ PRESETS: Dict[str, Preset] = {
             "batch": 4,
             "epochs": 1,
             "imgsz": 640,
-            "test": True,        # assembly + forward
+            "test": True,               # assembly + forward
             "warmup_epochs": 0,
             "warmup": "off",
-            "bn2gn": "on_error",
+            "bn2gn": "on",              # TODO: todo GN
             "amp": "fp16",
             "hud": True,
+            "miopen_disable_cache": True,
         },
     ),
     # Stress de warmup (full) con 2 bucles para cacheo/perfilado de kernels
@@ -363,9 +368,11 @@ PRESETS: Dict[str, Preset] = {
             "bn2gn": "on",
             "amp": "fp16",
             "hud": True,
+            "miopen_disable_cache": True,
         },
     ),
 }
+
 
 
 # --------------------------------------------------------------
