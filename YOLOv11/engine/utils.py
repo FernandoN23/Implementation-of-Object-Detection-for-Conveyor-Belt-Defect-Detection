@@ -70,11 +70,80 @@ def select_device(spec: str = "auto") -> torch.device:
 # save_dir y estructura de experimento
 # -------------------------------
 
+
 def _timestamp() -> str:
     return time.strftime("%Y%m%d-%H%M%S")
 
 
-def setup_save_dir(project: str = "runs/train", name: str = "exp", exist_ok: bool = False) -> str:
+def setup_save_dir(
+    project: str = "runs/train",
+    name: str = "exp",
+    exist_ok: bool = False,
+    *,
+    variant: Optional[str] = None,
+    phase: str = "train",
+    is_test: bool = False,
+    project_root: Optional[str] = None,
+) -> str:
+    """Construye el directorio de guardado para un experimento.
+
+    Modo legacy (compatibilidad):
+        - Usado cuando ``variant is None``.
+        - Respeta el esquema clásico ``project/name`` (por defecto ``runs/train/exp``).
+
+    Modo nuevo (recomendado):
+        - Activado cuando se proporciona ``variant``.
+        - Sigue el layout unificado del proyecto:
+
+            runs/<variant>/<phase>/<slot>/
+
+          donde ``slot`` depende del tipo de ejecución:
+
+            - train + is_test=True  →  tests/<run_name>
+            - train + is_test=False →  final
+            - otras phases          →  <run_name> (o timestamp si no se da nombre)
+    """
+
+    # ---------------------------
+    # Modo nuevo: layout por variant/phase/slot
+    # ---------------------------
+    if variant is not None:
+        root = Path(project_root) if project_root is not None else Path(__file__).resolve().parents[1]
+        runs_root = root / "runs"
+
+        # Normalizamos el nombre de corrida. "auto"/"exp" → timestamp.
+        run_name: Optional[str]
+        if name in (None, "", "auto", "exp"):
+            run_name = None
+        else:
+            run_name = str(name)
+
+        if phase == "train" and not is_test:
+            # Entrenamiento final: slot único "final".
+            slot = "final"
+        elif is_test:
+            # Slots de pruebas de ensamblado / warmups cortos.
+            if run_name is None:
+                run_name = _timestamp()
+            slot = f"tests/{run_name}"
+        else:
+            # Otras fases (valid/test externos, etc.) → nombre explícito o timestamp.
+            if run_name is None:
+                run_name = _timestamp()
+            slot = run_name
+
+        # slot puede contener subdirectorios (p.ej. "tests/<run_name>").
+        save_dir = runs_root / variant / phase
+        for part in slot.split("/"):
+            if part:
+                save_dir /= part
+
+        save_dir.mkdir(parents=True, exist_ok=exist_ok)
+        return str(save_dir.resolve())
+
+    # ---------------------------
+    # Modo legacy: mantiene compatibilidad con código existente
+    # ---------------------------
     root = Path(project)
     if name == "auto" or name is None or name == "exp":
         base = root / "exp"
@@ -95,6 +164,7 @@ def setup_save_dir(project: str = "runs/train", name: str = "exp", exist_ok: boo
 # torch.compile (opcional)
 # -------------------------------
 
+
 def maybe_compile(model: torch.nn.Module, enabled: bool) -> torch.nn.Module:
     if not enabled:
         return model
@@ -108,6 +178,7 @@ def maybe_compile(model: torch.nn.Module, enabled: bool) -> torch.nn.Module:
 # -------------------------------
 # Timed stop y NaN recovery
 # -------------------------------
+
 
 @dataclass
 class _TimerStop:
@@ -150,11 +221,14 @@ class _NaNPolicy:
     disable_amp: bool = True
 
 
-def nan_recovery(loss_value: float,
-                 optimizer: torch.optim.Optimizer,
-                 amp_enabled: bool,
-                 *,
-                 policy: Optional[_NaNPolicy] = None) -> Tuple[bool, bool]:
+
+def nan_recovery(
+    loss_value: float,
+    optimizer: torch.optim.Optimizer,
+    amp_enabled: bool,
+    *,
+    policy: Optional[_NaNPolicy] = None,
+) -> Tuple[bool, bool]:
     if policy is None:
         policy = _NaNPolicy()
     if not (np.isnan(loss_value) or np.isinf(loss_value)):
@@ -170,6 +244,7 @@ def nan_recovery(loss_value: float,
 # -------------------------------
 # Señales del SO para interrupción limpia
 # -------------------------------
+
 
 class _SignalCatcher:
     def __init__(self) -> None:
@@ -194,6 +269,7 @@ SIGNALS = _SignalCatcher()
 # Información de dispositivo y AMP auto
 # -------------------------------
 
+
 def device_info() -> str:
     try:
         if torch.cuda.is_available():
@@ -209,6 +285,7 @@ def device_info() -> str:
         return "CPU"
     except Exception as e:
         return f"Unknown device ({e})"
+
 
 
 def auto_amp_mode() -> str:
@@ -231,6 +308,7 @@ def auto_amp_mode() -> str:
 # -------------------------------
 # Construcción de modelo y dataloaders (prioriza parser_yaml)
 # -------------------------------
+
 
 class _TrainWrapper(torch.nn.Module):
     def __init__(self, core: torch.nn.Module) -> None:
@@ -257,12 +335,14 @@ class _TrainWrapper(torch.nn.Module):
         return loss, items
 
 
+
 def _read_yaml_dict(path: str) -> Dict[str, Any]:
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"YAML no encontrado: {p}")
     with p.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
 
 
 def build_model(model_yaml_path: str, *, variant: str) -> torch.nn.Module:
@@ -300,12 +380,14 @@ class _SyntheticDetectionDataset(Dataset):
         return {"img": x, "cls": torch.tensor([], dtype=torch.long), "bboxes": torch.zeros(0, 4), "img_id": int(idx)}
 
 
+
 def _collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     imgs = torch.stack([b["img"] for b in batch], 0)
     cls = [b["cls"] for b in batch]
     bboxes = [b["bboxes"] for b in batch]
     img_ids = [b.get("img_id", -1) for b in batch]
     return {"img": imgs, "cls": cls, "bboxes": bboxes, "img_id": img_ids}
+
 
 
 def build_dataloaders(data_yaml_path: str, *, imgsz: int, batch: int, workers: int):

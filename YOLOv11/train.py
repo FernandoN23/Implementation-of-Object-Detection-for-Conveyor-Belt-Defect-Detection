@@ -67,6 +67,7 @@ def _bootstrap_before_torch(args: argparse.Namespace) -> None:
 # 2) Imports del engine y dependencias (luego de bootstrap)
 # ---------------------------------------------------------------------------
 
+
 def _lazy_import_engine():
     """Importa módulos del engine una vez realizado el bootstrap.
     Nota: no importar `engine.CLI` aquí; el parser se usa sólo en `__main__`.
@@ -136,6 +137,7 @@ def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
 # 3.1) Construcción de modelo y datos (delegando en data_loader.py)
 # ---------------------------------------------------------------------------
 
+
 def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
     """Construye modelo y dataloader de entrenamiento usando utilidades del proyecto.
 
@@ -200,14 +202,6 @@ class Trainer:
         ut = engine["utils"]
         self.device = ut.select_device(cfg.device)
         ut.seed_everything(cfg.seed)
-        # --- FIX ruta de runs anclada a YOLOv11/ ---
-        project_path = Path(cfg.project)
-        if not project_path.is_absolute():
-            project_path = Path(__file__).resolve().parent / project_path
-        project_path = project_path.resolve()
-        self.save_dir = ut.setup_save_dir(str(project_path), cfg.name, exist_ok=cfg.exist_ok)
-        self.cfg.save_dir = self.save_dir  # para banner
-        self.cfg.project = str(project_path)  # reflejar ruta absoluta en banner y downstream
 
         # === Logger de experimento (utility/logger.py) ===
         self.logger = engine["ExperimentLogger"](
@@ -217,6 +211,16 @@ class Trainer:
             run_name=cfg.name,
             reset_final=not cfg.exist_ok,
         )
+
+        # Directorio oficial de guardado: slot de runs definido por el logger
+        self.save_dir = Path(self.logger.runs_dir)
+        self.cfg.save_dir = str(self.save_dir)  # para banner y downstream
+        # Usamos `project` como etiqueta de raíz de runs (p.ej. YOLOv11/runs)
+        try:
+            self.cfg.project = str(self.save_dir.parents[3])
+        except Exception:
+            self.cfg.project = str(self.save_dir.parent)
+
         # Snapshot de config y resumen del modelo
         try:
             cfg_dict = dict(self.cfg)
@@ -617,6 +621,7 @@ class Trainer:
 # ---------------------------------------------------------------------------
 # 5) main
 # ---------------------------------------------------------------------------
+
 
 def main(cli: argparse.Namespace) -> None:
     _bootstrap_before_torch(cli)
