@@ -213,7 +213,7 @@ class HUD:
         eta_s = (iters_per_epoch - it) * (mean_dt / 1000.0)
 
         # Barra + progreso
-        phase = self.cfg.phase_label_train[:3].upper()
+        phase = self.cfg.phase_label_train.upper()
         bar = self._render_bar(progress)
         pct = progress * 100.0
 
@@ -323,7 +323,7 @@ class HUD:
         mean_dt = mean(self._wu_times) if self._wu_times else float(dt_ms)
         it_per_s = 1000.0 / (mean_dt if mean_dt > 0 else 1e-6)
 
-        phase = self.cfg.phase_label_warmup[:3].upper()
+        phase = self.cfg.phase_label_warmup.upper()
         bar = self._render_bar(progress)
         pct = progress * 100.0
 
