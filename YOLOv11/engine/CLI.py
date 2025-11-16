@@ -241,7 +241,6 @@ class Preset:
     def to_defaults(self) -> Dict[str, Any]:
         return dict(self.overrides)
 
-
 # Presets solicitados: smoketests y forwards previos a entrenamientos largos
 PRESETS: Dict[str, Preset] = {
     # Equivalente a tu comando largo de pruebas iniciales (assembly + warmup sanity)
@@ -304,8 +303,11 @@ PRESETS: Dict[str, Preset] = {
             "bn2gn": "on",              # TODO: todo GN
             "amp": "fp16",
             "hud": True,
-            "val_int_interval": 5,      # prácticamente no corre en 1 epoca
-            "val_int_tb": False,
+            # --- validación interna siempre activa en smoketest ---
+            "val_int_interval": 1,          # corre en cada época (aquí 1)
+            "val_int_use_train_subset": True,
+            "val_int_max_batches": 1,       # sólo 1 batch de TRAIN para val_int
+            "val_int_tb": False,            # sin TensorBoard en este smoketest
             "miopen_disable_cache": True,
         },
     ),
@@ -327,8 +329,11 @@ PRESETS: Dict[str, Preset] = {
             "bn2gn": "on",              # TODO: todo GN
             "amp": "fp16",
             "hud": True,
-            "val_int_interval": 3,
-            "val_int_tb": True,
+            # --- validación interna siempre activa en smoketest ---
+            "val_int_interval": 1,          # val_int en cada época
+            "val_int_use_train_subset": True,
+            "val_int_max_batches": 1,       # 1 batch de TRAIN por val_int
+            "val_int_tb": True,             # aquí sí, para ver métricas en TB
             "miopen_disable_cache": True,
         },
     ),
@@ -374,7 +379,6 @@ PRESETS: Dict[str, Preset] = {
         },
     ),
 }
-
 
 
 # --------------------------------------------------------------
