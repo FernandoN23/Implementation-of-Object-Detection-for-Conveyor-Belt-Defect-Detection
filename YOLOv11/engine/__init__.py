@@ -39,6 +39,8 @@ __all__ = [
     "utils",
     "bn2gn_patch",
     "hud",
+    "warnings",
+    "Trainer",
     # submódulos auxiliares (no necesariamente pesados)
     "bootstrap_miopen",
     "CLI",
@@ -58,6 +60,8 @@ _LAZY_MODULES: Dict[str, str] = {
     "utils": ".utils",
     "bn2gn_patch": ".bn2gn_patch",
     "hud": ".hud",
+    "warnings": ".warnings",
+    "Trainer": ".Trainer",
     # utilidades torch‑free (seguimos usando lazy para evitar
     # efectos secundarios en importaciones tempranas)
     "bootstrap_miopen": ".bootstrap_miopen",

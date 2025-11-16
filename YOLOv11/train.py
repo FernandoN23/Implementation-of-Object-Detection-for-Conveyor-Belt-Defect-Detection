@@ -7,59 +7,28 @@
 # --------------------------------------------------------------
 # Archivo: YOLOv11/train.py
 # Descripción: Script principal de entrenamiento. Orquesta bootstrap ROCm,
-#  construcción de modelo/datos, loop de entrenamiento con AMP/EMA,
-#  callbacks, validación interna (val_int) y HUD de consola. Incluye modo --test
-#  para prueba de ensamblado y warmup configurable.
+#  construcción de modelo/datos, y delega el loop de entrenamiento a
+#  engine/Trainer.py. Integra AMP/EMA, callbacks, validación interna (val_int)
+#  y HUD de consola. Incluye modo --test para prueba de ensamblado y warmup.
 #==============================================================
 
 from __future__ import annotations
+
 import os
 import sys
-import time
 import argparse
-import copy
 from datetime import datetime
 from typing import Any, Dict, List
 from pathlib import Path
-import warnings
 
+# ---------------------------------------------------------------------------
+# 0) Configuración global de warnings (antes de todo)
+# ---------------------------------------------------------------------------
 
-def Warnings() -> None:
-    """Configura filtros y manejadores de warnings específicos del proyecto.
+# Centraliza filtros y formateo de warnings (pin_memory, MIOpen, LR sched)
+from YOLOv11.engine.warnings import configure_warnings
 
-    Se agrupan aquí para poder colapsar fácilmente en el IDE (PyCharm/VSCode).
-    """
-    # Filtro específico para warning interno de pin_memory (cosmético, no funcional)
-    warnings.filterwarnings(
-        "ignore",
-        message=(
-            r".*Cannot set number of intraop threads after parallel work has started "
-            r"or after set_num_threads call when using native parallel backend.*"
-        ),
-        category=UserWarning,
-        module=r"torch\.utils\.data\._utils\.pin_memory",
-    )
-
-    # Filtro/reformateo de warnings internos específicos
-    original_showwarning = warnings.showwarning
-
-    def _y11_showwarning(message, category, filename, lineno, file=None, line=None):
-        text = str(message)
-        # MIOpen: elapsed time inválido (ruido interno de backend)
-        if "Invalid elapsed time detected in EvaluateInvokers" in text:
-            print("[Warning]: MIOpen elapsed", flush=True)
-            return
-        # Scheduler LR: orden de llamadas step (cosmético, no funcional)
-        if "Detected call of `lr_scheduler.step()` before `optimizer.step()`" in text:
-            print("[Warning]: LRSched orden step", flush=True)
-            return
-        original_showwarning(message, category, filename, lineno, file=file, line=line)
-
-    warnings.showwarning = _y11_showwarning
-
-
-# Aplicar configuración de warnings al importar el módulo
-Warnings()
+configure_warnings()
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +46,7 @@ def _bootstrap_before_torch(args: argparse.Namespace) -> None:
     try:
         from YOLOv11.engine.bootstrap_miopen import bootstrap, MIOpenConfig
     except Exception as e:
-        print(f"[bootstrap] Advertencia: no se pudo importar bootstrap_miopen: {e}")
+        print(f"[bootstrap_miopen] Advertencia: no se pudo importar bootstrap_miopen: {e}")
         return
 
     # Lee posibles overrides desde el entorno. Si no existen, usa defaults.
@@ -103,7 +72,7 @@ def _bootstrap_before_torch(args: argparse.Namespace) -> None:
     try:
         bootstrap(miopen_cfg)
     except Exception as e:
-        print(f"[bootstrap] Advertencia: fallo en bootstrap MIOpen: {e}")
+        print(f"[bootstrap_miopen] Advertencia: fallo en bootstrap MIOpen: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -111,8 +80,9 @@ def _bootstrap_before_torch(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _lazy_import_engine():
+def _lazy_import_engine() -> Dict[str, Any]:
     """Importa módulos del engine una vez realizado el bootstrap.
+
     Nota: no importar `engine.CLI` aquí; el parser se usa sólo en `__main__`.
     """
     from YOLOv11.engine import (
@@ -126,13 +96,14 @@ def _lazy_import_engine():
         bn2gn_patch as b2g,
         hud as engine_hud,
     )
-    # Utilidades solicitadas: DataLoader, Losses y Logger desde utility/
+    # Utilidades solicitadas: DataLoader, Losses, Logger y Weights desde utility/
     from YOLOv11.utility import data_loader as util_data
     from YOLOv11.utility.losses import YOLOLoss
     from YOLOv11.utility.logger import ExperimentLogger
-
     from YOLOv11.utility.weights import WeightsManager
-    import torch  # ahora sí
+
+    import torch  # ahora sí, después de bootstrap
+
     return dict(
         amp=engine_amp,
         optim=engine_optim,
@@ -152,48 +123,22 @@ def _lazy_import_engine():
 
 
 # ---------------------------------------------------------------------------
-# 3) Utilidades locales
+# 3) Utilidad local: construcción de modelo y datos
 # ---------------------------------------------------------------------------
 
-
-class DotDict(dict):
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-
-def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
-    ut = engine["utils"]
-    device_info = ut.device_info()
-    mode = "TEST" if cfg.test else ("WARMUP" if cfg.warmup != "off" else "TRAIN")
-    warm_ep = f" (epochs={cfg.warmup_epochs})" if int(cfg.get("warmup_epochs", 0)) > 0 else ""
-    print(
-        "\n[YOLOv11] "
-        f"MODE={mode}  VARIANT={cfg.variant}  BN2GN={cfg.bn2gn}  "
-        f"AMP={cfg.amp}  EMA={'ON' if cfg.ema else 'OFF'}  HUD={'ON' if cfg.hud else 'OFF'}\n"
-        f"Device={device_info}  Batch={cfg.batch}  Imgsize={cfg.imgsz}  Epochs={cfg.epochs}\n"
-        f"Project={cfg.project} \n"
-        f"SaveDir={cfg.save_dir}\n"
-        f"Warmup={cfg.warmup}{warm_ep}  ValInt every {cfg.val_int_interval} epochs\n"
-    )
-
-
-# ---------------------------------------------------------------------------
-# 3.1) Construcción de modelo y datos (delegando en data_loader.py)
-# ---------------------------------------------------------------------------
+from YOLOv11.engine.Trainer import Trainer, DotDict
 
 
 def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
     """Construye modelo y dataloader de entrenamiento usando utilidades del proyecto.
 
-    Cambios:
-      - Delegación total al `utility/data_loader.py` (API `build_train_bundle`).
-      - Normalización de `names` a lista y telemetría de dataset impresa aquí.
-      - **Sin** crear partición de validación externa.
+    - Delegación total a `utility/data_loader.py` (API `build_train_bundle`).
+    - Normalización de `names` a lista y telemetría de dataset.
+    - **Sin** crear partición de validación externa.
     """
     ut = engine["utils"]
 
-    # 1) Modelo (igual que antes)
+    # 1) Modelo
     model = ut.build_model(cfg.model, variant=cfg.variant)
 
     # 2) DataLoader + names + resumen desde utility/data_loader.py
@@ -225,511 +170,32 @@ def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
     return model, train_loader, names_list
 
 
-def _fitness(metrics: Dict[str, float]) -> float:
-    # Fitness clásica: 0.1*mAP50 + 0.9*mAP50-95 si existen; tolerante a faltantes
-    m50 = float(metrics.get("map50", 0.0))
-    m5095 = float(metrics.get("map", metrics.get("map50-95", 0.0)))
-    return 0.1 * m50 + 0.9 * m5095
-
-
 # ---------------------------------------------------------------------------
-# 4) Trainer
-# ---------------------------------------------------------------------------
-
-
-class Trainer:
-    def __init__(self, model, train_loader, names, cfg: DotDict, engine: Dict[str, Any]):
-        self.model = model
-        self.train_loader = train_loader
-        self.names = names
-        self.cfg = cfg
-        self.engine = engine
-
-        ut = engine["utils"]
-        self.device = ut.select_device(cfg.device)
-        ut.seed_everything(cfg.seed)
-
-        # === Logger de experimento (utility/logger.py) ===
-        self.logger = engine["ExperimentLogger"](
-            variant=cfg.variant,
-            phase="train",
-            is_test=cfg.test,
-            run_name=cfg.name,
-            reset_final=not cfg.exist_ok,
-        )
-
-        # Directorio oficial de guardado: slot de runs definido por el logger
-        self.save_dir = Path(self.logger.runs_dir)
-        self.cfg.save_dir = str(self.save_dir)  # para banner y downstream
-        # Usamos `project` como etiqueta de raíz de runs (p.ej. YOLOv11/runs)
-        try:
-            self.cfg.project = str(self.save_dir.parents[3])
-        except Exception:
-            self.cfg.project = str(self.save_dir.parent)
-
-        # Snapshot de config y resumen del modelo
-        try:
-            cfg_dict = dict(self.cfg)
-            self.logger.save_config_json(cfg_dict)
-        except Exception:
-            pass
-        try:
-            n_params = sum(p.numel() for p in model.parameters())
-            extra = {
-                "imgsz": cfg.imgsz,
-                "batch": cfg.batch,
-                "amp": cfg.amp,
-                "device": str(self.device),
-                "params": int(n_params),
-                "variant": cfg.variant,
-            }
-            self.logger.save_model_summary(self.model, extra=extra)
-        except Exception:
-            pass
-
-        # BN→GN antes de fijar device/compile para evitar capas nuevas en CPU
-        engine["b2g"].apply_bn2gn_patch(self.model, policy=cfg.bn2gn, verbose=1)
-
-        # Mover modelo (ya parcheado) al dispositivo destino
-        self.model.to(self.device)
-
-        # compile opcional
-        self.model = ut.maybe_compile(self.model, cfg.compile)
-
-        # AMP, Optim, Scheduler, Accumulate
-        iters_per_epoch = len(self.train_loader)
-        AmpConfig = engine["amp"].AmpConfig
-        mode = str(self.cfg.amp).lower()
-        if mode == "off":
-            amp_cfg = AmpConfig(enabled=False)
-        elif mode in ("bf16", "fp16"):
-            amp_cfg = AmpConfig(enabled=True, dtype=mode)
-        else:
-            # 'auto' ya fue resuelto antes con utils.auto_amp_mode(); por compatibilidad, asuma fp16
-            amp_cfg = AmpConfig(enabled=True, dtype="fp16")
-        self.ampmgr = engine["amp"].AmpManager(amp_cfg)
-
-        # Delegar completamente en engine.optim para obtener configuraciones desde parser
-        self.optimizer, self.scheduler, self.accumulate, self._optim_cfg = engine["optim"].build_optim_from_parser(
-            self.model,
-            None,  # el optimizador resolverá internamente el parser/config
-            iters_per_epoch=iters_per_epoch,
-            batch_per_gpu=cfg.batch,
-            world_size=cfg.world_size,
-        )
-
-        # EMA
-        self.ema = engine["ema"].ModelEMA(self.model, cfg=engine["ema"].EMAConfig()) if cfg.ema else None
-
-        # Callbacks (sin overlays)
-        self.cb = engine["callbacks"].build_default_callbacks(
-            self.save_dir, cfg=DotDict(val_int_interval=cfg.val_int_interval)
-        )
-
-        # HUD
-        self.hud = engine["hud"].HUD(engine["hud"].HUDConfig(enable=cfg.hud)) if cfg.hud else None
-
-        # Weights Manager (reemplazo de CheckpointManager)
-        self.wm = engine["WeightsManager"](
-            project_root=Path(__file__).resolve().parent,
-            variant=cfg.variant,
-            phase="train",
-            run_name=cfg.name,
-            is_test=cfg.test,
-            reset_final=False,
-        )
-        self.start_epoch = 0
-        self.best_fitness = -1e9
-
-        # === Criterio de pérdida (utility/losses.YOLOLoss) ===
-        try:
-            nc = len(self.names) if hasattr(self.names, "__len__") else int(self.names)
-        except Exception:
-            nc = 80
-        self.criterion = engine["YOLOLoss"](nc=nc).to(self.device)
-
-        # Reanudación si corresponde
-        if cfg.resume:
-            prefer = str(cfg.resume).lower()
-            info = None
-            if prefer in ("last", "best"):
-                info = self.wm.try_resume(
-                    self.model, optimizer=self.optimizer, scheduler=self.scheduler, prefer=prefer
-                )
-            else:
-                try:
-                    # Interpretar cfg.resume como ruta explícita
-                    ckpt = self.wm.load(Path(prefer))
-                    if "state_dict" in ckpt and ckpt["state_dict"] is not None:
-                        self.model.load_state_dict(ckpt["state_dict"], strict=False)
-                    if self.optimizer is not None and ckpt.get("optimizer") is not None:
-                        self.optimizer.load_state_dict(ckpt["optimizer"])
-                    if self.scheduler is not None and ckpt.get("scheduler") is not None:
-                        self.scheduler.load_state_dict(ckpt["scheduler"])
-                    info = {
-                        "resumed": True,
-                        "start_epoch": int(ckpt.get("epoch", 0)) + 1,
-                        "ckpt_path": Path(prefer),
-                    }
-                except Exception:
-                    info = {"resumed": False, "start_epoch": 0, "ckpt_path": None}
-            self.start_epoch = int((info or {}).get("start_epoch", 0))
-
-        # Límite de tiempo (0 = ilimitado)
-        self.timer = ut.timed_stop(cfg.time_limit)
-
-        # Adaptador de loader a dict en dispositivo (delegado al módulo utility.data_loader)
-        self.train_loader_adapt = engine["util_data"].as_dict_loader(self.train_loader, self.device)
-
-    # -----------------------------
-    def fit(self) -> None:
-        self._print_mode_banner()
-
-        # Warm-up previo a TRAIN si se solicita por CLI (no interrumpe flujo normal)
-        if not self.cfg.test and int(self.cfg.get("warmup_epochs", 0)) > 0 and self.hud:
-            self._run_warmup_hud(loops=int(self.cfg.warmup_epochs))
-
-        # Modo --test: prueba de ensamblado rápida y salida
-        if self.cfg.test:
-            self._assembly_test()
-            print("[TEST] Assembly test passed ✔")
-            try:
-                self.logger.close()
-            except Exception:
-                pass
-            return
-
-        engine = self.engine
-        ut = engine["utils"]
-
-        self.cb.on_train_start(trainer=self)
-        iters_per_epoch = len(self.train_loader)
-        print("[TRAIN] >>> Inicio entrenamiento (~2-5 min)", flush=True)
-
-        # Preparar nombres como lista para validator (si vienen como dict)
-        if isinstance(self.names, dict):
-            names_list: List[str] = [self.names[i] for i in sorted(self.names.keys())]
-        else:
-            names_list = list(self.names) if hasattr(self.names, "__iter__") else []
-
-        for epoch in range(self.start_epoch, self.cfg.epochs):
-            self.model.train()
-            if self.hud:
-                self.hud.on_epoch_start(epoch, self.cfg.epochs, iters_per_epoch)
-
-            # Acumuladores de métricas de entrenamiento por época
-            sum_loss = 0.0
-            count = 0
-            scalars_sum: Dict[str, float] = {}
-
-            t_iter = time.perf_counter()
-            for i, batch in enumerate(self.train_loader_adapt, start=1):
-                with self.ampmgr.autocast():
-                    # forward del core + pérdida YOLOLoss
-                    x = batch["img"]
-                    core = getattr(self.model, "core", self.model)
-                    preds = core(x)
-                    loss, scalars = self.criterion(preds, batch["targets"])
-                    items = {"loss": float(loss.detach()), **{k: float(v) for k, v in scalars.items()}}
-
-                # acumular métricas
-                sum_loss += float(loss.item())
-                count += 1
-                for k, v in scalars.items():
-                    scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v)
-
-                do_step = (i % self.accumulate) == 0
-                self.engine["amp"].safe_backward_step(
-                    loss,
-                    self.optimizer,
-                    self.ampmgr,
-                    clip_fn=lambda: self.engine["optim"].clip_gradients(
-                        self.model, self.cfg.clip_norm, self.cfg.clip_mode
-                    ),
-                    zero_grad=do_step,
-                    set_to_none=True,
-                )
-                if do_step:
-                    # Orden lógico: backward/step (en safe_backward_step) -> scheduler -> EMA
-                    self.scheduler.step()
-                    if self.ema:
-                        self.ema.update(self.model)
-
-                dt_ms = (time.perf_counter() - t_iter) * 1000.0
-                if self.hud:
-                    lr = float(self.optimizer.param_groups[0]["lr"])
-                    self.hud.update(epoch, i, iters_per_epoch, lr, float(loss.item()), items, dt_ms)
-                self.cb.on_train_batch_end(self, epoch * iters_per_epoch + i, float(loss.item()), items)
-                t_iter = time.perf_counter()
-
-                if ut.SIGNALS.stop or self.timer.expired():
-                    break
-
-            if self.hud:
-                self.hud.on_epoch_end()
-
-            # Métricas promedio de train por época
-            train_metrics: Dict[str, float] = {"loss": (sum_loss / max(1, count))}
-            for k, v in scalars_sum.items():
-                train_metrics[k] = v / max(1, count)
-
-            # ===== Validación interna (val_int) por intervalo =====
-            val_metrics: Dict[str, float] = {}
-            run_val_int = (epoch % max(1, int(self.cfg.val_int_interval)) == 0) or (epoch == 0)
-            if run_val_int:
-                # Preparar modelo de evaluación según política EMA
-                if self.ema is not None:
-                    try:
-                        model_eval = copy.deepcopy(self.model)
-                        model_eval.to(self.device)
-                        model_eval.eval()
-                        self.ema.copy_to(model_eval)
-                    except Exception as e:
-                        print(
-                            f"[EMA] Advertencia: fallo al preparar modelo EMA para validación interna: {e}"
-                        )
-                        model_eval = self.model
-                else:
-                    model_eval = self.model
-
-                # Para val_int usamos siempre el train_loader_adapt; el tamaño efectivo
-                # lo controla `max_batches` cuando se activa `val_int_use_train_subset`.
-                max_batches = (
-                    int(self.cfg.val_int_max_batches)
-                    if self.cfg.val_int_use_train_subset
-                    else 0
-                )
-
-                try:
-                    val_metrics = self.engine["validator"].validate_interna(
-                        model_eval,
-                        loader=self.train_loader_adapt,
-                        names=names_list,
-                        save_dir=str(self.save_dir),
-                        conf_thres=float(self.cfg.val_int_conf),
-                        iou_thres=0.60,
-                        device=str(self.device),
-                        # internos
-                        epoch=int(epoch),
-                        max_batches=max_batches,
-                        split=str(self.cfg.val_int_split),
-                        use_pivots=bool(self.cfg.val_int_pivots),
-                        # TB
-                        tb_enable=bool(self.cfg.val_int_tb),
-                        tb_variant=str(self.cfg.variant),
-                        tb_run_name=str(self.cfg.name),
-                        tb_nrow=int(self.cfg.val_int_tb_nrow),
-                        tb_conf_thr=float(self.cfg.val_int_tb_conf),
-                        tb_topk=int(self.cfg.val_int_tb_topk),
-                        dataset_base=self.cfg.dataset_base,
-                        # slots
-                        phase="val",
-                        slot="epoch",
-                        run_name=str(self.cfg.name),
-                        step_tag=f"epoch_{epoch:03d}",
-                        verbose=1,
-                    )
-                except Exception as e:
-                    print(f"[val_int] Advertencia: validación interna falló en época {epoch}: {e}")
-                    val_metrics = {}
-
-
-            # Fitness y guardado de pesos
-            fitness = _fitness(val_metrics) if val_metrics else -1e9
-            is_best = fitness > self.best_fitness
-            if is_best:
-                self.best_fitness = fitness
-
-            path = self.wm.save_epoch(
-                self.model,
-                epoch,
-                score=(fitness if fitness > -1e8 else 0.0),
-                optimizer=self.optimizer,
-                scheduler=self.scheduler,
-                extra={"imgsz": self.cfg.imgsz, "batch": self.cfg.batch},
-                save_full_model=False,
-            )
-            self.cb.on_model_save(self, path, is_best=is_best)
-
-            # Logging de época (train + val_int si existió)
-            try:
-                self.logger.log_epoch(epoch, train_metrics, split="train")
-                if val_metrics:
-                    self.logger.log_epoch(epoch, val_metrics, split="val_int")
-            except Exception:
-                pass
-
-            # Callback de fin de época (usar métricas disponibles)
-            self.cb.on_fit_epoch_end(self, epoch, train_stats=train_metrics, val_stats=(val_metrics or {}))
-            if self.hud:
-                self.hud.update_epoch(epoch)
-
-            if ut.SIGNALS.stop or self.timer.expired():
-                break
-
-        print("[TRAIN] <<< Fin entrenamiento (~2-5 min)", flush=True)
-        if self.hud:
-            self.hud.close()
-        try:
-            self.logger.close()
-        except Exception:
-            pass
-
-    # -----------------------------
-    def _run_warmup_hud(self, loops: int = 1) -> None:
-        """Ejecuta warm-up sintético con HUD durante `loops` épocas virtuales.
-        Usa **exclusivamente** la API de warmup del HUD (on_warmup_*),
-        separada del HUD de TRAIN, para evitar encabezados como `[TRAIN] 2/1`.
-        """
-        engine = self.engine
-        torch_mod = engine["torch"]
-        core = getattr(self.model, "core", self.model)
-
-        # Inferir stride del modelo (fallback 32)
-        stride = None
-        for obj in (core, getattr(core, "model", None)):
-            if obj is None:
-                continue
-            for attr in ("stride", "strides", "max_stride"):
-                if hasattr(obj, attr):
-                    stride = getattr(obj, attr)
-                    break
-            if stride is not None:
-                break
-        try:
-            if isinstance(stride, (list, tuple)):
-                stride = int(max(stride))
-            elif isinstance(stride, dict):
-                stride = int(max(int(v) for v in stride.values()))
-            elif hasattr(stride, "max"):
-                try:
-                    stride = int(getattr(stride, "max")().item())
-                except Exception:
-                    stride = int(stride)
-            elif isinstance(stride, (int, float)):
-                stride = int(stride)
-            else:
-                stride = None
-        except Exception:
-            stride = None
-        if not stride or stride <= 0:
-            stride = 32
-
-        # Determinar dtype por AMP (para HUD)
-        amp_mode = str(self.cfg.amp).lower()
-        if amp_mode == "bf16":
-            dtype = "bf16"
-        elif amp_mode == "fp16":
-            dtype = "fp16"
-        else:
-            dtype = "fp32"
-
-        # Iteraciones por modo warmup
-        iters = 2 if self.cfg.warmup == "sanity" else (5 if self.cfg.warmup == "fast" else 10)
-        bs = int(self.cfg.batch)
-        imgsz = int(self.cfg.imgsz)
-        channels = 3
-        x = torch_mod.randn(bs, channels, imgsz, imgsz, device=self.device, dtype=torch_mod.float32)
-
-        # Contexto MIOpen para HUD
-        find_mode = os.environ.get("MIOPEN_FIND_MODE", None)
-        cache_env = os.environ.get("MIOPEN_DISABLE_CACHE", None)
-        cache_disabled = None
-        if cache_env is not None:
-            try:
-                cache_disabled = cache_env.strip().lower() in {"1", "true", "yes"}
-            except Exception:
-                cache_disabled = None
-
-        # Cabecera de warmup
-        print("[WARMUP] >>> Inicio warmup (~2-5 min)", flush=True)
-        if self.hud:
-            self.hud.on_warmup_start(
-                total_iters=iters,
-                dtype=dtype,
-                compile=bool(self.cfg.compile),
-                stride=int(stride),
-                bn2gn=str(self.cfg.bn2gn),
-                amp=(amp_mode != "off"),
-                find_mode=find_mode,
-                cache_disabled=cache_disabled,
-            )
-
-        # Épocas sintéticas de warmup
-        for ep in range(int(max(1, loops))):
-            print(f"[WARMUP] Epoch {ep+1}/{int(max(1, loops))}", flush=True)
-            for i in range(1, iters + 1):
-                t0 = time.perf_counter()
-                with self.ampmgr.autocast():
-                    _ = core(x)
-                if torch_mod.cuda.is_available():
-                    try:
-                        torch_mod.cuda.synchronize()
-                    except Exception:
-                        pass
-                dt_ms = (time.perf_counter() - t0) * 1000.0
-                if self.hud:
-                    self.hud.update_warmup(i, iters, dt_ms)
-
-        # Resumen y cierre de warmup
-        if self.hud:
-            self.hud.on_warmup_end()
-        print("[WARMUP] <<< Fin warmup (~2-5 min)", flush=True)
-
-    # -----------------------------
-    def _assembly_test(self) -> None:
-        # Ejecuta warm-up con HUD si se solicitó por modo o por `warmup_epochs`
-        if self.cfg.warmup in ("sanity", "fast", "full") or int(self.cfg.get("warmup_epochs", 0)) > 0:
-            self._run_warmup_hud(loops=int(max(1, int(self.cfg.get("warmup_epochs", 0)))))
-
-        # sanity: un minibatch real con backward/step
-        self.model.train()
-        for i, batch in enumerate(self.train_loader_adapt, start=1):
-            with self.ampmgr.autocast():
-                core = getattr(self.model, "core", self.model)
-                preds = core(batch["img"])  # forward
-                loss, _ = self.criterion(preds, batch["targets"])  # pérdida
-            self.engine["amp"].safe_backward_step(
-                loss,
-                self.optimizer,
-                self.ampmgr,
-                clip_fn=lambda: self.engine["optim"].clip_gradients(
-                    self.model, self.cfg.clip_norm, self.cfg.clip_mode
-                ),
-                zero_grad=True,
-                set_to_none=True,
-            )
-            if self.ema:
-                self.ema.update(self.model)
-            break  # solo 1 minibatch
-
-    # -----------------------------
-    def _print_mode_banner(self):
-        _print_banner(self.cfg, self.engine)
-
-
-# ---------------------------------------------------------------------------
-# 5) main
+# 4) main
 # ---------------------------------------------------------------------------
 
 
 def main(cli: argparse.Namespace) -> None:
+    # 1) Bootstrap ROCm/MIOpen antes de cualquier import de torch
     _bootstrap_before_torch(cli)
+
+    # 2) Cargar engine (torch + submódulos)
     engine = _lazy_import_engine()
     ut = engine["utils"]
 
-    # autodetección AMP
+    # 3) Autodetección AMP
     amp_mode = cli.amp
     if amp_mode == "auto":
         amp_mode = ut.auto_amp_mode()  # bf16 si disponible, luego fp16, si no off
 
-    # HUD por defecto: ON si stdout es TTY (si CLI no lo resolvió)
+    # 4) HUD por defecto: ON si stdout es TTY (si CLI no lo resolvió)
     if getattr(cli, "hud", None) is None:
         cli.hud = sys.stdout.isatty()
 
-    # nombre por timestamp si no se especifica
+    # 5) Nombre por timestamp si no se especifica
     name = cli.name or datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
+    # 6) Construcción de configuración normalizada (DotDict)
     cfg = DotDict(
         data=cli.data,
         model=cli.model,
@@ -773,13 +239,13 @@ def main(cli: argparse.Namespace) -> None:
         dataset_base=getattr(cli, "dataset_base", None),
     )
 
-    # Construcción de modelo y dataloader (sin validación externa)
+    # 7) Construcción de modelo y dataloader (sin validación externa)
     model, train_loader, names = _build_model_and_data(cfg, engine)
 
-    # Instanciar trainer
+    # 8) Instanciar trainer del engine
     trainer = Trainer(model, train_loader, names, cfg, engine)
 
-    # Ejecutar (el banner se imprime dentro de Trainer.fit())
+    # 9) Ejecutar (el banner se imprime dentro de Trainer.fit())
     trainer.fit()
 
 

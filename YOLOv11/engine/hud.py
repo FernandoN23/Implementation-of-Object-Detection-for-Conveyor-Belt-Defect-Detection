@@ -162,6 +162,12 @@ class HUD:
         self._iters_per_epoch = 0
         # Ventana de tiempos (ms) para ETA y estadísticas
         self._dt_window: deque[float] = deque(maxlen=50)
+        # Últimos valores observados en entrenamiento
+        self._last_lr: float = 0.0
+        self._last_loss: float = 0.0
+        self._last_items: Dict[str, float] = {}
+        self._last_it_per_s: float = 0.0
+        self._last_smp_per_s: float = 0.0
         # Warmup context
         self._wu_total = 0
         self._wu_times: List[float] = []  # ms por iter
@@ -179,6 +185,11 @@ class HUD:
         self._dt_window.clear()
         self._last_print_t = 0.0
         self._last_progress_bucket = -1
+        self._last_lr = 0.0
+        self._last_loss = 0.0
+        self._last_items.clear()
+        self._last_it_per_s = 0.0
+        self._last_smp_per_s = 0.0
         self._writeln(f"[{self.cfg.phase_label_train:>5}] Epoch {epoch+1}/{epochs}")
 
     def on_epoch_end(self) -> None:
@@ -186,14 +197,16 @@ class HUD:
             return
         self._writeln("")  # salto de línea para separar épocas
 
-    def update(self,
-               epoch: int,
-               it: int,
-               iters_per_epoch: int,
-               lr: float,
-               loss: float,
-               items: Optional[Dict[str, float]],
-               dt_ms: float) -> None:
+    def update(
+        self,
+        epoch: int,
+        it: int,
+        iters_per_epoch: int,
+        lr: float,
+        loss: float,
+        items: Optional[Dict[str, float]],
+        dt_ms: float,
+    ) -> None:
         if not self.cfg.enable or not _is_main_process():
             return
 
@@ -211,6 +224,13 @@ class HUD:
         it_per_s = 1000.0 / mean_dt
         smp_per_s = it_per_s * (self.cfg.batch or 0)
         eta_s = (iters_per_epoch - it) * (mean_dt / 1000.0)
+
+        # Guardar últimos valores observados para resumen de época
+        self._last_lr = float(lr)
+        self._last_loss = float(loss)
+        self._last_items = dict(items or {})
+        self._last_it_per_s = float(it_per_s)
+        self._last_smp_per_s = float(smp_per_s)
 
         # Barra + progreso
         phase = self.cfg.phase_label_train.upper()
@@ -265,19 +285,107 @@ class HUD:
         if it == iters_per_epoch:
             self._writeln("")
 
+    def update_epoch(
+        self,
+        epoch: int,
+        train_metrics: Optional[Dict[str, float]] = None,
+        val_metrics: Optional[Dict[str, float]] = None,
+    ) -> None:
+        """Resumen compacto de fin de época.
+
+        Pensado para llamarse desde Trainer.fit() una vez calculadas las métricas
+        agregadas de entrenamiento y validación. Si no se entregan métricas,
+        utiliza los últimos valores observados durante `update()`.
+        """
+        if not self.cfg.enable or not _is_main_process():
+            return
+
+        # Preferimos métricas explícitas, si se entregan
+        train_items = dict(train_metrics or {})
+        val_items = dict(val_metrics or {})
+
+        # Fallback: usar últimos valores observados en el loop de train
+        if not train_items:
+            train_items = dict(self._last_items)
+
+        phase = self.cfg.phase_label_train.upper()
+        epoch_txt = f"Epoch {epoch + 1}/{self._epochs or '?'}"
+
+        parts: List[str] = [f"[{phase}] {epoch_txt} resumen"]
+
+        # Loss/it/s de entrenamiento
+        if self._last_loss > 0:
+            parts.append(f"L={self._last_loss:.3f}")
+        if self._last_lr > 0:
+            parts.append(f"lr={self._last_lr:.2e}")
+        if self.cfg.show_rate and self._last_it_per_s > 0:
+            txt_rate = f"{self._last_it_per_s:.2f} it/s"
+            if self.cfg.batch and self._last_smp_per_s > 0:
+                txt_rate += f", {self._last_smp_per_s:.1f} samp/s"
+            parts.append(txt_rate)
+
+        # Desglose de pérdidas de entrenamiento
+        if train_items and self.cfg.show_items:
+            alias_map = {"box": "b", "cls": "c", "dfl": "d"}
+            loss_parts: List[str] = []
+            for k, v in sorted(train_items.items()):
+                alias = alias_map.get(k, (k[:1] if k else "?"))
+                try:
+                    fv = float(v)
+                except Exception:
+                    continue
+                loss_parts.append(f"{alias}:{fv:.3f}")
+            if loss_parts:
+                parts.append("train=" + " ".join(loss_parts))
+
+        # Métricas de validación (mAP, etc.) si están disponibles
+        if val_items:
+            val_parts: List[str] = []
+            # Intento de aliasado ligero para mAP
+            alias_map_val = {
+                "map50": "mAP50",
+                "map5095": "mAP50-95",
+                "map": "mAP",
+            }
+            for k, v in sorted(val_items.items()):
+                name = alias_map_val.get(k, k)
+                try:
+                    fv = float(v)
+                except Exception:
+                    continue
+                val_parts.append(f"{name}={fv:.3f}")
+            if val_parts:
+                parts.append("val=" + " ".join(val_parts))
+
+        # Snapshot de VRAM en el cierre de época
+        if self.cfg.show_vram:
+            vram = _device_mem()
+            alloc = format_bytes(int(vram.get("allocated", 0.0)))
+            peak = format_bytes(int(vram.get("max_allocated", 0.0)))
+            used_pct = vram.get("used_pct", -1.0)
+            vram_txt = f"VRAM {alloc} (peak {peak}"
+            if used_pct is not None and used_pct >= 0:
+                vram_txt += f", {used_pct:.1f}%"
+            vram_txt += ")"
+            parts.append(vram_txt)
+
+        self._writeln(" | ".join(parts))
+
     # ---------------------------
     # Warmup (iteraciones)
     # ---------------------------
-    def on_warmup_start(self,
-                        total_iters: int,
-                        *,
-                        dtype: str,
-                        compile: bool,
-                        stride: int,
-                        bn2gn: str,
-                        amp: bool,
-                        find_mode: Optional[str] = None,
-                        cache_disabled: Optional[bool] = None) -> None:
+    def on_warmup_start(
+        self,
+        total_iters: int,
+        *,
+        dtype: str,
+        compile: bool,
+        stride: int,
+        bn2gn: str,
+        amp: bool,
+        find_mode: Optional[str] = None,
+        cache_disabled: Optional[bool] = None,
+    ) -> None:
         if not self.cfg.enable or not _is_main_process():
             return
         self._wu_total = max(1, int(total_iters))
@@ -442,4 +550,5 @@ if __name__ == "__main__":  # pragma: no cover
         dt_ms = (time.perf_counter() - t0) * 1000.0
         hud.update(0, i, iters, lr, loss, items, dt_ms)
         t0 = time.perf_counter()
+    hud.update_epoch(0)
     hud.on_epoch_end()

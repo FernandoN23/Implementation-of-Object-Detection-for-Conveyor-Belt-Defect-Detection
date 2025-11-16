@@ -144,7 +144,21 @@ class Validator:
         self.cfg = cfg or ValConfig()
         self.device = _select_device(self.cfg.device)
         self.seen: int = 0
-        self.base_dir: Optional[Path] = Path(self.cfg.save_dir) if self.cfg.save_dir else None
+
+        # Raíz para métricas:
+        # - Si save_dir apunta a una corrida dentro de runs/, subimos hasta la
+        #   raíz del proyecto (carpeta que contiene "metrics/").
+        # - Si no se entrega save_dir, usamos por defecto YOLOv11/ (raíz).
+        root_default = Path(__file__).resolve().parent.parent  # YOLOv11/
+        if self.cfg.save_dir:
+            base = Path(self.cfg.save_dir).resolve()
+            for p in base.parents:
+                if p.name == "runs":
+                    base = p.parent
+                    break
+        else:
+            base = root_default
+        self.base_dir: Optional[Path] = base
         self.save_dir: Optional[Path] = None  # resuelto por slot/step en validate()
 
     def _resolve_save_dir(self, *, phase: Optional[str] = None, slot: Optional[str] = None,
