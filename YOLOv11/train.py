@@ -17,6 +17,7 @@ import os
 import sys
 import time
 import argparse
+import copy
 from datetime import datetime
 from typing import Any, Dict, List
 from pathlib import Path
@@ -39,14 +40,18 @@ def Warnings() -> None:
         module=r"torch\.utils\.data\._utils\.pin_memory",
     )
 
-    # Filtro/reformateo de warning interno MIOpen "elapsed <= 0"
+    # Filtro/reformateo de warnings internos específicos
     original_showwarning = warnings.showwarning
 
     def _y11_showwarning(message, category, filename, lineno, file=None, line=None):
         text = str(message)
+        # MIOpen: elapsed time inválido (ruido interno de backend)
         if "Invalid elapsed time detected in EvaluateInvokers" in text:
-            # Mensaje breve y reconocible en consola (≤30 caracteres aprox.)
             print("[Warning]: MIOpen elapsed", flush=True)
+            return
+        # Scheduler LR: orden de llamadas step (cosmético, no funcional)
+        if "Detected call of `lr_scheduler.step()` before `optimizer.step()`" in text:
+            print("[Warning]: LRSched orden step", flush=True)
             return
         original_showwarning(message, category, filename, lineno, file=file, line=line)
 
@@ -60,6 +65,7 @@ Warnings()
 # ---------------------------------------------------------------------------
 # 1) Bootstrap ROCm/MIOpen DEBE ocurrir antes de importar torch
 # ---------------------------------------------------------------------------
+
 
 def _bootstrap_before_torch(args: argparse.Namespace) -> None:
     """Configura ROCm/MIOpen antes de importar torch.
@@ -77,7 +83,7 @@ def _bootstrap_before_torch(args: argparse.Namespace) -> None:
     # Lee posibles overrides desde el entorno. Si no existen, usa defaults.
     find_mode = os.environ.get("MIOPEN_FIND_MODE", "FAST")
     user_db_path = os.environ.get("MIOPEN_USER_DB_PATH", None)
-    disable_cache_env = os.environ.get("MIOPEN_DISABLE_CACHE", "1").strip().lower() in {"1","true","yes"}
+    disable_cache_env = os.environ.get("MIOPEN_DISABLE_CACHE", "1").strip().lower() in {"1", "true", "yes"}
     log_level_env = os.environ.get("MIOPEN_LOG_LEVEL", "0")
 
     try:
@@ -98,6 +104,7 @@ def _bootstrap_before_torch(args: argparse.Namespace) -> None:
         bootstrap(miopen_cfg)
     except Exception as e:
         print(f"[bootstrap] Advertencia: fallo en bootstrap MIOpen: {e}")
+
 
 # ---------------------------------------------------------------------------
 # 2) Imports del engine y dependencias (luego de bootstrap)
@@ -147,6 +154,7 @@ def _lazy_import_engine():
 # ---------------------------------------------------------------------------
 # 3) Utilidades locales
 # ---------------------------------------------------------------------------
+
 
 class DotDict(dict):
     __getattr__ = dict.get
@@ -227,6 +235,7 @@ def _fitness(metrics: Dict[str, float]) -> float:
 # ---------------------------------------------------------------------------
 # 4) Trainer
 # ---------------------------------------------------------------------------
+
 
 class Trainer:
     def __init__(self, model, train_loader, names, cfg: DotDict, engine: Dict[str, Any]):
@@ -313,7 +322,9 @@ class Trainer:
         self.ema = engine["ema"].ModelEMA(self.model, cfg=engine["ema"].EMAConfig()) if cfg.ema else None
 
         # Callbacks (sin overlays)
-        self.cb = engine["callbacks"].build_default_callbacks(self.save_dir, cfg=DotDict(val_int_interval=cfg.val_int_interval))
+        self.cb = engine["callbacks"].build_default_callbacks(
+            self.save_dir, cfg=DotDict(val_int_interval=cfg.val_int_interval)
+        )
 
         # HUD
         self.hud = engine["hud"].HUD(engine["hud"].HUDConfig(enable=cfg.hud)) if cfg.hud else None
@@ -342,7 +353,9 @@ class Trainer:
             prefer = str(cfg.resume).lower()
             info = None
             if prefer in ("last", "best"):
-                info = self.wm.try_resume(self.model, optimizer=self.optimizer, scheduler=self.scheduler, prefer=prefer)
+                info = self.wm.try_resume(
+                    self.model, optimizer=self.optimizer, scheduler=self.scheduler, prefer=prefer
+                )
             else:
                 try:
                     # Interpretar cfg.resume como ruta explícita
@@ -353,7 +366,11 @@ class Trainer:
                         self.optimizer.load_state_dict(ckpt["optimizer"])
                     if self.scheduler is not None and ckpt.get("scheduler") is not None:
                         self.scheduler.load_state_dict(ckpt["scheduler"])
-                    info = {"resumed": True, "start_epoch": int(ckpt.get("epoch", 0)) + 1, "ckpt_path": Path(prefer)}
+                    info = {
+                        "resumed": True,
+                        "start_epoch": int(ckpt.get("epoch", 0)) + 1,
+                        "ckpt_path": Path(prefer),
+                    }
                 except Exception:
                     info = {"resumed": False, "start_epoch": 0, "ckpt_path": None}
             self.start_epoch = int((info or {}).get("start_epoch", 0))
@@ -423,18 +440,24 @@ class Trainer:
 
                 do_step = (i % self.accumulate) == 0
                 self.engine["amp"].safe_backward_step(
-                    loss, self.optimizer, self.ampmgr,
-                    clip_fn=lambda: self.engine["optim"].clip_gradients(self.model, self.cfg.clip_norm, self.cfg.clip_mode),
-                    zero_grad=do_step, set_to_none=True,
+                    loss,
+                    self.optimizer,
+                    self.ampmgr,
+                    clip_fn=lambda: self.engine["optim"].clip_gradients(
+                        self.model, self.cfg.clip_norm, self.cfg.clip_mode
+                    ),
+                    zero_grad=do_step,
+                    set_to_none=True,
                 )
                 if do_step:
+                    # Orden lógico: backward/step (en safe_backward_step) -> scheduler -> EMA
                     self.scheduler.step()
                     if self.ema:
                         self.ema.update(self.model)
 
                 dt_ms = (time.perf_counter() - t_iter) * 1000.0
                 if self.hud:
-                    lr = float(self.optimizer.param_groups[0]['lr'])
+                    lr = float(self.optimizer.param_groups[0]["lr"])
                     self.hud.update(epoch, i, iters_per_epoch, lr, float(loss.item()), items, dt_ms)
                 self.cb.on_train_batch_end(self, epoch * iters_per_epoch + i, float(loss.item()), items)
                 t_iter = time.perf_counter()
@@ -454,11 +477,33 @@ class Trainer:
             val_metrics: Dict[str, float] = {}
             run_val_int = (epoch % max(1, int(self.cfg.val_int_interval)) == 0) or (epoch == 0)
             if run_val_int:
-                model_eval = self.ema.ema if self.ema is not None else self.model
+                # Preparar modelo de evaluación según política EMA
+                if self.ema is not None:
+                    try:
+                        model_eval = copy.deepcopy(self.model)
+                        model_eval.to(self.device)
+                        model_eval.eval()
+                        self.ema.copy_to(model_eval)
+                    except Exception as e:
+                        print(
+                            f"[EMA] Advertencia: fallo al preparar modelo EMA para validación interna: {e}"
+                        )
+                        model_eval = self.model
+                else:
+                    model_eval = self.model
+
+                # Para val_int usamos siempre el train_loader_adapt; el tamaño efectivo
+                # lo controla `max_batches` cuando se activa `val_int_use_train_subset`.
+                max_batches = (
+                    int(self.cfg.val_int_max_batches)
+                    if self.cfg.val_int_use_train_subset
+                    else 0
+                )
+
                 try:
                     val_metrics = self.engine["validator"].validate_interna(
                         model_eval,
-                        loader=self.train_loader_adapt if self.cfg.val_int_use_train_subset else None,
+                        loader=self.train_loader_adapt,
                         names=names_list,
                         save_dir=str(self.save_dir),
                         conf_thres=float(self.cfg.val_int_conf),
@@ -466,7 +511,7 @@ class Trainer:
                         device=str(self.device),
                         # internos
                         epoch=int(epoch),
-                        max_batches=int(self.cfg.val_int_max_batches),
+                        max_batches=max_batches,
                         split=str(self.cfg.val_int_split),
                         use_pivots=bool(self.cfg.val_int_pivots),
                         # TB
@@ -488,6 +533,7 @@ class Trainer:
                     print(f"[val_int] Advertencia: validación interna falló en época {epoch}: {e}")
                     val_metrics = {}
 
+
             # Fitness y guardado de pesos
             fitness = _fitness(val_metrics) if val_metrics else -1e9
             is_best = fitness > self.best_fitness
@@ -503,7 +549,7 @@ class Trainer:
                 extra={"imgsz": self.cfg.imgsz, "batch": self.cfg.batch},
                 save_full_model=False,
             )
-            self.cb.on_model_save(self, path, best=is_best)
+            self.cb.on_model_save(self, path, is_best=is_best)
 
             # Logging de época (train + val_int si existió)
             try:
@@ -644,9 +690,14 @@ class Trainer:
                 preds = core(batch["img"])  # forward
                 loss, _ = self.criterion(preds, batch["targets"])  # pérdida
             self.engine["amp"].safe_backward_step(
-                loss, self.optimizer, self.ampmgr,
-                clip_fn=lambda: self.engine["optim"].clip_gradients(self.model, self.cfg.clip_norm, self.cfg.clip_mode),
-                zero_grad=True, set_to_none=True,
+                loss,
+                self.optimizer,
+                self.ampmgr,
+                clip_fn=lambda: self.engine["optim"].clip_gradients(
+                    self.model, self.cfg.clip_norm, self.cfg.clip_mode
+                ),
+                zero_grad=True,
+                set_to_none=True,
             )
             if self.ema:
                 self.ema.update(self.model)
@@ -669,15 +720,15 @@ def main(cli: argparse.Namespace) -> None:
 
     # autodetección AMP
     amp_mode = cli.amp
-    if amp_mode == 'auto':
+    if amp_mode == "auto":
         amp_mode = ut.auto_amp_mode()  # bf16 si disponible, luego fp16, si no off
 
     # HUD por defecto: ON si stdout es TTY (si CLI no lo resolvió)
-    if getattr(cli, 'hud', None) is None:
+    if getattr(cli, "hud", None) is None:
         cli.hud = sys.stdout.isatty()
 
     # nombre por timestamp si no se especifica
-    name = cli.name or datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    name = cli.name or datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     cfg = DotDict(
         data=cli.data,
@@ -694,32 +745,32 @@ def main(cli: argparse.Namespace) -> None:
         clip_norm=cli.clip_norm,
         clip_mode=cli.clip_mode,
         warmup=cli.warmup,
-        warmup_epochs=int(cli.warmup_epochs) if getattr(cli, 'warmup_epochs', None) is not None else 0,
+        warmup_epochs=int(cli.warmup_epochs) if getattr(cli, "warmup_epochs", None) is not None else 0,
         bn2gn=cli.bn2gn,
         amp=amp_mode,
         ema=bool(cli.ema),
         compile=bool(cli.compile),
         hud=bool(cli.hud),
         resume=cli.resume,
-        project=cli.project or 'runs/train',
+        project=cli.project or "runs/train",
         name=name,
-        exist_ok=bool(getattr(cli, 'exist_ok', False)),
-        time_limit=float(getattr(cli, 'time_limit', 0.0)),
-        world_size=int(os.environ.get('WORLD_SIZE', '1')),
+        exist_ok=bool(getattr(cli, "exist_ok", False)),
+        time_limit=float(getattr(cli, "time_limit", 0.0)),
+        world_size=int(os.environ.get("WORLD_SIZE", "1")),
         test=bool(cli.test),
-        dl_info=bool(getattr(cli, 'dl_info', False)),
+        dl_info=bool(getattr(cli, "dl_info", False)),
         # val_int
-        val_int_interval=int(getattr(cli, 'val_int_interval', 5)),
-        val_int_max_batches=int(getattr(cli, 'val_int_max_batches', 1)),
-        val_int_use_train_subset=bool(getattr(cli, 'val_int_use_train_subset', False)),
-        val_int_conf=float(getattr(cli, 'val_int_conf', 0.25)),
-        val_int_split=str(getattr(cli, 'val_int_split', 'val')),
-        val_int_pivots=bool(getattr(cli, 'val_int_pivots', True)),
-        val_int_tb=bool(getattr(cli, 'val_int_tb', True)),
-        val_int_tb_nrow=int(getattr(cli, 'val_int_tb_nrow', 3)),
-        val_int_tb_conf=float(getattr(cli, 'val_int_tb_conf', 0.25)),
-        val_int_tb_topk=int(getattr(cli, 'val_int_tb_topk', 5)),
-        dataset_base=getattr(cli, 'dataset_base', None),
+        val_int_interval=int(getattr(cli, "val_int_interval", 5)),
+        val_int_max_batches=int(getattr(cli, "val_int_max_batches", 1)),
+        val_int_use_train_subset=bool(getattr(cli, "val_int_use_train_subset", False)),
+        val_int_conf=float(getattr(cli, "val_int_conf", 0.25)),
+        val_int_split=str(getattr(cli, "val_int_split", "val")),
+        val_int_pivots=bool(getattr(cli, "val_int_pivots", True)),
+        val_int_tb=bool(getattr(cli, "val_int_tb", True)),
+        val_int_tb_nrow=int(getattr(cli, "val_int_tb_nrow", 3)),
+        val_int_tb_conf=float(getattr(cli, "val_int_tb_conf", 0.25)),
+        val_int_tb_topk=int(getattr(cli, "val_int_tb_topk", 5)),
+        dataset_base=getattr(cli, "dataset_base", None),
     )
 
     # Construcción de modelo y dataloader (sin validación externa)
@@ -735,5 +786,6 @@ def main(cli: argparse.Namespace) -> None:
 if __name__ == "__main__":
     # Parseo modular en dos etapas (presets + YAML) sin dependencias a torch
     from YOLOv11.engine.CLI import parse_args_two_stage
+
     args = parse_args_two_stage(sys.argv[1:])
     main(args)

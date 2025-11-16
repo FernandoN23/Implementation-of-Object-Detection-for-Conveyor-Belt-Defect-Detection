@@ -10,7 +10,9 @@
 #              inferencia, NMS, emparejamiento pred–GT y delega el
 #              cómputo de métricas (P/R, mAP@0.5, mAP@[.5:.95], F1,
 #              matrices de confusión, curvas) a utility/metrics.py.
-#              Soporta "slots" de guardado para organización estándar.
+#              Soporta "slots" de guardado para organización estándar
+#              y una interfaz de validación interna (val_int) con
+#              integración opcional a TensorBoard/visualización.
 #==============================================================
 
 from __future__ import annotations
@@ -31,11 +33,11 @@ except Exception:  # pragma: no cover
 
 # Métricas oficiales del proyecto (estilo YOLOv11)
 try:
-    from utility.metrics import DetMetricsYOLOv11  # type: ignore
+    from YOLOv11.utility.metrics import DetMetricsYOLOv11  # type: ignore
 except Exception:  # pragma: no cover
     DetMetricsYOLOv11 = None  # type: ignore
 
-__all__ = ["ValConfig", "Validator", "validate"]
+__all__ = ["ValConfig", "Validator", "validate", "validate_interna"]
 
 
 # -------------------------------
@@ -129,7 +131,7 @@ def _nms(boxes: torch.Tensor, scores: torch.Tensor, iou_thres: float) -> torch.T
 # -------------------------------
 
 class Validator:
-    """Validador estilo Ultralytics que **delegá métricas** a utility.metrics.DetMetricsYOLOv11.
+    """Validador estilo Ultralytics que delega métricas a utility.metrics.DetMetricsYOLOv11.
 
     Soporta "slots" de guardado compatibles con utility/metrics.py:
       - metrics/<phase>/tests/<run_name>/
@@ -221,7 +223,7 @@ class Validator:
                  run_name: Optional[str] = None,
                  step_tag: Optional[str] = None) -> Dict[str, Any]:
         if DetMetricsYOLOv11 is None:
-            raise ImportError("utility.metrics.DetMetricsYOLOv11 no disponible")
+            raise ImportError("YOLOv11.utility.metrics.DetMetricsYOLOv11 no disponible")
 
         dev = self.device
         names_list = names or self.cfg.names or []
@@ -258,10 +260,14 @@ class Validator:
             else:
                 t_list = [targets_list] * bs
 
-            met.add_batch(preds_list, t_list, img_hw,
-                          labels_is_xywhn=True,
-                          conf_min_for_cm=self.cfg.conf_thres,
-                          iou_match_for_cm=0.50)
+            met.add_batch(
+                preds_list,
+                t_list,
+                img_hw,
+                labels_is_xywhn=True,
+                conf_min_for_cm=self.cfg.conf_thres,
+                iou_match_for_cm=0.50,
+            )
             self.seen += bs
 
         det_summary, curves = met.finalize()
@@ -270,9 +276,13 @@ class Validator:
             "recall": round(det_summary.recall, 6),
             "map50": round(det_summary.map50, 6),
             "map5095": round(det_summary.map50_95, 6),
-            "f1": round((2*det_summary.precision*det_summary.recall)/(det_summary.precision+det_summary.recall+1e-9), 6),
+            "f1": round(
+                (2 * det_summary.precision * det_summary.recall)
+                / (det_summary.precision + det_summary.recall + 1e-9),
+                6,
+            ),
             "seen": int(self.seen),
-            "fitness": round(0.1*det_summary.map50 + 0.9*det_summary.map50_95, 6),
+            "fitness": round(0.1 * det_summary.map50 + 0.9 * det_summary.map50_95, 6),
         }
 
         # Guardado JSON si corresponde
@@ -287,8 +297,9 @@ class Validator:
 
 
 # -------------------------------
-# Función de conveniencia (API de módulo)
+# Funciones de conveniencia (API de módulo)
 # -------------------------------
+
 
 def validate(model: nn.Module,
              loader: Iterable[Dict[str, Any]],
@@ -307,6 +318,7 @@ def validate(model: nn.Module,
              slot: str = "epoch",
              run_name: Optional[str] = None,
              step_tag: Optional[str] = None) -> Dict[str, Any]:
+    """Wrapper simple para validación completa clásica (test/val)."""
     cfg = ValConfig(
         conf_thres=conf_thres,
         iou_thres=iou_thres,
@@ -323,5 +335,141 @@ def validate(model: nn.Module,
         step_tag=step_tag,
     )
     v = Validator(cfg)
-    return v.validate(model, loader, names=names,
-                      phase=phase, slot=slot, run_name=run_name, step_tag=step_tag)
+    return v.validate(
+        model,
+        loader,
+        names=names,
+        phase=phase,
+        slot=slot,
+        run_name=run_name,
+        step_tag=step_tag,
+    )
+
+
+def validate_interna(
+    model: nn.Module,
+    loader: Iterable[Dict[str, Any]],
+    names: Optional[List[str]] = None,
+    *,
+    save_dir: Optional[str] = None,
+    conf_thres: float = 0.25,
+    iou_thres: float = 0.6,
+    device: str = "auto",
+    # --- control de iteraciones/partición ---
+    epoch: int = 0,
+    max_batches: int = 0,
+    split: str = "val",
+    use_pivots: bool = True,
+    # --- TensorBoard / visualización (desde CLI) ---
+    tb_enable: bool = False,
+    tb_variant: str = "s",
+    tb_run_name: str = "run",
+    tb_nrow: int = 3,
+    tb_conf_thr: float = 0.25,
+    tb_topk: int = 5,
+    dataset_base: Optional[str] = None,
+    # --- slots/estructura de métricas ---
+    phase: str = "val",
+    slot: str = "epoch",
+    run_name: Optional[str] = None,
+    step_tag: Optional[str] = None,
+    verbose: int = 1,
+) -> Dict[str, Any]:
+    """Validación interna (val_int) para entrenamiento.
+
+    Esta función está pensada para ser invocada desde `train.py` con la
+    configuración proveniente del CLI (`--val-int-*`). Implementa:
+
+    - Construcción de `ValConfig` y `Validator`.
+    - Limitación opcional de batches (`max_batches`) sobre el loader
+      proporcionado (normalmente train_loader adaptado).
+    - Llamada al validador clásico (`Validator.validate`).
+    - Integración opcional con `utility/visualization.py` para logging
+      en TensorBoard de métricas y, a futuro, overlays de pivotes.
+    """
+
+    cfg = ValConfig(
+        conf_thres=conf_thres,
+        iou_thres=iou_thres,
+        device=device,
+        save_json=True,
+        save_dir=save_dir,
+        names=names,
+        phase=phase,
+        slot=slot,
+        run_name=run_name or tb_run_name,
+        step_tag=step_tag,
+        verbose=verbose,
+    )
+
+    # Limitar número de batches si se solicita
+    if max_batches and max_batches > 0:
+        def _limited_loader(base_loader: Iterable[Dict[str, Any]]):
+            for i, batch in enumerate(base_loader):
+                if i >= max_batches:
+                    break
+                yield batch
+
+        eff_loader: Iterable[Dict[str, Any]] = _limited_loader(loader)
+    else:
+        eff_loader = loader
+
+    v = Validator(cfg)
+    metrics = v.validate(
+        model,
+        eff_loader,
+        names=names,
+        phase=phase,
+        slot=slot,
+        run_name=run_name or tb_run_name,
+        step_tag=step_tag,
+    )
+
+    # --- Integración opcional con TensorBoard / visualización ---
+    if tb_enable:
+        try:
+            # Importación perezosa para evitar dependencias fuertes si no se usa TB
+            from YOLOv11.utility import visualization as viz  # type: ignore
+        except Exception as e:  # pragma: no cover
+            _log(f"TensorBoard/visualization no disponible: {e}", cfg, 2)
+            return metrics
+
+        # 1) Logging de métricas a TensorBoard (fase val_int)
+        try:
+            if hasattr(viz, "TBConfig") and hasattr(viz, "TBVisualization"):
+                tb_cfg = viz.TBConfig(
+                    variant=tb_variant,
+                    phase="val_int",
+                    run_name=tb_run_name,
+                    split=split,
+                    nrow=tb_nrow,
+                    conf_thr=tb_conf_thr,
+                    topk=tb_topk,
+                    save_dir=save_dir,
+                )
+                tb = viz.TBVisualization(tb_cfg)
+                # Se asume que `log_metrics_epoch` acepta (metrics, epoch, phase)
+                tb.log_metrics_epoch(metrics, epoch=epoch, phase="val_int")
+                tb.close()
+        except Exception as e:  # pragma: no cover
+            _log(f"TensorBoard val_int deshabilitado: {e}", cfg, 1)
+
+        # 2) Logging de imágenes pivote (GT / GT+Pred) – a futuro
+        if use_pivots and dataset_base is not None:
+            try:
+                if hasattr(viz, "log_ref_session_epoch"):
+                    viz.log_ref_session_epoch(
+                        variant=tb_variant,
+                        split=split,
+                        run_name=tb_run_name,
+                        dataset_base=Path(dataset_base),
+                        epoch=epoch,
+                        pred_json=None,  # reservado para futuras integraciones
+                        conf_thr=tb_conf_thr,
+                        topk=tb_topk,
+                        nrow=tb_nrow,
+                    )
+            except Exception as e:  # pragma: no cover
+                _log(f"Visualización pivotes val_int deshabilitada: {e}", cfg, 1)
+
+    return metrics
