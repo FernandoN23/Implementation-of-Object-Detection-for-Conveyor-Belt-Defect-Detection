@@ -65,7 +65,7 @@ class ValConfig:
     map_iou_step: float = 0.05
 
     # Slots de guardado (estructura estándar del proyecto)
-    # phase: "train"|"val"|"test" afecta la ruta base de métricas
+    # phase: "train"|"val"|"test"|"val_int" afecta la ruta base de métricas
     phase: str = "val"
     # slot: "epoch", "tests", "final" o personalizado
     slot: str = "epoch"
@@ -126,6 +126,19 @@ def _nms(boxes: torch.Tensor, scores: torch.Tensor, iou_thres: float) -> torch.T
     return _nms_pytorch(boxes, scores, iou_thres)
 
 
+def _sanitize_phase_tag(tag: str) -> str:
+    """Normaliza el nombre de fase para uso en nombres de archivos.
+
+    Elimina espacios y paréntesis, y reemplaza "/" por "_" para evitar
+    problemas en sistemas de archivos.
+    """
+    t = tag.strip()
+    for ch in " ()":
+        t = t.replace(ch, "")
+    t = t.replace("/", "_")
+    return t or "metrics"
+
+
 # -------------------------------
 # Validator
 # -------------------------------
@@ -138,6 +151,9 @@ class Validator:
       - metrics/<phase>/final/
       - metrics/<phase>/epoch/<step_tag>/
       - o carpeta personalizada (slot)
+
+    Además, la validación interna (val_int) usa siempre la fase lógica
+    "val_int" para separar métricas de las de validación clásica.
     """
 
     def __init__(self, cfg: Optional[ValConfig] = None) -> None:
@@ -302,7 +318,10 @@ class Validator:
         # Guardado JSON si corresponde
         if self.save_dir and self.cfg.save_json:
             out = {"metrics": metrics, "config": asdict(self.cfg)}
-            p = self.save_dir / "val_metrics.json"
+            # Nombre de archivo derivado de la fase lógica (train/val/test/val_int)
+            phase_tag_src = phase or self.cfg.phase or "metrics"
+            phase_tag = _sanitize_phase_tag(str(phase_tag_src))
+            p = self.save_dir / f"{phase_tag}_metrics.json"
             with open(p, "w", encoding="utf-8") as f:
                 json.dump(out, f, ensure_ascii=False, indent=2)
             _log(f"Métricas guardadas en {p}", self.cfg, 1)
@@ -328,11 +347,11 @@ def validate(model: nn.Module,
              plots: bool = False,
              save_json: bool = False,
              # --- parámetros de slot ---
-             phase: str = "val",
+             phase: str = "train",
              slot: str = "epoch",
              run_name: Optional[str] = None,
              step_tag: Optional[str] = None) -> Dict[str, Any]:
-    """Wrapper simple para validación completa clásica (test/val)."""
+    """Wrapper simple para validación completa clásica (train/val/test)."""
     cfg = ValConfig(
         conf_thres=conf_thres,
         iou_thres=iou_thres,
@@ -383,7 +402,7 @@ def validate_interna(
     tb_topk: int = 5,
     dataset_base: Optional[str] = None,
     # --- slots/estructura de métricas ---
-    phase: str = "val",
+    phase: str = "val_int",
     slot: str = "epoch",
     run_name: Optional[str] = None,
     step_tag: Optional[str] = None,
@@ -400,7 +419,16 @@ def validate_interna(
     - Llamada al validador clásico (`Validator.validate`).
     - Integración opcional con `utility/visualization.py` para logging
       en TensorBoard de métricas y, a futuro, overlays de pivotes.
+
+    Nota importante
+    ---------------
+    Independiente del valor que se pase en `phase`, la validación interna
+    usa siempre la fase lógica "val_int" para separar sus métricas de las
+    de validación clásica (phase="val").
     """
+
+    # Fase lógica fija para val_int
+    val_int_phase = "val_int"
 
     cfg = ValConfig(
         conf_thres=conf_thres,
@@ -409,7 +437,7 @@ def validate_interna(
         save_json=True,
         save_dir=save_dir,
         names=names,
-        phase=phase,
+        phase=val_int_phase,
         slot=slot,
         run_name=run_name or tb_run_name,
         step_tag=step_tag,
@@ -433,7 +461,7 @@ def validate_interna(
         model,
         eff_loader,
         names=names,
-        phase=phase,
+        phase=val_int_phase,
         slot=slot,
         run_name=run_name or tb_run_name,
         step_tag=step_tag,
