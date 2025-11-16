@@ -27,6 +27,7 @@ __all__ = [
     "replace_bn_with_gn",
     "wrap_forward_on_error",
     "count_bn_layers",
+    "count_gn_layers",
 ]
 
 
@@ -45,6 +46,7 @@ class BN2GNConfig:
 # -------------------------------
 # Utilidades
 # -------------------------------
+
 
 def _log(msg: str, cfg: Optional[BN2GNConfig] = None, level: int = 1) -> None:
     v = 1 if cfg is None else cfg.verbose
@@ -106,6 +108,7 @@ def _make_gn_from_bn(bn: nn.BatchNorm2d, groups: int) -> nn.GroupNorm:
 # Reemplazo recursivo BN → GN
 # -------------------------------
 
+
 def _iter_modules_with_parent(module: nn.Module) -> Iterable[Tuple[nn.Module, nn.Module, str]]:
     for name, child in module.named_children():
         yield module, child, name
@@ -126,8 +129,15 @@ def replace_bn_with_gn(model: nn.Module, cfg: BN2GNConfig) -> int:
             setattr(parent, name, gn)
             replaced += 1
             _log(f"Reemplazo: {parent.__class__.__name__}.{name}: BN({C}) → GN(groups={g})", cfg, 2)
-    if replaced and cfg.verbose:
-        _log(f"Total BN→GN reemplazadas: {replaced}", cfg, 1)
+    if cfg.verbose:
+        # Contabilizar tanto BN remanentes como GN actuales para tener panorama completo
+        bn_restantes = count_bn_layers(model)
+        gn_total = count_gn_layers(model)
+        _log(
+            f"Total BN→GN reemplazadas: {replaced} | BN restantes: {bn_restantes} | GroupNorm actuales: {gn_total}",
+            cfg,
+            1,
+        )
     return replaced
 
 
@@ -154,6 +164,7 @@ def _is_miopen_bn_error(err: BaseException) -> bool:
 # -------------------------------
 # Envoltorio on_error
 # -------------------------------
+
 
 def wrap_forward_on_error(model: nn.Module, cfg: BN2GNConfig) -> None:
     """Envuelve model.forward para hacer BN→GN al vuelo si ocurre un error MIOpen.
@@ -188,6 +199,7 @@ def wrap_forward_on_error(model: nn.Module, cfg: BN2GNConfig) -> None:
 # Interfaz principal
 # -------------------------------
 
+
 def count_bn_layers(model: nn.Module) -> int:
     n = 0
     for m in model.modules():
@@ -196,15 +208,33 @@ def count_bn_layers(model: nn.Module) -> int:
     return n
 
 
-def apply_bn2gn_patch(model: nn.Module, policy: str = "on_error", *,
-                       max_groups: int = 32, min_channels_per_group: int = 1,
-                       verbose: int = 1) -> int:
+def count_gn_layers(model: nn.Module) -> int:
+    """Cuenta el número total de capas GroupNorm presentes en el modelo."""
+    n = 0
+    for m in model.modules():
+        if isinstance(m, nn.GroupNorm):
+            n += 1
+    return n
+
+
+def apply_bn2gn_patch(
+    model: nn.Module,
+    policy: str = "on_error",
+    *,
+    max_groups: int = 32,
+    min_channels_per_group: int = 1,
+    verbose: int = 1,
+) -> int:
     """Aplica la política BN→GN.
 
     Retorna número de reemplazos realizados (0 si off o on_error sin disparo).
     """
-    cfg = BN2GNConfig(policy=policy, max_groups=max_groups,
-                      min_channels_per_group=min_channels_per_group, verbose=verbose)
+    cfg = BN2GNConfig(
+        policy=policy,
+        max_groups=max_groups,
+        min_channels_per_group=min_channels_per_group,
+        verbose=verbose,
+    )
 
     if policy not in {"off", "on", "on_error"}:
         raise ValueError("policy debe ser 'off' | 'on' | 'on_error'")
@@ -226,6 +256,7 @@ def apply_bn2gn_patch(model: nn.Module, policy: str = "on_error", *,
 # Prueba local mínima (opcional)
 # -------------------------------
 if __name__ == "__main__":  # pragma: no cover
+
     class Toy(nn.Module):
         def __init__(self):
             super().__init__()
@@ -236,11 +267,14 @@ if __name__ == "__main__":  # pragma: no cover
                 nn.Conv2d(16, 32, 3, padding=1, bias=False),
                 nn.SyncBatchNorm(32),
             )
+
         def forward(self, x):
             return self.seq(x)
 
     net = Toy()
     print("BN layers antes:", count_bn_layers(net))
+    print("GN layers antes:", count_gn_layers(net))
     replaced = apply_bn2gn_patch(net, policy="on", verbose=2)
     print("Reemplazadas:", replaced)
     print("BN layers después:", count_bn_layers(net))
+    print("GN layers después:", count_gn_layers(net))
