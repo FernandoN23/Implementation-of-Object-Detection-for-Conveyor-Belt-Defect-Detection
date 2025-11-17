@@ -91,7 +91,7 @@ def _lazy_import_engine() -> Dict[str, Any]:
         ema as engine_ema,
         callbacks as engine_callbacks,
         validator as engine_validator,
-        warmup_sanity as engine_warmup,
+        warmup as engine_warmup,
         utils as ut,
         bn2gn_patch as b2g,
         hud as engine_hud,

@@ -246,6 +246,12 @@ class Trainer:
         if self.cfg.test:
             self._assembly_test()
             print("[TEST] Assembly test passed ✔")
+            # Cierre explícito de HUD en modo --test para liberar hilos/recursos
+            if self.hud and hasattr(self.hud, "close"):
+                try:
+                    self.hud.close()
+                except Exception:
+                    pass
             try:
                 self.logger.close()
             except Exception:

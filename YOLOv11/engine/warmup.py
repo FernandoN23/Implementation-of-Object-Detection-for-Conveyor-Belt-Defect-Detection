@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: engine/warmup_sanity.py
+# Archivo: engine/warmup.py
 # Descripción: Rutinas de calentamiento (warm-up) y verificación
 #              de forward para inicializar kernels HIP/ROCm,
 #              validar shapes/targets y medir latencias/memoria.

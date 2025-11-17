@@ -35,7 +35,7 @@ __all__ = [
     "ema",
     "callbacks",
     "validator",
-    "warmup_sanity",
+    "warmup.py",
     "utils",
     "bn2gn_patch",
     "hud",
