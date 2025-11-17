@@ -139,6 +139,97 @@ def _sanitize_phase_tag(tag: str) -> str:
     return t or "metrics"
 
 
+def _targets_global_to_per_image(
+    targets: torch.Tensor,
+    bs: int,
+    device: torch.device,
+) -> List[torch.Tensor]:
+    """Convierte targets globales [N,6] -> lista por imagen [Ni,5] (cls, x, y, w, h).
+
+    Está adaptado al formato producido por `collate_yolo` en `utility/data_loader.py`:
+    `targets` con columnas [img_idx, cls, x, y, w, h] y coordenadas normalizadas.
+    Si llega un tensor [N,5], se asume que todas las filas pertenecen a la imagen 0
+    y se reparte por índice sintético.
+    """
+
+    if not isinstance(targets, torch.Tensor):
+        raise TypeError("targets debe ser Tensor en _targets_global_to_per_image")
+
+    targets = targets.to(device)
+
+    if targets.numel() == 0:
+        # No hay anotaciones: devolvemos B tensores vacíos [0,5]
+        return [targets.new_zeros((0, 5)) for _ in range(bs)]
+
+    if targets.ndim != 2 or targets.size(1) not in (5, 6):
+        raise ValueError(
+            f"Formato de targets no soportado: shape={tuple(targets.shape)}; "
+            "se esperaba [N,6] (img_idx,cls,x,y,w,h) o [N,5] (cls,x,y,w,h)."
+        )
+
+    if targets.size(1) == 6:
+        img_idx = targets[:, 0].to(torch.long)
+        rest = targets[:, 1:]  # [N,5]
+    else:  # [N,5], asumimos todo img_idx=0
+        img_idx = torch.zeros(targets.size(0), dtype=torch.long, device=device)
+        rest = targets
+
+    per_image: List[torch.Tensor] = []
+    for i in range(bs):
+        mask = img_idx == i
+        t_i = rest[mask]
+        if t_i.numel() == 0:
+            t_i = rest.new_zeros((0, 5))
+        per_image.append(t_i)
+    return per_image
+
+
+def _targets_to_list_per_image(
+    targets_any: Any,
+    bs: int,
+    device: torch.device,
+) -> List[torch.Tensor]:
+    """Normaliza distintos formatos de `targets` a lista por imagen [Ni,5].
+
+    Casos soportados:
+    - Tensor [N,6] con columnas [img_idx, cls, x, y, w, h] (formato data_loader).
+    - Tensor [N,5] con columnas [cls, x, y, w, h] (single-image).
+    - Lista de tensores [Ni, K] por imagen, donde K==5 o K==6 (en cuyo caso se
+      descarta la primera columna como índice).
+    """
+
+    # Caso tensor global [N,6] típico de collate_yolo
+    if isinstance(targets_any, torch.Tensor):
+        return _targets_global_to_per_image(targets_any, bs=bs, device=device)
+
+    # Caso lista: asumimos que ya viene aproximadamente por imagen
+    if isinstance(targets_any, (list, tuple)):
+        out: List[torch.Tensor] = []
+        for i in range(bs):
+            if i < len(targets_any) and isinstance(targets_any[i], torch.Tensor):
+                t = targets_any[i].to(device)
+                if t.numel() == 0:
+                    t = t.new_zeros((0, 5))
+                elif t.ndim == 2 and t.size(1) == 6:
+                    # [img_idx?, cls, x, y, w, h] -> descartamos primera col.
+                    t = t[:, 1:]
+                elif t.ndim == 2 and t.size(1) == 5:
+                    # ya está en [cls, x, y, w, h]
+                    pass
+                else:
+                    raise ValueError(
+                        f"Formato de targets[{i}] no soportado: shape={tuple(t.shape)}"
+                    )
+            else:
+                # No hay entrada para esta imagen: tensor vacío por defecto
+                t = torch.zeros((0, 5), dtype=torch.float32, device=device)
+            out.append(t)
+        return out
+
+    # Fallback: sin etiquetas reconocibles -> lista de vacíos
+    return [torch.zeros((0, 5), dtype=torch.float32, device=device) for _ in range(bs)]
+
+
 # -------------------------------
 # Validator
 # -------------------------------
@@ -274,9 +365,9 @@ class Validator:
         for batch in loader:
             if isinstance(batch, dict) and "img" in batch:
                 imgs = batch["img"]
-                targets_list = batch.get("targets", [])
+                targets_any = batch.get("targets", [])
             else:
-                imgs, targets_list = batch
+                imgs, targets_any = batch
 
             imgs = imgs.to(dev, non_blocking=True).float()
             dets = self._model_predict(model, imgs)
@@ -285,14 +376,11 @@ class Validator:
             img_hw = [(H, W)] * bs
 
             preds_list = dets
-            if isinstance(targets_list, list):
-                t_list = targets_list
-            else:
-                t_list = [targets_list] * bs
+            targets_per_image = _targets_to_list_per_image(targets_any, bs=bs, device=dev)
 
             met.add_batch(
                 preds_list,
-                t_list,
+                targets_per_image,
                 img_hw,
                 labels_is_xywhn=True,
                 conf_min_for_cm=self.cfg.conf_thres,
@@ -301,18 +389,23 @@ class Validator:
             self.seen += bs
 
         det_summary, curves = met.finalize()
+
+        map50 = round(det_summary.map50, 6)
+        map50_95 = round(det_summary.map50_95, 6)
+
         metrics = {
             "precision": round(det_summary.precision, 6),
             "recall": round(det_summary.recall, 6),
-            "map50": round(det_summary.map50, 6),
-            "map5095": round(det_summary.map50_95, 6),
+            "map50": map50,
+            "map50-95": map50_95,  # nombre estándar para mAP@[.5:.95]
+            "map": map50_95,       # alias para compatibilidad con Trainer._fitness
             "f1": round(
                 (2 * det_summary.precision * det_summary.recall)
                 / (det_summary.precision + det_summary.recall + 1e-9),
                 6,
             ),
             "seen": int(self.seen),
-            "fitness": round(0.1 * det_summary.map50 + 0.9 * det_summary.map50_95, 6),
+            "fitness": round(0.1 * map50 + 0.9 * map50_95, 6),
         }
 
         # Guardado JSON si corresponde
@@ -481,22 +574,17 @@ def validate_interna(
             if hasattr(viz, "TBConfig") and hasattr(viz, "TBVisualization"):
                 tb_cfg = viz.TBConfig(
                     variant=tb_variant,
-                    phase="val_int",
+                    phase=val_int_phase,
                     run_name=tb_run_name,
-                    split=split,
-                    nrow=tb_nrow,
-                    conf_thr=tb_conf_thr,
-                    topk=tb_topk,
-                    save_dir=save_dir,
                 )
                 tb = viz.TBVisualization(tb_cfg)
                 # Se asume que `log_metrics_epoch` acepta (metrics, epoch, phase)
-                tb.log_metrics_epoch(metrics, epoch=epoch, phase="val_int")
+                tb.log_metrics_epoch(metrics, epoch=epoch, phase=val_int_phase)
                 tb.close()
         except Exception as e:  # pragma: no cover
             _log(f"TensorBoard val_int deshabilitado: {e}", cfg, 1)
 
-        # 2) Logging de imágenes pivote (GT / GT+Pred) – a futuro
+        # 2) Logging de imágenes pivote (GT / GT+Pred)
         if use_pivots and dataset_base is not None:
             try:
                 if hasattr(viz, "log_ref_session_epoch"):

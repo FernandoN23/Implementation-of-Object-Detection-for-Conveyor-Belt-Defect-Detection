@@ -228,8 +228,24 @@ class Trainer:
         # Límite de tiempo (0 = ilimitado)
         self.timer = ut.timed_stop(cfg.time_limit)
 
-        # Adaptador de loader a dict en dispositivo (delegado al módulo utility.data_loader)
-        self.train_loader_adapt = engine["util_data"].as_dict_loader(self.train_loader, self.device)
+        # Adaptador de loader a dict en dispositivo (delegado al módulo utility.data_loader).
+        # IMPORTANTE: no guardamos aquí el generador adaptado para evitar agotarlo;
+        # se recrea en cada uso mediante `_iter_train_loader()`.
+
+    # -----------------------------
+    # Helpers internos
+    # -----------------------------
+
+    def _iter_train_loader(self):
+        """Devuelve un generador fresco adaptado (dict en device) para cada uso.
+
+        Esto evita que el generador se agote tras la primera época y garantiza
+        que tanto el loop de entrenamiento como la validación interna (val_int)
+        vean batches consistentes.
+        """
+
+        util_data = self.engine["util_data"]
+        return util_data.as_dict_loader(self.train_loader, self.device)
 
     # -----------------------------
     # Loop principal de entrenamiento
@@ -282,7 +298,9 @@ class Trainer:
             scalars_sum: Dict[str, float] = {}
 
             t_iter = time.perf_counter()
-            for i, batch in enumerate(self.train_loader_adapt, start=1):
+            # Generador fresco por época para evitar agotamiento
+            train_loader_adapt = self._iter_train_loader()
+            for i, batch in enumerate(train_loader_adapt, start=1):
                 with self.ampmgr.autocast():
                     # forward del core + pérdida YOLOLoss
                     x = batch["img"]
@@ -351,7 +369,7 @@ class Trainer:
                 else:
                     model_eval = self.model
 
-                # Para val_int usamos siempre el train_loader_adapt; el tamaño efectivo
+                # Para val_int usamos siempre un adaptador fresco del train_loader; el tamaño efectivo
                 # lo controla `max_batches` cuando se activa `val_int_use_train_subset`.
                 max_batches = (
                     int(self.cfg.val_int_max_batches)
@@ -359,10 +377,12 @@ class Trainer:
                     else 0
                 )
 
+                val_loader_adapt = self._iter_train_loader()
+
                 try:
                     val_metrics = self.engine["validator"].validate_interna(
                         model_eval,
-                        loader=self.train_loader_adapt,
+                        loader=val_loader_adapt,
                         names=names_list,
                         save_dir=str(self.save_dir),
                         conf_thres=float(self.cfg.val_int_conf),
@@ -438,50 +458,30 @@ class Trainer:
             pass
 
     # -----------------------------
-    # Warmup sintético con HUD
+    # Warmup sintético con HUD (delegado a engine.warmup)
     # -----------------------------
 
     def _run_warmup_hud(self, loops: int = 1) -> None:
-        """Ejecuta warm-up sintético con HUD durante `loops` épocas virtuales.
+        """Ejecuta warm-up sintético delegando el trabajo a `engine.warmup`.
 
-        Usa **exclusivamente** la API de warmup del HUD (on_warmup_*), separada del
-        HUD de TRAIN, para evitar encabezados como `[TRAIN] 2/1`.
+        - Usa `engine.warmup.build_warmup_config_from_train` para derivar la
+          configuración desde `self.cfg`.
+        - Ejecuta `warmup_sanity` una vez y reconstruye la barra/estadísticas
+          en el HUD a partir de los tiempos medidos.
+
+        Nota: el parámetro `loops` se interpreta como número de "épocas
+        virtuales" para el encabezado, pero el trabajo pesado lo realiza
+        una sola invocación de warmup (suficiente para inicializar kernels
+        MIOpen/HIP y validar el forward).
         """
-        engine = self.engine
-        torch_mod = engine["torch"]
+
+        if self.hud is None:
+            return
+
+        warm_mod = self.engine["warmup"]
         core = getattr(self.model, "core", self.model)
 
-        # Inferir stride del modelo (fallback 32)
-        stride = None
-        for obj in (core, getattr(core, "model", None)):
-            if obj is None:
-                continue
-            for attr in ("stride", "strides", "max_stride"):
-                if hasattr(obj, attr):
-                    stride = getattr(obj, attr)
-                    break
-            if stride is not None:
-                break
-        try:
-            if isinstance(stride, (list, tuple)):
-                stride = int(max(stride))
-            elif isinstance(stride, dict):
-                stride = int(max(int(v) for v in stride.values()))
-            elif hasattr(stride, "max"):
-                try:
-                    stride = int(getattr(stride, "max")().item())
-                except Exception:
-                    stride = int(stride)
-            elif isinstance(stride, (int, float)):
-                stride = int(stride)
-            else:
-                stride = None
-        except Exception:
-            stride = None
-        if not stride or stride <= 0:
-            stride = 32
-
-        # Determinar dtype por AMP (para HUD)
+        # Configuración de iteraciones según política CLI de warmup
         amp_mode = str(self.cfg.amp).lower()
         if amp_mode == "bf16":
             dtype = "bf16"
@@ -490,12 +490,24 @@ class Trainer:
         else:
             dtype = "fp32"
 
-        # Iteraciones por modo warmup
-        iters = 2 if self.cfg.warmup == "sanity" else (5 if self.cfg.warmup == "fast" else 10)
-        bs = int(self.cfg.batch)
-        imgsz = int(self.cfg.imgsz)
-        channels = 3
-        x = torch_mod.randn(bs, channels, imgsz, imgsz, device=self.device, dtype=torch_mod.float32)
+        # Iteraciones por warmup (sanity/fast/full) – coherente con versiones previas
+        if self.cfg.warmup == "sanity":
+            base_iters = 2
+        elif self.cfg.warmup == "fast":
+            base_iters = 5
+        elif self.cfg.warmup == "full":
+            base_iters = 10
+        else:
+            base_iters = 2
+
+        total_iters = max(2, base_iters)
+
+        warm_cfg = warm_mod.build_warmup_config_from_train(
+            self.cfg,
+            device=str(self.device),
+            iters=total_iters,
+            verbose=1,
+        )
 
         # Contexto MIOpen para HUD
         find_mode = os.environ.get("MIOPEN_FIND_MODE", None)
@@ -509,37 +521,29 @@ class Trainer:
 
         # Cabecera de warmup
         print("[WARMUP] >>> Inicio warmup (~2-5 min)", flush=True)
-        if self.hud:
-            self.hud.on_warmup_start(
-                total_iters=iters,
-                dtype=dtype,
-                compile=bool(self.cfg.compile),
-                stride=int(stride),
-                bn2gn=str(self.cfg.bn2gn),
-                amp=(amp_mode != "off"),
-                find_mode=find_mode,
-                cache_disabled=cache_disabled,
-            )
+        self.hud.on_warmup_start(
+            total_iters=total_iters,
+            dtype=dtype,
+            compile=bool(self.cfg.compile),
+            stride=int(warm_cfg.stride),
+            bn2gn=str(self.cfg.bn2gn),
+            amp=(amp_mode != "off"),
+            find_mode=find_mode,
+            cache_disabled=cache_disabled,
+        )
 
-        # Épocas sintéticas de warmup
-        for ep in range(int(max(1, loops))):
-            print(f"[WARMUP] Epoch {ep+1}/{int(max(1, loops))}", flush=True)
-            for i in range(1, iters + 1):
-                t0 = time.perf_counter()
-                with self.ampmgr.autocast():
-                    _ = core(x)
-                if torch_mod.cuda.is_available():
-                    try:
-                        torch_mod.cuda.synchronize()
-                    except Exception:
-                        pass
-                dt_ms = (time.perf_counter() - t0) * 1000.0
-                if self.hud:
-                    self.hud.update_warmup(i, iters, dt_ms)
+        # Ejecutar warmup real (sin HUD interno) y luego reconstruir barra con los tiempos
+        summary = warm_mod.warmup_sanity(core, device=str(self.device), cfg=warm_cfg)
+        times = summary.get("timings_ms", {}).get("all", [])
+        if not times:
+            times = [0.0] * total_iters
+
+        # Simular progreso de HUD usando los tiempos medidos
+        for i, dt_ms in enumerate(times, start=1):
+            self.hud.update_warmup(i, total_iters, float(dt_ms))
 
         # Resumen y cierre de warmup
-        if self.hud:
-            self.hud.on_warmup_end()
+        self.hud.on_warmup_end()
         print("[WARMUP] <<< Fin warmup (~2-5 min)", flush=True)
 
     # -----------------------------
@@ -553,7 +557,8 @@ class Trainer:
 
         # sanity: un minibatch real con backward/step
         self.model.train()
-        for i, batch in enumerate(self.train_loader_adapt, start=1):
+        # Usar siempre un adaptador fresco del train_loader
+        for i, batch in enumerate(self._iter_train_loader(), start=1):
             with self.ampmgr.autocast():
                 core = getattr(self.model, "core", self.model)
                 preds = core(batch["img"])  # forward
