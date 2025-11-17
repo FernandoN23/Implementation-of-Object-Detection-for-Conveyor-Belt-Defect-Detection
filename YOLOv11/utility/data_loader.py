@@ -569,11 +569,6 @@ if __name__ == "__main__":
 
     loader, names, info = build_train_bundle(project_root=root, split=args.split, batch=args.batch, imgsz=args.imgsz)
 
-    # Resumen del dataset (solo para prueba CLI)
-    print(f"Dataset: {info.images_dir}  (labels: {info.labels_dir})")
-    print(f"Count: {info.count}  nc: {info.nc}  names: {names}")
-    print(f"imgsz={info.imgsz}  workers={info.workers}  pin_memory={info.pin_memory}  persistent={info.persistent_workers}")
-
     if args.debug:
         print("[debug] DatasetInfo:", asdict(info))
 
