@@ -21,15 +21,7 @@ from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
-
-try:
-    import torch.cuda.amp as amp
-except Exception:  # CPU-only fallback
-    class _Dummy:
-        def __getattr__(self, name):
-            raise AttributeError("AMP no disponible en esta plataforma")
-
-    amp = _Dummy()  # type: ignore
+from torch import amp as torch_amp
 
 __all__ = [
     "WarmupConfig",
@@ -83,7 +75,7 @@ class WarmupConfig:
 def _log(msg: str, cfg: Optional[WarmupConfig] = None, level: int = 1) -> None:
     v = 1 if cfg is None else cfg.verbose
     if v >= level:
-        print(f"[warmup] {msg}")
+        print(f"[WARMUP] {msg}")
 
 
 def _select_device(spec: str) -> torch.device:
@@ -123,7 +115,11 @@ def _nvtx_range(name: str):
 
 
 def adjust_imgsz_to_stride(imgsz: int, stride: int) -> int:
-    """Ajusta imgsz al múltiplo superior de stride (estilo Ultralytics)."""
+    """Ajusta imgsz al múltiplo superior de stride (estilo Ultralytics).
+
+    Equivalente a la lógica clásica: ceil(imgsz / stride) * stride.
+    Si imgsz ya es múltiplo de stride (p.ej. 640 con stride=32), se mantiene.
+    """
 
     if stride <= 0:
         return imgsz
@@ -143,10 +139,13 @@ def _rand_boxes(n: int, w: int, h: int) -> torch.Tensor:
 
 
 def make_dummy_batch(cfg: WarmupConfig, device: torch.device) -> Dict[str, Any]:
-    """Construye un batch sintético compatible con el contrato del modelo.
+    """Construye un batch sintético compatible con el pipeline YOLOv11.
 
     Estructura devuelta: {"img": Tensor[B, C, H, W], "targets": List[Tensor[N_i, 5]]}
     donde cada fila es [cls, cx, cy, w, h] en coordenadas normalizadas (0-1).
+
+    El modelo sólo consume `img` (Tensor); `targets` se mantienen para posibles
+    extensiones futuras (pérdidas sintéticas, validaciones adicionales, etc.).
     """
 
     bs = cfg.bs
@@ -174,8 +173,11 @@ def warmup_sanity(
 ) -> Dict[str, Any]:
     """Ejecuta warm-up sintético y sanity forward.
 
-    Retorna un dict con tiempos promedio, memoria y shape de salida si aplica.
-    El modelo debe seguir el contrato: model(batch) -> (loss, items_dict).
+    Retorna un dict con tiempos promedio, memoria y configuración efectiva.
+
+    Contrato del modelo para este warmup:
+    - Se asume que `model(x)` recibe un tensor de imágenes de forma
+      `[B, C, H, W]`, coherente con el uso en `Trainer.fit()`.
 
     Esta función es agnóstica a HUD/Trainer: encapsula únicamente la lógica de
     batch sintético + medición. Trainer debería delegar aquí el trabajo pesado
@@ -210,6 +212,7 @@ def warmup_sanity(
 
     # Preparar lote sintético
     batch = make_dummy_batch(cfg, dev)
+    images = batch["img"]  # El modelo sólo consume el tensor de imágenes
 
     # Selección de autocast dtype
     ac_dtype = cfg.autocast_dtype()
@@ -229,14 +232,19 @@ def warmup_sanity(
         1,
     )
 
+    # Selección de backend para autocast (cuda/rocm vs cpu)
+    use_cuda_amp = torch.cuda.is_available()
+    device_type = "cuda" if use_cuda_amp else "cpu"
+
     for i in range(iters):
         t0 = time.perf_counter()
         with _nvtx_range(f"warmup_iter_{i}"):
             if cfg.amp:
-                with amp.autocast(enabled=True, dtype=ac_dtype):  # type: ignore
-                    out = model(batch)
+                # API moderna: torch.amp.autocast en lugar de torch.cuda.amp.autocast
+                with torch_amp.autocast(device_type=device_type, dtype=ac_dtype):  # type: ignore[arg-type]
+                    _ = model(images)
             else:
-                out = model(batch)
+                _ = model(images)
         # Asegurar sincronización para medir correctamente la primera compilación HIP/JIT
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -294,16 +302,25 @@ def build_warmup_config_from_train(
     cfg = WarmupConfig()
 
     # Campos básicos: imgsz, batch, nc, amp, compile, dtype
-    if hasattr(train_cfg, "imgsz"):
-        cfg.imgsz = int(getattr(train_cfg, "imgsz"))
-    if hasattr(train_cfg, "batch"):
-        cfg.bs = int(getattr(train_cfg, "batch"))
-    if hasattr(train_cfg, "nc"):
-        cfg.nc = int(getattr(train_cfg, "nc"))
-    if hasattr(train_cfg, "amp"):
-        cfg.amp = bool(getattr(train_cfg, "amp"))
-    if hasattr(train_cfg, "compile"):
-        cfg.compile = bool(getattr(train_cfg, "compile"))
+    imgsz_attr = getattr(train_cfg, "imgsz", None)
+    if imgsz_attr is not None:
+        cfg.imgsz = int(imgsz_attr)
+
+    batch_attr = getattr(train_cfg, "batch", None)
+    if batch_attr is not None:
+        cfg.bs = int(batch_attr)
+
+    nc_attr = getattr(train_cfg, "nc", None)
+    if nc_attr is not None:
+        cfg.nc = int(nc_attr)
+
+    amp_attr = getattr(train_cfg, "amp", None)
+    if amp_attr is not None:
+        cfg.amp = bool(amp_attr)
+
+    compile_attr = getattr(train_cfg, "compile", None)
+    if compile_attr is not None:
+        cfg.compile = bool(compile_attr)
 
     amp_dtype = getattr(train_cfg, "amp_dtype", None)
     if isinstance(amp_dtype, str) and amp_dtype in {"fp16", "bf16", "fp32"}:
@@ -379,11 +396,10 @@ class _Toy(torch.nn.Module):  # pragma: no cover
         self.head = torch.nn.Conv2d(32, 16, 1)
         self.nc = nc
 
-    def forward(self, batch: Dict[str, Any]):
-        x = batch["img"]
+    def forward(self, x: torch.Tensor):
         x = self.backbone(x)
         x = self.head(x)
-        # Simular pérdida: media del tensor + pequeña penalización por boxes
+        # Simular pérdida: media del tensor + pequeña penalización genérica
         loss = x.mean()
         items = {"box": float(loss.item()), "cls": 0.0, "dfl": 0.0}
         return loss, items

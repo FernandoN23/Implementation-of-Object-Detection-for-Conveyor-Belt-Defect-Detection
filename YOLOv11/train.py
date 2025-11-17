@@ -154,6 +154,15 @@ def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
         augment=True,
     )
 
+    # 2.1) Registrar número de clases en la configuración global (DotDict)
+    #      para que módulos como `engine.warmup.build_warmup_config_from_train`
+    #      puedan derivar `nc` sin depender del data loader.
+    try:
+        cfg.nc = int(getattr(info, "nc", len(names_list)))
+    except Exception:
+        # En caso extremo, dejar el valor por defecto de WarmupConfig
+        pass
+
     # 3) Telemetría de datos (el prefijo [data_loader] se emite desde train.py)
     if cfg.get("dl_info", False):
         names_fmt = "[" + ", ".join(str(n) for n in names_list) + "]"
