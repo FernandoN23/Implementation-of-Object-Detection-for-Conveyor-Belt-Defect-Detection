@@ -70,13 +70,32 @@ def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
     )
 
 
-def _fitness(metrics: Dict[str, float]) -> float:
-    """Criterio de fitness clásico: 0.1*mAP50 + 0.9*mAP50-95.
 
-    Tolera ausencia de claves, usando 0.0 por defecto.
+def _fitness(metrics: Dict[str, float]) -> float:
+    """Criterio de fitness: 0.1*mAP50 + 0.9*mAP50-95.
+
+    Se adapta a las claves producidas por DetMetricsYOLOv11 en
+    ``utility/metrics.py`` y mantiene compatibilidad con nombres
+    históricos (map, map50, map50-95).
     """
-    m50 = float(metrics.get("map50", 0.0))
-    m5095 = float(metrics.get("map", metrics.get("map50-95", 0.0)))
+    # Claves nuevas (DetMetricsSummary.to_dict)
+    m50 = float(
+        metrics.get(
+            "metrics/mAP50",  # clave preferida
+            metrics.get("map50", 0.0),  # compatibilidad hacia atrás
+        )
+    )
+
+    m5095 = float(
+        metrics.get(
+            "metrics/mAP50-95",  # clave preferida
+            metrics.get(
+                "metrics/mAP",  # si existiera un mAP agregado
+                metrics.get("map", metrics.get("map50-95", 0.0)),
+            ),
+        )
+    )
+
     return 0.1 * m50 + 0.9 * m5095
 
 

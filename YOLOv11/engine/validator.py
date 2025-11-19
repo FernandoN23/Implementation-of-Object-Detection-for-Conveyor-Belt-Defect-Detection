@@ -300,6 +300,9 @@ class Validator:
           se usa siempre dicho ``core`` para inferencia.
         - Se intenta desempaquetar salidas típicas de entrenamiento como
           ``(loss, preds)`` y se descartan elementos que no sean tensores.
+        - Si la salida es un ``dict`` sin ruta de decodificación explícita,
+          se devuelve una lista de detecciones vacías (stub temporal) para
+          no romper el pipeline de validación interna.
         """
         dev = images.device
 
@@ -325,6 +328,22 @@ class Validator:
                 or isinstance(second, (list, tuple))
             ):
                 out = second
+
+        # Caso especial: salida como dict (típico de forward de entrenamiento)
+        if isinstance(out, dict):
+            # Aquí normalmente habría una ruta de decodificación explícita
+            # dict -> cajas + puntajes. Como aún no se ha implementado, se
+            # retorna un stub de detecciones vacías por imagen para mantener
+            # operativo el pipeline de val_int sin lanzar excepciones.
+            bs = images.shape[0]
+            empty = images.new_zeros((0, 6), device=dev)
+            _log(
+                "Salida de predicción tipo dict sin decodificación registrada; "
+                "retornando detecciones vacías (stub).",
+                self.cfg,
+                level=2,
+            )
+            return [empty for _ in range(bs)]
 
         preds: List[torch.Tensor] = []
 
