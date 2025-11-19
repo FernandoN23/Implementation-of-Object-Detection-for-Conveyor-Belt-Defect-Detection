@@ -38,19 +38,35 @@ class DotDict(dict):
 
 
 def _print_banner(cfg: DotDict, engine: Dict[str, Any]) -> None:
-    """Imprime banner inicial de modo/variant/config en consola."""
+    """Imprime banner inicial de modo/variant/config en consola.
+
+    Casos contemplados para MODE:
+    - "TEST" o "TEST+WARMUP" cuando se ejecuta en modo ensamblado.
+    - "WARMUP+TRAIN" cuando hay warmup previo y luego entrenamiento real.
+    - "TRAIN" cuando solo hay entrenamiento sin warmup explícito.
+    """
     ut = engine["utils"]
     device_info = ut.device_info()
-    mode = "TEST" if cfg.test else ("WARMUP" if cfg.warmup != "off" else "TRAIN")
-    warm_ep = f" (epochs={cfg.warmup_epochs})" if int(cfg.get("warmup_epochs", 0)) > 0 else ""
+
+    has_warmup_cfg = str(cfg.warmup) != "off"
+    has_warmup_epochs = int(cfg.get("warmup_epochs", 0)) > 0
+    has_warmup = has_warmup_cfg or has_warmup_epochs
+
+    if cfg.test:
+        mode = "TEST+WARMUP" if has_warmup else "TEST"
+    else:
+        mode = "WARMUP+TRAIN" if has_warmup else "TRAIN"
+
+    warm_ep = f" (epochs={cfg.warmup_epochs})" if has_warmup_epochs else ""
     print(
-        "\n[YOLOv11] "
-        f"MODE={mode}  VARIANT={cfg.variant}  BN2GN={cfg.bn2gn}  "
-        f"AMP={cfg.amp}  EMA={'ON' if cfg.ema else 'OFF'}  HUD={'ON' if cfg.hud else 'OFF'}\n"
-        f"Device={device_info}  Batch={cfg.batch}  Imgsize={cfg.imgsz}  Epochs={cfg.epochs}\n"
-        f"Project={cfg.project} \n"
-        f"SaveDir={cfg.save_dir}\n"
-        f"Warmup={cfg.warmup}{warm_ep}  ValInt every {cfg.val_int_interval} epochs\n"
+        "[YOLOv11] "
+        f" MODE={mode}  VARIANT={cfg.variant}  BN2GN={cfg.bn2gn} \n"
+        f"├─ AMP={cfg.amp}  EMA={'ON' if cfg.ema else 'OFF'}  HUD={'ON' if cfg.hud else 'OFF'} \n"
+        f"├─ Device: {device_info} \n"
+        f"├─ Batch={cfg.batch}  Imgsize={cfg.imgsz}  Epochs={cfg.epochs} \n"
+        f"├─ Project: ...{cfg.project[26:]} \n"
+        f"├─ SaveDir: ...{cfg.save_dir[109:]} \n"
+        f"└─ Warmup: {cfg.warmup}{warm_ep}  ValInt every {cfg.val_int_interval} epochs"
     )
 
 

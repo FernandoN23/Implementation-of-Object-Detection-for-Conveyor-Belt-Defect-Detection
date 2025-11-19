@@ -292,41 +292,95 @@ class Validator:
     # ---------- Modelo/inferencia ----------
     @torch.inference_mode()
     def _model_predict(self, model: nn.Module, images: torch.Tensor) -> List[torch.Tensor]:
-        """Devuelve detecciones por imagen en formato [x1,y1,x2,y2,conf,cls]."""
-        model.eval()
+        """Devuelve detecciones por imagen en formato [x1,y1,x2,y2,conf,cls].
+
+        Notas
+        -----
+        - Si el modelo está envuelto en un contenedor con atributo ``core``,
+          se usa siempre dicho ``core`` para inferencia.
+        - Se intenta desempaquetar salidas típicas de entrenamiento como
+          ``(loss, preds)`` y se descartan elementos que no sean tensores.
+        """
         dev = images.device
-        # Intentos progresivos para compatibilidad
-        if hasattr(model, "predict"):
-            out = model.predict(images)
+
+        # Detectar modelo "core" (por ejemplo, cuando se usa un wrapper de train)
+        core = getattr(model, "core", model)
+        core.eval()
+
+        # Llamada a la API de inferencia
+        if hasattr(core, "predict"):
+            out = core.predict(images)
         else:
             try:
-                out = model(images)
+                out = core(images)
             except Exception:
-                out = model({"img": images})
-        # Normalizar a lista por imagen
-        if isinstance(out, (list, tuple)) and len(out) and isinstance(out[0], torch.Tensor):
-            preds = out
-        elif isinstance(out, torch.Tensor):
-            preds = [o for o in out]
+                # Fallback para modelos que esperan un batch tipo dict
+                out = core({"img": images})
+
+        # Desempaquetar patrones comunes de entrenamiento: (loss, preds)
+        if isinstance(out, (list, tuple)) and len(out) == 2:
+            first, second = out
+            if isinstance(first, torch.Tensor) and first.ndim == 0 and (
+                isinstance(second, torch.Tensor)
+                or isinstance(second, (list, tuple))
+            ):
+                out = second
+
+        preds: List[torch.Tensor] = []
+
+        # Normalizar a lista de tensores 2D [Ni, >=6]
+        if isinstance(out, torch.Tensor):
+            if out.ndim == 3 and out.size(-1) >= 6:
+                # [B, N, C] -> lista de [N, C]
+                preds = [o for o in out]
+            elif out.ndim == 2 and out.size(-1) >= 6:
+                preds = [out]
+            else:
+                raise RuntimeError(
+                    f"Tensor de predicción con shape no soportado: {tuple(out.shape)}"
+                )
+        elif isinstance(out, (list, tuple)):
+            for o in out:
+                if not isinstance(o, torch.Tensor):
+                    # Ignorar elementos no tensor (p.ej., dict de escalas)
+                    continue
+                if o.ndim == 3 and o.size(-1) >= 6:
+                    preds.extend([x for x in o])
+                elif o.ndim == 2 and o.size(-1) >= 6:
+                    preds.append(o)
+                else:
+                    raise RuntimeError(
+                        f"Tensor de predicción con shape no soportado: {tuple(o.shape)}"
+                    )
+            if not preds:
+                raise RuntimeError(
+                    "No se encontraron tensores de predicción válidos en la salida del modelo."
+                )
         else:
-            raise RuntimeError("Salida de predicción no reconocida por Validator")
+            raise RuntimeError(
+                f"Salida de predicción no reconocida por Validator: {type(out)}"
+            )
+
         # Aplicar NMS + truncado por imagen
         results: List[torch.Tensor] = []
         for p in preds:
-            if p.ndim == 2 and p.size(-1) >= 6:
-                boxes_xyxy = p[:, :4]
-                scores = p[:, 4]
-                classes = p[:, 5].to(boxes_xyxy.dtype)
-            else:
-                # asumir formato [cx,cy,w,h,conf,cls]
-                cxcywh = p[:, :4]
-                x1y1 = cxcywh[:, :2] - cxcywh[:, 2:] / 2
-                x2y2 = cxcywh[:, :2] + cxcywh[:, 2:] / 2
-                boxes_xyxy = torch.cat([x1y1, x2y2], 1)
-                scores = p[:, 4]
-                classes = p[:, 5].to(boxes_xyxy.dtype)
+            if p.size(-1) > 6:
+                # En caso de columnas extra, recortamos a las 6 primeras
+                p = p[:, :6]
+            if p.ndim != 2 or p.size(-1) < 6:
+                raise RuntimeError(
+                    f"Predicción con forma inesperada tras normalización: {tuple(p.shape)}"
+                )
+
+            # Asumimos formato [x1,y1,x2,y2,conf,cls] tras la fase de inferencia
+            boxes_xyxy = p[:, :4]
+            scores = p[:, 4]
+            classes = p[:, 5].to(boxes_xyxy.dtype)
+
             keep = _nms(boxes_xyxy, scores, self.cfg.iou_thres)
-            det = torch.cat([boxes_xyxy[keep], scores[keep, None], classes[keep, None]], 1)
+            det = torch.cat(
+                [boxes_xyxy[keep], scores[keep, None], classes[keep, None]], 1
+            )
             if det.numel() and self.cfg.max_det > 0:
                 det = det[: self.cfg.max_det]
             results.append(det.to(dev))
