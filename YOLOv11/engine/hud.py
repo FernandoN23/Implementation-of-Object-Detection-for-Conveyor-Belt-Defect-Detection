@@ -263,7 +263,7 @@ class HUD:
         line_parts: List[str] = []
         line_parts.append(f"[{phase}] {bar} {it}/{iters_per_epoch} ({pct:4.1f}%)")
         line_parts.append(f"lr {lr:.2e}")
-        line_parts.append(f"L {loss:.2f}")
+        #line_parts.append(f"L {loss:.2f}")
         line_parts.append(f"{dt_ms:.0f}ms")
 
         if self.cfg.show_rate:

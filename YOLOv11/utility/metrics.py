@@ -629,6 +629,17 @@ def build_train_loss_curve(
             ax.set_title(title)
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
+
+            # Forzar ticks enteros en el eje X para que las épocas sean
+            # interpretables (0, 1, 2, ..., N) sin subdivisiones decimales.
+            try:
+                xmin, xmax = min(ep_list), max(ep_list)
+                ax.set_xticks(list(range(xmin, xmax + 1)))
+            except Exception:
+                # Si algo falla (por ejemplo, epochs no enteros), dejamos el
+                # comportamiento por defecto de Matplotlib.
+                pass
+
             ax.grid(True, alpha=0.3)
             ax.legend()
             fig.savefig(png_path, dpi=dpi)

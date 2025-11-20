@@ -347,11 +347,18 @@ class Trainer:
                     loss, scalars = self.criterion(preds, batch["targets"])
                     items = {"loss": float(loss.detach()), **{k: float(v) for k, v in scalars.items()}}
 
-                # acumular métricas
-                sum_loss += float(loss.item())
+                # acumular métricas (normalizadas por tamaño de batch para monitoreo)
+                try:
+                    bsz = len(batch["img"])  # Tensor: dim0 = batch_size
+                except Exception:
+                    bsz = int(self.cfg.batch)
+                bsz = max(int(bsz), 1)
+
+                scaled_loss = float(loss.item()) / float(bsz)
+                sum_loss += scaled_loss
                 count += 1
                 for k, v in scalars.items():
-                    scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v)
+                    scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v) / float(bsz)
 
                 do_step = (i % self.accumulate) == 0
                 self.engine["amp"].safe_backward_step(

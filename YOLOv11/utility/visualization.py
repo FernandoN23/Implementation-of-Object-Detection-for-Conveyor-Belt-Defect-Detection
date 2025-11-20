@@ -33,6 +33,9 @@ except Exception as e:  # pragma: no cover
 else:
     _TB_IMPORT_ERROR = None
 
+# Flag para evitar spam del banner de TensorBoard en cada época
+_TB_BANNER_SHOWN: bool = False
+
 # Carga/transformaciones de imágenes
 try:
     import torch
@@ -100,10 +103,16 @@ class TBVisualization:
         self.cfg = cfg
         self.cfg.logdir.mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(str(self.cfg.logdir), flush_secs=flush_secs)
-        print(
-            f"[TB] Activo en: {self.cfg.logdir}\n"
-            f"    Inicie con: tensorboard --logdir {self.cfg.runs_root}"
-        )
+
+        # Banner informativo: sólo se imprime una vez por proceso para evitar
+        # ruido en consola cuando se loguea por época (val_int, sesiones, etc.).
+        global _TB_BANNER_SHOWN
+        if not _TB_BANNER_SHOWN:
+            print(
+                f"[TB] Activo en: {self.cfg.logdir}"
+                f"    Inicie con: tensorboard --logdir {self.cfg.runs_root}"
+            )
+            _TB_BANNER_SHOWN = True
 
     # ----------- API de scalars -----------
     def log_train_loss_epoch(self, scalars: Dict[str, float], epoch: int) -> None:
