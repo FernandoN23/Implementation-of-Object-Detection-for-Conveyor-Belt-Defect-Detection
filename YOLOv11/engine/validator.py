@@ -59,6 +59,10 @@ class ValConfig:
     plots: bool = False
     verbose: int = 1
 
+    # Variante del modelo (n/s/m/l/x, etc.) usada para enrutar métricas
+    # bajo la forma metrics/<variant>/<phase>/...
+    variant: Optional[str] = None
+
     # Para cómputo de métricas AP
     map_iou_lo: float = 0.5
     map_iou_hi: float = 0.95
@@ -254,17 +258,33 @@ class Validator:
 
         # Raíz para métricas:
         # - Si save_dir apunta a una corrida dentro de runs/, subimos hasta la
-        #   raíz del proyecto (carpeta que contiene "metrics/").
+        #   raíz del proyecto (carpeta que contiene "metrics/"). Además,
+        #   intentamos inferir la variante como el primer subdirectorio bajo
+        #   runs/ (p.ej., runs/s/train -> variant="s").
         # - Si no se entrega save_dir, usamos por defecto YOLOv11/ (raíz).
         root_default = Path(__file__).resolve().parent.parent  # YOLOv11/
+        variant_from_path: Optional[str] = None
         if self.cfg.save_dir:
-            base = Path(self.cfg.save_dir).resolve()
-            for p in base.parents:
+            orig = Path(self.cfg.save_dir).resolve()
+            base = orig
+            for p in orig.parents:
                 if p.name == "runs":
+                    # Extraer variante como primer componente relativo a "runs/"
+                    try:
+                        rel = orig.relative_to(p)
+                        if rel.parts:
+                            variant_from_path = rel.parts[0]
+                    except Exception:
+                        variant_from_path = None
                     base = p.parent
                     break
         else:
             base = root_default
+
+        # Si no se especificó variant en la configuración, usamos la inferida
+        if getattr(self.cfg, "variant", None) is None and variant_from_path is not None:
+            self.cfg.variant = variant_from_path
+
         self.base_dir: Optional[Path] = base
         self.save_dir: Optional[Path] = None  # resuelto por slot/step en validate()
 
@@ -274,7 +294,9 @@ class Validator:
             return None
         phase = phase or self.cfg.phase
         slot = (slot or self.cfg.slot).lower()
-        root = self.base_dir / "metrics" / phase
+        # Variante normalizada para el árbol metrics/<variant>/<phase>/...
+        variant_tag = _sanitize_phase_tag(self.cfg.variant) if getattr(self.cfg, "variant", None) else "unknown"
+        root = self.base_dir / "metrics" / variant_tag / phase
         if slot == "tests":
             rn = run_name or self.cfg.run_name or "unnamed"
             out = root / "tests" / rn
@@ -505,6 +527,7 @@ def validate(model: nn.Module,
              names: Optional[List[str]] = None,
              *,
              save_dir: Optional[str] = None,
+             variant: Optional[str] = None,
              conf_thres: float = 0.25,
              iou_thres: float = 0.6,
              max_det: int = 300,
@@ -532,6 +555,7 @@ def validate(model: nn.Module,
         slot=slot,
         run_name=run_name,
         step_tag=step_tag,
+        variant=variant,
     )
     v = Validator(cfg)
     return v.validate(
@@ -608,6 +632,7 @@ def validate_interna(
         run_name=run_name or tb_run_name,
         step_tag=step_tag,
         verbose=verbose,
+        variant=tb_variant,
     )
 
     # Limitar número de batches si se solicita

@@ -298,8 +298,8 @@ PRESETS: Dict[str, Preset] = {
             "epochs": 1,
             "imgsz": 640,
             "test": False,
-            "warmup_epochs": 0,
-            "warmup": "off",
+            "warmup_epochs": 1,
+            "warmup": "sanity",
             "bn2gn": "on",              # TODO: todo GN
             "amp": "fp16",
             "hud": True,

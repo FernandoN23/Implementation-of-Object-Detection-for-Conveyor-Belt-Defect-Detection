@@ -569,5 +569,76 @@ def summarize_validation(det_summary: DetMetricsSummary, loss_means: Optional[Di
     return d
 
 
+# ==============================================================
+# Curva de pérdida vs época (train)
+# ==============================================================
+
+def build_train_loss_curve(
+    epochs: Iterable[int],
+    losses: Iterable[float],
+    output_path: Optional[Path] = None,
+    *,
+    title: str = "Training Loss vs Epoch",
+    xlabel: str = "Epochs",
+    ylabel: str = "Loss",
+    dpi: int = 200,
+) -> Dict[str, Optional[Union[List[float], List[int], Path]]]:
+    """Construye y opcionalmente guarda la curva de pérdida de entrenamiento.
+
+    Parámetros
+    ----------
+    epochs:
+        Secuencia de índices de época (0-based o 1-based, se usan tal cual).
+    losses:
+        Pérdida promedio por época, en el mismo orden que ``epochs``.
+    output_path:
+        Ruta del archivo PNG a guardar. Si es ``None``, no se guarda imagen
+        y la función sólo devuelve los datos normalizados.
+
+    Retorna
+    -------
+    dict
+        Diccionario con claves:
+        - ``"epochs"``: lista de épocas (int).
+        - ``"losses"``: lista de pérdidas (float).
+        - ``"path"``: ruta del PNG generado (Path) o ``None`` si no se guardó.
+
+    Nota
+    ----
+    Esta función es deliberadamente agnóstica del origen de los datos. El
+    llamado típico será desde el loop de entrenamiento (Trainer) pasando las
+    listas agregadas de pérdida por época, pero también puede usarse a partir
+    de CSV externos si se preprocesan previamente.
+    """
+
+    # Normalización básica
+    ep_list = [int(e) for e in epochs]
+    loss_list = [float(l) for l in losses]
+
+    if not ep_list or not loss_list or len(ep_list) != len(loss_list):
+        # Datos insuficientes o inconsistentes: devolvemos solo el contenedor vacío
+        return {"epochs": ep_list, "losses": loss_list, "path": None}
+
+    png_path: Optional[Path] = None
+    if output_path is not None:
+        png_path = Path(output_path)
+        png_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fig, ax = plt.subplots(1, 1, figsize=(6, 4), tight_layout=True)
+            ax.plot(ep_list, loss_list, label="Training Loss")
+            ax.set_title(title)
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            fig.savefig(png_path, dpi=dpi)
+            plt.close(fig)
+        except Exception as e:  # pragma: no cover
+            warnings.warn(f"No se pudo guardar la curva de pérdida: {e}")
+            png_path = None
+
+    return {"epochs": ep_list, "losses": loss_list, "path": png_path}
+
+
 if __name__ == "__main__":
     print("metrics.py módulo — slots (tests/final) listos. Integrar con train.py y logger.py")

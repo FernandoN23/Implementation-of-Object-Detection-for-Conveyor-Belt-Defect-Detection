@@ -22,7 +22,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 # --- Dependencias (opcional) ---
 try:
@@ -143,6 +143,112 @@ class TBVisualization:
             self.writer.close()
         except Exception:
             pass
+
+
+# =============================
+# Curvas de pérdida (Training Loss) en TensorBoard
+# =============================
+
+def log_train_loss_curve_to_tb(
+    variant: str,
+    run_name: str,
+    curve: Dict[str, Any],
+    *,
+    phase: str = "train",
+    scalar_tag: str = "loss/train",
+    log_image: bool = False,
+    image_tag: str = "images/train_loss_curve",
+    image_epoch: int = 0,
+) -> Path:
+    """Registra en TensorBoard la curva de pérdida de entrenamiento.
+
+    Parámetros
+    ----------
+    variant:
+        Variante del modelo (n/s/m/l/xl), coherente con la estructura de
+        ``runs/<variant>/<phase>/<run_name>``.
+    run_name:
+        Nombre del run (habitualmente, el mismo ``cfg.name`` del Trainer).
+    curve:
+        Diccionario devuelto por ``metrics.build_train_loss_curve`` con las
+        claves ``"epochs"`` (lista de int), ``"losses"`` (lista de float) y
+        opcionalmente ``"path"`` (ruta del PNG generado).
+    phase:
+        Fase lógica para TensorBoard (por defecto ``"train"``).
+    scalar_tag:
+        Nombre base del scalar donde se registrará la pérdida. Por defecto
+        ``"loss/train"`` (aparecerá como tal en TB).
+    log_image:
+        Si es ``True`` y ``curve["path"]`` apunta a un PNG existente, también
+        se registrará la imagen en TB bajo ``image_tag``.
+    image_tag:
+        Tag de la imagen en TB (por defecto ``"images/train_loss_curve"``).
+    image_epoch:
+        Paso/época con el que se asociará la imagen en TB.
+    """
+
+    _ensure_tensorboard_available()
+    epochs = list(curve.get("epochs") or [])
+    losses = list(curve.get("losses") or [])
+
+    tb = TBVisualization(TBConfig(variant=variant, phase=phase, run_name=run_name))
+
+    # Serie temporal de scalars (un punto por época)
+    if epochs and losses and len(epochs) == len(losses):
+        for ep, loss in zip(epochs, losses):
+            try:
+                tb.log_train_loss_epoch({scalar_tag: float(loss)}, int(ep))
+            except Exception:
+                # No romper la sesión por un dato atípico
+                continue
+
+    # Imagen opcional de la curva (PNG generado por metrics.build_train_loss_curve)
+    if log_image:
+        try:
+            path_val = curve.get("path")
+            if path_val is not None:
+                p = Path(path_val)
+                if p.exists():
+                    img_t = _load_image_as_tensor(p, size=(640, 640))
+                    tb.log_image(image_tag, img_t, int(image_epoch))
+        except Exception:
+            # El fallo en la imagen no debe interrumpir el resto de logging
+            pass
+
+    tb.close()
+    return tb.cfg.logdir
+
+
+# Helper específico para el slot canónico de entrenamiento: train/final
+
+def log_train_loss_curve_to_tb_final(
+    variant: str,
+    curve: Dict[str, Any],
+    *,
+    scalar_tag: str = "loss/train",
+    log_image: bool = True,
+    image_tag: str = "images/train_loss_curve",
+    image_epoch: int = 0,
+) -> Path:
+    """Convenience wrapper para registrar la curva de pérdida en train/final.
+
+    Este helper fuerza el uso del slot estable ``runs/<variant>/train/final``
+    para la fase de entrenamiento, de modo que no se creen subcarpetas con
+    timestamps bajo ``train/``. Está pensado para ser usado por el Trainer al
+    final del entrenamiento, reescribiendo siempre sobre el mismo run lógico
+    (limpiado previamente por ExperimentLogger si corresponde).
+    """
+
+    return log_train_loss_curve_to_tb(
+        variant=variant,
+        run_name="final",
+        curve=curve,
+        phase="train",
+        scalar_tag=scalar_tag,
+        log_image=log_image,
+        image_tag=image_tag,
+        image_epoch=image_epoch,
+    )
 
 
 # =============================

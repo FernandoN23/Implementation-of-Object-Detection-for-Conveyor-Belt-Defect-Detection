@@ -316,6 +316,9 @@ class Trainer:
         iters_per_epoch = len(self.train_loader)
         print("[TRAIN] >>> Inicio entrenamiento (~2-5 min)", flush=True)
 
+        # Historial de pérdida promedio por época (para curva loss vs epoch)
+        epoch_loss_history: List[float] = []
+
         # Preparar nombres como lista para validator (si vienen como dict)
         if isinstance(self.names, dict):
             names_list: List[str] = [self.names[i] for i in sorted(self.names.keys())]
@@ -381,9 +384,13 @@ class Trainer:
                 self.hud.on_epoch_end()
 
             # Métricas promedio de train por época
-            train_metrics: Dict[str, float] = {"loss": (sum_loss / max(1, count))}
+            avg_loss_epoch = sum_loss / max(1, count)
+            train_metrics: Dict[str, float] = {"loss": avg_loss_epoch}
             for k, v in scalars_sum.items():
                 train_metrics[k] = v / max(1, count)
+
+            # Registrar en historial para curva de pérdida
+            epoch_loss_history.append(float(avg_loss_epoch))
 
             # ===== Validación interna (val_int) por intervalo =====
             val_metrics: Dict[str, float] = {}
@@ -480,6 +487,43 @@ class Trainer:
 
             if ut.SIGNALS.stop or self.timer.expired():
                 break
+
+        # === Curva de pérdida (training loss vs epoch) ===
+        try:
+            if epoch_loss_history:
+                # Evitar import pesado si no hubo ninguna época efectiva
+                from YOLOv11.utility import metrics as umetrics  # type: ignore
+                from YOLOv11.utility import visualization as viz  # type: ignore
+
+                # Índices de época reales ejecutados
+                epochs_curve = list(range(self.start_epoch, self.start_epoch + len(epoch_loss_history)))
+
+                # Directorio canónico de métricas para entrenamiento:
+                # YOLOv11/metrics/<variant>/train/final/
+                project_root = Path(__file__).resolve().parents[1]
+                variant_tag = str(getattr(self.cfg, "variant", "unknown")) or "unknown"
+                metrics_dir = project_root / "metrics" / variant_tag / "train" / "final"
+
+                curve = umetrics.build_train_loss_curve(
+                    epochs=epochs_curve,
+                    losses=epoch_loss_history,
+                    output_path=metrics_dir / "loss_curve_train.png",
+                )
+
+                # Registro opcional en TensorBoard (scalars + imagen de la curva)
+                try:
+                    viz.log_train_loss_curve_to_tb_final(
+                        variant=variant_tag,
+                        curve=curve,
+                        scalar_tag="loss/train",
+                        log_image=True,
+                        image_epoch=epochs_curve[-1],
+                    )
+                except Exception:
+                    # El fallo en TB no debe afectar al fin del entrenamiento
+                    pass
+        except Exception as e:
+            print(f"[viz] Advertencia: no se pudo generar/registrar curva de pérdida: {e}")
 
         print("[TRAIN] <<< Fin entrenamiento (~2-5 min)", flush=True)
         if self.hud and hasattr(self.hud, "close"):
