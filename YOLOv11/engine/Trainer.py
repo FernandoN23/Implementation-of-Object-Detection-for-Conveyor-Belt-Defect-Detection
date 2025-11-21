@@ -515,6 +515,7 @@ class Trainer:
                     epochs=epochs_curve,
                     losses=epoch_loss_history,
                     output_path=metrics_dir / "loss_curve_train.png",
+                    variant=variant_tag,
                 )
 
                 # Registro opcional en TensorBoard (scalars + imagen de la curva)

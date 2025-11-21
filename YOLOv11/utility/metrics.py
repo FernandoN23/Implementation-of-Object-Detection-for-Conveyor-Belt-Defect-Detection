@@ -578,7 +578,8 @@ def build_train_loss_curve(
     losses: Iterable[float],
     output_path: Optional[Path] = None,
     *,
-    title: str = "Training Loss vs Epoch",
+    variant: Optional[str] = None,
+    title: Optional[str] = None,
     xlabel: str = "Epochs",
     ylabel: str = "Loss",
     dpi: int = 200,
@@ -588,18 +589,27 @@ def build_train_loss_curve(
     Parámetros
     ----------
     epochs:
-        Secuencia de índices de época (0-based o 1-based, se usan tal cual).
+        Secuencia de índices de época (0-based o 1-based, se usan tal cual en
+        los datos devueltos). Para el gráfico, se desplazan a 1..N sólo con
+        fines de visualización.
     losses:
         Pérdida promedio por época, en el mismo orden que ``epochs``.
     output_path:
         Ruta del archivo PNG a guardar. Si es ``None``, no se guarda imagen
         y la función sólo devuelve los datos normalizados.
+    variant:
+        Identificador de variante (por ejemplo "n", "s", "m", "l", "x"). Si se
+        proporciona y ``title`` es None, se usará para construir un título
+        técnico del tipo "Train Loss Variant: YOLOv11-s — per-image averaged".
+    title:
+        Título del gráfico. Si es None, se construye uno genérico o específico
+        según ``variant``.
 
     Retorna
     -------
     dict
         Diccionario con claves:
-        - ``"epochs"``: lista de épocas (int).
+        - ``"epochs"``: lista de épocas (int) tal como se recibieron.
         - ``"losses"``: lista de pérdidas (float).
         - ``"path"``: ruta del PNG generado (Path) o ``None`` si no se guardó.
 
@@ -620,20 +630,35 @@ def build_train_loss_curve(
         return {"epochs": ep_list, "losses": loss_list, "path": None}
 
     png_path: Optional[Path] = None
+
+    # Normalizar variante y preparar título final
+    v_norm = (variant or "").strip()
+    v_norm = v_norm.lower() if v_norm else ""
+    if title is None:
+        if v_norm:
+            final_title = f"Train Loss Variant: YOLOv11-{v_norm} — per-image averaged"
+        else:
+            final_title = "Training Loss vs Epoch — per-image averaged"
+    else:
+        final_title = title
+
+    # Épocas para el gráfico: desplazar a 1..N sólo para visualización
+    plot_epochs = [int(e) + 1 for e in ep_list]
+
     if output_path is not None:
         png_path = Path(output_path)
         png_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             fig, ax = plt.subplots(1, 1, figsize=(6, 4), tight_layout=True)
-            ax.plot(ep_list, loss_list, label="Training Loss")
-            ax.set_title(title)
+            ax.plot(plot_epochs, loss_list, label="Training Loss")
+            ax.set_title(final_title)
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
 
             # Forzar ticks enteros en el eje X para que las épocas sean
-            # interpretables (0, 1, 2, ..., N) sin subdivisiones decimales.
+            # interpretables (1, 2, 3, ..., N) sin subdivisiones decimales.
             try:
-                xmin, xmax = min(ep_list), max(ep_list)
+                xmin, xmax = min(plot_epochs), max(plot_epochs)
                 ax.set_xticks(list(range(xmin, xmax + 1)))
             except Exception:
                 # Si algo falla (por ejemplo, epochs no enteros), dejamos el

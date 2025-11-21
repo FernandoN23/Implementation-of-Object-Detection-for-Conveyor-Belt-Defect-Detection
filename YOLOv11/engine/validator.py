@@ -59,10 +59,6 @@ class ValConfig:
     plots: bool = False
     verbose: int = 1
 
-    # Variante del modelo (n/s/m/l/x, etc.) usada para enrutar métricas
-    # bajo la forma metrics/<variant>/<phase>/...
-    variant: Optional[str] = None
-
     # Para cómputo de métricas AP
     map_iou_lo: float = 0.5
     map_iou_hi: float = 0.95
@@ -258,33 +254,17 @@ class Validator:
 
         # Raíz para métricas:
         # - Si save_dir apunta a una corrida dentro de runs/, subimos hasta la
-        #   raíz del proyecto (carpeta que contiene "metrics/"). Además,
-        #   intentamos inferir la variante como el primer subdirectorio bajo
-        #   runs/ (p.ej., runs/s/train -> variant="s").
+        #   raíz del proyecto (carpeta que contiene "metrics/").
         # - Si no se entrega save_dir, usamos por defecto YOLOv11/ (raíz).
         root_default = Path(__file__).resolve().parent.parent  # YOLOv11/
-        variant_from_path: Optional[str] = None
         if self.cfg.save_dir:
-            orig = Path(self.cfg.save_dir).resolve()
-            base = orig
-            for p in orig.parents:
+            base = Path(self.cfg.save_dir).resolve()
+            for p in base.parents:
                 if p.name == "runs":
-                    # Extraer variante como primer componente relativo a "runs/"
-                    try:
-                        rel = orig.relative_to(p)
-                        if rel.parts:
-                            variant_from_path = rel.parts[0]
-                    except Exception:
-                        variant_from_path = None
                     base = p.parent
                     break
         else:
             base = root_default
-
-        # Si no se especificó variant en la configuración, usamos la inferida
-        if getattr(self.cfg, "variant", None) is None and variant_from_path is not None:
-            self.cfg.variant = variant_from_path
-
         self.base_dir: Optional[Path] = base
         self.save_dir: Optional[Path] = None  # resuelto por slot/step en validate()
 
@@ -294,9 +274,7 @@ class Validator:
             return None
         phase = phase or self.cfg.phase
         slot = (slot or self.cfg.slot).lower()
-        # Variante normalizada para el árbol metrics/<variant>/<phase>/...
-        variant_tag = _sanitize_phase_tag(self.cfg.variant) if getattr(self.cfg, "variant", None) else "unknown"
-        root = self.base_dir / "metrics" / variant_tag / phase
+        root = self.base_dir / "metrics" / phase
         if slot == "tests":
             rn = run_name or self.cfg.run_name or "unnamed"
             out = root / "tests" / rn
@@ -320,6 +298,9 @@ class Validator:
         -----
         - Si el modelo está envuelto en un contenedor con atributo ``core``,
           se usa siempre dicho ``core`` para inferencia.
+        - Si el ``core`` implementa un método ``predict`` (como YOLOv11), se
+          asume que devuelve un tensor [B, N, 6] con [x1,y1,x2,y2,conf,cls]
+          previo a NMS.
         - Se intenta desempaquetar salidas típicas de entrenamiento como
           ``(loss, preds)`` y se descartan elementos que no sean tensores.
         - Si la salida es un ``dict`` sin ruta de decodificación explícita,
@@ -402,7 +383,7 @@ class Validator:
                 f"Salida de predicción no reconocida por Validator: {type(out)}"
             )
 
-        # Aplicar NMS + truncado por imagen
+        # Aplicar NMS + filtro de confianza + truncado por imagen
         results: List[torch.Tensor] = []
         for p in preds:
             if p.size(-1) > 6:
@@ -422,6 +403,12 @@ class Validator:
             det = torch.cat(
                 [boxes_xyxy[keep], scores[keep, None], classes[keep, None]], 1
             )
+
+            # Filtro por confianza mínima (consistente con conf_thres de ValConfig)
+            if det.numel() and self.cfg.conf_thres > 0.0:
+                conf_mask = det[:, 4] >= self.cfg.conf_thres
+                det = det[conf_mask]
+
             if det.numel() and self.cfg.max_det > 0:
                 det = det[: self.cfg.max_det]
             results.append(det.to(dev))
@@ -527,7 +514,6 @@ def validate(model: nn.Module,
              names: Optional[List[str]] = None,
              *,
              save_dir: Optional[str] = None,
-             variant: Optional[str] = None,
              conf_thres: float = 0.25,
              iou_thres: float = 0.6,
              max_det: int = 300,
@@ -555,7 +541,6 @@ def validate(model: nn.Module,
         slot=slot,
         run_name=run_name,
         step_tag=step_tag,
-        variant=variant,
     )
     v = Validator(cfg)
     return v.validate(
@@ -632,7 +617,6 @@ def validate_interna(
         run_name=run_name or tb_run_name,
         step_tag=step_tag,
         verbose=verbose,
-        variant=tb_variant,
     )
 
     # Limitar número de batches si se solicita

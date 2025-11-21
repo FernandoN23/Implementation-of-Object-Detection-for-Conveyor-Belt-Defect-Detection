@@ -194,6 +194,39 @@ class YOLOv11(nn.Module):
         box_cat = torch.cat(box_list, dim=1)
         return cls_cat, box_cat
 
+    # -----------------------
+    # API de inferencia de alto nivel
+    # -----------------------
+    @torch.inference_mode()
+    def predict(self, images: torch.Tensor) -> torch.Tensor:
+        """Inferencia tipo YOLO.
+
+        Args:
+            images: Tensor de entrada [B,3,H,W] en el mismo espacio que el entrenamiento.
+
+        Returns:
+            Tensor [B, N, 6] con [x1, y1, x2, y2, conf, cls] en pixeles,
+            antes de aplicar NMS. La conversión de logits de clase a
+            probabilidades se realiza mediante sigmoide, de forma consistente
+            con BCEWithLogitsLoss.
+        """
+        # Decodificación geométrica + concatenación de niveles
+        out = self(images, decode=True, concat=True)
+        boxes = out["boxes"]          # (B, N, 4) en pixeles
+        cls_logits = out["cls"]       # (B, N, nc) logits
+
+        # Probabilidades por clase (esquema logístico estándar en YOLO)
+        cls_probs = cls_logits.sigmoid()
+
+        # Mejor clase por candidato
+        conf, cls_idx = cls_probs.max(dim=-1)   # (B, N), (B, N)
+
+        # Empaquetar en [x1, y1, x2, y2, conf, cls]
+        conf = conf.unsqueeze(-1)               # (B, N, 1)
+        cls_idx = cls_idx.to(boxes.dtype).unsqueeze(-1)  # (B, N, 1)
+        det = torch.cat([boxes, conf, cls_idx], dim=-1)  # (B, N, 6)
+        return det
+
 
 # -----------------------
 # Fábrica
