@@ -274,11 +274,11 @@ TRAIN_PIVOT_IMAGES = [
 ]
 
 VALID_PIVOT_IMAGES = [
-    "0039.jpg",  # cls 0
-    "0065.jpg",  # cls 1
-    "0085.jpg",  # cls 2
-    "0129.jpg",  # cls 3
-    "0113.jpg",  # cls 4
+    "0039.jpg",  # Hole
+    "0065.jpg",  # Impact Damage
+    "0085.jpg",  # Puncture
+    "0129.jpg",  # Tear
+    "0113.jpg",  # Wear
 ]
 
 
@@ -435,6 +435,64 @@ def make_ref_grid_with_gt_and_pred(
             _draw_boxes(img, preds_xywh, color=(255, 80, 90), label_text="pred", W=W, H=H)
         out.append(TF.to_tensor(img))
     return out
+
+
+def save_reference_overlays_png(
+    out_path: Path,
+    split: str,
+    dataset_base: Optional[Path] = None,
+    preds_by_file: Optional[Dict[str, List[Dict]]] = None,
+    conf_thr: float = 0.25,
+    topk: int = 5,
+    nrow: int = 3,
+    size: Tuple[int, int] = (640, 640),
+) -> Path:
+    """Genera y guarda un PNG con overlays GT+Pred sobre imágenes pivote.
+
+    Parámetros
+    ----------
+    out_path:
+        Ruta de salida del PNG. Se crearán las carpetas padre si no existen.
+    split:
+        Split del dataset ("train" o "val"). Determina el set de pivotes a usar.
+    dataset_base:
+        Ruta base del dataset. Si es None, se usa DEFAULT_DATASET_BASE.
+    preds_by_file:
+        Diccionario opcional con clave = nombre de archivo (p.ej. '0864.jpg') y valor = lista
+        de dicts con el formato {"bbox_xywh": [cx,cy,w,h] en [0,1], "conf": float, "cls": int}.
+        Si es None, se dibuja sólo GT.
+    conf_thr:
+        Umbral mínimo de confianza para considerar una predicción.
+    topk:
+        Máximo de predicciones a dibujar por imagen.
+    nrow:
+        Número de imágenes por fila en el grid.
+    size:
+        Tamaño de redimensionamiento (ancho, alto) para cada imagen pivote.
+    """
+    _ensure_vision_available()
+
+    # Construir tensores CHW con GT+Pred para las imágenes pivote
+    imgs = make_ref_grid_with_gt_and_pred(
+        dataset_base=dataset_base,
+        split=split,
+        preds_by_file=preds_by_file,
+        size=size,
+        conf_thr=conf_thr,
+        topk=topk,
+    )
+
+    if not imgs:
+        raise RuntimeError("save_reference_overlays_png: no se generaron imágenes de referencia.")
+
+    # Grid tipo torchvision.utils.make_grid
+    grid = make_grid(torch.stack(imgs, dim=0), nrow=int(nrow), padding=2)
+    img = TF.to_pil_image(grid)
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out_path)
+    return out_path
 
 
 def log_reference_images_to_tb(
@@ -638,6 +696,7 @@ def log_ref_session_epoch(variant: str, split: str, run_name: str,
 # =============================
 # CLI
 # =============================
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser("Visualización TensorBoard — YOLOv11")

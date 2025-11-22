@@ -433,6 +433,43 @@ PRESETS: Dict[str, Preset] = {
             "miopen_disable_cache": True,
         },
     ),
+    # Entrenamiento corto (10 épocas) con overlays de pivotes en metrics/ y
+    # opción de activación de TensorBoard para seguimiento visual.
+    "overlays-10ep": Preset(
+        name="overlays-10ep",
+        overrides={
+            "data": "configs/dataset.yaml",
+            "model": "configs/yolo11.yaml",
+            "parser": "configs/parser.yaml",
+            "dl_info": True,
+            "variant": "s",
+            "batch": 8,
+            "epochs": 10,
+            "imgsz": 640,
+            "test": False,
+            # warmup ligero para estabilizar antes de las primeras val_int
+            "warmup_epochs": 1,
+            "warmup": "sanity",
+            "bn2gn": "on",
+            "amp": "fp16",
+            "hud": True,
+            # validación interna periódica en el set entero de Train
+            "val_int_interval": 2,
+            "val_int_use_train_subset": False,
+            "val_int_split": "train",
+            "val_int_max_batches": 0,
+            # overlays de pivotes siempre activos, TensorBoard opcional
+            "val_int_pivots": True,
+            "val_int_tb": False,          # se puede activar con --val-int-tb
+            "val_int_tb_nrow": 3,
+            "val_int_tb_conf": 0.25,
+            "val_int_tb_topk": 5,
+            # base del dataset para resolver rutas de imágenes pivote
+            "dataset_base": "Dataset",
+            # disable cache para mantener comportamiento estable en pruebas
+            "miopen_disable_cache": True,
+        },
+    ),
 }
 
 

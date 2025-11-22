@@ -275,6 +275,8 @@ class Validator:
 
         self.base_dir: Optional[Path] = base
         self.save_dir: Optional[Path] = None  # resuelto por slot/step en validate()
+        # Predicciones por archivo para overlays de pivotes (se rellena en validate)
+        self._last_preds_by_file: Optional[Dict[str, List[Dict[str, Any]]]] = None
 
     def _resolve_save_dir(self, *, phase: Optional[str] = None, slot: Optional[str] = None,
                           run_name: Optional[str] = None, step_tag: Optional[str] = None) -> Optional[Path]:
@@ -464,12 +466,23 @@ class Validator:
             iou_thresholds=torch.arange(self.cfg.map_iou_lo, self.cfg.map_iou_hi + 1e-9, self.cfg.map_iou_step).tolist(),
         )
 
+        # Configuración opcional para recolección de predicciones por archivo
+        collect_pivots: bool = bool(getattr(self, "_collect_pivots", False))
+        pivot_files = set(getattr(self, "_pivot_files", []) or [])
+        pivot_conf_thr: float = float(getattr(self, "_pivot_conf_thr", self.cfg.conf_thres))
+        pivot_topk: int = int(getattr(self, "_pivot_topk", self.cfg.max_det))
+        preds_by_file: Dict[str, List[Dict[str, Any]]] = (
+            {} if collect_pivots and pivot_files else {}
+        )
+
         for batch in loader:
             if isinstance(batch, dict) and "img" in batch:
                 imgs = batch["img"]
                 targets_any = batch.get("targets", [])
+                paths_any = batch.get("im_file") or batch.get("im_files") or batch.get("paths")
             else:
                 imgs, targets_any = batch
+                paths_any = None
 
             imgs = imgs.to(dev, non_blocking=True).float()
             dets = self._model_predict(model, imgs)
@@ -488,7 +501,88 @@ class Validator:
                 conf_min_for_cm=self.cfg.conf_thres,
                 iou_match_for_cm=0.50,
             )
+
+            # Recolección opcional de predicciones para imágenes pivote
+            if collect_pivots and paths_any is not None and pivot_files:
+                try:
+                    paths_seq = list(paths_any)
+                except TypeError:
+                    # Si paths_any no es iterable (caso atípico), replicamos
+                    paths_seq = [paths_any] * bs
+
+                for i in range(bs):
+                    if i >= len(preds_list):
+                        break
+                    fname = Path(str(paths_seq[i])).name
+                    if fname not in pivot_files:
+                        continue
+
+                    det_i = preds_list[i]
+                    if det_i is None or det_i.numel() == 0:
+                        continue
+                    if det_i.ndim != 2 or det_i.size(-1) < 6:
+                        continue
+
+                    H_i, W_i = img_hw[i]
+                    boxes_xyxy = det_i[:, :4]
+                    confs = det_i[:, 4]
+                    clss = det_i[:, 5]
+
+                    # Filtro de confianza específico para overlays de pivotes
+                    if pivot_conf_thr > 0.0:
+                        mask = confs >= pivot_conf_thr
+                        boxes_sel = boxes_xyxy[mask]
+                        confs_sel = confs[mask]
+                        clss_sel = clss[mask]
+                    else:
+                        boxes_sel = boxes_xyxy
+                        confs_sel = confs
+                        clss_sel = clss
+
+                    if boxes_sel.numel() == 0:
+                        continue
+
+                    # Limitar a top-k predicciones por imagen
+                    if pivot_topk > 0 and boxes_sel.size(0) > pivot_topk:
+                        boxes_sel = boxes_sel[:pivot_topk]
+                        confs_sel = confs_sel[:pivot_topk]
+                        clss_sel = clss_sel[:pivot_topk]
+
+                    x1 = boxes_sel[:, 0]
+                    y1 = boxes_sel[:, 1]
+                    x2 = boxes_sel[:, 2]
+                    y2 = boxes_sel[:, 3]
+
+                    Wf = float(W_i) if W_i else 1.0
+                    Hf = float(H_i) if H_i else 1.0
+
+                    cx = ((x1 + x2) / 2.0) / Wf
+                    cy = ((y1 + y2) / 2.0) / Hf
+                    w = (x2 - x1) / Wf
+                    h = (y2 - y1) / Hf
+
+                    entries = preds_by_file.setdefault(fname, [])
+                    for j in range(boxes_sel.size(0)):
+                        entries.append(
+                            {
+                                "bbox_xywh": [
+                                    float(cx[j]),
+                                    float(cy[j]),
+                                    float(w[j]),
+                                    float(h[j]),
+                                ],
+                                "conf": float(confs_sel[j]),
+                                "cls": int(clss_sel[j]),
+                            }
+                        )
+
             self.seen += bs
+
+        # Exponer predicciones por archivo (si se solicitaron)
+        if collect_pivots and preds_by_file:
+            self._last_preds_by_file = preds_by_file
+        else:
+            self._last_preds_by_file = None
 
         det_summary, curves = met.finalize()
 
@@ -547,6 +641,9 @@ def validate(model: nn.Module,
              run_name: Optional[str] = None,
              step_tag: Optional[str] = None) -> Dict[str, Any]:
     """Wrapper simple para validación completa clásica (train/val/test)."""
+    # Inferir nc desde los nombres si están disponibles (para trazabilidad en JSON)
+    nc: Optional[int] = len(names) if names else None
+
     cfg = ValConfig(
         conf_thres=conf_thres,
         iou_thres=iou_thres,
@@ -557,6 +654,7 @@ def validate(model: nn.Module,
         save_json=save_json,
         save_dir=save_dir,
         names=names,
+        nc=nc,
         phase=phase,
         slot=slot,
         run_name=run_name,
@@ -613,7 +711,8 @@ def validate_interna(
       proporcionado (normalmente train_loader adaptado).
     - Llamada al validador clásico (`Validator.validate`).
     - Integración opcional con `utility/visualization.py` para logging
-      en TensorBoard de métricas y, a futuro, overlays de pivotes.
+      en TensorBoard de métricas y generación de overlays de imágenes
+      pivote en disco (PNG) bajo metrics/<variant>/val_int/epoch/...
 
     Nota importante
     ---------------
@@ -625,6 +724,19 @@ def validate_interna(
     # Fase lógica fija para val_int
     val_int_phase = "val_int"
 
+    # Inferir número de clases (nc) a partir de nombres o del modelo
+    nc: Optional[int] = None
+    if names:
+        nc = len(names)
+    else:
+        core = getattr(model, "core", model)
+        nc_attr = getattr(core, "nc", None)
+        if nc_attr is not None:
+            try:
+                nc = int(nc_attr)
+            except (TypeError, ValueError):  # pragma: no cover
+                nc = None
+
     cfg = ValConfig(
         conf_thres=conf_thres,
         iou_thres=iou_thres,
@@ -632,6 +744,7 @@ def validate_interna(
         save_json=True,
         save_dir=save_dir,
         names=names,
+        nc=nc,
         phase=val_int_phase,
         slot=slot,
         run_name=run_name or tb_run_name,
@@ -651,7 +764,37 @@ def validate_interna(
     else:
         eff_loader = loader
 
+    # Visualización / overlays: obtener lista de pivotes desde visualization.py
+    viz = None
+    pivot_files: Optional[List[str]] = None
+    if use_pivots:
+        try:
+            from YOLOv11.utility import visualization as viz_mod  # type: ignore
+
+            viz = viz_mod
+            if split == "train":
+                pivot_files = list(getattr(viz_mod, "TRAIN_PIVOT_IMAGES", []))
+            else:
+                pivot_files = list(getattr(viz_mod, "VALID_PIVOT_IMAGES", []))
+            if not pivot_files:
+                _log("No se encontraron imágenes pivote definidas en visualization.py", cfg, 1)
+        except Exception as e:  # pragma: no cover
+            _log(f"Visualización/overlays no disponible: {e}", cfg, 1)
+            viz = None
+            pivot_files = None
+            use_pivots = False
+
     v = Validator(cfg)
+
+    # Habilitar recolección de predicciones por archivo para pivotes
+    if use_pivots and pivot_files:
+        v._collect_pivots = True
+        v._pivot_files = pivot_files
+        v._pivot_conf_thr = tb_conf_thr
+        v._pivot_topk = tb_topk
+    else:
+        v._collect_pivots = False
+
     metrics = v.validate(
         model,
         eff_loader,
@@ -662,46 +805,47 @@ def validate_interna(
         step_tag=step_tag,
     )
 
+    # --- Overlays en disco (PNG) + JSON de predicciones por archivo ---
+    pred_json_path: Optional[Path] = None
+    if use_pivots and v.save_dir is not None and getattr(v, "_last_preds_by_file", None):
+        preds_by_file = getattr(v, "_last_preds_by_file", None)
+        if isinstance(preds_by_file, dict) and preds_by_file:
+            # 1) Guardar JSON de predicciones de pivotes por archivo
+            pred_json_path = v.save_dir / "val_int_pivots_pred.json"
+            try:
+                with open(pred_json_path, "w", encoding="utf-8") as f:
+                    json.dump(preds_by_file, f, ensure_ascii=False, indent=2)
+                _log(f"Predicciones de pivotes guardadas en {pred_json_path}", cfg, 2)
+            except Exception as e:  # pragma: no cover
+                _log(f"No se pudo guardar JSON de pivotes: {e}", cfg, 1)
+                pred_json_path = None
+
+            # 2) Generar PNG de overlays de pivotes bajo metrics/<variant>/val_int/epoch/...
+            if viz is not None and dataset_base is not None:
+                try:
+                    out_png = v.save_dir / "overlays_pivots.png"
+                    viz.save_reference_overlays_png(
+                        out_path=out_png,
+                        split=split,
+                        dataset_base=Path(dataset_base),
+                        preds_by_file=preds_by_file,
+                        conf_thr=tb_conf_thr,
+                        topk=tb_topk,
+                        nrow=tb_nrow,
+                        size=(640, 640),
+                    )
+                    _log(f"Overlays de pivotes guardados en {out_png}", cfg, 2)
+                except Exception as e:  # pragma: no cover
+                    _log(f"No se pudieron generar overlays PNG de pivotes: {e}", cfg, 1)
+
     # --- Integración opcional con TensorBoard / visualización ---
     if tb_enable:
         try:
-            # Importación perezosa para evitar dependencias fuertes si no se usa TB
-            from YOLOv11.utility import visualization as viz  # type: ignore
+            if viz is None:
+                from YOLOv11.utility import visualization as viz_mod  # type: ignore
+                viz = viz_mod
         except Exception as e:  # pragma: no cover
             _log(f"TensorBoard/visualization no disponible: {e}", cfg, 2)
             return metrics
 
-        # 1) Logging de métricas a TensorBoard (fase val_int)
-        try:
-            if hasattr(viz, "TBConfig") and hasattr(viz, "TBVisualization"):
-                tb_cfg = viz.TBConfig(
-                    variant=tb_variant,
-                    phase=val_int_phase,
-                    run_name=tb_run_name,
-                )
-                tb = viz.TBVisualization(tb_cfg)
-                # Se asume que `log_metrics_epoch` acepta (metrics, epoch, phase)
-                tb.log_metrics_epoch(metrics, epoch=epoch, phase=val_int_phase)
-                tb.close()
-        except Exception as e:  # pragma: no cover
-            _log(f"TensorBoard val_int deshabilitado: {e}", cfg, 1)
 
-        # 2) Logging de imágenes pivote (GT / GT+Pred)
-        if use_pivots and dataset_base is not None:
-            try:
-                if hasattr(viz, "log_ref_session_epoch"):
-                    viz.log_ref_session_epoch(
-                        variant=tb_variant,
-                        split=split,
-                        run_name=tb_run_name,
-                        dataset_base=Path(dataset_base),
-                        epoch=epoch,
-                        pred_json=None,  # reservado para futuras integraciones
-                        conf_thr=tb_conf_thr,
-                        topk=tb_topk,
-                        nrow=tb_nrow,
-                    )
-            except Exception as e:  # pragma: no cover
-                _log(f"Visualización pivotes val_int deshabilitada: {e}", cfg, 1)
-
-    return metrics
