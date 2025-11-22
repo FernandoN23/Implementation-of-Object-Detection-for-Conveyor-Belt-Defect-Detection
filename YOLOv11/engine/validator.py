@@ -254,17 +254,25 @@ class Validator:
 
         # Raíz para métricas:
         # - Si save_dir apunta a una corrida dentro de runs/, subimos hasta la
-        #   raíz del proyecto (carpeta que contiene "metrics/").
+        #   raíz del proyecto (carpeta que contiene "metrics/") y, si es
+        #   posible, inferimos la variante (n/s/m/l/xl) a partir de la ruta.
         # - Si no se entrega save_dir, usamos por defecto YOLOv11/ (raíz).
         root_default = Path(__file__).resolve().parent.parent  # YOLOv11/
+        self.variant: Optional[str] = None
+
         if self.cfg.save_dir:
             base = Path(self.cfg.save_dir).resolve()
-            for p in base.parents:
-                if p.name == "runs":
-                    base = p.parent
-                    break
+            parts = base.parts
+            if "runs" in parts:
+                idx = parts.index("runs")
+                # Inferir variante como el segmento inmediatamente posterior a "runs"
+                if idx + 1 < len(parts):
+                    self.variant = parts[idx + 1]
+                # La raíz del proyecto es el padre de "runs"
+                base = Path(*parts[:idx])
         else:
             base = root_default
+
         self.base_dir: Optional[Path] = base
         self.save_dir: Optional[Path] = None  # resuelto por slot/step en validate()
 
@@ -272,9 +280,20 @@ class Validator:
                           run_name: Optional[str] = None, step_tag: Optional[str] = None) -> Optional[Path]:
         if self.base_dir is None:
             return None
+
         phase = phase or self.cfg.phase
         slot = (slot or self.cfg.slot).lower()
-        root = self.base_dir / "metrics" / phase
+
+        # Estructura estándar de métricas:
+        #   <project_root>/metrics/<variant>/<phase>/<slot>/
+        # Si no se pudo inferir la variante (casos atípicos), se omite el
+        # nivel <variant> para mantener compatibilidad hacia atrás.
+        root = self.base_dir / "metrics"
+        variant = getattr(self, "variant", None)
+        if variant:
+            root = root / str(variant)
+        root = root / phase
+
         if slot == "tests":
             rn = run_name or self.cfg.run_name or "unnamed"
             out = root / "tests" / rn
@@ -286,6 +305,7 @@ class Validator:
         else:
             tag = step_tag or self.cfg.step_tag or slot
             out = root / tag
+
         out.mkdir(parents=True, exist_ok=True)
         return out
 

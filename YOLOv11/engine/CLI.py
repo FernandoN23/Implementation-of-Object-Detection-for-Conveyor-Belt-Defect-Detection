@@ -378,6 +378,61 @@ PRESETS: Dict[str, Preset] = {
             "miopen_disable_cache": True,
         },
     ),
+    # Overfit controlado sobre subset pequeño de train
+    "smoke-overfit": Preset(
+        name="smoke-overfit",
+        overrides={
+            "data": "configs/dataset.yaml",
+            "model": "configs/yolo11.yaml",
+            "parser": "configs/parser.yaml",
+            "dl_info": True,
+            "variant": "s",
+            "batch": 4,
+            "epochs": 80,
+            "imgsz": 640,
+            "test": False,
+            "warmup_epochs": 1,
+            "warmup": "sanity",
+            "bn2gn": "on",
+            "amp": "fp16",
+            "hud": True,
+            # limitar dataset para overfit controlado
+            "limit_images": 2,
+            # validación interna sobre el mismo subset (train)
+            "val_int_interval": 1,
+            "val_int_use_train_subset": True,
+            "val_int_split": "train",
+            "val_int_max_batches": 1,
+            "val_int_tb": True,
+            "miopen_disable_cache": True,
+        },
+    ),
+    # Smoke 3 épocas con validación interna más ancha (más batches)
+    "smoke-3ep-wide": Preset(
+        name="smoke-3ep-wide",
+        overrides={
+            "data": "configs/dataset.yaml",
+            "model": "configs/yolo11.yaml",
+            "parser": "configs/parser.yaml",
+            "dl_info": True,
+            "variant": "s",
+            "batch": 8,
+            "epochs": 3,
+            "imgsz": 640,
+            "test": False,
+            "warmup_epochs": 1,
+            "warmup": "sanity",
+            "bn2gn": "on",
+            "amp": "fp16",
+            "hud": True,
+            # validación interna ampliada
+            "val_int_interval": 1,
+            "val_int_use_train_subset": True,
+            "val_int_max_batches": 4,
+            "val_int_tb": True,
+            "miopen_disable_cache": True,
+        },
+    ),
 }
 
 
@@ -400,6 +455,8 @@ class CLIBuilder:
         "val_int_interval","val_int_max_batches","val_int_use_train_subset",
         "val_int_conf","val_int_split","val_int_pivots","val_int_tb",
         "val_int_tb_nrow","val_int_tb_conf","val_int_tb_topk","dataset_base",
+        # dataset/test helpers
+        "limit_images",
         # modo
         "test",
     ))

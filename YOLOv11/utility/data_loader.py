@@ -341,6 +341,7 @@ def build_yolo_dataloader(
     persistent_workers: Optional[bool] = None,
     augment: Optional[bool] = None,
     project_root: Optional[Path] = None,
+    limit_images: Optional[int] = None,
 ):
     """Compatibilidad hacia atrás: devuelve solo el DataLoader.
     Para nueva funcionalidad (names, info), usar `build_train_bundle`.
@@ -374,6 +375,9 @@ def build_yolo_dataloader(
         hsv_v=hsv_v,
         stride=32,
     )
+    if split == "train" and limit_images is not None and limit_images > 0:
+        if limit_images < len(dataset.images):
+            dataset.images = dataset.images[:limit_images]
     if split != "train":
         do_shuffle = False if shuffle is None else do_shuffle
 
@@ -400,6 +404,7 @@ def build_train_bundle(
     augment: Optional[bool] = None,
     pin_memory: Optional[bool] = None,
     persistent_workers: Optional[bool] = None,
+    limit_images: Optional[int] = None,
 ) -> Tuple[DataLoader, List[str], DatasetInfo]:
     """Constructor de alto nivel para train.py.
     Devuelve (loader, names_list, DatasetInfo) sin imprimir.
@@ -444,6 +449,9 @@ def build_train_bundle(
         hsv_v=hsv_v,
         stride=32,
     )
+    if split == "train" and limit_images is not None and limit_images > 0:
+        if limit_images < len(dataset.images):
+            dataset.images = dataset.images[:limit_images]
     loader = DataLoader(
         dataset,
         batch_size=bz,

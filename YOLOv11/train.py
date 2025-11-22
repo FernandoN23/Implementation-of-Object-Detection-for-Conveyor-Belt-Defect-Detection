@@ -152,6 +152,7 @@ def _build_model_and_data(cfg: DotDict, engine: Dict[str, Any]):
         imgsz=cfg.imgsz,
         workers=cfg.workers,
         augment=True,
+        limit_images=getattr(cfg, "limit_images", None),
     )
 
     # 2.1) Registrar número de clases en la configuración global (DotDict)
@@ -234,6 +235,7 @@ def main(cli: argparse.Namespace) -> None:
         world_size=int(os.environ.get("WORLD_SIZE", "1")),
         test=bool(cli.test),
         dl_info=bool(getattr(cli, "dl_info", False)),
+        limit_images=getattr(cli, "limit_images", None),
         # val_int
         val_int_interval=int(getattr(cli, "val_int_interval", 5)),
         val_int_max_batches=int(getattr(cli, "val_int_max_batches", 1)),
