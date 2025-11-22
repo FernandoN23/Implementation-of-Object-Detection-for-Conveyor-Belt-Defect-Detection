@@ -225,6 +225,8 @@ class Trainer:
         )
         self.start_epoch = 0
         self.best_fitness = -1e9
+        # Último payload de métricas de validación interna (para export final)
+        self._last_val_int_payload: Dict[str, Any] | None = None
 
         # === Criterio de pérdida (utility/losses.YOLOLoss) ===
         try:
@@ -347,18 +349,11 @@ class Trainer:
                     loss, scalars = self.criterion(preds, batch["targets"])
                     items = {"loss": float(loss.detach()), **{k: float(v) for k, v in scalars.items()}}
 
-                # acumular métricas (normalizadas por tamaño de batch para monitoreo)
-                try:
-                    bsz = len(batch["img"])  # Tensor: dim0 = batch_size
-                except Exception:
-                    bsz = int(self.cfg.batch)
-                bsz = max(int(bsz), 1)
-
-                scaled_loss = float(loss.item()) / float(bsz)
-                sum_loss += scaled_loss
+                # acumular métricas
+                sum_loss += float(loss.item())
                 count += 1
                 for k, v in scalars.items():
-                    scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v) / float(bsz)
+                    scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v)
 
                 do_step = (i % self.accumulate) == 0
                 self.engine["amp"].safe_backward_step(
@@ -401,6 +396,7 @@ class Trainer:
 
             # ===== Validación interna (val_int) por intervalo =====
             val_metrics: Dict[str, float] = {}
+            val_payload: Dict[str, Any] | None = None
             run_val_int = (epoch % max(1, int(self.cfg.val_int_interval)) == 0) or (epoch == 0)
             if run_val_int:
                 # Preparar modelo de evaluación según política EMA
@@ -428,8 +424,11 @@ class Trainer:
 
                 val_loader_adapt = self._iter_train_loader()
 
+                # Flag de pivotes proveniente directamente del CLI (val_int_pivots)
+                use_pivots = bool(getattr(self.cfg, "val_int_pivots", False))
+
                 try:
-                    val_metrics = self.engine["validator"].validate_interna(
+                    val_metrics, val_payload = self.engine["validator"].validate_interna(
                         model_eval,
                         loader=val_loader_adapt,
                         names=names_list,
@@ -441,7 +440,7 @@ class Trainer:
                         epoch=int(epoch),
                         max_batches=max_batches,
                         split=str(self.cfg.val_int_split),
-                        use_pivots=bool(self.cfg.val_int_pivots),
+                        use_pivots=use_pivots,
                         # TB
                         tb_enable=bool(self.cfg.val_int_tb),
                         tb_variant=str(self.cfg.variant),
@@ -460,6 +459,10 @@ class Trainer:
                 except Exception as e:
                     print(f"[val_int] Advertencia: validación interna falló en época {epoch}: {e}")
                     val_metrics = {}
+                    val_payload = None
+
+                if val_payload is not None:
+                    self._last_val_int_payload = val_payload
 
             # Fitness y guardado de pesos
             fitness = _fitness(val_metrics) if val_metrics else -1e9
@@ -495,6 +498,18 @@ class Trainer:
             if ut.SIGNALS.stop or self.timer.expired():
                 break
 
+        # === Export métricas finales de val_int (última validación interna) ===
+        try:
+            if self._last_val_int_payload:
+                from YOLOv11.utility import metrics as umetrics  # type: ignore
+
+                umetrics.export_final_val_metrics(
+                    payload=self._last_val_int_payload,
+                    variant=str(self.cfg.variant),
+                )
+        except Exception as e:
+            print(f"[metrics] Advertencia: no se pudo exportar métricas finales de val_int: {e}")
+
         # === Curva de pérdida (training loss vs epoch) ===
         try:
             if epoch_loss_history:
@@ -505,24 +520,32 @@ class Trainer:
                 # Índices de época reales ejecutados
                 epochs_curve = list(range(self.start_epoch, self.start_epoch + len(epoch_loss_history)))
 
-                # Directorio canónico de métricas para entrenamiento:
-                # YOLOv11/metrics/<variant>/train/final/
-                project_root = Path(__file__).resolve().parents[1]
-                variant_tag = str(getattr(self.cfg, "variant", "unknown")) or "unknown"
-                metrics_dir = project_root / "metrics" / variant_tag / "train" / "final"
+                # Guardar curva de pérdida en árbol de métricas, no en runs/
+                proj_root = Path(self.cfg.project).resolve()
+                metrics_final_dir = proj_root / "metrics" / str(self.cfg.variant) / "final"
+                metrics_final_dir.mkdir(parents=True, exist_ok=True)
+                output_path = metrics_final_dir / "loss_curve_train.png"
 
                 curve = umetrics.build_train_loss_curve(
                     epochs=epochs_curve,
                     losses=epoch_loss_history,
-                    output_path=metrics_dir / "loss_curve_train.png",
-                    variant=variant_tag,
+                    output_path=output_path,
                 )
+
+                # Log compacto de la ubicación de la curva
+                try:
+                    rel = output_path.relative_to(proj_root)
+                    print(f"[metrics] loss_curve -> YOLOv11/{rel.as_posix()}")
+                except Exception:
+                    print(f"[metrics] loss_curve guardada en {output_path}")
 
                 # Registro opcional en TensorBoard (scalars + imagen de la curva)
                 try:
-                    viz.log_train_loss_curve_to_tb_final(
-                        variant=variant_tag,
+                    viz.log_train_loss_curve_to_tb(
+                        variant=str(self.cfg.variant),
+                        run_name=str(self.cfg.name),
                         curve=curve,
+                        phase="train",
                         scalar_tag="loss/train",
                         log_image=True,
                         image_epoch=epochs_curve[-1],

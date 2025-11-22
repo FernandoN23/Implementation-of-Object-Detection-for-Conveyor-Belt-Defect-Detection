@@ -146,7 +146,7 @@ class ConfigDefaultsLoader:
             # val_int
             "dl_info": False,
             "val_int_interval": 5, "val_int_max_batches": 1, "val_int_use_train_subset": False,
-            "val_int_conf": 0.25, "val_int_split": "val", "val_int_pivots": True,
+            "val_int_conf": 0.25, "val_int_split": "val", "val_int_pivots": False,
             "val_int_tb": True, "val_int_tb_nrow": 3, "val_int_tb_conf": 0.25, "val_int_tb_topk": 5,
             "dataset_base": None,
             # modo
@@ -272,7 +272,7 @@ PRESETS: Dict[str, Preset] = {
             "model": "configs/yolo11.yaml",
             "parser": "configs/parser.yaml",
             "dl_info": True,
-            "variant": "s",
+            "variant":"s",
             "batch": 4,
             "epochs": 0,
             "imgsz": 640,
@@ -578,7 +578,6 @@ class CLIBuilder:
         p.add_argument('--val-int-conf', dest='val_int_conf', type=float)
         p.add_argument('--val-int-split', dest='val_int_split', type=str, choices=['train','val'])
         p.add_argument('--val-int-pivots', dest='val_int_pivots', action='store_true')
-        p.add_argument('--no-val-int-pivots', dest='val_int_pivots', action='store_false')
         p.add_argument('--val-int-tb', dest='val_int_tb', action='store_true')
         p.add_argument('--no-val-int-tb', dest='val_int_tb', action='store_false')
         p.add_argument('--val-int-tb-nrow', dest='val_int_tb_nrow', type=int)
@@ -670,7 +669,7 @@ class CLIBuilder:
 
         safe_bools: List[Tuple[str, bool]] = [
             ("ema", True), ("compile", False), ("dl_info", False), ("val_int_use_train_subset", False),
-            ("val_int_pivots", True), ("val_int_tb", True), ("exist_ok", False), ("test", False),
+            ("val_int_pivots", False), ("val_int_tb", True), ("exist_ok", False), ("test", False),
         ]
         for k, dv in safe_bools:
             if getattr(ns, k, None) is None:

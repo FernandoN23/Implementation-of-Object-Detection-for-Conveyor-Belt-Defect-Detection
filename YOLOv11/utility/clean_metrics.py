@@ -12,6 +12,9 @@
 #   coincidencias parciales (p.ej., 'n' dentro de 'runs' o 'train'). Se usa corte por
 #   tokens y patrones tipo 'yolo11n'.
 # - Nuevo: soporte para la fase adicional 'test_metrics' bajo YOLOv11/metrics/.
+# - Mejora: compresión de rutas y borrado robusto para evitar errores al intentar
+#   eliminar subdirectorios/archivos ya borrados por el borrado de un ancestro.
+#   Rutas inexistentes se reportan como "Ya no existe (ok)" en lugar de error.
 #==============================================================
 
 import re
@@ -47,6 +50,7 @@ def select_variant() -> str:
             return v
         print("Entrada inválida. Intente nuevamente.")
 
+
 def select_phase() -> str:
     while True:
         p = input("Seleccione fase [train/valid/test/test_metrics] (o 'all'): ").strip().lower()
@@ -54,7 +58,6 @@ def select_phase() -> str:
             return p
         print("Entrada inválida. Intente nuevamente.")
 
-# --- Confirmación ---
 
 def confirm(prompt: str) -> bool:
     resp = input(f"{prompt} (s/n): ").strip().lower()
@@ -98,27 +101,56 @@ def match_phase(tokens: Iterable[str], phase: str) -> bool:
     aliases = PHASE_ALIASES.get(phase, {phase})
     return any(t in aliases for t in tokens)
 
+# --- Helpers de selección / compresión ---
+
+def is_subpath(child: Path, parent: Path) -> bool:
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except Exception:
+        return False
+
+
+def compress_dirs(dirs: List[Path]) -> List[Path]:
+    """Elimina subdirectorios si algún ancestro ya será borrado.
+    Devuelve solo raíces mínimas, ordenadas de más profundo a más superficial
+    para minimizar conflictos de borrado.
+    """
+    unique = sorted({d.resolve() for d in dirs}, key=lambda p: len(p.parts))
+    roots: List[Path] = []
+    for d in unique:
+        if any(is_subpath(d, r) for r in roots):
+            continue
+        roots.append(d)
+    # borrar primero los más profundos
+    return sorted(roots, key=lambda p: len(p.parts), reverse=True)
+
 # --- Descubrimiento de candidatos ---
 
-def list_candidates(metrics_root: Path, variant: str, phase: str):
+def list_candidates(metrics_root: Path, variant: str, phase: str) -> List[Path]:
     if not metrics_root.exists():
         return []
-    items = []
+    items: List[Path] = []
     for p in metrics_root.rglob("*"):
         if not p.is_dir():
             continue
         toks = tokenize_path_components(p)
         if match_variant(toks, variant) and match_phase(toks, phase):
             items.append(p)
-    return sorted(set(items))
+    return compress_dirs(items)
 
 # --- Eliminación ---
 
-def remove_paths(paths):
+def remove_paths(paths: List[Path]):
     for p in paths:
         try:
-            shutil.rmtree(p)
+            if not p.exists():
+                print(f"✓ Ya no existe (ok): {p}")
+                continue
+            shutil.rmtree(p, ignore_errors=False)
             print(f"✓ Eliminado: {p}")
+        except FileNotFoundError:
+            print(f"✓ Ya no existe (ok): {p}")
         except Exception as e:
             print(f"✗ Error al eliminar {p}: {e}")
 
@@ -135,7 +167,7 @@ def main():
         print("No se encontraron métricas para los criterios dados.")
         return
 
-    print("Se eliminarán los siguientes directorios de métricas:")
+    print("Se eliminarán los siguientes directorios de métricas (ya comprimidos por raíz):")
     for c in candidates[:20]:
         print(f" - {c}")
     if len(candidates) > 20:
@@ -145,6 +177,7 @@ def main():
         remove_paths(candidates)
     else:
         print("Operación cancelada.")
+
 
 if __name__ == "__main__":
     main()

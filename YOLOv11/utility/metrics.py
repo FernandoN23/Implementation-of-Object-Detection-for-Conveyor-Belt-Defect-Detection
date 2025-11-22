@@ -18,12 +18,14 @@
 from __future__ import annotations
 
 import csv
+import json
 import warnings
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator, MultipleLocator
 import numpy as np
 import torch
 
@@ -570,8 +572,72 @@ def summarize_validation(det_summary: DetMetricsSummary, loss_means: Optional[Di
 
 
 # ==============================================================
+# Exportación de métricas finales (val_int -> metrics/<variant>/final)
+# ==============================================================
+
+
+def export_final_val_metrics(
+    payload: Dict[str, Any],
+    variant: str,
+    *,
+    filename_prefix: str = "final_val_int",
+) -> Dict[str, Path]:
+    """Exporta las métricas finales de validación interna (val_int) a JSON y CSV.
+
+    Los archivos se guardan en:
+        metrics/<variant>/final/<filename_prefix>.json
+        metrics/<variant>/final/<filename_prefix>.csv
+
+    donde ``variant`` se normaliza en minúsculas.
+    """
+    root = _find_project_root()
+    v = str(variant).lower()
+    out_dir = root / "metrics" / v / "final"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    json_path = out_dir / f"{filename_prefix}.json"
+    csv_path = out_dir / f"{filename_prefix}.csv"
+
+    # JSON completo (metrics + config)
+    try:
+        json_text = json.dumps(payload, indent=2)
+        json_path.write_text(json_text, encoding="utf-8")
+    except Exception as e:  # pragma: no cover
+        warnings.warn(f"No se pudo escribir JSON de métricas finales: {e}")
+
+    # CSV sólo con métricas (metric,value)
+    metrics_dict = payload.get("metrics", {})
+    try:
+        with csv_path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["metric", "value"])
+            for key, value in metrics_dict.items():
+                try:
+                    writer.writerow([key, float(value)])
+                except Exception:
+                    # Ignorar valores no numéricos
+                    continue
+    except Exception as e:  # pragma: no cover
+        warnings.warn(f"No se pudo escribir CSV de métricas finales: {e}")
+
+    # Mensajes compactos con ruta relativa al proyecto
+    try:
+        proj = _find_project_root()
+        rel_json = json_path.relative_to(proj)
+        rel_csv = csv_path.relative_to(proj)
+        print(f"[metrics] final -> YOLOv11/{rel_json.as_posix()} (JSON)")
+        print(f"[metrics] final -> YOLOv11/{rel_csv.as_posix()} (CSV)")
+    except Exception:
+        # Si falla la resolución relativa, evitamos romper el flujo
+        pass
+
+    return {"json": json_path, "csv": csv_path}
+
+
+# ==============================================================
 # Curva de pérdida vs época (train)
 # ==============================================================
+
 
 def build_train_loss_curve(
     epochs: Iterable[int],
@@ -655,14 +721,24 @@ def build_train_loss_curve(
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
 
-            # Forzar ticks enteros en el eje X para que las épocas sean
-            # interpretables (1, 2, 3, ..., N) sin subdivisiones decimales.
+            # Configuración de ejes:
+            # - Eje X: ticks en enteros, con número máximo de marcas
+            #   controlado automáticamente para evitar saturación cuando hay
+            #   muchas épocas (80, 100, 200, ...).
             try:
-                xmin, xmax = min(plot_epochs), max(plot_epochs)
-                ax.set_xticks(list(range(xmin, xmax + 1)))
+                ax.xaxis.set_major_locator(MaxNLocator(nbins="auto", integer=True, prune="both"))
             except Exception:
-                # Si algo falla (por ejemplo, epochs no enteros), dejamos el
-                # comportamiento por defecto de Matplotlib.
+                # Si algo falla (por ejemplo, backend sin soporte de ticker),
+                # dejamos el comportamiento por defecto de Matplotlib.
+                pass
+
+            # - Eje Y: resolución fija de 0.5 para una lectura más limpia de la
+            #   pérdida promedio por época.
+            try:
+                ax.yaxis.set_major_locator(MultipleLocator(0.5))
+            except Exception:
+                # Si algo falla (p.ej. eje sin escala numérica), mantenemos los
+                # ticks por defecto.
                 pass
 
             ax.grid(True, alpha=0.3)

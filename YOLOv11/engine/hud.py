@@ -369,7 +369,7 @@ class HUD:
             vram_txt += ")"
             parts.append(vram_txt)
 
-        self._writeln(" | ".join(parts))
+        # self._writeln(" | ".join(parts))  # epoch summary silenced (console output disabled)
 
     # ---------------------------
     # Warmup (iteraciones)

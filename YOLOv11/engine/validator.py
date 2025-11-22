@@ -23,13 +23,12 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+PROJ_ROOT = Path(__file__).resolve().parent.parent  # YOLOv11/
+
 import torch
 import torch.nn as nn
 
-try:
-    from torchvision.ops import nms as tv_nms  # preferir si está
-except Exception:  # pragma: no cover
-    tv_nms = None  # type: ignore
+from YOLOv11.engine.utils import Validator_Utilities as VU  # type: ignore
 
 # Métricas oficiales del proyecto (estilo YOLOv11)
 try:
@@ -76,161 +75,6 @@ class ValConfig:
 
 
 # -------------------------------
-# Utilidades
-# -------------------------------
-
-def _log(msg: str, cfg: Optional[ValConfig] = None, level: int = 1) -> None:
-    v = 1 if cfg is None else cfg.verbose
-    if v >= level:
-        print(f"[validator] {msg}")
-
-
-def _select_device(spec: str) -> torch.device:
-    if spec == "auto":
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        # En Windows ROCm preview, torch.cuda abstrae HIP; mantenemos fallback a CPU
-        return torch.device("cpu")
-    return torch.device(spec)
-
-
-def _box_iou_xyxy(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor:
-    # box1: [N,4], box2: [M,4]
-    area1 = (box1[:, 2] - box1[:, 0]).clamp(min=0) * (box1[:, 3] - box1[:, 1]).clamp(min=0)
-    area2 = (box2[:, 2] - box2[:, 0]).clamp(min=0) * (box2[:, 3] - box2[:, 1]).clamp(min=0)
-    lt = torch.max(box1[:, None, :2], box2[:, :2])
-    rb = torch.min(box1[:, None, 2:], box2[:, 2:])
-    wh = (rb - lt).clamp(min=0)
-    inter = wh[:, :, 0] * wh[:, :, 1]
-    union = area1[:, None] + area2 - inter
-    return inter / (union + 1e-7)
-
-
-def _nms_pytorch(boxes: torch.Tensor, scores: torch.Tensor, iou_thres: float) -> torch.Tensor:
-    # Implementación sencilla por si no existe torchvision.ops.nms
-    keep: List[int] = []
-    idxs = scores.argsort(descending=True)
-    while idxs.numel() > 0:
-        i = idxs[0]
-        keep.append(int(i))
-        if idxs.numel() == 1:
-            break
-        ious = _box_iou_xyxy(boxes[i].unsqueeze(0), boxes[idxs[1:]]).squeeze(0)
-        idxs = idxs[1:][ious <= iou_thres]
-    return torch.tensor(keep, device=boxes.device, dtype=torch.long)
-
-
-def _nms(boxes: torch.Tensor, scores: torch.Tensor, iou_thres: float) -> torch.Tensor:
-    if tv_nms is not None:
-        return tv_nms(boxes, scores, iou_thres)
-    return _nms_pytorch(boxes, scores, iou_thres)
-
-
-def _sanitize_phase_tag(tag: str) -> str:
-    """Normaliza el nombre de fase para uso en nombres de archivos.
-
-    Elimina espacios y paréntesis, y reemplaza "/" por "_" para evitar
-    problemas en sistemas de archivos.
-    """
-    t = tag.strip()
-    for ch in " ()":
-        t = t.replace(ch, "")
-    t = t.replace("/", "_")
-    return t or "metrics"
-
-
-def _targets_global_to_per_image(
-    targets: torch.Tensor,
-    bs: int,
-    device: torch.device,
-) -> List[torch.Tensor]:
-    """Convierte targets globales [N,6] -> lista por imagen [Ni,5] (cls, x, y, w, h).
-
-    Está adaptado al formato producido por `collate_yolo` en `utility/data_loader.py`:
-    `targets` con columnas [img_idx, cls, x, y, w, h] y coordenadas normalizadas.
-    Si llega un tensor [N,5], se asume que todas las filas pertenecen a la imagen 0
-    y se reparte por índice sintético.
-    """
-
-    if not isinstance(targets, torch.Tensor):
-        raise TypeError("targets debe ser Tensor en _targets_global_to_per_image")
-
-    targets = targets.to(device)
-
-    if targets.numel() == 0:
-        # No hay anotaciones: devolvemos B tensores vacíos [0,5]
-        return [targets.new_zeros((0, 5)) for _ in range(bs)]
-
-    if targets.ndim != 2 or targets.size(1) not in (5, 6):
-        raise ValueError(
-            f"Formato de targets no soportado: shape={tuple(targets.shape)}; "
-            "se esperaba [N,6] (img_idx,cls,x,y,w,h) o [N,5] (cls,x,y,w,h)."
-        )
-
-    if targets.size(1) == 6:
-        img_idx = targets[:, 0].to(torch.long)
-        rest = targets[:, 1:]  # [N,5]
-    else:  # [N,5], asumimos todo img_idx=0
-        img_idx = torch.zeros(targets.size(0), dtype=torch.long, device=device)
-        rest = targets
-
-    per_image: List[torch.Tensor] = []
-    for i in range(bs):
-        mask = img_idx == i
-        t_i = rest[mask]
-        if t_i.numel() == 0:
-            t_i = rest.new_zeros((0, 5))
-        per_image.append(t_i)
-    return per_image
-
-
-def _targets_to_list_per_image(
-    targets_any: Any,
-    bs: int,
-    device: torch.device,
-) -> List[torch.Tensor]:
-    """Normaliza distintos formatos de `targets` a lista por imagen [Ni,5].
-
-    Casos soportados:
-    - Tensor [N,6] con columnas [img_idx, cls, x, y, w, h] (formato data_loader).
-    - Tensor [N,5] con columnas [cls, x, y, w, h] (single-image).
-    - Lista de tensores [Ni, K] por imagen, donde K==5 o K==6 (en cuyo caso se
-      descarta la primera columna como índice).
-    """
-
-    # Caso tensor global [N,6] típico de collate_yolo
-    if isinstance(targets_any, torch.Tensor):
-        return _targets_global_to_per_image(targets_any, bs=bs, device=device)
-
-    # Caso lista: asumimos que ya viene aproximadamente por imagen
-    if isinstance(targets_any, (list, tuple)):
-        out: List[torch.Tensor] = []
-        for i in range(bs):
-            if i < len(targets_any) and isinstance(targets_any[i], torch.Tensor):
-                t = targets_any[i].to(device)
-                if t.numel() == 0:
-                    t = t.new_zeros((0, 5))
-                elif t.ndim == 2 and t.size(1) == 6:
-                    # [img_idx?, cls, x, y, w, h] -> descartamos primera col.
-                    t = t[:, 1:]
-                elif t.ndim == 2 and t.size(1) == 5:
-                    # ya está en [cls, x, y, w, h]
-                    pass
-                else:
-                    raise ValueError(
-                        f"Formato de targets[{i}] no soportado: shape={tuple(t.shape)}"
-                    )
-            else:
-                # No hay entrada para esta imagen: tensor vacío por defecto
-                t = torch.zeros((0, 5), dtype=torch.float32, device=device)
-            out.append(t)
-        return out
-
-    # Fallback: sin etiquetas reconocibles -> lista de vacíos
-    return [torch.zeros((0, 5), dtype=torch.float32, device=device) for _ in range(bs)]
-
-
-# -------------------------------
 # Validator
 # -------------------------------
 
@@ -249,7 +93,7 @@ class Validator:
 
     def __init__(self, cfg: Optional[ValConfig] = None) -> None:
         self.cfg = cfg or ValConfig()
-        self.device = _select_device(self.cfg.device)
+        self.device = VU.select_device(self.cfg.device)
         self.seen: int = 0
 
         # Raíz para métricas:
@@ -257,7 +101,7 @@ class Validator:
         #   raíz del proyecto (carpeta que contiene "metrics/") y, si es
         #   posible, inferimos la variante (n/s/m/l/xl) a partir de la ruta.
         # - Si no se entrega save_dir, usamos por defecto YOLOv11/ (raíz).
-        root_default = Path(__file__).resolve().parent.parent  # YOLOv11/
+        root_default = PROJ_ROOT
         self.variant: Optional[str] = None
 
         if self.cfg.save_dir:
@@ -275,6 +119,11 @@ class Validator:
 
         self.base_dir: Optional[Path] = base
         self.save_dir: Optional[Path] = None  # resuelto por slot/step en validate()
+        # Estado para recolección de pivotes / overlays
+        self._collect_pivots: bool = False
+        self._pivot_files: List[str] = []
+        self._pivot_conf_thr: float = self.cfg.conf_thres
+        self._pivot_topk: int = self.cfg.max_det
         # Predicciones por archivo para overlays de pivotes (se rellena en validate)
         self._last_preds_by_file: Optional[Dict[str, List[Dict[str, Any]]]] = None
 
@@ -310,6 +159,20 @@ class Validator:
 
         out.mkdir(parents=True, exist_ok=True)
         return out
+
+    def _set_pivots_config(self, files: Optional[List[str]], conf_thr: float, topk: int) -> None:
+        """Configura el estado interno para recolección de pivotes.
+
+        Si ``files`` es None o vacío, se desactiva la recolección.
+        """
+        if files:
+            self._collect_pivots = True
+            self._pivot_files = list(files)
+            self._pivot_conf_thr = float(conf_thr)
+            self._pivot_topk = int(topk)
+        else:
+            self._collect_pivots = False
+            self._pivot_files = []
 
     # ---------- Modelo/inferencia ----------
     @torch.inference_mode()
@@ -362,7 +225,7 @@ class Validator:
             # operativo el pipeline de val_int sin lanzar excepciones.
             bs = images.shape[0]
             empty = images.new_zeros((0, 6), device=dev)
-            _log(
+            VU.log(
                 "Salida de predicción tipo dict sin decodificación registrada; "
                 "retornando detecciones vacías (stub).",
                 self.cfg,
@@ -421,7 +284,7 @@ class Validator:
             scores = p[:, 4]
             classes = p[:, 5].to(boxes_xyxy.dtype)
 
-            keep = _nms(boxes_xyxy, scores, self.cfg.iou_thres)
+            keep = VU.nms(boxes_xyxy, scores, self.cfg.iou_thres)
             det = torch.cat(
                 [boxes_xyxy[keep], scores[keep, None], classes[keep, None]], 1
             )
@@ -491,7 +354,7 @@ class Validator:
             img_hw = [(H, W)] * bs
 
             preds_list = dets
-            targets_per_image = _targets_to_list_per_image(targets_any, bs=bs, device=dev)
+            targets_per_image = VU.targets_to_list_per_image(targets_any, bs=bs, device=dev)
 
             met.add_batch(
                 preds_list,
@@ -609,11 +472,16 @@ class Validator:
             out = {"metrics": metrics, "config": asdict(self.cfg)}
             # Nombre de archivo derivado de la fase lógica (train/val/test/val_int)
             phase_tag_src = phase or self.cfg.phase or "metrics"
-            phase_tag = _sanitize_phase_tag(str(phase_tag_src))
+            phase_tag = VU.sanitize_phase_tag(str(phase_tag_src))
             p = self.save_dir / f"{phase_tag}_metrics.json"
             with open(p, "w", encoding="utf-8") as f:
                 json.dump(out, f, ensure_ascii=False, indent=2)
-            _log(f"Métricas guardadas en {p}", self.cfg, 1)
+            # Mensaje compacto con ruta relativa al proyecto
+            try:
+                rel = p.relative_to(PROJ_ROOT)
+                VU.log(f"metrics -> YOLOv11/{rel.as_posix()}", self.cfg, 1)
+            except Exception:
+                VU.log(f"Métricas guardadas en {p}", self.cfg, 1)
 
         return metrics
 
@@ -700,7 +568,7 @@ def validate_interna(
     run_name: Optional[str] = None,
     step_tag: Optional[str] = None,
     verbose: int = 1,
-) -> Dict[str, Any]:
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Validación interna (val_int) para entrenamiento.
 
     Esta función está pensada para ser invocada desde `train.py` con la
@@ -777,9 +645,9 @@ def validate_interna(
             else:
                 pivot_files = list(getattr(viz_mod, "VALID_PIVOT_IMAGES", []))
             if not pivot_files:
-                _log("No se encontraron imágenes pivote definidas en visualization.py", cfg, 1)
+                VU.log("No se encontraron imágenes pivote definidas en visualization.py", cfg, 1)
         except Exception as e:  # pragma: no cover
-            _log(f"Visualización/overlays no disponible: {e}", cfg, 1)
+            VU.log(f"Visualización/overlays no disponible: {e}", cfg, 1)
             viz = None
             pivot_files = None
             use_pivots = False
@@ -787,13 +655,11 @@ def validate_interna(
     v = Validator(cfg)
 
     # Habilitar recolección de predicciones por archivo para pivotes
-    if use_pivots and pivot_files:
-        v._collect_pivots = True
-        v._pivot_files = pivot_files
-        v._pivot_conf_thr = tb_conf_thr
-        v._pivot_topk = tb_topk
-    else:
-        v._collect_pivots = False
+    v._set_pivots_config(
+        files=pivot_files if (use_pivots and pivot_files) else None,
+        conf_thr=tb_conf_thr,
+        topk=tb_topk,
+    )
 
     metrics = v.validate(
         model,
@@ -805,9 +671,20 @@ def validate_interna(
         step_tag=step_tag,
     )
 
+    # Payload completo de métricas + configuración (para exportación aguas arriba)
+    payload: Dict[str, Any] = {"metrics": metrics, "config": asdict(cfg)}
+
     # --- Overlays en disco (PNG) + JSON de predicciones por archivo ---
     pred_json_path: Optional[Path] = None
-    if use_pivots and v.save_dir is not None and getattr(v, "_last_preds_by_file", None):
+    overlays_path: Optional[Path] = None
+
+    have_preds = bool(
+        use_pivots
+        and v.save_dir is not None
+        and getattr(v, "_last_preds_by_file", None)
+    )
+
+    if have_preds:
         preds_by_file = getattr(v, "_last_preds_by_file", None)
         if isinstance(preds_by_file, dict) and preds_by_file:
             # 1) Guardar JSON de predicciones de pivotes por archivo
@@ -815,17 +692,21 @@ def validate_interna(
             try:
                 with open(pred_json_path, "w", encoding="utf-8") as f:
                     json.dump(preds_by_file, f, ensure_ascii=False, indent=2)
-                _log(f"Predicciones de pivotes guardadas en {pred_json_path}", cfg, 2)
+                try:
+                    rel_json = pred_json_path.relative_to(PROJ_ROOT)
+                    VU.log(f"pivots -> YOLOv11/{rel_json.as_posix()}", cfg, 2)
+                except Exception:
+                    VU.log(f"Predicciones de pivotes guardadas en {pred_json_path}", cfg, 2)
             except Exception as e:  # pragma: no cover
-                _log(f"No se pudo guardar JSON de pivotes: {e}", cfg, 1)
+                VU.log(f"No se pudo guardar JSON de pivotes: {e}", cfg, 1)
                 pred_json_path = None
 
             # 2) Generar PNG de overlays de pivotes bajo metrics/<variant>/val_int/epoch/...
             if viz is not None and dataset_base is not None:
                 try:
-                    out_png = v.save_dir / "overlays_pivots.png"
+                    overlays_path = v.save_dir / "overlays_pivotes.png"
                     viz.save_reference_overlays_png(
-                        out_path=out_png,
+                        out_path=overlays_path,
                         split=split,
                         dataset_base=Path(dataset_base),
                         preds_by_file=preds_by_file,
@@ -834,9 +715,20 @@ def validate_interna(
                         nrow=tb_nrow,
                         size=(640, 640),
                     )
-                    _log(f"Overlays de pivotes guardados en {out_png}", cfg, 2)
+                    try:
+                        rel_png = overlays_path.relative_to(PROJ_ROOT)
+                        VU.log(f"overlays -> YOLOv11/{rel_png.as_posix()}", cfg, 1)
+                    except Exception:
+                        VU.log(f"Overlays de pivotes guardados en {overlays_path}", cfg, 1)
                 except Exception as e:  # pragma: no cover
-                    _log(f"No se pudieron generar overlays PNG de pivotes: {e}", cfg, 1)
+                    VU.log(f"No se pudieron generar overlays PNG de pivotes: {e}", cfg, 1)
+    elif use_pivots and verbose >= 2:
+        # Solo en modo debug: informar explícitamente ausencia de predicciones
+        VU.log(
+            "pivots (debug) -> sin predicciones sobre pivotes; no se generó PNG",
+            cfg,
+            2,
+        )
 
     # --- Integración opcional con TensorBoard / visualización ---
     if tb_enable:
@@ -844,8 +736,29 @@ def validate_interna(
             if viz is None:
                 from YOLOv11.utility import visualization as viz_mod  # type: ignore
                 viz = viz_mod
+
+            # Registro opcional de métricas en TensorBoard si el helper existe
+            try:
+                if hasattr(viz, "log_metrics_epoch_to_tb"):
+                    viz.log_metrics_epoch_to_tb(
+                        variant=tb_variant,
+                        run_name=tb_run_name,
+                        epoch=epoch,
+                        metrics=metrics,
+                        phase=val_int_phase,
+                    )
+            except Exception as e_tb:  # pragma: no cover
+                VU.log(f"No se pudieron registrar métricas en TensorBoard: {e_tb}", cfg, 2)
         except Exception as e:  # pragma: no cover
-            _log(f"TensorBoard/visualization no disponible: {e}", cfg, 2)
-            return metrics
+            VU.log(f"TensorBoard/visualization no disponible: {e}", cfg, 2)
 
+    # Adjuntar información de artefactos generados (si aplica)
+    extra_paths: Dict[str, Optional[str]] = {}
+    if pred_json_path is not None:
+        extra_paths["pivots_json"] = str(pred_json_path)
+    if overlays_path is not None:
+        extra_paths["overlays_png"] = str(overlays_path)
+    if extra_paths:
+        payload["artifacts"] = extra_paths
 
+    return metrics, payload

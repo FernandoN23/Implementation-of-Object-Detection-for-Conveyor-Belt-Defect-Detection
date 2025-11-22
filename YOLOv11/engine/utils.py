@@ -24,6 +24,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+
+try:
+    from torchvision.ops import nms as tv_nms
+except Exception:  # pragma: no cover
+    tv_nms = None
+
 import yaml
 from torch.utils.data import DataLoader, Dataset
 
@@ -37,6 +43,8 @@ __all__ = [
     "device_info",
     "auto_amp_mode",
     "build_model",
+    "Validator_Utilities",
+
     "build_dataloaders",
 ]
 
@@ -303,6 +311,201 @@ def auto_amp_mode() -> str:
     except Exception:
         pass
     return "off"
+
+
+# -------------------------------
+# Utilidades específicas de validación (YOLOv11)
+# -------------------------------
+
+
+class Validator_Utilities:
+    """Helpers estáticos para la validación/metricado YOLOv11.
+
+    Se agrupan en una clase para no contaminar el namespace de módulo y
+    facilitar su mantenimiento por lienzos.
+    """
+
+    @staticmethod
+    def log(msg: str, cfg: Optional[Any] = None, level: int = 1) -> None:
+        """Imprime mensajes de validator respetando cfg.verbose.
+
+        Si cfg es None o no tiene atributo ``verbose``, se asume nivel 1.
+        """
+        v = 1 if cfg is None else int(getattr(cfg, "verbose", 1) or 1)
+        if v >= level:
+            print(f"[validator] {msg}")
+
+    @staticmethod
+    def select_device(spec: str = "auto") -> torch.device:
+        """Delegado a ``select_device`` de este módulo.
+
+        Se expone aquí para unificar la API usada por validator.
+        """
+        return select_device(spec)
+
+    # ---------- IoU y NMS ----------
+
+    @staticmethod
+    def box_iou_xyxy(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.Tensor:
+        """Calcula la matriz IoU entre dos conjuntos de cajas en formato xyxy.
+
+        boxes1: [N, 4], boxes2: [M, 4] -> IoU [N, M]
+        """
+        if boxes1.numel() == 0 or boxes2.numel() == 0:
+            return torch.zeros((boxes1.shape[0], boxes2.shape[0]), device=boxes1.device)
+
+        b1 = boxes1.unsqueeze(1)  # [N, 1, 4]
+        b2 = boxes2.unsqueeze(0)  # [1, M, 4]
+
+        inter_x1 = torch.maximum(b1[..., 0], b2[..., 0])
+        inter_y1 = torch.maximum(b1[..., 1], b2[..., 1])
+        inter_x2 = torch.minimum(b1[..., 2], b2[..., 2])
+        inter_y2 = torch.minimum(b1[..., 3], b2[..., 3])
+
+        inter_w = (inter_x2 - inter_x1).clamp(min=0)
+        inter_h = (inter_y2 - inter_y1).clamp(min=0)
+        inter_area = inter_w * inter_h
+
+        area1 = (boxes1[:, 2] - boxes1[:, 0]).clamp(min=0) * (boxes1[:, 3] - boxes1[:, 1]).clamp(min=0)
+        area2 = (boxes2[:, 2] - boxes2[:, 0]).clamp(min=0) * (boxes2[:, 3] - boxes2[:, 1]).clamp(min=0)
+
+        union = area1.unsqueeze(1) + area2.unsqueeze(0) - inter_area
+        return inter_area / (union + 1e-9)
+
+    @staticmethod
+    def nms_pytorch(boxes: torch.Tensor, scores: torch.Tensor, iou_thres: float) -> torch.Tensor:
+        """Implementación NMS pura en PyTorch (fallback cuando no hay torchvision)."""
+        if boxes.numel() == 0:
+            return torch.zeros(0, dtype=torch.long, device=boxes.device)
+
+        idxs = scores.argsort(descending=True)
+        keep: List[int] = []
+        while idxs.numel() > 0:
+            i = int(idxs[0])
+            keep.append(i)
+            if idxs.numel() == 1:
+                break
+            ious = Validator_Utilities.box_iou_xyxy(boxes[i : i + 1], boxes[idxs[1:]])[0]
+            idxs = idxs[1:][ious <= float(iou_thres)]
+        return torch.as_tensor(keep, dtype=torch.long, device=boxes.device)
+
+    @staticmethod
+    def nms(boxes: torch.Tensor, scores: torch.Tensor, iou_thres: float) -> torch.Tensor:
+        """Wrapper NMS que usa torchvision.ops.nms si está disponible.
+
+        Si no, cae a ``nms_pytorch``.
+        """
+        if boxes.numel() == 0:
+            return torch.zeros(0, dtype=torch.long, device=boxes.device)
+        if tv_nms is not None:
+            try:
+                return tv_nms(boxes, scores, float(iou_thres))
+            except Exception:
+                # Si por alguna razón falla torchvision, usamos fallback.
+                pass
+        return Validator_Utilities.nms_pytorch(boxes, scores, iou_thres)
+
+    # ---------- Tags y targets ----------
+
+    @staticmethod
+    def sanitize_phase_tag(tag: str) -> str:
+        """Normaliza el nombre de fase para uso en rutas de métricas.
+
+        Mantiene letras, dígitos, "-" y "_"; el resto se sustituye por "_".
+        """
+        cleaned = []
+        for ch in str(tag):
+            if ch.isalnum() or ch in {"-", "_"}:
+                cleaned.append(ch)
+            else:
+                cleaned.append("_")
+        out = "".join(cleaned).strip("_")
+        return out or "metrics"
+
+    @staticmethod
+    def targets_global_to_per_image(
+        targets: torch.Tensor,
+        bs: int,
+        device: torch.device,
+    ) -> List[torch.Tensor]:
+        """Convierte un tensor global [N,6]/[N,5] en lista por imagen [B][Ni,5].
+
+        Formato esperado típico YOLO:
+            [img_idx, cls, x, y, w, h]  (6 columnas)
+        Se convierte a:
+            [cls, x, y, w, h] por imagen.
+        """
+        out: List[torch.Tensor] = []
+        if targets is None or targets.numel() == 0:
+            empty = torch.zeros(0, 5, device=device, dtype=torch.float32)
+            return [empty.clone() for _ in range(bs)]
+
+        if targets.dim() != 2 or targets.size(1) not in (5, 6):
+            empty = torch.zeros(0, 5, device=device, dtype=torch.float32)
+            return [empty.clone() for _ in range(bs)]
+
+        t = targets.to(device)
+        if t.size(1) == 6:
+            img_idx = t[:, 0].long()
+            cls = t[:, 1:2]
+            xywh = t[:, 2:6]
+        else:  # [N,5] → asumimos cls + xywh sin índice, se asigna a la imagen 0
+            img_idx = torch.zeros(t.size(0), dtype=torch.long, device=device)
+            cls = t[:, 0:1]
+            xywh = t[:, 1:5]
+
+        packed = torch.cat([cls, xywh], dim=1)
+        for i in range(bs):
+            m = img_idx == i
+            if not torch.any(m):
+                out.append(torch.zeros(0, 5, device=device, dtype=torch.float32))
+            else:
+                out.append(packed[m])
+        return out
+
+    @staticmethod
+    def targets_to_list_per_image(
+        targets_any: Any,
+        bs: int,
+        device: torch.device,
+    ) -> List[torch.Tensor]:
+        """Normaliza targets a lista [B][Ni,5] en formato [cls, x, y, w, h].
+
+        Acepta:
+            - tensor global [N,6]/[N,5] (collate estilo YOLO).
+            - lista de tensores por imagen.
+            - None → lista de vacíos.
+        """
+        # Caso tensor global
+        if isinstance(targets_any, torch.Tensor):
+            return Validator_Utilities.targets_global_to_per_image(targets_any, bs=bs, device=device)
+
+        # Caso lista de tensores por imagen
+        if isinstance(targets_any, (list, tuple)):
+            out: List[torch.Tensor] = []
+            for t in targets_any:
+                if not isinstance(t, torch.Tensor) or t.numel() == 0:
+                    out.append(torch.zeros(0, 5, device=device, dtype=torch.float32))
+                    continue
+                tt = t.to(device)
+                if tt.dim() != 2 or tt.size(1) not in (5, 6):
+                    out.append(torch.zeros(0, 5, device=device, dtype=torch.float32))
+                    continue
+                if tt.size(1) == 6:
+                    # [img_idx, cls, x, y, w, h] → [cls, x, y, w, h]
+                    tt = tt[:, 1:6]
+                out.append(tt[:, 0:5])
+            # Ajuste de tamaño a batch size
+            if len(out) < bs:
+                empty = torch.zeros(0, 5, device=device, dtype=torch.float32)
+                out.extend(empty.clone() for _ in range(bs - len(out)))
+            elif len(out) > bs:
+                out = out[:bs]
+            return out
+
+        # Cualquier otro formato → lista de targets vacíos
+        empty = torch.zeros(0, 5, device=device, dtype=torch.float32)
+        return [empty.clone() for _ in range(bs)]
 
 
 # -------------------------------
