@@ -7,9 +7,11 @@
 # --------------------------------------------------------------
 # Archivo: engine/Trainer.py
 # Descripción: Implementación de la clase Trainer para el pipeline
-#              de entrenamiento YOLOv11. Orquesta el loop de train,
-#              AMP/EMA, callbacks, validación interna (val_int), HUD
-#              de consola y guardado de pesos vía WeightsManager.
+#              de entrenamiento de YOLOv11. Gestiona el ciclo de
+#              optimización (forward/backward/step), el uso de AMP/EMA,
+#              la validación interna (val_int), el HUD de consola, los
+#              callbacks y el manejo de checkpoints mediante
+#              WeightsManager, además de la exportación de métricas.
 #==============================================================
 
 from __future__ import annotations

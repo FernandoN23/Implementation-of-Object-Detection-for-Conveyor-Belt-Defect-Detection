@@ -9,10 +9,11 @@
 # Descripción: Bucle de validación/evaluación para detección. Ejecuta
 #              inferencia, NMS, emparejamiento pred–GT y delega el
 #              cómputo de métricas (P/R, mAP@0.5, mAP@[.5:.95], F1,
-#              matrices de confusión, curvas) a utility/metrics.py.
-#              Soporta "slots" de guardado para organización estándar
-#              y una interfaz de validación interna (val_int) con
-#              integración opcional a TensorBoard/visualización.
+#              matrices de confusión y curvas) a utility/metrics.py.
+#              Implementa una convención de "slots" para el guardado
+#              de resultados y una interfaz de validación interna
+#              (val_int) con integración opcional a TensorBoard y
+#              utilidades de visualización.
 #==============================================================
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ import torch.nn as nn
 
 from YOLOv11.engine.utils import Validator_Utilities as VU  # type: ignore
 
-# Métricas oficiales del proyecto (estilo YOLOv11)
+# Métricas de detección empleadas en el proyecto (implementación YOLOv11)
 try:
     from YOLOv11.utility.metrics import DetMetricsYOLOv11  # type: ignore
 except Exception:  # pragma: no cover
@@ -58,19 +59,19 @@ class ValConfig:
     plots: bool = False
     verbose: int = 1
 
-    # Para cómputo de métricas AP
+    # Rango de IoU para el cómputo de mAP
     map_iou_lo: float = 0.5
     map_iou_hi: float = 0.95
     map_iou_step: float = 0.05
 
-    # Slots de guardado (estructura estándar del proyecto)
-    # phase: "train"|"val"|"test"|"val_int" afecta la ruta base de métricas
+    # Parámetros de estructura de guardado
+    # phase: "train"|"val"|"test"|"val_int" determina la raíz lógica de métricas
     phase: str = "val"
-    # slot: "epoch", "tests", "final" o personalizado
+    # slot: "epoch", "tests", "final" o un identificador personalizado
     slot: str = "epoch"
-    # si slot == "tests", se recomienda proveer run_name (p.ej., fecha o hash)
+    # si slot == "tests", se recomienda proveer run_name (por ejemplo, fecha o hash)
     run_name: Optional[str] = None
-    # etiqueta opcional para el paso/época (p.ej., "epoch_012")
+    # etiqueta opcional para el paso/época (por ejemplo, "epoch_012")
     step_tag: Optional[str] = None
 
 
@@ -79,16 +80,18 @@ class ValConfig:
 # -------------------------------
 
 class Validator:
-    """Validador estilo Ultralytics que delega métricas a utility.metrics.DetMetricsYOLOv11.
+    """Validador para detección que delega el cálculo de métricas a
+    utility.metrics.DetMetricsYOLOv11.
 
-    Soporta "slots" de guardado compatibles con utility/metrics.py:
+    La estructura de guardado de métricas sigue la convención:
       - metrics/<phase>/tests/<run_name>/
       - metrics/<phase>/final/
       - metrics/<phase>/epoch/<step_tag>/
-      - o carpeta personalizada (slot)
+      - o un subdirectorio personalizado definido por "slot".
 
-    Además, la validación interna (val_int) usa siempre la fase lógica
-    "val_int" para separar métricas de las de validación clásica.
+    La validación interna (val_int) utiliza siempre la fase lógica
+    "val_int" para mantener separadas sus métricas de las de validación
+    clásica.
     """
 
     def __init__(self, cfg: Optional[ValConfig] = None) -> None:
@@ -97,10 +100,10 @@ class Validator:
         self.seen: int = 0
 
         # Raíz para métricas:
-        # - Si save_dir apunta a una corrida dentro de runs/, subimos hasta la
-        #   raíz del proyecto (carpeta que contiene "metrics/") y, si es
-        #   posible, inferimos la variante (n/s/m/l/xl) a partir de la ruta.
-        # - Si no se entrega save_dir, usamos por defecto YOLOv11/ (raíz).
+        # - Si save_dir apunta a una corrida dentro de runs/, se asciende
+        #   hasta la raíz del proyecto (carpeta que contiene "metrics/") y
+        #   se intenta inferir la variante (n/s/m/l/xl) a partir de la ruta.
+        # - Si no se entrega save_dir, se utiliza por defecto YOLOv11/.
         root_default = PROJ_ROOT
         self.variant: Optional[str] = None
 
@@ -112,33 +115,37 @@ class Validator:
                 # Inferir variante como el segmento inmediatamente posterior a "runs"
                 if idx + 1 < len(parts):
                     self.variant = parts[idx + 1]
-                # La raíz del proyecto es el padre de "runs"
+                # La raíz del proyecto corresponde al directorio padre de "runs"
                 base = Path(*parts[:idx])
         else:
             base = root_default
 
         self.base_dir: Optional[Path] = base
-        self.save_dir: Optional[Path] = None  # resuelto por slot/step en validate()
-        # Estado para recolección de pivotes / overlays
+        self.save_dir: Optional[Path] = None  # resuelto mediante _resolve_save_dir()
+        # Estado interno para recolección de predicciones asociadas a pivotes
         self._collect_pivots: bool = False
         self._pivot_files: List[str] = []
         self._pivot_conf_thr: float = self.cfg.conf_thres
         self._pivot_topk: int = self.cfg.max_det
-        # Predicciones por archivo para overlays de pivotes (se rellena en validate)
+        # Predicciones por archivo para overlays de pivotes (completado en validate)
         self._last_preds_by_file: Optional[Dict[str, List[Dict[str, Any]]]] = None
 
     def _resolve_save_dir(self, *, phase: Optional[str] = None, slot: Optional[str] = None,
                           run_name: Optional[str] = None, step_tag: Optional[str] = None) -> Optional[Path]:
+        """Resuelve y crea, en caso necesario, el directorio de salida para métricas.
+
+        La estructura estándar es:
+            <project_root>/metrics/<variant>/<phase>/<slot>/
+
+        Si no es posible inferir la variante, se omite dicho nivel para
+        mantener compatibilidad con ejecuciones previas.
+        """
         if self.base_dir is None:
             return None
 
         phase = phase or self.cfg.phase
         slot = (slot or self.cfg.slot).lower()
 
-        # Estructura estándar de métricas:
-        #   <project_root>/metrics/<variant>/<phase>/<slot>/
-        # Si no se pudo inferir la variante (casos atípicos), se omite el
-        # nivel <variant> para mantener compatibilidad hacia atrás.
         root = self.base_dir / "metrics"
         variant = getattr(self, "variant", None)
         if variant:
@@ -161,9 +168,9 @@ class Validator:
         return out
 
     def _set_pivots_config(self, files: Optional[List[str]], conf_thr: float, topk: int) -> None:
-        """Configura el estado interno para recolección de pivotes.
+        """Configura el estado interno para la recolección de predicciones en pivotes.
 
-        Si ``files`` es None o vacío, se desactiva la recolección.
+        Si ``files`` es None o una lista vacía, la recolección se desactiva.
         """
         if files:
             self._collect_pivots = True
@@ -177,24 +184,26 @@ class Validator:
     # ---------- Modelo/inferencia ----------
     @torch.inference_mode()
     def _model_predict(self, model: nn.Module, images: torch.Tensor) -> List[torch.Tensor]:
-        """Devuelve detecciones por imagen en formato [x1,y1,x2,y2,conf,cls].
+        """Realiza inferencia y devuelve detecciones por imagen en formato
+        [x1, y1, x2, y2, conf, cls].
 
         Notas
         -----
         - Si el modelo está envuelto en un contenedor con atributo ``core``,
-          se usa siempre dicho ``core`` para inferencia.
-        - Si el ``core`` implementa un método ``predict`` (como YOLOv11), se
-          asume que devuelve un tensor [B, N, 6] con [x1,y1,x2,y2,conf,cls]
-          previo a NMS.
-        - Se intenta desempaquetar salidas típicas de entrenamiento como
-          ``(loss, preds)`` y se descartan elementos que no sean tensores.
-        - Si la salida es un ``dict`` sin ruta de decodificación explícita,
-          se devuelve una lista de detecciones vacías (stub temporal) para
-          no romper el pipeline de validación interna.
+          se utiliza dicho ``core`` para la inferencia.
+        - Si el ``core`` implementa un método ``predict`` (por ejemplo, en
+          el caso de YOLOv11), se asume que devuelve un tensor [B, N, 6] con
+          [x1, y1, x2, y2, conf, cls] previo a NMS.
+        - Se contempla el desempaquetado de salidas típicas de entrenamiento
+          de la forma ``(loss, preds)`` y se descartan elementos no tensoriales.
+        - Si la salida es un ``dict`` y no existe una ruta de decodificación
+          explícita, se devuelve una lista de detecciones vacías por imagen
+          (stub controlado) para mantener operativo el pipeline de validación
+          interna sin levantar excepciones.
         """
         dev = images.device
 
-        # Detectar modelo "core" (por ejemplo, cuando se usa un wrapper de train)
+        # Selección del modelo "core" en caso de existir un wrapper
         core = getattr(model, "core", model)
         core.eval()
 
@@ -205,10 +214,10 @@ class Validator:
             try:
                 out = core(images)
             except Exception:
-                # Fallback para modelos que esperan un batch tipo dict
+                # Fallback para modelos que esperan un batch de entrada tipo dict
                 out = core({"img": images})
 
-        # Desempaquetar patrones comunes de entrenamiento: (loss, preds)
+        # Desempaquetado de patrones comunes de entrenamiento: (loss, preds)
         if isinstance(out, (list, tuple)) and len(out) == 2:
             first, second = out
             if isinstance(first, torch.Tensor) and first.ndim == 0 and (
@@ -217,17 +226,15 @@ class Validator:
             ):
                 out = second
 
-        # Caso especial: salida como dict (típico de forward de entrenamiento)
+        # Caso especial: salida como dict (típico del forward de entrenamiento)
         if isinstance(out, dict):
-            # Aquí normalmente habría una ruta de decodificación explícita
-            # dict -> cajas + puntajes. Como aún no se ha implementado, se
-            # retorna un stub de detecciones vacías por imagen para mantener
-            # operativo el pipeline de val_int sin lanzar excepciones.
+            # En este caso se omite la decodificación específica dict -> cajas + puntajes
+            # y se devuelve una estructura de detecciones vacía por imagen.
             bs = images.shape[0]
             empty = images.new_zeros((0, 6), device=dev)
             VU.log(
                 "Salida de predicción tipo dict sin decodificación registrada; "
-                "retornando detecciones vacías (stub).",
+                "se generan detecciones vacías controladas por imagen.",
                 self.cfg,
                 level=2,
             )
@@ -235,7 +242,7 @@ class Validator:
 
         preds: List[torch.Tensor] = []
 
-        # Normalizar a lista de tensores 2D [Ni, >=6]
+        # Normalización a una lista de tensores 2D [Ni, >=6]
         if isinstance(out, torch.Tensor):
             if out.ndim == 3 and out.size(-1) >= 6:
                 # [B, N, C] -> lista de [N, C]
@@ -249,7 +256,7 @@ class Validator:
         elif isinstance(out, (list, tuple)):
             for o in out:
                 if not isinstance(o, torch.Tensor):
-                    # Ignorar elementos no tensor (p.ej., dict de escalas)
+                    # Elementos no tensoriales (como diccionarios auxiliares) se omiten
                     continue
                 if o.ndim == 3 and o.size(-1) >= 6:
                     preds.extend([x for x in o])
@@ -265,21 +272,21 @@ class Validator:
                 )
         else:
             raise RuntimeError(
-                f"Salida de predicción no reconocida por Validator: {type(out)}"
+                f"Tipo de salida de predicción no soportado por Validator: {type(out)}"
             )
 
-        # Aplicar NMS + filtro de confianza + truncado por imagen
+        # Aplicar NMS, filtro de confianza y truncado por imagen
         results: List[torch.Tensor] = []
         for p in preds:
             if p.size(-1) > 6:
-                # En caso de columnas extra, recortamos a las 6 primeras
+                # Si existen columnas adicionales, se conservan solo las 6 primeras
                 p = p[:, :6]
             if p.ndim != 2 or p.size(-1) < 6:
                 raise RuntimeError(
                     f"Predicción con forma inesperada tras normalización: {tuple(p.shape)}"
                 )
 
-            # Asumimos formato [x1,y1,x2,y2,conf,cls] tras la fase de inferencia
+            # Se asume formato [x1, y1, x2, y2, conf, cls] tras la inferencia
             boxes_xyxy = p[:, :4]
             scores = p[:, 4]
             classes = p[:, 5].to(boxes_xyxy.dtype)
@@ -299,7 +306,7 @@ class Validator:
             results.append(det.to(dev))
         return results
 
-    # ---------- Loop principal ----------
+    # ---------- Bucle principal ----------
     @torch.inference_mode()
     def validate(self,
                  model: nn.Module,
@@ -310,6 +317,12 @@ class Validator:
                  slot: Optional[str] = None,
                  run_name: Optional[str] = None,
                  step_tag: Optional[str] = None) -> Dict[str, Any]:
+        """Ejecuta la validación sobre un conjunto de datos con un modelo dado.
+
+        Esta función recorre el loader, agrega predicciones y anotaciones a la
+        estructura de métricas, y devuelve un diccionario con indicadores
+        agregados (precisión, recall, mAP, F1 y fitness, entre otros).
+        """
         if DetMetricsYOLOv11 is None:
             raise ImportError("YOLOv11.utility.metrics.DetMetricsYOLOv11 no disponible")
 
@@ -317,7 +330,7 @@ class Validator:
         names_list = names or self.cfg.names or []
         names_dict = {i: n for i, n in enumerate(names_list)} if names_list else {}
 
-        # Resolver directorio de guardado con slots
+        # Resolver directorio de guardado en función de phase/slot
         self.save_dir = self._resolve_save_dir(
             phase=phase, slot=slot, run_name=run_name, step_tag=step_tag
         )
@@ -365,12 +378,12 @@ class Validator:
                 iou_match_for_cm=0.50,
             )
 
-            # Recolección opcional de predicciones para imágenes pivote
+            # Recolección opcional de predicciones asociadas a imágenes pivote
             if collect_pivots and paths_any is not None and pivot_files:
                 try:
                     paths_seq = list(paths_any)
                 except TypeError:
-                    # Si paths_any no es iterable (caso atípico), replicamos
+                    # Si paths_any no es iterable, se replica el mismo valor
                     paths_seq = [paths_any] * bs
 
                 for i in range(bs):
@@ -405,7 +418,7 @@ class Validator:
                     if boxes_sel.numel() == 0:
                         continue
 
-                    # Limitar a top-k predicciones por imagen
+                    # Limitación a top-k predicciones por imagen
                     if pivot_topk > 0 and boxes_sel.size(0) > pivot_topk:
                         boxes_sel = boxes_sel[:pivot_topk]
                         confs_sel = confs_sel[:pivot_topk]
@@ -441,7 +454,7 @@ class Validator:
 
             self.seen += bs
 
-        # Exponer predicciones por archivo (si se solicitaron)
+        # Exponer predicciones por archivo cuando existan pivotes configurados
         if collect_pivots and preds_by_file:
             self._last_preds_by_file = preds_by_file
         else:
@@ -456,7 +469,7 @@ class Validator:
             "precision": round(det_summary.precision, 6),
             "recall": round(det_summary.recall, 6),
             "map50": map50,
-            "map50-95": map50_95,  # nombre estándar para mAP@[.5:.95]
+            "map50-95": map50_95,  # etiqueta estándar para mAP@[.5:.95]
             "map": map50_95,       # alias para compatibilidad con Trainer._fitness
             "f1": round(
                 (2 * det_summary.precision * det_summary.recall)
@@ -467,7 +480,7 @@ class Validator:
             "fitness": round(0.1 * map50 + 0.9 * map50_95, 6),
         }
 
-        # Guardado JSON si corresponde
+        # Guardado en JSON si corresponde
         if self.save_dir and self.cfg.save_json:
             out = {"metrics": metrics, "config": asdict(self.cfg)}
             # Nombre de archivo derivado de la fase lógica (train/val/test/val_int)
@@ -476,7 +489,7 @@ class Validator:
             p = self.save_dir / f"{phase_tag}_metrics.json"
             with open(p, "w", encoding="utf-8") as f:
                 json.dump(out, f, ensure_ascii=False, indent=2)
-            # Mensaje compacto con ruta relativa al proyecto
+            # Mensaje de registro con ruta relativa al proyecto cuando es posible
             try:
                 rel = p.relative_to(PROJ_ROOT)
                 VU.log(f"metrics -> YOLOv11/{rel.as_posix()}", self.cfg, 1)
@@ -503,13 +516,18 @@ def validate(model: nn.Module,
              device: str = "auto",
              plots: bool = False,
              save_json: bool = False,
-             # --- parámetros de slot ---
+             # --- parámetros de estructura de guardado ---
              phase: str = "train",
              slot: str = "epoch",
              run_name: Optional[str] = None,
              step_tag: Optional[str] = None) -> Dict[str, Any]:
-    """Wrapper simple para validación completa clásica (train/val/test)."""
-    # Inferir nc desde los nombres si están disponibles (para trazabilidad en JSON)
+    """Wrapper para validación clásica (train/val/test).
+
+    Construye la configuración, instancia el validador y ejecuta el
+    bucle de evaluación en un conjunto de datos.•
+    """
+    # Inferir nc desde los nombres, cuando estén disponibles, para
+    # registrar esta información en las métricas serializadas.
     nc: Optional[int] = len(names) if names else None
 
     cfg = ValConfig(
@@ -549,12 +567,12 @@ def validate_interna(
     conf_thres: float = 0.25,
     iou_thres: float = 0.6,
     device: str = "auto",
-    # --- control de iteraciones/partición ---
+    # --- control de iteraciones y partición ---
     epoch: int = 0,
     max_batches: int = 0,
     split: str = "val",
     use_pivots: bool = True,
-    # --- TensorBoard / visualización (desde CLI) ---
+    # --- parámetros de TensorBoard y visualización ---
     tb_enable: bool = False,
     tb_variant: str = "s",
     tb_run_name: str = "run",
@@ -562,37 +580,33 @@ def validate_interna(
     tb_conf_thr: float = 0.25,
     tb_topk: int = 5,
     dataset_base: Optional[str] = None,
-    # --- slots/estructura de métricas ---
+    # --- parámetros de estructura de métricas ---
     phase: str = "val_int",
     slot: str = "epoch",
     run_name: Optional[str] = None,
     step_tag: Optional[str] = None,
     verbose: int = 1,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Validación interna (val_int) para entrenamiento.
+    """Validación interna (val_int) utilizada durante el entrenamiento.
 
-    Esta función está pensada para ser invocada desde `train.py` con la
-    configuración proveniente del CLI (`--val-int-*`). Implementa:
+    Esta función está pensada para ser invocada desde ``train.py`` con la
+    configuración derivada del CLI (parámetros ``--val-int-*``). Realiza:
 
-    - Construcción de `ValConfig` y `Validator`.
-    - Limitación opcional de batches (`max_batches`) sobre el loader
-      proporcionado (normalmente train_loader adaptado).
-    - Llamada al validador clásico (`Validator.validate`).
-    - Integración opcional con `utility/visualization.py` para logging
-      en TensorBoard de métricas y generación de overlays de imágenes
-      pivote en disco (PNG) bajo metrics/<variant>/val_int/epoch/...
+    - Construcción de ``ValConfig`` y ``Validator``.
+    - Limitación opcional del número de batches a procesar.
+    - Ejecución del validador clásico (``Validator.validate``).
+    - Integración opcional con ``utility/visualization.py`` para registro en
+      TensorBoard y generación de overlays de imágenes pivote en disco.
 
-    Nota importante
-    ---------------
-    Independiente del valor que se pase en `phase`, la validación interna
-    usa siempre la fase lógica "val_int" para separar sus métricas de las
-    de validación clásica (phase="val").
+    La fase lógica utilizada para almacenar las métricas de validación
+    interna es siempre "val_int", independiente del valor recibido en
+    ``phase``.
     """
 
     # Fase lógica fija para val_int
     val_int_phase = "val_int"
 
-    # Inferir número de clases (nc) a partir de nombres o del modelo
+    # Inferir número de clases (nc) a partir del nombre de clases o del modelo
     nc: Optional[int] = None
     if names:
         nc = len(names)
@@ -620,7 +634,7 @@ def validate_interna(
         verbose=verbose,
     )
 
-    # Limitar número de batches si se solicita
+    # Limitación opcional del número de batches
     if max_batches and max_batches > 0:
         def _limited_loader(base_loader: Iterable[Dict[str, Any]]):
             for i, batch in enumerate(base_loader):
@@ -632,7 +646,7 @@ def validate_interna(
     else:
         eff_loader = loader
 
-    # Visualización / overlays: obtener lista de pivotes desde visualization.py
+    # Visualización y overlays: obtención de lista de pivotes desde visualization.py
     viz = None
     pivot_files: Optional[List[str]] = None
     if use_pivots:
@@ -654,7 +668,7 @@ def validate_interna(
 
     v = Validator(cfg)
 
-    # Habilitar recolección de predicciones por archivo para pivotes
+    # Configuración de recolección de predicciones por archivo para pivotes
     v._set_pivots_config(
         files=pivot_files if (use_pivots and pivot_files) else None,
         conf_thr=tb_conf_thr,
@@ -671,10 +685,20 @@ def validate_interna(
         step_tag=step_tag,
     )
 
-    # Payload completo de métricas + configuración (para exportación aguas arriba)
+    # Payload con métricas agregadas y configuración de validación
     payload: Dict[str, Any] = {"metrics": metrics, "config": asdict(cfg)}
 
-    # --- Overlays en disco (PNG) + JSON de predicciones por archivo ---
+    # Exponer ruta de métricas asociada a esta validación interna
+    metrics_dir_str: Optional[str] = None
+    try:
+        if getattr(v, "save_dir", None) is not None:
+            metrics_dir_str = str(v.save_dir)
+    except Exception:
+        metrics_dir_str = None
+    if metrics_dir_str:
+        payload["metrics_dir"] = metrics_dir_str
+
+    # --- Overlays en disco (PNG) y JSON de predicciones por archivo ---
     pred_json_path: Optional[Path] = None
     overlays_path: Optional[Path] = None
 
@@ -687,7 +711,7 @@ def validate_interna(
     if have_preds:
         preds_by_file = getattr(v, "_last_preds_by_file", None)
         if isinstance(preds_by_file, dict) and preds_by_file:
-            # 1) Guardar JSON de predicciones de pivotes por archivo
+            # 1) Guardar JSON con predicciones asociadas a imágenes pivote
             pred_json_path = v.save_dir / "val_int_pivots_pred.json"
             try:
                 with open(pred_json_path, "w", encoding="utf-8") as f:
@@ -723,21 +747,21 @@ def validate_interna(
                 except Exception as e:  # pragma: no cover
                     VU.log(f"No se pudieron generar overlays PNG de pivotes: {e}", cfg, 1)
     elif use_pivots and verbose >= 2:
-        # Solo en modo debug: informar explícitamente ausencia de predicciones
+        # En modo detallado, registrar explícitamente la ausencia de predicciones sobre pivotes
         VU.log(
             "pivots (debug) -> sin predicciones sobre pivotes; no se generó PNG",
             cfg,
             2,
         )
 
-    # --- Integración opcional con TensorBoard / visualización ---
+    # --- Integración opcional con TensorBoard y utilidades de visualización ---
     if tb_enable:
         try:
             if viz is None:
                 from YOLOv11.utility import visualization as viz_mod  # type: ignore
                 viz = viz_mod
 
-            # Registro opcional de métricas en TensorBoard si el helper existe
+            # Registro opcional de métricas en TensorBoard cuando el helper está disponible
             try:
                 if hasattr(viz, "log_metrics_epoch_to_tb"):
                     viz.log_metrics_epoch_to_tb(
@@ -752,7 +776,7 @@ def validate_interna(
         except Exception as e:  # pragma: no cover
             VU.log(f"TensorBoard/visualization no disponible: {e}", cfg, 2)
 
-    # Adjuntar información de artefactos generados (si aplica)
+    # Adjuntar información sobre artefactos generados (si aplica)
     extra_paths: Dict[str, Optional[str]] = {}
     if pred_json_path is not None:
         extra_paths["pivots_json"] = str(pred_json_path)

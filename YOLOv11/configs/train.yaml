@@ -6,55 +6,69 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: train.yaml
-# (Hiperparámetros y opciones por defecto para train.py; incluye
-#  guardado periódico de checkpoints y configuración para resume)
+# Descripción:
+#   Hiperparámetros y opciones por defecto para train.py.
+#   Se usan como base en el CLI (ConfigDefaultsLoader), con precedencia:
+#   CLI explícito > preset (--test-*) > YAML (este archivo) > defaults internos.
 #==============================================================
 
 # ===== Datos =====
-imgsz: 640
-rect: false
-cache: false
+imgsz: 640                  # tamaño de imagen (lado) para entrenamiento/val
+rect: false                 # rectángulos (no usado directamente por el CLI aún)
+cache: false                # cache de imágenes/labels (gestión en dataloader)
 
 # ===== Optimizador y LR Schedule =====
-optimizer: adamw            # sgd|adam|adamw
-lr0: 0.0015                 # learning rate inicial
-lrf: 0.2                    # factor mínimo (cosine decay)
-weight_decay: 0.01
+optimizer: adamw            # sgd|adam|adamw (informativo; configuración fina en train.py)
+lr0: 0.0015                 # learning rate inicial (mapea a --lr)
+lrf: 0.2                    # factor mínimo (cosine decay, usado en scheduler interno)
+weight_decay: 0.01          # weight decay (mapea a --wd)
 momentum: 0.9               # si usas SGD
 betas: [0.9, 0.999]         # si usas Adam/AdamW
-epochs: 150
-batch: 16
-warmup_steps: 3             # (estricto) usado por el parser; alias: warmup_epochs
-scheduler: cosine           # cosine|onecycle|linear
+epochs: 150                 # épocas por defecto (mapea a --epochs)
+batch: 16                   # batch size por defecto (mapea a --batch)
+warmup_steps: 3             # alias de warmup_epochs (mapea a --warmup-epochs)
+scheduler: cosine           # cosine|onecycle|linear (informativo; lógica en train.py)
 
 # ===== Dataloader =====
 dataloader:
-  workers: 4
-  pin_memory: true
+  workers: 4                # num workers (mapea a --workers)
+  pin_memory: true          # pin_memory (gestionado en data_loader.py)
   persistent_workers: true
   shuffle: true
 
-# ===== Entrenamiento =====
-amp: true                   # mixed precision (default desde YAML; CLI invierte)
-ema: true
-ema_decay: 0.9999
+# ===== Entrenamiento (runtime general) =====
+amp: true                   # mixed precision: true→"auto" en CLI (auto/bf16/fp16 según HW)
+ema: true                   # Exponential Moving Average activado por defecto
+ema_decay: 0.9999           # coeficiente de decaimiento EMA (gestionado en train.py)
 grad_accum: 1               # acumulación de gradiente
-max_grad_norm: 0.0          # 0 desactiva clipping
+max_grad_norm: 0.0          # 0 desactiva clipping (mapea a --clip-norm)
 label_smoothing: 0.0
-patience: 50                # early stopping
-val_interval: 1             # validar cada N epochs
-overlay_every: 0            # predicciones/overlays cada N epochs (0 desactiva)
-pr_curves_every: 0          # curvas P-R cada N epochs (0 desactiva)
-cm_every: 0                 # matriz de confusión cada N epochs (0 desactiva)
-verbosity: v1               # v0|v1|v2 (HUD/log)
-hud: one                    # off|one|two
-bn_eval_fallback: false     # si quisieras fijar un default desde YAML
+patience: 50                # early stopping (gestión en train.py)
 
-# ===== Pérdidas (ponderadores) =====
+# ===== Validación interna (val_int / evaluación periódica) =====
+val_interval: 1             # mapea a val_int_interval (1 = validar cada época)
+conf_thr: 0.10              # umbral de confianza base:
+                            #   - val_int_conf (filtrado detecciones en validator)
+                            #   - val_int_tb_conf (filtrado para overlays/TensorBoard)
+iou_thr: 0.50               # alias conceptual de iou_thres (a cablear si se requiere)
+plots: true                 # habilitar plots de evaluación (gestionado en validator/visualization)
+
+# ===== Control de overlays / curvas PR / CM (metadatos) =====
+overlay_every: 0            # predicciones/overlays cada N epochs (0 desactiva, aún decorativo)
+pr_curves_every: 0          # curvas P-R cada N epochs (0 desactiva, aún decorativo)
+cm_every: 0                 # matriz de confusión cada N epochs (0 desactiva, aún decorativo)
+
+# ===== HUD / Verbosidad =====
+verbosity: v1               # v0|v1|v2 (metadato; la verbosidad real se maneja con flags)
+hud: one                    # off|one|two (CLI lo interpreta como True → HUD activo)
+
+bn_eval_fallback: false     # fallback BN→Eval (para futuras mitigaciones; aún decorativo)
+
+# ===== Pérdidas (ponderadores YOLO) =====
 loss:
-  box: 7.5
-  cls: 0.5
-  dfl: 1.5
+  box: 7.5                  # peso de pérdida de bounding box
+  cls: 0.5                  # peso de pérdida de clasificación
+  dfl: 1.5                  # peso de distribución (DFL)
 
 # ===== Aumentación =====
 hsv_h: 0.015
@@ -62,7 +76,7 @@ hsv_s: 0.7
 hsv_v: 0.4
 degrees: 0.0
 translate: 0.10
-scale: 0.50                 # ±50%
+scale: 0.50                 # ±50% de escala
 shear: 0.0
 perspective: 0.0
 fliplr: 0.5
@@ -72,18 +86,13 @@ mixup: 0.10
 copy_paste: 0.0
 erasing: 0.0
 
-# ===== Evaluación =====
-conf_thr: 0.10              # alias soportado: conf_thres
-iou_thr: 0.50               # alias soportado: iou_thres
-plots: true
+# ===== Guardado / Monitoreo =====
+tensorboard: true           # habilita TensorBoard en entrenamientos por defecto
+wandb: false                # integración con Weights & Biases (desactivado)
 
-# ===== Guardado/Monitoreo =====
-tensorboard: true
-wandb: false
-
-# Checkpoints por época (activado en train.py; política definida en parser.yaml)
 save:
-  save_best: true
-  save_last: true
-  save_period: 10           # (desde parser.yaml en producción; aquí solo referencial)
-  keep_checkpoint_max: 5
+  save_best: true           # guardar mejor checkpoint (según criterio de fitness)
+  save_last: true           # guardar último checkpoint
+  save_period: 10           # cada N épocas (política fina en parser.yaml/train.py)
+  keep_checkpoint_max: 5    # máximo de checkpoints a conservar
+

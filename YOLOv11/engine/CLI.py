@@ -6,10 +6,11 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: YOLOv11/engine/CLI.py
-# Descripción: CLI profesional y modular para YOLOv11. Implementa una
-#  clase constructora con atributos, presets documentados (--test-A, etc.) y
-#  parseo en dos etapas con precedencia: CLI explícito > preset > YAML > defaults.
-#  Integración torch‑free con importador ligero de configs de YOLOv11/configs/*.
+# Descripción: Interfaz de línea de comandos (CLI) para YOLOv11. Define
+#  la construcción de argumentos, presets de prueba (--test-*) y el parseo
+#  en dos etapas con precedencia: CLI explícito > preset > YAML > defaults.
+#  Incluye integración sin dependencias a torch para la carga de configs
+#  desde YOLOv11/configs/*.
 #==============================================================
 
 from __future__ import annotations
@@ -36,9 +37,9 @@ __all__ = [
 ]
 
 # ==============================================================
-# Importador seguro de configuraciones (sin torch)
-# Lee configs/parser.yaml y configs/train.yaml para generar defaults tipados
-# y SIN None, respetando el dominio esperado por train.py
+# Importador de configuraciones (sin torch)
+# Lee configs/parser.yaml y configs/train.yaml para generar defaults
+# tipados y sin valores None, respetando el dominio esperado por train.py.
 # ==============================================================
 
 @dataclass
@@ -101,7 +102,7 @@ class ConfigDefaultsLoader:
 
     @staticmethod
     def _amp_from_yaml(v: Any) -> str:
-        # YAML puede traer bool o string
+        # YAML puede contener valores booleanos o cadenas
         if isinstance(v, bool):
             return "auto" if v else "off"
         if isinstance(v, str):
@@ -124,7 +125,7 @@ class ConfigDefaultsLoader:
 
     # --- carga principal ---
     def load(self, parser_yaml_path: Optional[str]) -> Dict[str, Any]:
-        # Defaults base (nunca None)
+        # Defaults base (sin valores None)
         out: Dict[str, Any] = {
             # rutas
             "data": None, "model": None, "parser": None,
@@ -134,16 +135,16 @@ class ConfigDefaultsLoader:
             "epochs": 150, "batch": 16, "imgsz": 640, "workers": 4,
             # runtime
             "device": "auto", "seed": 42, "compile": False,
-            # optim
+            # optimización
             "lr": 0.001, "wd": 0.0, "clip_norm": 0.0, "clip_mode": "norm",
             # amp/ema/mitigaciones
             "amp": "auto", "ema": True, "bn2gn": "on_error",
             "warmup": "off", "warmup_epochs": 0,
-            # hud/logging
-            "hud": None,  # se resolverá a TTY si sigue None
+            # HUD/logging
+            "hud": None,  # se resolverá en función de TTY si permanece en None
             # proyecto/guardado
             "project": "runs/train", "name": None, "exist_ok": False, "time_limit": 0.0,
-            # val_int
+            # validación interna (val_int)
             "dl_info": False,
             "val_int_interval": 5, "val_int_max_batches": 1, "val_int_use_train_subset": False,
             "val_int_conf": 0.25, "val_int_split": "val", "val_int_pivots": False,
@@ -176,7 +177,7 @@ class ConfigDefaultsLoader:
             out["seed"] = self._i(self._get(p_yaml, ("runtime", "seed"), out["seed"]), out["seed"])
             out["compile"] = self._b(self._get(p_yaml, ("runtime", "compile"), out["compile"]), out["compile"])
 
-            # project
+            # directorio de ejecuciones
             runs_dir = self._get(p_yaml, ("project", "dirs", "runs"), None)
             if isinstance(runs_dir, str) and runs_dir:
                 out["project"] = runs_dir
@@ -194,7 +195,7 @@ class ConfigDefaultsLoader:
             if isinstance(t_yaml.get("dataloader"), dict):
                 out["workers"] = self._i(t_yaml["dataloader"].get("workers"), out["workers"])
 
-            # optim
+            # optimización
             out["lr"] = self._f(t_yaml.get("lr0"), out["lr"])
             out["wd"] = self._f(t_yaml.get("weight_decay"), out["wd"])
             out["clip_norm"] = self._f(t_yaml.get("max_grad_norm"), out["clip_norm"])
@@ -210,7 +211,7 @@ class ConfigDefaultsLoader:
             if "warmup_epochs" in t_yaml:
                 out["warmup_epochs"] = self._i(t_yaml.get("warmup_epochs"), out["warmup_epochs"])
 
-            # val_int (hereda valores afines del YAML)
+            # val_int (hereda valores desde YAML)
             if "val_interval" in t_yaml:
                 out["val_int_interval"] = self._i(t_yaml.get("val_interval"), out["val_int_interval"])
             if "conf_thr" in t_yaml:
@@ -230,7 +231,7 @@ class ConfigDefaultsLoader:
 
 
 # --------------------------------------------------------------
-# Presets (definidos como dataclass para claridad y validación simple)
+# Definición de presets
 # --------------------------------------------------------------
 
 @dataclass
@@ -241,9 +242,9 @@ class Preset:
     def to_defaults(self) -> Dict[str, Any]:
         return dict(self.overrides)
 
-# Presets solicitados: smoketests y forwards previos a entrenamientos largos
+# Presets de prueba: smoketests y forwards previos a entrenamientos extensos
 PRESETS: Dict[str, Preset] = {
-    # Equivalente a tu comando largo de pruebas iniciales (assembly + warmup sanity)
+    # test-A: verificación de ensamblaje y warmup básico (assembly + warmup sanity)
     "test-A": Preset(
         name="test-A",
         overrides={
@@ -258,13 +259,13 @@ PRESETS: Dict[str, Preset] = {
             "test": True,
             "warmup_epochs": 1,
             "warmup": "sanity",
-            "bn2gn": "on",              # TODO: todo GN
+            "bn2gn": "on",              # pendiente migración completa a GN
             "amp": "fp16",
             "hud": True,
-            "miopen_disable_cache": True,  # TODO: cache OFF en smoketest
+            "miopen_disable_cache": True,  # cache desactivado en smoketest
         },
     ),
-    # Warmup más agresivo para medir estabilidad MIOpen/AMP rápidamente
+    # test-B: warmup intensivo para evaluar estabilidad de MIOpen/AMP
     "test-B": Preset(
         name="test-B",
         overrides={
@@ -278,14 +279,14 @@ PRESETS: Dict[str, Preset] = {
             "imgsz": 640,
             "test": True,
             "warmup_epochs": 1,
-            "warmup": "fast",           # más iters
-            "bn2gn": "on",              # TODO: todo GN
-            "amp": "auto",              # intenta bf16 si disponible
+            "warmup": "fast",           # mayor número de iteraciones de calentamiento
+            "bn2gn": "on",              # pendiente migración completa a GN
+            "amp": "auto",              # intenta bf16 si está disponible
             "hud": True,
             "miopen_disable_cache": True,
         },
     ),
-    # Smoke corto de entrenamiento real (1 época) sin test, para verificar loop completo
+    # Smoke corto de entrenamiento (1 época) para verificar el lazo completo de entrenamiento
     "smoke-1ep": Preset(
         name="smoke-1ep",
         overrides={
@@ -300,18 +301,20 @@ PRESETS: Dict[str, Preset] = {
             "test": False,
             "warmup_epochs": 1,
             "warmup": "sanity",
-            "bn2gn": "on",              # TODO: todo GN
+            "bn2gn": "on",              # pendiente migración completa a GN
             "amp": "fp16",
             "hud": True,
-            # --- validación interna siempre activa en smoketest ---
-            "val_int_interval": 1,          # corre en cada época (aquí 1)
+            # validación interna activa en todas las épocas del smoketest
+            "val_int_interval": 1,
             "val_int_use_train_subset": True,
-            "val_int_max_batches": 1,       # sólo 1 batch de TRAIN para val_int
-            "val_int_tb": False,            # sin TensorBoard en este smoketest
+            "val_int_max_batches": 1,       # un batch de TRAIN para val_int
+            "val_int_conf": 0.10,           # umbral configurable para inspección de predicciones
+            "val_int_tb_conf": 0.10,        # umbral equivalente para overlays/TensorBoard
+            "val_int_tb": False,
             "miopen_disable_cache": True,
         },
     ),
-    # Entrenamiento corto (3 épocas) para revisar pérdidas/EMA/scheduler
+    # Entrenamiento corto (3 épocas) para revisar pérdidas, EMA y scheduler
     "smoke-3ep": Preset(
         name="smoke-3ep",
         overrides={
@@ -326,18 +329,20 @@ PRESETS: Dict[str, Preset] = {
             "test": False,
             "warmup_epochs": 1,
             "warmup": "sanity",
-            "bn2gn": "on",              # TODO: todo GN
+            "bn2gn": "on",              # pendiente migración completa a GN
             "amp": "fp16",
             "hud": True,
-            # --- validación interna siempre activa en smoketest ---
-            "val_int_interval": 1,          # val_int en cada época
+            # validación interna en cada época
+            "val_int_interval": 1,
             "val_int_use_train_subset": True,
-            "val_int_max_batches": 1,       # 1 batch de TRAIN por val_int
-            "val_int_tb": True,             # aquí sí, para ver métricas en TB
+            "val_int_max_batches": 1,       # un batch de TRAIN por val_int
+            "val_int_conf": 0.10,
+            "val_int_tb_conf": 0.10,
+            "val_int_tb": True,
             "miopen_disable_cache": True,
         },
     ),
-    # Forward real del primer minibatch del dataloader (sin warmup)
+    # Forward del primer minibatch del dataloader (sin warmup)
     "forward": Preset(
         name="forward",
         overrides={
@@ -349,16 +354,16 @@ PRESETS: Dict[str, Preset] = {
             "batch": 4,
             "epochs": 1,
             "imgsz": 640,
-            "test": True,               # assembly + forward
+            "test": True,               # ensamblaje de modelo + forward
             "warmup_epochs": 0,
             "warmup": "off",
-            "bn2gn": "on",              # TODO: todo GN
+            "bn2gn": "on",              # pendiente migración completa a GN
             "amp": "fp16",
             "hud": True,
             "miopen_disable_cache": True,
         },
     ),
-    # Stress de warmup (full) con 2 bucles para cacheo/perfilado de kernels
+    # Stress de warmup completo con dos ciclos para cacheo y perfilado de kernels
     "stress-warmup": Preset(
         name="stress-warmup",
         overrides={
@@ -378,7 +383,7 @@ PRESETS: Dict[str, Preset] = {
             "miopen_disable_cache": True,
         },
     ),
-    # Overfit controlado sobre subset pequeño de train
+    # Overfit controlado sobre un subconjunto pequeño de train
     "smoke-overfit": Preset(
         name="smoke-overfit",
         overrides={
@@ -396,47 +401,25 @@ PRESETS: Dict[str, Preset] = {
             "bn2gn": "on",
             "amp": "fp16",
             "hud": True,
-            # limitar dataset para overfit controlado
+            # limitación de dataset para overfit controlado
             "limit_images": 2,
-            # validación interna sobre el mismo subset (train)
+            # validación interna sobre el mismo subconjunto (train)
             "val_int_interval": 1,
             "val_int_use_train_subset": True,
             "val_int_split": "train",
             "val_int_max_batches": 1,
+            "val_int_conf": 0.10,
+            "val_int_tb_conf": 0.10,
             "val_int_tb": True,
             "miopen_disable_cache": True,
         },
     ),
-    # Smoke 3 épocas con validación interna más ancha (más batches)
-    "smoke-3ep-wide": Preset(
-        name="smoke-3ep-wide",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant": "s",
-            "batch": 8,
-            "epochs": 3,
-            "imgsz": 640,
-            "test": False,
-            "warmup_epochs": 1,
-            "warmup": "sanity",
-            "bn2gn": "on",
-            "amp": "fp16",
-            "hud": True,
-            # validación interna ampliada
-            "val_int_interval": 1,
-            "val_int_use_train_subset": True,
-            "val_int_max_batches": 4,
-            "val_int_tb": True,
-            "miopen_disable_cache": True,
-        },
-    ),
-    # Entrenamiento corto (10 épocas) con overlays de pivotes en metrics/ y
-    # opción de activación de TensorBoard para seguimiento visual.
-    "overlays-10ep": Preset(
-        name="overlays-10ep",
+
+    # test-C: entrenamiento de 10 épocas con overlays de pivotes
+    # Propósito: evaluar overlays y métricas de validación interna en un
+    # escenario similar a entrenamiento, con coste computacional acotado.
+    "test-C": Preset(
+        name="test-C",
         overrides={
             "data": "configs/dataset.yaml",
             "model": "configs/yolo11.yaml",
@@ -447,26 +430,68 @@ PRESETS: Dict[str, Preset] = {
             "epochs": 10,
             "imgsz": 640,
             "test": False,
-            # warmup ligero para estabilizar antes de las primeras val_int
+            # warmup ligero antes de las primeras validaciones internas
             "warmup_epochs": 1,
             "warmup": "sanity",
             "bn2gn": "on",
             "amp": "fp16",
             "hud": True,
-            # validación interna periódica en el set entero de Train
+            # validación interna periódica en el dataset de entrenamiento
             "val_int_interval": 2,
             "val_int_use_train_subset": False,
             "val_int_split": "train",
             "val_int_max_batches": 0,
-            # overlays de pivotes siempre activos, TensorBoard opcional
+            # overlays de pivotes activos
             "val_int_pivots": True,
-            "val_int_tb": False,          # se puede activar con --val-int-tb
+            # coeficientes de confianza explícitos, ajustables para facilitar overlays
+            "val_int_conf": 0.10,
+            "val_int_tb_conf": 0.10,
+            # configuración de TensorBoard
+            "val_int_tb": False,          # puede activarse mediante --val-int-tb
             "val_int_tb_nrow": 3,
-            "val_int_tb_conf": 0.25,
             "val_int_tb_topk": 5,
-            # base del dataset para resolver rutas de imágenes pivote
+            # base del dataset para la resolución de rutas de imágenes pivote
             "dataset_base": "Dataset",
-            # disable cache para mantener comportamiento estable en pruebas
+            # configuración de caché
+            "miopen_disable_cache": True,
+        },
+    ),
+    # test-D: entrenamiento de 50 épocas con overlays (escenario tipo final)
+    # Propósito: aproximar un entrenamiento de referencia sobre el dataset
+    # completo, con validación interna cada 5 épocas y registro en TensorBoard.
+    "test-D": Preset(
+        name="test-D",
+        overrides={
+            "data": "configs/dataset.yaml",
+            "model": "configs/yolo11.yaml",
+            "parser": "configs/parser.yaml",
+            "dl_info": True,
+            "variant": "s",
+            "batch": 8,
+            "epochs": 50,
+            "imgsz": 640,
+            "test": False,
+            # warmup ligero antes de las primeras validaciones internas
+            "warmup_epochs": 1,
+            "warmup": "sanity",
+            "bn2gn": "on",
+            "amp": "fp16",
+            "hud": True,
+            # validación interna periódica en el dataset de entrenamiento
+            "val_int_interval": 5,
+            "val_int_use_train_subset": False,
+            "val_int_split": "train",
+            "val_int_max_batches": 0,
+            # overlays de pivotes y TensorBoard activos
+            "val_int_pivots": True,
+            "val_int_conf": 0.10,
+            "val_int_tb_conf": 0.10,
+            "val_int_tb": True,
+            "val_int_tb_nrow": 3,
+            "val_int_tb_topk": 5,
+            # base del dataset para la resolución de rutas de imágenes pivote
+            "dataset_base": "Dataset",
+            # configuración de caché
             "miopen_disable_cache": True,
         },
     ),
@@ -474,27 +499,27 @@ PRESETS: Dict[str, Preset] = {
 
 
 # --------------------------------------------------------------
-# Clase principal de construcción/parseo
+# Clase principal de construcción y parseo de argumentos
 # --------------------------------------------------------------
 
 @dataclass
 class CLIBuilder:
     presets: Dict[str, Preset] = field(default_factory=lambda: PRESETS)
 
-    # --- Catálogo de claves conocidas (debe reflejar train.py) ---
+    # Catálogo de claves conocidas (debe reflejar la firma esperada en train.py)
     known_keys: Iterable[str] = field(default_factory=lambda: (
         "data","model","parser","variant","epochs","batch","imgsz","workers",
         "device","seed","lr","wd","clip_norm","clip_mode",
         "warmup","warmup_epochs","bn2gn","amp","ema","compile",
         "hud","resume","project","name","exist_ok","time_limit",
         "dl_info",
-        # val_int
+        # parámetros de validación interna
         "val_int_interval","val_int_max_batches","val_int_use_train_subset",
         "val_int_conf","val_int_split","val_int_pivots","val_int_tb",
         "val_int_tb_nrow","val_int_tb_conf","val_int_tb_topk","dataset_base",
-        # dataset/test helpers
+        # utilidades de dataset/pruebas
         "limit_images",
-        # modo
+        # modo de ejecución
         "test",
     ))
 
@@ -517,14 +542,14 @@ class CLIBuilder:
         p = argparse.ArgumentParser(
             prog="YOLOv11 CLI",
             description=(
-                "CLI modular (clase) para YOLOv11: presets, fusión con YAML y "
+                "CLI modular basado en clase para YOLOv11: presets, fusión con YAML y "
                 "normalización de rutas, sin dependencias a torch."
             ),
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             add_help=False,
         )
 
-        # Ayuda minimalista (permite two-stage parse)
+        # Ayuda minimalista (permite parseo en dos etapas)
         p.add_argument('-h', '--help', action='store_true', help='Mostrar ayuda y salir')
 
         # Rutas / datos / modelo
@@ -532,7 +557,7 @@ class CLIBuilder:
         p.add_argument('--model', type=str, help='Ruta a yolo11.yaml')
         p.add_argument('--parser', type=str, help='Ruta a parser.yaml (opcional)')
 
-        # Variantes y params clave
+        # Variantes y parámetros principales
         p.add_argument('--variant', type=str, choices=['n','s','m','l','x'])
         p.add_argument('--epochs', type=int)
         p.add_argument('--batch', type=int)
@@ -543,7 +568,7 @@ class CLIBuilder:
         p.add_argument('--device', type=str)
         p.add_argument('--seed', type=int)
 
-        # Optim básicos (overrides desde parser.yaml)
+        # Parámetros básicos de optimización (overrides respecto de parser.yaml)
         p.add_argument('--lr', type=float)
         p.add_argument('--wd', type=float)
         p.add_argument('--clip-norm', dest='clip_norm', type=float)
@@ -568,10 +593,10 @@ class CLIBuilder:
         p.add_argument('--exist-ok', dest='exist_ok', action='store_true')
         p.add_argument('--time-limit', dest='time_limit', type=float)
 
-        # Info de data_loader
+        # Información del data_loader
         p.add_argument('--dl-info', dest='dl_info', action='store_true')
 
-        # Validación interna (val_int)
+        # Parámetros de validación interna (val_int)
         p.add_argument('--val-int-interval', dest='val_int_interval', type=int)
         p.add_argument('--val-int-max-batches', dest='val_int_max_batches', type=int)
         p.add_argument('--val-int-use-train-subset', dest='val_int_use_train_subset', action='store_true')
@@ -585,10 +610,10 @@ class CLIBuilder:
         p.add_argument('--val-int-tb-topk', dest='val_int_tb_topk', type=int)
         p.add_argument('--dataset-base', dest='dataset_base', type=str)
 
-        # Modo prueba
+        # Modo de prueba
         p.add_argument('--test', action='store_true')
 
-        # Presets (genérico + alias directos)
+        # Presets (selector genérico y aliases directos)
         self._add_preset_flags(p)
         return p
 
@@ -596,13 +621,13 @@ class CLIBuilder:
         parser.add_argument('--preset', type=str, choices=sorted(self.presets.keys()), help='Selecciona un preset predefinido')
         for name in self.presets.keys():
             parser.add_argument(f'--{name}', dest='_preset', action='store_const', const=name,
-                                help=f'--{name}')
+                                help=f'Usa el preset "{name}"')
 
     # ---------------------------
     # YAML y presets
     # ---------------------------
     def merge_with_yaml(self, parser_yaml_path: Optional[str]) -> Dict[str, Any]:
-        # Conservado por compatibilidad: ahora preferimos ConfigDefaultsLoader
+        # Conservado por compatibilidad; se prefiere ConfigDefaultsLoader
         if not parser_yaml_path:
             return {}
         p = Path(parser_yaml_path)
@@ -623,33 +648,35 @@ class CLIBuilder:
         return preset.to_defaults() if preset else {}
 
     # ---------------------------
-    # Normalización final
+    # Normalización final de argumentos
     # ---------------------------
     def resolve_and_validate(self, ns: argparse.Namespace) -> argparse.Namespace:
-        # HUD auto por TTY si no se especifica
+        # HUD automático según TTY si no se especifica
         if getattr(ns, 'hud', None) is None:
             ns.hud = sys.stdout.isatty()
 
-        # Anclar project relativo a YOLOv11/ si no es absoluto
+        # Anclar "project" relativo a YOLOv11/ si no es absoluto
         proj = getattr(ns, 'project', None)
         if proj:
             p = Path(proj)
             if not p.is_absolute():
                 ns.project = str((self._yolo_root() / p).resolve())
 
-        # Normalizar booleanos recibidos como texto
+        # Normalización de booleanos recibidos como texto
         for key in ("ema","compile","dl_info","val_int_use_train_subset","val_int_pivots","val_int_tb","test","exist_ok"):
             val = getattr(ns, key, None)
             if isinstance(val, str):
                 low = val.strip().lower()
-                if low in ("1","true","yes","on"): setattr(ns, key, True)
-                elif low in ("0","false","no","off"): setattr(ns, key, False)
+                if low in ("1","true","yes","on"):
+                    setattr(ns, key, True)
+                elif low in ("0","false","no","off"):
+                    setattr(ns, key, False)
 
-        # Clip mode seguro
+        # Modo de clipping seguro
         if getattr(ns, 'clip_mode', None) not in (None, 'norm', 'value'):
             ns.clip_mode = 'norm'
 
-        # Valores seguros si algo quedó en None (evita TypeError aguas arriba)
+        # Valores numéricos seguros si algún campo quedó en None
         safe_numbers: List[Tuple[str, Any]] = [
             ("epochs", 150), ("batch", 16), ("imgsz", 640), ("workers", 4),
             ("lr", 0.001), ("wd", 0.0), ("clip_norm", 0.0), ("time_limit", 0.0),
@@ -660,6 +687,7 @@ class CLIBuilder:
             if getattr(ns, k, None) is None:
                 setattr(ns, k, dv)
 
+        # Valores de texto seguros
         safe_strings: List[Tuple[str, str]] = [
             ("variant", "n"), ("device", "auto"), ("clip_mode", "norm"), ("val_int_split", "val"), ("warmup", "off"),
         ]
@@ -667,6 +695,7 @@ class CLIBuilder:
             if getattr(ns, k, None) in (None, ""):
                 setattr(ns, k, dv)
 
+        # Valores booleanos por defecto
         safe_bools: List[Tuple[str, bool]] = [
             ("ema", True), ("compile", False), ("dl_info", False), ("val_int_use_train_subset", False),
             ("val_int_pivots", False), ("val_int_tb", True), ("exist_ok", False), ("test", False),
@@ -675,11 +704,11 @@ class CLIBuilder:
             if getattr(ns, k, None) is None:
                 setattr(ns, k, dv)
 
-        # AMP normalizado (si viniera None)
+        # AMP normalizado si no se especifica
         if getattr(ns, 'amp', None) in (None, ""):
             ns.amp = 'auto'
 
-        # Exponer nombre del preset aplicado (si lo hay) para banner aguas arriba
+        # Exponer nombre del preset aplicado, si corresponde
         chosen = getattr(ns, 'preset', None) or getattr(ns, '_preset', None)
         if chosen:
             setattr(ns, 'preset_applied', chosen)
@@ -693,16 +722,16 @@ class CLIBuilder:
         parser = self.build_common_parser()
         prelim, _ = parser.parse_known_args(argv)
 
-        # 1) Determinar preset y parser.yaml efectivo ANTES de cargar YAML
+        # 1) Determinar preset y parser.yaml efectivo antes de cargar YAML
         chosen = getattr(prelim, 'preset', None) or getattr(prelim, '_preset', None)
         preset_defaults = self.apply_preset(prelim) if chosen else {}
         parser_path = getattr(prelim, 'parser', None) or preset_defaults.get('parser') or str(self._yolo_root() / 'configs' / 'parser.yaml')
 
-        # 2) Cargar defaults tipados desde YAMLs (sin None)
+        # 2) Cargar defaults tipados desde YAML (sin valores None)
         yaml_defaults = ConfigDefaultsLoader(self._yolo_root()).load(parser_path)
 
-        # 3) Establecer defaults en el parser respetando precedencia declarada
-        #    YAML primero, luego PRESET (CLI explícito anula ambos en el parse final)
+        # 3) Establecer defaults en el parser respetando la precedencia definida
+        #    YAML primero, luego PRESET (los argumentos CLI explícitos anulan ambos)
         if yaml_defaults:
             parser.set_defaults(**self._filter_known(yaml_defaults))
         if preset_defaults:
@@ -712,14 +741,14 @@ class CLIBuilder:
             parser.print_help()
             sys.exit(0)
 
-        # 4) Parse final y resolución/saneamiento
+        # 4) Parseo final y normalización
         final = parser.parse_args(argv)
         final = self.resolve_and_validate(final)
         return final
 
 
 # --------------------------------------------------------------
-# Wrappers de compatibilidad (para train.py actual)
+# Wrappers de compatibilidad (interfaz hacia train.py)
 # --------------------------------------------------------------
 
 _BUILDER = CLIBuilder()
@@ -730,7 +759,8 @@ def build_common_parser() -> argparse.ArgumentParser:  # pragma: no cover
 
 
 def add_train_args(parser: argparse.ArgumentParser) -> None:  # pragma: no cover
-    return None  # ya incluidos en build_common_parser
+    # Firma mantenida por compatibilidad; los argumentos ya se definen en build_common_parser
+    return None
 
 
 def merge_with_yaml(parser: argparse.ArgumentParser, parser_yaml_path: Optional[str]) -> Dict[str, Any]:  # pragma: no cover
