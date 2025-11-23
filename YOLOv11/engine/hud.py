@@ -190,12 +190,13 @@ class HUD:
         self._last_items.clear()
         self._last_it_per_s = 0.0
         self._last_smp_per_s = 0.0
+        self._writeln("") # salto de línea antes de la época
         self._writeln(f"[{self.cfg.phase_label_train:>5}] Epoch {epoch+1}/{epochs}")
 
     def on_epoch_end(self) -> None:
         if not self.cfg.enable or not _is_main_process():
             return
-        self._writeln("")  # salto de línea para separar épocas
+        self._writeln("")  # salto de línea después de la época
 
     def update(
         self,

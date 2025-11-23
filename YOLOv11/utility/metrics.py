@@ -585,15 +585,27 @@ def export_final_val_metrics(
     """Exporta las métricas finales de validación interna (val_int) a JSON y CSV.
 
     Los archivos se guardan en:
-        metrics/<variant>/final/<filename_prefix>.json
-        metrics/<variant>/final/<filename_prefix>.csv
+        metrics/<variant>/train/final/<filename_prefix>.json
+        metrics/<variant>/train/final/<filename_prefix>.csv
 
-    donde ``variant`` se normaliza en minúsculas.
+    donde ``variant`` se normaliza en minúsculas. Esta función no altera
+    ninguna de las salidas existentes en ``runs/<variant>/train/final`` y
+    es complementaria a :func:`export_final_val_artifacts`.
     """
     root = _find_project_root()
     v = str(variant).lower()
-    out_dir = root / "metrics" / v / "final"
-    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Usar la misma convención de slots que el resto del módulo: phase="train",
+    # slot="final" bajo la carpeta "metrics".
+    out_dir = _resolve_slot_dir(
+        root,
+        v,
+        "train",
+        is_test=False,
+        run_name=None,
+        reset_final=False,
+        base="metrics",
+    )
 
     json_path = out_dir / f"{filename_prefix}.json"
     csv_path = out_dir / f"{filename_prefix}.csv"
@@ -750,6 +762,140 @@ def build_train_loss_curve(
             png_path = None
 
     return {"epochs": ep_list, "losses": loss_list, "path": png_path}
+
+
+# ==============================================================
+# Exportación de artefactos gráficos finales (PR/CM/IoU)
+# ==============================================================
+
+
+def discover_val_int_artifacts(metrics_dir: Path) -> Dict[str, Path]:
+    """Descubre las curvas PR/F1/P/R y figuras de IoU/matriz de confusión.
+
+    No modifica el disco; sólo inspecciona rutas existentes bajo ``metrics_dir``.
+    """
+    metrics_dir = Path(metrics_dir).resolve()
+    out: Dict[str, Path] = {}
+
+    if not metrics_dir.exists():
+        return out
+
+    pr_dir = metrics_dir / "pr_curves"
+    candidates = {
+        "pr_curve": pr_dir / "PR_curve.png",
+        "f1_curve": pr_dir / "F1_curve.png",
+        "p_curve": pr_dir / "P_curve.png",
+        "r_curve": pr_dir / "R_curve.png",
+        "confusion_matrix": metrics_dir / "confusion_matrix.png",
+        "iou_hist": metrics_dir / "iou_hist.png",
+    }
+
+    for key, path in candidates.items():
+        try:
+            if path.is_file():
+                out[key] = path
+        except Exception:
+            continue
+
+    return out
+
+
+def copy_val_int_artifacts_to_final(
+    variant: str,
+    src_dir: Path,
+    *,
+    dest_phase: str = "train",
+) -> Dict[str, Path]:
+    """Copia artefactos de una carpeta de val_int a un slot final de métricas.
+
+    No altera las salidas existentes de ``runs/<variant>/train/final`` ni la
+    exportación JSON/CSV. Los archivos se escriben bajo::
+
+        metrics/<variant>/<dest_phase>/final/
+
+    respetando la convención de slots de este módulo.
+    """
+    src_dir = Path(src_dir).resolve()
+    if not src_dir.exists():
+        return {}
+
+    root = _find_project_root()
+    dest_dir = _resolve_slot_dir(
+        root,
+        str(variant),
+        str(dest_phase),
+        is_test=False,
+        run_name=None,
+        reset_final=False,
+        base="metrics",
+    )
+
+    artifacts = discover_val_int_artifacts(src_dir)
+    if not artifacts:
+        return {}
+
+    import shutil
+
+    out: Dict[str, Path] = {}
+    for key, src in artifacts.items():
+        try:
+            dst = dest_dir / src.name
+            shutil.copy2(src, dst)
+            out[key] = dst
+        except Exception:
+            # La copia de un archivo no debe romper el resto
+            continue
+
+    return out
+
+
+def export_final_val_artifacts(
+    payload: Dict[str, Any],
+    variant: str,
+    *,
+    dest_phase: str = "train",
+) -> Dict[str, Path]:
+    """Exporta las figuras finales de val_int (PR/CM/IoU) a una carpeta estable.
+
+    Usa la ruta de métricas de la última validación interna, esperada en
+    ``payload["metrics_dir"]``, para localizar las figuras ya generadas por
+    ``DetMetricsYOLOv11`` y copiarlas a::
+
+        metrics/<variant>/<dest_phase>/final/
+
+    Esta función es complementaria a :func:`export_final_val_metrics` y no
+    modifica ningún comportamiento existente de entrenamiento o logging.
+    """
+    metrics_dir_str = payload.get("metrics_dir")
+    if not metrics_dir_str:
+        # No hay información de origen; no hacemos nada.
+        return {}
+
+    src_dir = Path(metrics_dir_str).expanduser()
+    if not src_dir.exists():
+        return {}
+
+    copied = copy_val_int_artifacts_to_final(
+        variant=variant,
+        src_dir=src_dir,
+        dest_phase=dest_phase,
+    )
+
+    if not copied:
+        return {}
+
+    # Mensaje compacto de salida
+    try:
+        proj = _find_project_root()
+        # Mostramos solo el directorio destino principal
+        any_path = next(iter(copied.values()))
+        rel_dir = any_path.parent.relative_to(proj)
+        print(f"[metrics] final PR/CM/IoU -> YOLOv11/{rel_dir.as_posix()}")
+    except Exception:
+        # El fallo al construir la ruta relativa no debe afectar el flujo
+        pass
+
+    return copied
 
 
 if __name__ == "__main__":

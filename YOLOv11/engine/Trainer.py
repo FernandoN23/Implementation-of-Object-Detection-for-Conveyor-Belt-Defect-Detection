@@ -227,6 +227,9 @@ class Trainer:
         self.best_fitness = -1e9
         # Último payload de métricas de validación interna (para export final)
         self._last_val_int_payload: Dict[str, Any] | None = None
+        # Épocas rastreadas para val_int final obligatoria
+        self.last_epoch_done = None
+        self.last_val_int_epoch = None
 
         # === Criterio de pérdida (utility/losses.YOLOLoss) ===
         try:
@@ -483,6 +486,7 @@ class Trainer:
 
                 if val_payload is not None:
                     self._last_val_int_payload = val_payload
+                    self.last_val_int_epoch = epoch
 
             # Fitness y guardado de pesos
             fitness = _fitness(val_metrics) if val_metrics else -1e9
@@ -516,17 +520,48 @@ class Trainer:
                 self.hud.update_epoch(epoch, train_metrics=train_metrics, val_metrics=val_metrics or None)
 
             if ut.SIGNALS.stop or self.timer.expired():
+                self.last_epoch_done = epoch
                 break
+
+            self.last_epoch_done = epoch
+
+        # === Validación interna final obligatoria (si val_int_interval > 0) ===
+        try:
+            val_int_interval = int(self.cfg.val_int_interval)
+        except Exception:
+            val_int_interval = 0
+
+        val_int_enabled = val_int_interval > 0
+        if val_int_enabled and getattr(self, "last_epoch_done", None) is not None:
+            last_ep = int(self.last_epoch_done)
+            last_val_ep = getattr(self, "last_val_int_epoch", None)
+            if (last_val_ep is None) or int(last_val_ep) != last_ep:
+                try:
+                    self._run_final_val_int(last_ep)
+                except Exception as e:
+                    print(f"[val_int] Advertencia: validación interna final omitida por error: {e}")
 
         # === Export métricas finales de val_int (última validación interna) ===
         try:
             if self._last_val_int_payload:
                 from YOLOv11.utility import metrics as umetrics  # type: ignore
 
+                # Exportar JSON/CSV con resumen de métricas finales (comportamiento existente)
                 umetrics.export_final_val_metrics(
                     payload=self._last_val_int_payload,
                     variant=str(self.cfg.variant),
                 )
+
+                # Exportar además las figuras PR/CM/IoU finales a un slot estable de métricas
+                try:
+                    umetrics.export_final_val_artifacts(
+                        payload=self._last_val_int_payload,
+                        variant=str(self.cfg.variant),
+                        dest_phase="train",
+                    )
+                except Exception:
+                    # El fallo en la exportación de artefactos gráficos no debe afectar el flujo principal
+                    pass
         except Exception as e:
             print(f"[metrics] Advertencia: no se pudo exportar métricas finales de val_int: {e}")
 
@@ -542,7 +577,7 @@ class Trainer:
 
                 # Guardar curva de pérdida en árbol de métricas, no en runs/
                 proj_root = Path(self.cfg.project).resolve()
-                metrics_final_dir = proj_root / "metrics" / str(self.cfg.variant) / "final"
+                metrics_final_dir = proj_root / "metrics" / str(self.cfg.variant) / "train" / "final"
                 metrics_final_dir.mkdir(parents=True, exist_ok=True)
                 output_path = metrics_final_dir / "loss_curve_train.png"
 
@@ -586,6 +621,83 @@ class Trainer:
             self.logger.close()
         except Exception:
             pass
+
+    # -----------------------------
+    # Validación interna final obligatoria
+    # -----------------------------
+
+    def _run_final_val_int(self, last_epoch: int) -> None:
+        """Ejecuta una validación interna forzada al final del entrenamiento.
+
+        Se utiliza cuando ``val_int_interval > 0`` pero la última época
+        entrenada no tuvo validación interna. El resultado se almacena en
+        ``self._last_val_int_payload`` para alimentar la exportación de
+        métricas finales.
+        """
+        engine = self.engine
+
+        # Preparar nombres como lista para el validador
+        if isinstance(self.names, dict):
+            names_list: List[str] = [self.names[i] for i in sorted(self.names.keys())]
+        else:
+            names_list = list(self.names) if hasattr(self.names, "__iter__") else []
+
+        # Preparar modelo de evaluación (EMA si existe)
+        if self.ema is not None:
+            try:
+                model_eval = copy.deepcopy(self.model)
+                model_eval.to(self.device)
+                model_eval.eval()
+                self.ema.copy_to(model_eval)
+            except Exception as e:
+                print(f"[EMA] Advertencia: fallo al preparar modelo EMA para val_int final: {e}")
+                model_eval = self.model
+        else:
+            model_eval = self.model
+
+        # Loader adaptado y política de subconjunto
+        max_batches = (
+            int(self.cfg.val_int_max_batches)
+            if getattr(self.cfg, "val_int_use_train_subset", False)
+            else 0
+        )
+        val_loader_adapt = self._iter_train_loader()
+
+        use_pivots = bool(getattr(self.cfg, "val_int_pivots", False))
+
+        try:
+            val_metrics, val_payload = engine["validator"].validate_interna(
+                model_eval,
+                loader=val_loader_adapt,
+                names=names_list,
+                save_dir=str(self.save_dir),
+                conf_thres=float(self.cfg.val_int_conf),
+                iou_thres=0.60,
+                device=str(self.device),
+                epoch=int(last_epoch),
+                max_batches=max_batches,
+                split=str(self.cfg.val_int_split),
+                use_pivots=use_pivots,
+                tb_enable=bool(self.cfg.val_int_tb),
+                tb_variant=str(self.cfg.variant),
+                tb_run_name=str(self.cfg.name),
+                tb_nrow=int(self.cfg.val_int_tb_nrow),
+                tb_conf_thr=float(self.cfg.val_int_tb_conf),
+                tb_topk=int(self.cfg.val_int_tb_topk),
+                dataset_base=self.cfg.dataset_base,
+                phase="val",
+                slot="final",
+                run_name=str(self.cfg.name),
+                step_tag=f"final_epoch_{last_epoch:03d}",
+                verbose=1,
+            )
+        except Exception as e:
+            print(f"[val_int] Advertencia: validación interna final falló en época {last_epoch}: {e}")
+            return
+
+        if val_payload is not None:
+            self._last_val_int_payload = val_payload
+            self.last_val_int_epoch = last_epoch
 
     # -----------------------------
     # Warmup sintético con HUD (delegado a engine.warmup)
