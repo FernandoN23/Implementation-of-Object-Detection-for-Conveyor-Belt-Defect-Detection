@@ -347,13 +347,33 @@ class Trainer:
                     core = getattr(self.model, "core", self.model)
                     preds = core(x)
                     loss, scalars = self.criterion(preds, batch["targets"])
-                    items = {"loss": float(loss.detach()), **{k: float(v) for k, v in scalars.items()}}
 
-                # acumular métricas
-                sum_loss += float(loss.item())
+                # Normalización de pérdida para monitoreo (curva/HUD):
+                # combinamos las componentes box/cls/dfl ponderadas por sus
+                # hiperparámetros y las llevamos a escala por imagen.
+                try:
+                    bsz = len(batch["img"])
+                except Exception:
+                    bsz = int(self.cfg.batch)
+                bsz = max(int(bsz), 1)
+
+                hyp = getattr(self.criterion, "hyp", None)
+                if hyp is not None and all(k in scalars for k in ("box", "cls", "dfl")):
+                    box_v = float(scalars.get("box", 0.0))
+                    cls_v = float(scalars.get("cls", 0.0))
+                    dfl_v = float(scalars.get("dfl", 0.0))
+                    total_raw = hyp.box * box_v + hyp.cls * cls_v + hyp.dfl * dfl_v
+                    monitor_loss = float(total_raw) / float(bsz)
+                else:
+                    monitor_loss = float(loss.item()) / float(bsz)
+
+                items = {"loss": monitor_loss, **{k: float(v) for k, v in scalars.items()}}
+
+                # acumular métricas (per-image)
+                sum_loss += monitor_loss
                 count += 1
                 for k, v in scalars.items():
-                    scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v)
+                    scalars_sum[k] = scalars_sum.get(k, 0.0) + float(v) / float(bsz)
 
                 do_step = (i % self.accumulate) == 0
                 self.engine["amp"].safe_backward_step(
@@ -375,8 +395,8 @@ class Trainer:
                 dt_ms = (time.perf_counter() - t_iter) * 1000.0
                 if self.hud:
                     lr = float(self.optimizer.param_groups[0]["lr"])
-                    self.hud.update(epoch, i, iters_per_epoch, lr, float(loss.item()), items, dt_ms)
-                self.cb.on_train_batch_end(self, epoch * iters_per_epoch + i, float(loss.item()), items)
+                    self.hud.update(epoch, i, iters_per_epoch, lr, monitor_loss, items, dt_ms)
+                self.cb.on_train_batch_end(self, epoch * iters_per_epoch + i, monitor_loss, items)
                 t_iter = time.perf_counter()
 
                 if ut.SIGNALS.stop or self.timer.expired():
