@@ -1,3 +1,17 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: Dataset/view_dataset.py
+# Descripción: Visualizador interactivo del dataset anotado en
+#  formato YOLO. Permite recorrer imágenes por split (train/valid/test),
+#  dibujar bounding boxes a partir de labels y mostrar un panel lateral
+#  con conteo por clase e instrucciones de uso.
+#==============================================================
+
 import os
 import cv2
 import yaml
@@ -23,6 +37,7 @@ if not class_names:
     raise ValueError("No se encontraron 'names' ni 'classes' en data.yaml")
 
 # === 2. FUNCIÓN PARA CARGAR IMÁGENES DE UN SPLIT ===
+
 def load_images(split):
     images_path = os.path.join(dataset_dir, split, "images")
     labels_path = os.path.join(dataset_dir, split, "labels")
@@ -36,13 +51,16 @@ def load_images(split):
 
     return image_files, labels_path
 
+
 image_files, labels_path = load_images(split)
 
 # === 3. GENERAR PALETA DE COLORES PARA BBOX ===
 np.random.seed(45)
 colors = [tuple(int(c) for c in np.random.randint(0, 255, size=3)) for _ in range(len(class_names))]
 
+
 # === 4. FUNCIÓN PARA DIBUJAR BOXES Y RETORNAR CONTADOR POR CLASE ===
+
 def draw_boxes(img, label_file):
     h, w = img.shape[:2]
     class_counts = defaultdict(int)
@@ -91,12 +109,22 @@ def draw_boxes(img, label_file):
                 text_y2 = y2 + text_h + baseline + 3
 
             cv2.rectangle(img, (text_x1, text_y1), (text_x2, text_y2), color, -1)
-            cv2.putText(img, label_text, (text_x1 + 2, text_y2 - 4),
-                        font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+            cv2.putText(
+                img,
+                label_text,
+                (text_x1 + 2, text_y2 - 4),
+                font,
+                font_scale,
+                (255, 255, 255),
+                thickness,
+                cv2.LINE_AA,
+            )
 
     return img, class_counts
 
+
 # === 5. FUNCIÓN PARA DIBUJAR LEYENDA ===
+
 def draw_legend(split, idx, num_images, class_names, class_counts):
     legend_width = 300
     legend_height = 600  # ajusta según tu ventana
@@ -121,7 +149,7 @@ def draw_legend(split, idx, num_images, class_names, class_counts):
         "ESC: salir",
         "Train (t), Valid (v), Test (p)",
         "",
-        "Conteo por clase:"
+        "Conteo por clase:",
     ]
 
     y = y_start
@@ -137,13 +165,23 @@ def draw_legend(split, idx, num_images, class_names, class_counts):
         color = colors[i % len(colors)]
 
         cv2.circle(canvas, (20, y - 8), 6, color, -1)  # círculo
-        cv2.putText(canvas, txt, (40, y), font, font_scale,
-                    (255, 255, 255), thickness, cv2.LINE_AA)
+        cv2.putText(
+            canvas,
+            txt,
+            (40, y),
+            font,
+            font_scale,
+            (255, 255, 255),
+            thickness,
+            cv2.LINE_AA,
+        )
         y += line_height
 
     return canvas
 
+
 # === 6. BUCLE PRINCIPAL DE VISUALIZACIÓN ===
+
 idx = 0
 num_images = len(image_files)
 
@@ -175,21 +213,21 @@ while True:
     key = cv2.waitKey(0) & 0xFF
     if key == 27:  # ESC
         break
-    elif key == ord('d'):  # siguiente
+    elif key == ord("d"):  # siguiente
         idx = min(num_images - 1, idx + 1)
-    elif key == ord('a'):  # anterior
+    elif key == ord("a"):  # anterior
         idx = max(0, idx - 1)
-    elif key == ord('t'):
+    elif key == ord("t"):
         split = "train"
         image_files, labels_path = load_images(split)
         num_images = len(image_files)
         idx = 0
-    elif key == ord('v'):
+    elif key == ord("v"):
         split = "valid"
         image_files, labels_path = load_images(split)
         num_images = len(image_files)
         idx = 0
-    elif key == ord('p'):
+    elif key == ord("p"):
         split = "test"
         image_files, labels_path = load_images(split)
         num_images = len(image_files)

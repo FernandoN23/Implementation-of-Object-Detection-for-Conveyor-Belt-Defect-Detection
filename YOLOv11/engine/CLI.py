@@ -7,10 +7,10 @@
 # --------------------------------------------------------------
 # Archivo: YOLOv11/engine/CLI.py
 # Descripción: Interfaz de línea de comandos (CLI) para YOLOv11. Define
-#  la construcción de argumentos, presets de prueba (--test-*) y el parseo
-#  en dos etapas con precedencia: CLI explícito > preset > YAML > defaults.
-#  Incluye integración sin dependencias a torch para la carga de configs
-#  desde YOLOv11/configs/*.
+#  la construcción de argumentos, el uso de presets de prueba (--test-*)
+#  cargados desde configs/train_presets.yaml y el parseo en dos etapas con
+#  precedencia: CLI explícito > preset > YAML > defaults. Incluye integración
+#  sin dependencias a torch para la carga de configs desde YOLOv11/configs/*.
 #==============================================================
 
 from __future__ import annotations
@@ -231,7 +231,7 @@ class ConfigDefaultsLoader:
 
 
 # --------------------------------------------------------------
-# Definición de presets
+# Definición de presets (cargados desde configs/train_presets.yaml)
 # --------------------------------------------------------------
 
 @dataclass
@@ -242,260 +242,57 @@ class Preset:
     def to_defaults(self) -> Dict[str, Any]:
         return dict(self.overrides)
 
-# Presets de prueba: smoketests y forwards previos a entrenamientos extensos
-PRESETS: Dict[str, Preset] = {
-    # test-A: verificación de ensamblaje y warmup básico (assembly + warmup sanity)
-    "test-A": Preset(
-        name="test-A",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant": "s",
-            "batch": 4,
-            "epochs": 0,
-            "imgsz": 640,
-            "test": True,
-            "warmup_epochs": 1,
-            "warmup": "sanity",
-            "bn2gn": "on",              # pendiente migración completa a GN
-            "amp": "fp16",
-            "hud": True,
-            "miopen_disable_cache": True,  # cache desactivado en smoketest
-        },
-    ),
-    # test-B: warmup intensivo para evaluar estabilidad de MIOpen/AMP
-    "test-B": Preset(
-        name="test-B",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant":"s",
-            "batch": 4,
-            "epochs": 0,
-            "imgsz": 640,
-            "test": True,
-            "warmup_epochs": 1,
-            "warmup": "fast",           # mayor número de iteraciones de calentamiento
-            "bn2gn": "on",              # pendiente migración completa a GN
-            "amp": "auto",              # intenta bf16 si está disponible
-            "hud": True,
-            "miopen_disable_cache": True,
-        },
-    ),
-    # Smoke corto de entrenamiento (1 época) para verificar el lazo completo de entrenamiento
-    "smoke-1ep": Preset(
-        name="smoke-1ep",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant": "s",
-            "batch": 4,
-            "epochs": 1,
-            "imgsz": 640,
-            "test": False,
-            "warmup_epochs": 1,
-            "warmup": "sanity",
-            "bn2gn": "on",              # pendiente migración completa a GN
-            "amp": "fp16",
-            "hud": True,
-            # validación interna activa en todas las épocas del smoketest
-            "val_int_interval": 1,
-            "val_int_use_train_subset": True,
-            "val_int_max_batches": 1,       # un batch de TRAIN para val_int
-            "val_int_conf": 0.10,           # umbral configurable para inspección de predicciones
-            "val_int_tb_conf": 0.10,        # umbral equivalente para overlays/TensorBoard
-            "val_int_tb": False,
-            "miopen_disable_cache": True,
-        },
-    ),
-    # Entrenamiento corto (3 épocas) para revisar pérdidas, EMA y scheduler
-    "smoke-3ep": Preset(
-        name="smoke-3ep",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant": "s",
-            "batch": 8,
-            "epochs": 3,
-            "imgsz": 640,
-            "test": False,
-            "warmup_epochs": 1,
-            "warmup": "sanity",
-            "bn2gn": "on",              # pendiente migración completa a GN
-            "amp": "fp16",
-            "hud": True,
-            # validación interna en cada época
-            "val_int_interval": 1,
-            "val_int_use_train_subset": True,
-            "val_int_max_batches": 1,       # un batch de TRAIN por val_int
-            "val_int_conf": 0.10,
-            "val_int_tb_conf": 0.10,
-            "val_int_tb": True,
-            "miopen_disable_cache": True,
-        },
-    ),
-    # Forward del primer minibatch del dataloader (sin warmup)
-    "forward": Preset(
-        name="forward",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant": "s",
-            "batch": 4,
-            "epochs": 1,
-            "imgsz": 640,
-            "test": True,               # ensamblaje de modelo + forward
-            "warmup_epochs": 0,
-            "warmup": "off",
-            "bn2gn": "on",              # pendiente migración completa a GN
-            "amp": "fp16",
-            "hud": True,
-            "miopen_disable_cache": True,
-        },
-    ),
-    # Stress de warmup completo con dos ciclos para cacheo y perfilado de kernels
-    "stress-warmup": Preset(
-        name="stress-warmup",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "variant": "s",
-            "batch": 4,
-            "epochs": 1,
-            "imgsz": 640,
-            "test": True,
-            "warmup_epochs": 2,
-            "warmup": "full",
-            "bn2gn": "on",
-            "amp": "fp16",
-            "hud": True,
-            "miopen_disable_cache": True,
-        },
-    ),
-    # Overfit controlado sobre un subconjunto pequeño de train
-    "smoke-overfit": Preset(
-        name="smoke-overfit",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant": "s",
-            "batch": 4,
-            "epochs": 80,
-            "imgsz": 640,
-            "test": False,
-            "warmup_epochs": 1,
-            "warmup": "sanity",
-            "bn2gn": "on",
-            "amp": "fp16",
-            "hud": True,
-            # limitación de dataset para overfit controlado
-            "limit_images": 2,
-            # validación interna sobre el mismo subconjunto (train)
-            "val_int_interval": 1,
-            "val_int_use_train_subset": True,
-            "val_int_split": "train",
-            "val_int_max_batches": 1,
-            "val_int_conf": 0.10,
-            "val_int_tb_conf": 0.10,
-            "val_int_tb": True,
-            "miopen_disable_cache": True,
-        },
-    ),
 
-    # test-C: entrenamiento de 10 épocas con overlays de pivotes
-    # Propósito: evaluar overlays y métricas de validación interna en un
-    # escenario similar a entrenamiento, con coste computacional acotado.
-    "test-C": Preset(
-        name="test-C",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant": "s",
-            "batch": 8,
-            "epochs": 10,
-            "imgsz": 640,
-            "test": False,
-            # warmup ligero antes de las primeras validaciones internas
-            "warmup_epochs": 1,
-            "warmup": "sanity",
-            "bn2gn": "on",
-            "amp": "fp16",
-            "hud": True,
-            # validación interna periódica en el dataset de entrenamiento
-            "val_int_interval": 2,
-            "val_int_use_train_subset": False,
-            "val_int_split": "train",
-            "val_int_max_batches": 0,
-            # overlays de pivotes activos
-            "val_int_pivots": True,
-            # coeficientes de confianza explícitos, ajustables para facilitar overlays
-            "val_int_conf": 0.10,
-            "val_int_tb_conf": 0.10,
-            # configuración de TensorBoard
-            "val_int_tb": False,          # puede activarse mediante --val-int-tb
-            "val_int_tb_nrow": 3,
-            "val_int_tb_topk": 5,
-            # base del dataset para la resolución de rutas de imágenes pivote
-            "dataset_base": "Dataset",
-            # configuración de caché
-            "miopen_disable_cache": True,
-        },
-    ),
-    # test-D: entrenamiento de 50 épocas con overlays (escenario tipo final)
-    # Propósito: aproximar un entrenamiento de referencia sobre el dataset
-    # completo, con validación interna cada 5 épocas y registro en TensorBoard.
-    "test-D": Preset(
-        name="test-D",
-        overrides={
-            "data": "configs/dataset.yaml",
-            "model": "configs/yolo11.yaml",
-            "parser": "configs/parser.yaml",
-            "dl_info": True,
-            "variant": "s",
-            "batch": 8,
-            "epochs": 50,
-            "imgsz": 640,
-            "test": False,
-            # warmup ligero antes de las primeras validaciones internas
-            "warmup_epochs": 1,
-            "warmup": "sanity",
-            "bn2gn": "on",
-            "amp": "fp16",
-            "hud": True,
-            # validación interna periódica en el dataset de entrenamiento
-            "val_int_interval": 5,
-            "val_int_use_train_subset": False,
-            "val_int_split": "train",
-            "val_int_max_batches": 0,
-            # overlays de pivotes y TensorBoard activos
-            "val_int_pivots": True,
-            "val_int_conf": 0.10,
-            "val_int_tb_conf": 0.10,
-            "val_int_tb": True,
-            "val_int_tb_nrow": 3,
-            "val_int_tb_topk": 5,
-            # base del dataset para la resolución de rutas de imágenes pivote
-            "dataset_base": "Dataset",
-            # configuración de caché
-            "miopen_disable_cache": True,
-        },
-    ),
-}
+def load_train_presets(yolo_root: Path) -> Dict[str, Preset]:
+    """Carga presets de entrenamiento desde configs/train_presets.yaml.
+
+    Estructura esperada del YAML:
+      presets:
+        <nombre>:
+          description: "..."    # opcional
+          overrides:
+            key: value           # claves compatibles con known_keys
+
+    Si el archivo no existe, hay error de parseo o yaml no está disponible,
+    retorna un diccionario vacío (la CLI seguirá funcionando sin presets).
+    """
+    presets: Dict[str, Preset] = {}
+    if yaml is None:
+        return presets
+
+    cfg_path = (yolo_root / "configs" / "train_presets.yaml").resolve()
+    if not cfg_path.exists() or not cfg_path.is_file():
+        return presets
+
+    try:
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return presets
+
+    raw = data.get("presets", {})
+    if not isinstance(raw, dict):
+        return presets
+
+    for name, cfg in raw.items():
+        if not isinstance(cfg, dict):
+            continue
+        overrides = cfg.get("overrides", {})
+        if not isinstance(overrides, dict):
+            continue
+        presets[name] = Preset(name=name, overrides=overrides)
+
+    return presets
+
+
+def _default_presets() -> Dict[str, Preset]:
+    """Default factory para CLIBuilder.presets.
+
+    Intenta cargar presets desde configs/train_presets.yaml. Si falla,
+    retorna un diccionario vacío, manteniendo la CLI operativa pero sin
+    flags de presets (--test-A, --smoke-3ep, etc.).
+    """
+    root = Path(__file__).resolve().parents[1]
+    return load_train_presets(root)
 
 
 # --------------------------------------------------------------
@@ -504,7 +301,7 @@ PRESETS: Dict[str, Preset] = {
 
 @dataclass
 class CLIBuilder:
-    presets: Dict[str, Preset] = field(default_factory=lambda: PRESETS)
+    presets: Dict[str, Preset] = field(default_factory=_default_presets)
 
     # Catálogo de claves conocidas (debe reflejar la firma esperada en train.py)
     known_keys: Iterable[str] = field(default_factory=lambda: (

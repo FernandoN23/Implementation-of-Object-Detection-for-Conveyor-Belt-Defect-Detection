@@ -19,9 +19,9 @@ cache: false                # cache de imágenes/labels (gestión en dataloader)
 
 # ===== Optimizador y LR Schedule =====
 optimizer: adamw            # sgd|adam|adamw (informativo; configuración fina en train.py)
-lr0: 0.0015                 # learning rate inicial (mapea a --lr)
-lrf: 0.2                    # factor mínimo (cosine decay, usado en scheduler interno)
-weight_decay: 0.01          # weight decay (mapea a --wd)
+lr0: 0.01                   # learning rate inicial (mapea a --lr)
+lrf: 0.01                   # factor mínimo (cosine decay, usado en scheduler interno)
+weight_decay: 0.005         # weight decay (mapea a --wd)
 momentum: 0.9               # si usas SGD
 betas: [0.9, 0.999]         # si usas Adam/AdamW
 epochs: 150                 # épocas por defecto (mapea a --epochs)
