@@ -1,0 +1,19 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: model_variants.yaml
+# Define las variantes estructurales del modelo YOLOv11 según
+# los parámetros de escalado de profundidad y ancho del backbone.
+# ==============================================================
+
+variants:
+  n:  {depth_multiple: 0.50, width_multiple: 0.25, max_channels: 1024}
+  s:  {depth_multiple: 0.50, width_multiple: 0.50, max_channels: 1024}
+  m:  {depth_multiple: 0.50, width_multiple: 1.00, max_channels: 512}
+  l:  {depth_multiple: 1.00, width_multiple: 1.00, max_channels: 512}
+  xl: {depth_multiple: 1.00, width_multiple: 1.50, max_channels: 512}
+
