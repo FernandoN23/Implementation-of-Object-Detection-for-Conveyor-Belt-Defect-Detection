@@ -6,24 +6,22 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: dataset.yaml
-# Configuración del dataset utilizado por el modelo YOLOv11.
-# Define rutas, número de clases y nombres de defectos detectados.
+# Configuración del dataset utilizado por los modelos YOLO.
+# Define rutas, clases y nombres de defectos detectados.
 # ==============================================================
 
+# Raíz del dataset
 path: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
 
-train: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/train/images
-val:   C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/valid/images
-test:  C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset/test/images
+# Rutas relativas a 'path'
+train: train/images
+val:   valid/images
+test:  test/images  # opcional, puedes dejarlo vacío si no lo usas
 
-nc: 5
+# Clases
 names:
   0: Hole
   1: Impact Damage
   2: Puncture
   3: Tear
   4: Wear
-
-download: false
-format: yolo
-imgsz: 640
