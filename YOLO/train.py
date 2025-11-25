@@ -36,6 +36,9 @@ Notas de diseño (iteración actual)
   deshabilitado**, independientemente de lo que diga el YAML.
 - La configuración BN→GN se pasa al Trainer, que es responsable de
   aplicar el patch sobre YOLOv5.
+- El sistema de warnings del proyecto (engine/warnings.py) se instala
+  tras el bootstrap de MIOpen para deduplicar avisos ruidosos sin
+  ocultar errores reales.
 """
 
 from __future__ import annotations
@@ -359,8 +362,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     2) Carga de `train.yaml`.
     3) Aplicación opcional de `--preset` (overrides sobre paths/training).
     4) Bootstrap MIOpen (si corresponde) **antes** de importar Torch/YOLOv5.
-    5) Construcción de `TrainerConfig` (incluyendo BN2GN).
-    6) Ejecución de `Trainer.fit()`.
+    5) Instalación de filtros globales de warnings/logging del proyecto.
+    6) Construcción de `TrainerConfig` (incluyendo BN2GN).
+    7) Ejecución de `Trainer.fit()`.
     """
 
     args = parse_args(argv)
@@ -383,12 +387,21 @@ def main(argv: Optional[list[str]] = None) -> None:
         if miopen_cfg is not None:
             bootstrap(miopen_cfg)
 
-    # 5) Importar Trainer una vez configurado el entorno MIOpen
+    # 5) Instalar sistema global de warnings/logging del proyecto
+    try:
+        from engine.warnings import install_global_warning_filters  # type: ignore
+    except Exception:  # pragma: no cover - entorno sin módulo de warnings del proyecto
+        install_global_warning_filters = None  # type: ignore
+
+    if install_global_warning_filters is not None:
+        install_global_warning_filters(force=False)
+
+    # 6) Importar Trainer una vez configurado el entorno MIOpen y los warnings
     from engine.Trainer import Trainer  # type: ignore
 
     trainer_cfg = _build_trainer_config(cfg_yaml, args, miopen_cfg)
 
-    # 6) Ejecutar entrenamiento
+    # 7) Ejecutar entrenamiento
     trainer = Trainer(trainer_cfg)
     trainer.fit()
 

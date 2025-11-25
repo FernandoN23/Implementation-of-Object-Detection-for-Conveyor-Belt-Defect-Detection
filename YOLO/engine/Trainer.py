@@ -33,6 +33,14 @@ Notas importantes
   sobre el modelo YOLOv5 deberá realizarse en el backend (por ejemplo,
   dentro del propio repo YOLOv5) una vez que exista una instancia de
   modelo.
+
+Cambios relevantes en esta iteración
+------------------------------------
+- Se evita crear la carpeta de run (`save_dir`) **antes** de llamar a
+  YOLOv5 para no forzar la auto-numeración (`...run`, `...run2`, etc.).
+- Tras el entrenamiento, se resuelve dinámicamente cuál fue la carpeta
+  de run efectiva utilizada por YOLOv5 (incluyendo posibles sufijos
+  numéricos) y se sincronizan pesos y métricas desde ahí.
 """
 
 from __future__ import annotations
@@ -103,6 +111,37 @@ def _load_yolov5_train_module() -> Any:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _resolve_latest_run_dir(task: str, variant: str, run_name: str) -> Optional[Path]:
+    """Resuelve la carpeta de run efectiva usada por YOLOv5.
+
+    YOLOv5 puede auto-numerar runs cuando `exist_ok=False`, generando
+    directorios como `run`, `run2`, `run3`, etc. Esta utilidad busca en
+    `YOLO/runs/<task>/<variant>` todos los directorios cuyo nombre
+    coincida con `run_name` o comience con `run_name` y selecciona el más
+    recientemente modificado.
+    """
+
+    base_parent = RUNS_ROOT / task / variant
+    if not base_parent.exists():
+        return None
+
+    candidates = []
+    prefix = run_name
+    for d in base_parent.iterdir():
+        if not d.is_dir():
+            continue
+        name = d.name
+        if name == prefix or name.startswith(prefix):
+            candidates.append(d)
+
+    if not candidates:
+        return None
+
+    # Seleccionar el directorio con mayor mtime como run "activo" más reciente
+    latest = max(candidates, key=lambda p: p.stat().st_mtime)
+    return latest
 
 
 # ---------------------------------------------------------------------------
@@ -180,16 +219,18 @@ class Trainer:
     def __init__(self, cfg: TrainerConfig) -> None:
         self.cfg = cfg
 
-        # Subcarpeta relativa del experimento: p.ej. detect/s/exp, detect/m/belt_A, etc.
+        # Subcarpeta relativa "canónica" del experimento: p.ej.
+        # detect/s/exp. Esta ruta se usa como intención de diseño, pero
+        # la carpeta efectiva de YOLOv5 puede auto-numerarse.
         self.subdir = Path(self.cfg.task) / self.cfg.variant / self.cfg.run_name
 
-        # Carpeta principal del run (donde YOLOv5 escribirá todo).
+        # Carpeta "canónica" del run (intención). La carpeta efectiva
+        # usada por YOLOv5 se resolverá luego de la ejecución.
         self.save_dir = RUNS_ROOT / self.subdir
 
-        # Carpeta de pesos asociada al run.
+        # Estas rutas se actualizarán tras `_resolve_effective_run_dirs`
+        # para reflejar la carpeta real utilizada por YOLOv5.
         self.weights_dir = self.save_dir / "weights"
-
-        # Carpeta de métricas agregadas del proyecto.
         self.metrics_dir = METRICS_ROOT / self.subdir
 
         # Carpeta de pesos globales (catálogo) para este tipo de tarea.
@@ -207,11 +248,13 @@ class Trainer:
         """Ejecuta un entrenamiento completo delegando en `yolov5/train.py`.
 
         Flujo:
-        1) Asegura la existencia de carpetas de salida.
+        1) Asegura la existencia de carpetas base de salida (sin forzar
+           la creación del run leaf para no interferir con YOLOv5).
         2) Construye un `Namespace` de opciones para YOLOv5.
         3) Importa y llama a `yolov5.train.main(opt)` para ejecutar el
            entrenamiento.
-        4) Sincroniza pesos y artefactos clave a `YOLO/weights` y
+        4) Resuelve la carpeta de run efectiva de YOLOv5.
+        5) Sincroniza pesos y artefactos clave a `YOLO/weights` y
            `YOLO/metrics`.
 
         Notas:
@@ -238,6 +281,9 @@ class Trainer:
         # Ejecutar entrenamiento principal de YOLOv5
         yolov5_train.main(opt)
 
+        # Resolver directorios efectivos (incluyendo auto-sufijos de YOLOv5)
+        self._resolve_effective_run_dirs()
+
         # Sincronizar artefactos a la jerarquía del proyecto
         self._sync_weights()
         self._sync_metrics()
@@ -256,8 +302,8 @@ class Trainer:
         """
 
         # Rutas de proyecto/name según convención de YOLOv5
-        project = self.save_dir.parent  # .../YOLO/runs/detect/s
-        name = self.save_dir.name       # run_name
+        project = RUNS_ROOT / self.cfg.task / self.cfg.variant  # p.ej. YOLO/runs/detect/s
+        name = self.cfg.run_name                                # nombre lógico del experimento
 
         # Configuración BN2GN para propagarla al backend YOLOv5
         if isinstance(self.cfg.bn2gn, BN2GNConfig):  # type: ignore[arg-type]
@@ -337,14 +383,57 @@ class Trainer:
         return argparse.Namespace(**opt_dict)
 
     # ------------------------------------------------------------------
-    # Sincronización de artefactos
+    # Resolución de directorios efectivos y sincronización de artefactos
     # ------------------------------------------------------------------
 
     def _ensure_directories(self) -> None:
-        """Crea las carpetas necesarias para el experimento si no existen."""
+        """Crea las carpetas base necesarias para el experimento.
 
-        for p in (self.save_dir, self.weights_dir, self.metrics_dir, self.global_weights_dir):
+        Importante: **no** crea la carpeta leaf del run (`save_dir`), ya
+        que esto provocaría que YOLOv5 la detecte como existente y
+        auto-numere el run (añadiendo sufijos `2`, `3`, ...). En su
+        lugar, se asegura únicamente de que existan:
+
+        - `YOLO/runs`
+        - `YOLO/runs/<task>`
+        - `YOLO/runs/<task>/<variant>`
+        - `YOLO/weights/<task>`
+        - `YOLO/metrics`
+        """
+
+        runs_task_variant = RUNS_ROOT / self.cfg.task / self.cfg.variant
+
+        for p in (RUNS_ROOT, runs_task_variant, WEIGHTS_ROOT, self.global_weights_dir, METRICS_ROOT):
             p.mkdir(parents=True, exist_ok=True)
+
+    def _resolve_effective_run_dirs(self) -> None:
+        """Resuelve y actualiza las rutas de run/weights/metrics tras YOLOv5.
+
+        - Localiza la carpeta de run efectiva utilizada por YOLOv5
+          (incluyendo sufijos numéricos si los hay).
+        - Actualiza `self.save_dir` y `self.weights_dir` para apuntar a
+          esa carpeta real.
+        - Ajusta `self.metrics_dir` para mantener la misma sub-estructura
+          relativa (`detect/s/<run_name_effectivo>`).
+        """
+
+        latest = _resolve_latest_run_dir(self.cfg.task, self.cfg.variant, self.cfg.run_name)
+        if latest is None:
+            # No se encontró carpeta efectiva; se mantiene la canónica.
+            return
+
+        self.save_dir = latest
+        self.weights_dir = self.save_dir / "weights"
+
+        # Mantener espejo de la estructura de runs dentro de YOLO/metrics
+        try:
+            rel_subdir = self.save_dir.relative_to(RUNS_ROOT)
+        except ValueError:
+            # Si por alguna razón la ruta no es relativa a RUNS_ROOT,
+            # se vuelve al comportamiento canónico.
+            rel_subdir = self.subdir
+
+        self.metrics_dir = METRICS_ROOT / rel_subdir
 
     def _sync_weights(self) -> None:
         """Copia los pesos `best.pt` y `last.pt` al catálogo global `YOLO/weights`.
@@ -352,6 +441,11 @@ class Trainer:
         Convención de nombres:
         - best → `<variant>_<run_name>_best.pt`
         - last → `<variant>_<run_name>_last.pt`
+
+        Nota: el nombre de archivo utiliza el `run_name` lógico de la
+        configuración, no el nombre final auto-numerado del directorio.
+        Esto permite sobreescribir explícitamente el catálogo global con
+        la versión más reciente de ese experimento lógico.
         """
 
         best_src = self.weights_dir / "best.pt"
