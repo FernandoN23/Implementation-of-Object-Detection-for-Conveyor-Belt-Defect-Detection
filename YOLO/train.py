@@ -39,6 +39,10 @@ Notas de diseño (iteración actual)
 - El sistema de warnings del proyecto (engine/warnings.py) se instala
   tras el bootstrap de MIOpen para deduplicar avisos ruidosos sin
   ocultar errores reales.
+- La fase lógica del experimento (train/val/test) y el flag de uso de
+  Albumentations se leen desde `training` en `train.yaml` y se
+  propagan a `TrainerConfig` para estructurar la jerarquía de
+  directorios y controlar el pipeline de augmentations externas.
 """
 
 from __future__ import annotations
@@ -201,6 +205,12 @@ def _build_trainer_config(
     bn2gn_yaml = cfg_yaml.get("bn2gn") or {}
 
     # ---------------------------
+    # Fase lógica y control de Albumentations
+    # ---------------------------
+    phase = str(training.get("phase", "train"))
+    use_albumentations = bool(training.get("use_albumentations", False))
+
+    # ---------------------------
     # Identidad del experimento
     # ---------------------------
     task = training.get("task", "detect")
@@ -290,6 +300,8 @@ def _build_trainer_config(
         ndjson_file=ndjson_file,
         miopen=miopen_cfg,
         bn2gn=bn2gn_cfg,
+        phase=phase,
+        use_albumentations=use_albumentations,
     )
 
     return cfg

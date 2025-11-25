@@ -45,6 +45,9 @@ training:
   # Identidad del experimento
   run_name: "belt_defects_baseline"
 
+  # Fase lógica de ejecución (afecta jerarquía de runs/metrics/weights)
+  phase: "train"        # train | val | test
+
   # Dispositivo (vacío = autodetección en Trainer/select_device)
   device: ""
 
@@ -76,6 +79,10 @@ training:
   patience: 50          # EarlyStopping patience (epochs)
   save_period: -1       # guardar epochX cada N epochs (desactivado si < 1)
   seed: 0               # semilla global
+
+  # Control de augmentations externas (Albumentations)
+  # false → desactiva Albumentations en YOLOv5 (sólo augmentations internas)
+  use_albumentations: false
 
   # Logging NDJSON (para compatibilidad futura con utilidades personalizadas)
   ndjson_console: false

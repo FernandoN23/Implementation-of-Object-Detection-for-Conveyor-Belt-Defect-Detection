@@ -3,7 +3,7 @@
 
 import math
 import random
-
+import os
 import cv2
 import numpy as np
 import torch
@@ -24,6 +24,13 @@ class Albumentations:
         """Initializes Albumentations class for optional data augmentation in YOLOv5 with specified input size."""
         self.transform = None
         prefix = colorstr("albumentations: ")
+
+        # --- NUEVO: respetar bandera global para desactivar Albumentations ---
+        if os.getenv("YOLO_DISABLE_ALBUMENTATIONS", "0") == "1":
+            LOGGER.info(prefix + "disabled by YOLO_DISABLE_ALBUMENTATIONS=1")
+            return
+        # --------------------------------------------------------------------
+
         try:
             import albumentations as A
 

@@ -20,6 +20,10 @@ Iteración actual del módulo `Trainer`, responsable de:
 - Sincronizar pesos y artefactos clave a las rutas del proyecto.
 - Gestionar la política BN→GN (BatchNorm → GroupNorm) a nivel de
   configuración, dejando su aplicación efectiva al backend YOLOv5.
+- Gestionar la fase lógica del experimento (train/val/test) para
+  estructurar la jerarquía de runs, métricas y pesos.
+- Exponer un flag de alto nivel para activar/desactivar Albumentations
+  en la copia local de YOLOv5 mediante una variable de entorno.
 
 Notas importantes
 -----------------
@@ -33,6 +37,13 @@ Notas importantes
   sobre el modelo YOLOv5 deberá realizarse en el backend (por ejemplo,
   dentro del propio repo YOLOv5) una vez que exista una instancia de
   modelo.
+- La fase lógica (`phase = train/val/test`) se define en
+  `YOLO/configs/train.yaml` y se utiliza para construir rutas del tipo
+  `YOLO/runs/<task>/<variant>/<phase>/<run_name>`.
+- El flag `use_albumentations` se expone también desde
+  `YOLO/configs/train.yaml` y se traduce en la variable de entorno
+  `YOLO_DISABLE_ALBUMENTATIONS` para que la copia local de YOLOv5 pueda
+  decidir si construye o no el pipeline de Albumentations.
 
 Cambios relevantes en esta iteración
 ------------------------------------
@@ -41,6 +52,13 @@ Cambios relevantes en esta iteración
 - Tras el entrenamiento, se resuelve dinámicamente cuál fue la carpeta
   de run efectiva utilizada por YOLOv5 (incluyendo posibles sufijos
   numéricos) y se sincronizan pesos y métricas desde ahí.
+- La estructura de directorios de salida se extiende a:
+  `YOLO/runs/<task>/<variant>/<phase>/<run_name>` y espejo en
+  `YOLO/metrics`, mientras que los pesos consolidados se almacenan en
+  `YOLO/weights/<task>/<variant>/<phase>/`.
+- Se introduce un flag de configuración de alto nivel para controlar la
+  activación de Albumentations en YOLOv5 vía la variable de entorno
+  `YOLO_DISABLE_ALBUMENTATIONS`.
 """
 
 from __future__ import annotations
@@ -113,17 +131,17 @@ def _load_yolov5_train_module() -> Any:
     return module
 
 
-def _resolve_latest_run_dir(task: str, variant: str, run_name: str) -> Optional[Path]:
+def _resolve_latest_run_dir(task: str, variant: str, phase: str, run_name: str) -> Optional[Path]:
     """Resuelve la carpeta de run efectiva usada por YOLOv5.
 
     YOLOv5 puede auto-numerar runs cuando `exist_ok=False`, generando
     directorios como `run`, `run2`, `run3`, etc. Esta utilidad busca en
-    `YOLO/runs/<task>/<variant>` todos los directorios cuyo nombre
-    coincida con `run_name` o comience con `run_name` y selecciona el más
-    recientemente modificado.
+    `YOLO/runs/<task>/<variant>/<phase>` todos los directorios cuyo
+    nombre coincida con `run_name` o comience con `run_name` y
+    selecciona el más recientemente modificado.
     """
 
-    base_parent = RUNS_ROOT / task / variant
+    base_parent = RUNS_ROOT / task / variant / phase
     if not base_parent.exists():
         return None
 
@@ -166,6 +184,7 @@ class TrainerConfig:
     task: str = "detect"         # por ahora: "detect" (detección). Futuro: "classify".
     variant: str = "s"           # n, s, m, l, x (ej. YOLOv11-s)
     run_name: str = "exp"        # nombre lógico del experimento
+    phase: str = "train"        # fase lógica: train / val / test
 
     # Datos y rutas
     data_config: Path = field(default_factory=lambda: CONFIGS_ROOT / "dataset.yaml")
@@ -187,6 +206,9 @@ class TrainerConfig:
     # Opciones de logging
     ndjson_console: bool = False
     ndjson_file: bool = False
+
+    # Control de augmentations externas (Albumentations)
+    use_albumentations: bool = False
 
     # Esqueleto para integración con MIOpen/BN2GN
     miopen: Optional["MIOpenConfig"] = None  # se aplica en YOLO/train.py antes de importar torch
@@ -214,15 +236,19 @@ class Trainer:
     - Exponer la configuración BN→GN (si está configurada) para que el
       backend YOLOv5 pueda aplicarla donde corresponda (modelo ya
       instanciado).
+    - Exponer la fase lógica del experimento para estructurar la
+      jerarquía de directorios de salida.
+    - Propagar la política de uso de Albumentations a YOLOv5 mediante
+      la variable de entorno `YOLO_DISABLE_ALBUMENTATIONS`.
     """
 
     def __init__(self, cfg: TrainerConfig) -> None:
         self.cfg = cfg
 
         # Subcarpeta relativa "canónica" del experimento: p.ej.
-        # detect/s/exp. Esta ruta se usa como intención de diseño, pero
-        # la carpeta efectiva de YOLOv5 puede auto-numerarse.
-        self.subdir = Path(self.cfg.task) / self.cfg.variant / self.cfg.run_name
+        # detect/s/train/exp. Esta ruta se usa como intención de diseño,
+        # pero la carpeta efectiva de YOLOv5 puede auto-numerarse.
+        self.subdir = Path(self.cfg.task) / self.cfg.variant / self.cfg.phase / self.cfg.run_name
 
         # Carpeta "canónica" del run (intención). La carpeta efectiva
         # usada por YOLOv5 se resolverá luego de la ejecución.
@@ -233,8 +259,9 @@ class Trainer:
         self.weights_dir = self.save_dir / "weights"
         self.metrics_dir = METRICS_ROOT / self.subdir
 
-        # Carpeta de pesos globales (catálogo) para este tipo de tarea.
-        self.global_weights_dir = WEIGHTS_ROOT / self.cfg.task
+        # Carpeta de pesos globales (catálogo) para este tipo de tarea,
+        # variante y fase (train/val/test).
+        self.global_weights_dir = WEIGHTS_ROOT / self.cfg.task / self.cfg.variant / self.cfg.phase
 
         # Nota: la aplicación efectiva de BN→GN se delega al backend
         # YOLOv5, dado que es allí donde se construye el modelo. Aquí
@@ -248,13 +275,15 @@ class Trainer:
         """Ejecuta un entrenamiento completo delegando en `yolov5/train.py`.
 
         Flujo:
-        1) Asegura la existencia de carpetas base de salida (sin forzar
+        1) Configura la variable de entorno para controlar el uso de
+           Albumentations en YOLOv5.
+        2) Asegura la existencia de carpetas base de salida (sin forzar
            la creación del run leaf para no interferir con YOLOv5).
-        2) Construye un `Namespace` de opciones para YOLOv5.
-        3) Importa y llama a `yolov5.train.main(opt)` para ejecutar el
+        3) Construye un `Namespace` de opciones para YOLOv5.
+        4) Importa y llama a `yolov5.train.main(opt)` para ejecutar el
            entrenamiento.
-        4) Resuelve la carpeta de run efectiva de YOLOv5.
-        5) Sincroniza pesos y artefactos clave a `YOLO/weights` y
+        5) Resuelve la carpeta de run efectiva de YOLOv5.
+        6) Sincroniza pesos y artefactos clave a `YOLO/weights` y
            `YOLO/metrics`.
 
         Notas:
@@ -266,10 +295,19 @@ class Trainer:
           una vez que exista el modelo.
         """
 
+        # 1) Control de Albumentations vía variable de entorno
+        if not self.cfg.use_albumentations:
+            os.environ["YOLO_DISABLE_ALBUMENTATIONS"] = "1"
+        else:
+            os.environ.pop("YOLO_DISABLE_ALBUMENTATIONS", None)
+
+        # 2) Crear estructura mínima de directorios
         self._ensure_directories()
+
+        # 3) Construir opciones para YOLOv5
         opt = self._build_yolov5_opt()
 
-        # Import explícito del script de entrenamiento de YOLOv5 desde
+        # 4) Import explícito del script de entrenamiento de YOLOv5 desde
         # YOLO/yolov5/train.py, evitando colisiones con YOLO/train.py.
         yolov5_train = _load_yolov5_train_module()
 
@@ -281,10 +319,10 @@ class Trainer:
         # Ejecutar entrenamiento principal de YOLOv5
         yolov5_train.main(opt)
 
-        # Resolver directorios efectivos (incluyendo auto-sufijos de YOLOv5)
+        # 5) Resolver directorios efectivos (incluyendo auto-sufijos de YOLOv5)
         self._resolve_effective_run_dirs()
 
-        # Sincronizar artefactos a la jerarquía del proyecto
+        # 6) Sincronizar artefactos a la jerarquía del proyecto
         self._sync_weights()
         self._sync_metrics()
 
@@ -302,8 +340,8 @@ class Trainer:
         """
 
         # Rutas de proyecto/name según convención de YOLOv5
-        project = RUNS_ROOT / self.cfg.task / self.cfg.variant  # p.ej. YOLO/runs/detect/s
-        name = self.cfg.run_name                                # nombre lógico del experimento
+        project = RUNS_ROOT / self.cfg.task / self.cfg.variant / self.cfg.phase  # p.ej. YOLO/runs/detect/s/train
+        name = self.cfg.run_name                                                # nombre lógico del experimento
 
         # Configuración BN2GN para propagarla al backend YOLOv5
         if isinstance(self.cfg.bn2gn, BN2GNConfig):  # type: ignore[arg-type]
@@ -317,10 +355,17 @@ class Trainer:
             bn2gn_min_channels_per_group = 1
             bn2gn_verbose = 1
 
+        # Resolver ruta de pesos a utilizar
+        if self.cfg.weights:
+            weights_arg = str(self.cfg.weights)
+        else:
+            # Ruta por defecto del modelo base yolov5s.pt dentro de YOLO/weights
+            weights_arg = str(WEIGHTS_ROOT / "yolov5s.pt")
+
         # Construir diccionario base de opciones
         opt_dict = dict(
             # Pesos y modelo
-            weights=self.cfg.weights or "yolov5s.pt",
+            weights=weights_arg,
             cfg="",  # se usará el modelo por defecto asociado a los pesos
 
             # Dataset y hyps
@@ -395,15 +440,14 @@ class Trainer:
         lugar, se asegura únicamente de que existan:
 
         - `YOLO/runs`
-        - `YOLO/runs/<task>`
-        - `YOLO/runs/<task>/<variant>`
-        - `YOLO/weights/<task>`
+        - `YOLO/runs/<task>/<variant>/<phase>`
+        - `YOLO/weights/<task>/<variant>/<phase>`
         - `YOLO/metrics`
         """
 
-        runs_task_variant = RUNS_ROOT / self.cfg.task / self.cfg.variant
+        runs_task_variant_phase = RUNS_ROOT / self.cfg.task / self.cfg.variant / self.cfg.phase
 
-        for p in (RUNS_ROOT, runs_task_variant, WEIGHTS_ROOT, self.global_weights_dir, METRICS_ROOT):
+        for p in (RUNS_ROOT, runs_task_variant_phase, WEIGHTS_ROOT, self.global_weights_dir, METRICS_ROOT):
             p.mkdir(parents=True, exist_ok=True)
 
     def _resolve_effective_run_dirs(self) -> None:
@@ -414,10 +458,10 @@ class Trainer:
         - Actualiza `self.save_dir` y `self.weights_dir` para apuntar a
           esa carpeta real.
         - Ajusta `self.metrics_dir` para mantener la misma sub-estructura
-          relativa (`detect/s/<run_name_effectivo>`).
+          relativa (`detect/s/train/<run_name_effectivo>`, por ejemplo).
         """
 
-        latest = _resolve_latest_run_dir(self.cfg.task, self.cfg.variant, self.cfg.run_name)
+        latest = _resolve_latest_run_dir(self.cfg.task, self.cfg.variant, self.cfg.phase, self.cfg.run_name)
         if latest is None:
             # No se encontró carpeta efectiva; se mantiene la canónica.
             return
