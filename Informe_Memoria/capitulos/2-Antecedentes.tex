@@ -2,7 +2,14 @@
 
 \section{Estado del arte en la identificación de fallas en correas transportadoras}
 
-\par El aprendizaje profundo (Deep Learning) se ha consolidado como una herramienta clave en el \textit{procesamiento de imágenes, visión computacional y reconocimiento de patrones}, debido a su capacidad para aprender representaciones de alto nivel desde datos masivos. A través de enfoques supervisados, no supervisados y semi-supervisados, estos algoritmos han superado a los métodos tradicionales, particularmente en tareas de clasificación y segmentación. El aprendizaje por transferencia (transfer learning) ha sido especialmente útil en entornos con escasez de datos etiquetados, permitiendo la reutilización de modelos preentrenados para mejorar el rendimiento en nuevas tareas \cite{gupta2022deep}. \\
+\par El aprendizaje profundo (\textit{Deep Learning}) surge como una evolución de los enfoques clásicos de aprendizaje automático (\textit{Machine Learning}), al introducir redes neuronales profundas capaces de aprender de forma automática representaciones jerárquicas directamente desde los datos. En los métodos tradicionales de \textit{Machine Learning}, la etapa de ingeniería de características recae en el especialista, quien define manualmente descriptores (por ejemplo, basados en bordes, texturas o histogramas) y luego entrena un clasificador independiente sobre dichas representaciones. En contraste, en \textit{Deep Learning} la misma red realiza de manera integrada la extracción de características y la decisión final, aprendiendo dichas representaciones de alto nivel a partir de grandes volúmenes de datos. Esto ha permitido superar de forma sistemática a los métodos convencionales en tareas de clasificación, segmentación y detección de objetos. Adicionalmente, el aprendizaje por transferencia (\textit{transfer learning}) ha cobrado relevancia en escenarios con escasez de datos etiquetados, al reutilizar modelos profundos preentrenados en bases de datos extensas y ajustarlos a nuevas tareas de visión por computador, mejorando el rendimiento y reduciendo el costo computacional del entrenamiento \cite{gupta2022deep}.\\
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png}
+    \caption{Machine Learning vs Deep Learning \cite{gupta2022deep}}
+    \label{fig:2.1-ML_vs_DL}
+\end{figure}
 
 \par La detección de fallas en correas transportadoras se aborda como un problema de detección de objetos mediante aprendizaje supervisado. Existen dos enfoques principales: los modelos de dos etapas, como la familia R-CNN (red neuronal convolucional basada en regiones), que emplean redes de propuestas regionales seguidas de refinamiento, y los modelos de una etapa, como YOLO y SSD, que realizan predicciones por regresión directa, optimizados para aplicaciones en tiempo real \cite{zhang2021deep}. \\
 
@@ -43,43 +50,135 @@
     \label{fig:falla_correas}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Arquitectura Redes Neuronales Convolucionales (CNN) y Transfer Learning (TL)}
 
-\par La detección de objetos en visión computacional consiste en identificar automáticamente instancias presentes en una imagen o secuencia, localizándolas mediante cajas delimitadoras y clasificándolas correctamente. Esta tarea combina elementos de clasificación, localización y, en algunos casos, segmentación \cite{kaur2022tools}. \\
+\section{Redes Neuronales Convolucionales (CNN)}
 
-\par Los modelos de detección de objetos que solamente realizan una captura (single shot), poseen una arquitectura basada en redes neuronales convolucionales (CNN) y sus variantes, como por ejemplo R-CNN (CNN basado en la región) o Faster R-CNN (R-CNN más rapido). \\
+\subsection{Arquitectura}
 
-\par Las redes neuronales convolucionales (CNN) están inspiradas en el funcionamiento de la corteza visual del cerebro humano, emulando la capacidad de identificar objetos mediante características como bordes, formas y colores. Estas redes operan sobre imágenes 2D o 3D y se estructuran típicamente en tres etapas: capas de convolución, capas de reducción (pooling) y capas densas. Este enfoque permite que las CNN reconozcan patrones visuales de forma progresiva, desde rasgos simples hasta representaciones complejas \cite{lubinus2023redes}.
-\\
+\par La detección de objetos en visión por computadora consiste en identificar automáticamente instancias u objetos presentes en una imagen o secuencia, localizándolos mediante cajas delimitadoras y asignándoles una clase. En los modelos modernos, esta tarea se formula como un problema conjunto de clasificación y regresión: para cada región candidata de la imagen se predice la probabilidad de pertenencia a una clase y las coordenadas de la caja delimitadora asociada. Para abordar este problema de manera eficiente, las arquitecturas actuales separan conceptualmente el modelo en dos bloques: (i) un \textit{backbone} convolucional que extrae mapas de características jerárquicos desde la imagen de entrada y (ii) una o varias cabezas de detección encargadas de proyectar dichos mapas en predicciones de clases y cajas delimitadoras \cite{kaur2022tools,lubinus2023redes}. \\
 
-\par El aprendizaje por transferencia (transfer-learning) es una metodología eficaz cuando la disponibilidad de datos etiquetados es limitada, ya que aprovecha el conocimiento previamente aprendido por un modelo entrenado en un dominio específico para aplicarlo a una tarea distinta, lo que permite acelerar el proceso de entrenamiento y mejorar el desempeño del modelo \cite{iman2023review}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2-Object_Detection_example.png}
+    \caption{Ejemplos de detección de objetos simples y múltiples. Imagen adaptada de \cite{kaur2022tools}.}
+    \label{fig:2.2-object_detection_example}
+\end{figure}
+
+\par En este contexto, las redes neuronales convolucionales (CNN) constituyen el núcleo de la mayoría de arquitecturas de visión por computador. Una CNN está formada por una sucesión de capas de convolución, funciones de activación no lineales (como ReLU o variantes), capas de normalización y, en algunos casos, capas de reducción de dimensionalidad (\textit{pooling}). Las convoluciones aplican filtros o \textit{kernels} que se desplazan sobre la imagen, compartiendo pesos en el plano espacial. Este mecanismo reduce el número de parámetros, explota la estructura local de las imágenes y confiere invariancia aproximada a traslaciones \cite{lubinus2023redes}. \\
+
+\par Tal como se describe en revisiones recientes de aprendizaje profundo, las primeras capas de una CNN tienden a aprender características de bajo nivel (bordes, texturas, gradientes de intensidad), mientras que las capas intermedias y profundas capturan patrones de mayor complejidad (formas, partes de objetos y, finalmente, representaciones semánticas de alto nivel). Este aprendizaje jerárquico permite que una misma arquitectura pueda generalizar sobre grandes volúmenes de datos y adaptarse a distintas tareas visuales mediante el ajuste de sus parámetros \cite{gupta2022deep,lubinus2023redes}. \\
+
+\par En las capas de reducción o \textit{pooling}, como el \textit{max pooling}, se disminuye la resolución espacial de los mapas de características conservando las activaciones más relevantes. Esta etapa reduce la carga computacional y actúa como un mecanismo de regularización, al atenuar pequeños desplazamientos o deformaciones locales en la imagen. Finalmente, uno o varios bloques de capas densas (\textit{fully connected}) agregan la información extraída y realizan la clasificación o regresión final, según el diseño del modelo \cite{lubinus2023redes}. \\
+
+\par Para tareas de detección de objetos, las CNN se integran habitualmente en una arquitectura de tipo \textit{backbone--neck--head}. El \textit{backbone} (por ejemplo, variantes de VGG, ResNet u otras arquitecturas optimizadas para eficiencia) extrae los mapas de características base. Sobre estos mapas, el \textit{neck} construye representaciones multiescala mediante estructuras como pirámides de características (FPN, PAN), lo que permite detectar objetos de distintos tamaños. Finalmente, la \textit{head} de detección proyecta esas características a predicciones de clases y cajas delimitadoras, como ocurre en los modelos de una sola etapa (\textit{single-shot}) tipo YOLO y SSD, descritos en secciones posteriores \cite{zhang2021deep}. \\
+
+\subsection{Hiperparámetros comunes}
+
+\par Las arquitecturas basadas en CNN dependen de un conjunto de hiperparámetros que controlan tanto la forma de la red como el proceso de entrenamiento. A diferencia de los parámetros internos del modelo (pesos y sesgos), los hiperparámetros se fijan externamente y condicionan la calidad de las representaciones aprendidas, la velocidad de convergencia y el grado de generalización. En aplicaciones de detección de objetos, la adecuada configuración de estos hiperparámetros resulta crítica para lograr un equilibrio entre precisión y costo computacional \cite{gupta2022deep,zhang2021deep}. \\
+
+\par En la práctica, muchos de estos hiperparámetros son compartidos por distintas arquitecturas de detección basadas en CNN (por ejemplo, SSD, YOLO o variantes híbridas), lo que permite definir configuraciones iniciales razonables y posteriormente ajustarlas de forma iterativa. La Tabla \ref{tab:2-hiperparametros-comunes-cnn} resume algunos de los hiperparámetros más habituales, junto con rangos típicos y una descripción de su efecto sobre el entrenamiento del modelo. \\
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros comunes en modelos de detección basados en CNN}
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Rango típico} & \textbf{Nombre} \\ 
+        \hline
+        $lr0$ & $10^{-5}$ -- $10^{-1}$ & Tasa de aprendizaje inicial \\ 
+        \hline
+        $lrf$ & 0,01 -- 1,0 & Factor de tasa final \\ 
+        \hline
+        Número de \textit{épocas} & 100 -- 150 & \textit{Épocas} de entrenamiento \\ 
+        \hline
+        Tamaño de imagen & $640 \times 640$ píxeles & Resolución de entrada \\ 
+        \hline
+        Tamaño de \textit{batch} & 4 / 8 / 16 imágenes & Tamaño de lote (\textit{batch}) \\ 
+        \hline
+        $weight\_decay$ & 0,0 -- 0,001 & Regularización $L_2$ \\ 
+        \hline
+        $box\_loss$ & 0,02 -- 0,2 & Peso pérdida de cajas \\ 
+        \hline
+        $cls\_loss$ & 0,02 -- 4,0 & Peso pérdida de clasificación \\ 
+        \hline
+        $object\_loss$ & 0,02 -- 0,04 & Peso pérdida de objeto \\ 
+        \hline
+        $warmup\_epochs$ & 0 -- 5 & \textit{Épocas} de calentamiento \\ 
+        \hline
+    \end{tabular}
+    \label{tab:2-hiperparametros-comunes-cnn}
+\end{table}
+
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Arquitectura Encoder-Decoder y Destilación de Conocimiento en Deep Learning}
+\section{Mecanismo de atención y arquitectura Encoder-Decoder}
 
-\par Los modelos encoder-decoder basados en transformers, como DETR y DINO, utilizan un codificador que transforma la imagen en embeddings (vectores matemáticos) mediante auto-atención, y un decodificador que cruza estas representaciones con un conjunto fijo de consultas para predecir directamente clases y localización de objetos. \\
+\subsection{Mecanismo de atención en transformers}
 
-\par Debido a la complejidad de estos mecanismos de atención, han surgido métodos de explicabilidad que permiten visualizar la relevancia de cada token de entrada en la inferencia. Entre ellos, se propone un enfoque general aplicable a arquitecturas bi-modales y encoder-decoder, que genera mapas de atención interpretables. Estas capacidades son especialmente útiles en detección basada en transformers, donde también se integran estrategias como la destilación de conocimiento y el aprendizaje auto-supervisado para mejorar el rendimiento con datos limitados \cite{chefer2021generic}. \\
+\par Los modelos modernos basados en transformers utilizan mecanismos de auto-atención para ponderar de manera dinámica la relevancia de cada elemento de la entrada con respecto a los demás. En el contexto de visión por computador, la imagen se representa como una secuencia de \textit{tokens} (por ejemplo, parches proyectados a un espacio de embeddings), sobre los cuales la auto-atención estima qué regiones resultan más informativas para la tarea. Este esquema permite capturar dependencias espaciales de largo alcance, superando la limitación local de los filtros convolucionales clásicos. \\
 
-\par La destilación de conocimiento (knowledge-distillation) es una estrategia de aprendizaje profundo que permite transferir la capacidad representacional de modelos visuales de gran escala (teacher) hacia arquitecturas más livianas y eficientes (student), reduciendo significativamente el costo computacional durante la inferencia. En el contexto de tareas como la detección de objetos, esta técnica ha demostrado ser efectiva al extraer y condensar el conocimiento de modelos preentrenados en clasificación \cite{li2024distilling}.
+\par Debido a la complejidad de estos mecanismos, han surgido métodos de explicabilidad que permiten visualizar la contribución de cada token de entrada en la inferencia. Entre ellos, se propone un enfoque general aplicable a arquitecturas bi-modales y encoder-decoder, capaz de generar mapas de atención interpretables a partir de las ponderaciones internas del modelo. Estas herramientas de interpretabilidad resultan especialmente útiles en arquitecturas de detección basadas en transformers, donde la distribución de la atención sobre la imagen entrega información complementaria sobre las regiones que influyen en la predicción final \cite{chefer2021generic}. \\
+
+\subsection{Arquitecturas encoder-decoder para detección de objetos}
+
+\par En tareas de detección de objetos, los transformers suelen organizarse bajo un esquema encoder-decoder. Modelos como DETR y DINO utilizan un codificador (\textit{encoder}) que transforma la imagen en una representación latente mediante auto-atención, y un decodificador (\textit{decoder}) que cruza estas representaciones con un conjunto fijo de consultas (\textit{object queries}) para predecir directamente las clases y localizaciones de los objetos presentes. De este modo, el problema de detección se formula como un mapeo directo entre un conjunto de consultas y las instancias de objetos en la imagen, evitando componentes manuales como los algoritmos de propuestas de regiones \cite{carion2020end,zhang2022dino}. \\
+
+\par En versiones más recientes, como DINO, se introducen mejoras sobre el esquema original de DETR mediante el uso de extractores de características multiescala, atención deformable y estrategias de entrenamiento con ramas de desruido (\textit{denoising}). Estas extensiones permiten una convergencia más rápida y una gestión más robusta de muestras difíciles, manteniendo la formulación encoder-decoder como eje central de la arquitectura \cite{zhang2022dino}. \\
+
+\par De manera complementaria, la destilación de conocimiento (\textit{knowledge distillation}) se ha incorporado como una estrategia para transferir la capacidad representacional de modelos visuales de gran escala (\textit{teacher}) hacia arquitecturas más livianas y eficientes (\textit{student}). En el contexto de la detección de objetos con transformers, esta técnica permite condensar el conocimiento aprendido por modelos preentrenados en clasificación o detección sobre grandes bases de datos, reduciendo el costo computacional en la inferencia sin sacrificar significativamente el rendimiento \cite{li2024distilling}. \\
+
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{YOLO (You Only Look Once) y SSD (Single Shot Multibox Detector)}
+\clearpage
+\section{Modelos de detección de objetos de una sola etapa (YOLO y SSD)}
 
 
-\subsection{Arquitecturas}
+\subsection{Contextualización}
 
 
-\par YOLO y SSD son modelos de detección de objetos de tipo single-shot, es decir, realizan la detección y clasificación en una única pasada de la red. Ambos están basados en redes neuronales convolucionales (CNN). \\
+\par YOLO y SSD pertenecen a la familia de modelos de detección de objetos de una sola etapa (\textit{one-stage detectors}), en los cuales la localización de las cajas delimitadoras y la clasificación de las instancias se realizan en una única pasada por la red. Ambos se basan en redes neuronales convolucionales (CNN) y se enmarcan dentro de los enfoques de detección de objetos con aprendizaje profundo (\textit{Deep Learning}), donde la propia red efectúa de manera conjunta la extracción de características y la predicción final. En la Figura~\ref{fig:2.4-YOLO_SSD_DL} se esquematiza la relación entre los esquemas tradicionales de detección de objetos basados en \textit{Machine Learning}, los modelos de una etapa como YOLO y SSD —que serán objeto de estudio en esta memoria— y los modelos de dos etapas (\textit{two-stage}), dentro de los cuales destaca la familia R-CNN, pionera en el uso de propuestas de regiones como base para la extracción de características y la detección posterior \cite{kaur2022tools}. \\
 
-\par YOLO (You Only Look Once) es un enfoque de detección de objetos de una sola etapa que destaca por su alta velocidad y eficiencia, al predecir directamente las clases y ubicaciones de objetos en una sola pasada por la red. A diferencia de métodos de dos etapas como R-CNN o Faster R-CNN, YOLO evita la generación de propuestas de regiones, lo que lo hace apto para aplicaciones en tiempo real. Su arquitectura unificada lo convierte en una opción balanceada entre precisión y velocidad \cite{terven2023comprehensive}.
-\\
-\par SSD (Single Shot Multibox Detector) es otro enfoque en la detección de objetos, caracterizado por su capacidad de realizar clasificación y regresión de cajas delimitadoras en una única pasada de la red, sin requerir etapas de propuesta de regiones. SSD utiliza múltiples mapas de características de diferentes escalas para detectar objetos de diversos tamaños, lo que mejora la precisión especialmente en objetos pequeños \cite{liu2016ssd}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png}
+    \caption{Clasificación de varias técnicas de detección de objetos. Imagen extraída de \cite{kaur2022tools}.}
+    \label{fig:2.4-YOLO_SSD_DL}
+\end{figure}
+
+
+
+\subsection{YOLO (You Only Look Once)}
+
+\par YOLO (You Only Look Once) es un enfoque de detección de objetos de una sola etapa que destaca por su alta velocidad y eficiencia, al predecir directamente las clases y ubicaciones de objetos en una sola pasada por la red. A diferencia de métodos de dos etapas como R-CNN o Faster R-CNN, YOLO evita la generación de propuestas de regiones, lo que lo hace apto para aplicaciones en tiempo real. Su arquitectura unificada lo convierte en una opción balanceada entre precisión y velocidad \cite{terven2023comprehensive}.\\
+
+\par 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png}
+    \caption{Arquitectura de YOLOv5.}
+    \label{fig:2.4-YOLO_v5_architecture}
+\end{figure}
+
+
+
+\subsection{SSD (Single Shot Multibox Detector)}
+
+\par SSD (Single Shot Multibox Detector) es otro enfoque en la detección de objetos, caracterizado por su capacidad de realizar clasificación y regresión de cajas delimitadoras en una única pasada de la red, sin requerir etapas de propuesta de regiones. SSD utiliza múltiples mapas de características de diferentes escalas para detectar objetos de diversos tamaños, lo que mejora la precisión especialmente en objetos pequeños \cite{liu2016ssd}. La arquitectura general (que contempla sus dos versiones), se muestra en la Figura \ref{fig:2.4-SSD_architecture}.
   
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png}
+    \caption{Arquitectura general de SSD. Imagen extraída y procesada de \cite{liu2016ssd}.}
+    \label{fig:2.4-SSD_architecture}
+\end{figure}
 
+\par 
 
 \subsection{Hiperparámetros}
 

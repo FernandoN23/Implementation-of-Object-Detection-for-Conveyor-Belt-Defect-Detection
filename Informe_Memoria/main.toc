@@ -6,28 +6,34 @@
 \contentsline {chapter}{\numberline {2}Antecedentes}{3}{chapter.2}%
 \contentsline {section}{\numberline {2.1}Estado del arte en la identificación de fallas en correas transportadoras}{3}{section.2.1}%
 \contentsline {subsection}{\numberline {2.1.1}Fallas en correas transportadoras}{4}{subsection.2.1.1}%
-\contentsline {section}{\numberline {2.2}Arquitectura Redes Neuronales Convolucionales (CNN) y Transfer Learning (TL)}{4}{section.2.2}%
-\contentsline {section}{\numberline {2.3}Arquitectura Encoder-Decoder y Destilación de Conocimiento en Deep Learning}{5}{section.2.3}%
-\contentsline {section}{\numberline {2.4}YOLO (You Only Look Once) y SSD (Single Shot Multibox Detector)}{5}{section.2.4}%
-\contentsline {subsection}{\numberline {2.4.1}Arquitecturas}{5}{subsection.2.4.1}%
-\contentsline {subsection}{\numberline {2.4.2}Hiperparámetros}{6}{subsection.2.4.2}%
-\contentsline {section}{\numberline {2.5}DETR (DEtection TRansformer) y DINO}{6}{section.2.5}%
-\contentsline {subsection}{\numberline {2.5.1}Arquitecturas}{6}{subsection.2.5.1}%
-\contentsline {subsection}{\numberline {2.5.2}Hiperparámetros}{7}{subsection.2.5.2}%
-\contentsline {section}{\numberline {2.6}Métricas}{7}{section.2.6}%
-\contentsline {subsection}{\numberline {2.6.1}Precisión, Exhaustividad y F-Score}{7}{subsection.2.6.1}%
-\contentsline {subsection}{\numberline {2.6.2}IoU y Confianza}{8}{subsection.2.6.2}%
-\contentsline {subsection}{\numberline {2.6.3}AP y mAP}{8}{subsection.2.6.3}%
-\contentsline {subsection}{\numberline {2.6.4}Matriz de Confusión}{8}{subsection.2.6.4}%
-\contentsline {chapter}{\numberline {3}Metodología}{9}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Identificación de fallas}{9}{section.3.1}%
-\contentsline {section}{\numberline {3.2}Base de datos}{9}{section.3.2}%
-\contentsline {subsection}{\numberline {3.2.1}Recopilación}{9}{subsection.3.2.1}%
-\contentsline {subsection}{\numberline {3.2.2}Etiquetado}{9}{subsection.3.2.2}%
-\contentsline {subsection}{\numberline {3.2.3}Partición}{9}{subsection.3.2.3}%
-\contentsline {chapter}{\numberline {4}Resultados y Discusión}{10}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Métricas de entrenamiento}{10}{section.4.1}%
-\contentsline {section}{\numberline {4.2}Métricas de Validación}{10}{section.4.2}%
-\contentsline {section}{\numberline {4.3}Pruebas y detección de fallas}{10}{section.4.3}%
-\contentsline {section}{\numberline {4.4}Conclusiones}{10}{section.4.4}%
-\contentsline {chapter}{Bibliografía}{11}{chapter*.11}%
+\contentsline {section}{\numberline {2.2}Redes Neuronales Convolucionales (CNN)}{5}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Arquitectura}{5}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Hiperparámetros comunes}{6}{subsection.2.2.2}%
+\contentsline {section}{\numberline {2.3}Mecanismo de atención y arquitectura Encoder-Decoder}{7}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}Mecanismo de atención en transformers}{7}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}Arquitecturas encoder-decoder para detección de objetos}{7}{subsection.2.3.2}%
+\contentsline {section}{\numberline {2.4}Modelos de detección de objetos de una sola etapa (YOLO y SSD)}{9}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}Contextualización}{9}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {2.4.2}YOLO (You Only Look Once)}{9}{subsection.2.4.2}%
+\contentsline {subsection}{\numberline {2.4.3}SSD (Single Shot Multibox Detector)}{10}{subsection.2.4.3}%
+\contentsline {subsection}{\numberline {2.4.4}Hiperparámetros}{11}{subsection.2.4.4}%
+\contentsline {section}{\numberline {2.5}DETR (DEtection TRansformer) y DINO}{11}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}Arquitecturas}{11}{subsection.2.5.1}%
+\contentsline {subsection}{\numberline {2.5.2}Hiperparámetros}{12}{subsection.2.5.2}%
+\contentsline {section}{\numberline {2.6}Métricas}{12}{section.2.6}%
+\contentsline {subsection}{\numberline {2.6.1}Precisión, Exhaustividad y F-Score}{12}{subsection.2.6.1}%
+\contentsline {subsection}{\numberline {2.6.2}IoU y Confianza}{13}{subsection.2.6.2}%
+\contentsline {subsection}{\numberline {2.6.3}AP y mAP}{13}{subsection.2.6.3}%
+\contentsline {subsection}{\numberline {2.6.4}Matriz de Confusión}{13}{subsection.2.6.4}%
+\contentsline {chapter}{\numberline {3}Metodología}{14}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Identificación de fallas}{14}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Base de datos}{14}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Recopilación}{14}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Etiquetado}{14}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Partición}{14}{subsection.3.2.3}%
+\contentsline {chapter}{\numberline {4}Resultados y Discusión}{15}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Métricas de entrenamiento}{15}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Métricas de Validación}{15}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Pruebas y detección de fallas}{15}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Conclusiones}{15}{section.4.4}%
+\contentsline {chapter}{Bibliografía}{16}{chapter*.16}%

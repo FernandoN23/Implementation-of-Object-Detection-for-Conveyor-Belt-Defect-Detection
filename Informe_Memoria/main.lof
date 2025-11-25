@@ -1,6 +1,11 @@
 \babel@toc {spanish}{}\relax 
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {2.1.1}{\ignorespaces Tipos de falla comunes en correas transportadoras, imágenes adaptadas de \cite {khanna2022types}.}}{4}{figure.caption.9}%
+\contentsline {figure}{\numberline {2.1.1}{\ignorespaces Machine Learning vs Deep Learning \cite {gupta2022deep}}}{3}{figure.caption.8}%
+\contentsline {figure}{\numberline {2.1.2}{\ignorespaces Tipos de falla comunes en correas transportadoras, imágenes adaptadas de \cite {khanna2022types}.}}{5}{figure.caption.9}%
+\contentsline {figure}{\numberline {2.2.1}{\ignorespaces Ejemplos de detección de objetos simples y múltiples. Imagen adaptada de \cite {kaur2022tools}.}}{5}{figure.caption.10}%
+\contentsline {figure}{\numberline {2.4.1}{\ignorespaces Clasificación de varias técnicas de detección de objetos. Imagen extraída de \cite {kaur2022tools}.}}{9}{figure.caption.12}%
+\contentsline {figure}{\numberline {2.4.2}{\ignorespaces Arquitectura de YOLOv5.}}{10}{figure.caption.13}%
+\contentsline {figure}{\numberline {2.4.3}{\ignorespaces Arquitectura general de SSD. Imagen extraída y procesada de \cite {liu2016ssd}.}}{11}{figure.caption.14}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
