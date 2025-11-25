@@ -6,7 +6,7 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: requirements.txt
-# Descripción: Requerimientos unificados proyecto YOLO (ROCm 6.4.4 + YOLOv5/YOLOv11)
+# Descripción: Requerimientos unificados proyecto YOLO (ROCm 6.4.4 + YOLOv5)
 #==============================================================
 
 ## ============================================================
