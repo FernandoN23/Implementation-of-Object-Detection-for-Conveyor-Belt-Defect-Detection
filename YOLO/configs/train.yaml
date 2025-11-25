@@ -93,8 +93,8 @@ miopen:
   find_mode: "FAST"
 
   # Carpeta de DB de usuario MIOpen (se crea si no existe).
-  # - Dejar en null para que MIOpen use su comportamiento por defecto.
-  user_db_path: null
+  # - Usar una ruta local limpia para evitar DBs del sistema potencialmente corruptas.
+  user_db_path: "C:/Users/memorista/.miopen_db"
 
   # *** POLÍTICA PROYECTO: DESACTIVAR SIEMPRE LA CACHÉ ***
   # - engine/bootstrap_miopen.py exporta MIOPEN_DISABLE_CACHE=1 si este

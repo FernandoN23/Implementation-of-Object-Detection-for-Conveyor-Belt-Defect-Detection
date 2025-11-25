@@ -18,8 +18,8 @@ Iteración actual del módulo `Trainer`, responsable de:
 - Construir una configuración de entrenamiento compatible con `yolov5/train.py`.
 - Delegar el entrenamiento a YOLOv5 (detección) manteniendo el proyecto funcional.
 - Sincronizar pesos y artefactos clave a las rutas del proyecto.
-- Aplicar, si corresponde, la política BN→GN (BatchNorm → GroupNorm)
-  antes de importar el motor oficial de YOLOv5.
+- Gestionar la política BN→GN (BatchNorm → GroupNorm) a nivel de
+  configuración, dejando su aplicación efectiva al backend YOLOv5.
 
 Notas importantes
 -----------------
@@ -29,19 +29,22 @@ Notas importantes
 - Este `Trainer` asume que dicho bootstrap se ejecutó correctamente y
   no vuelve a modificar el entorno MIOpen.
 - La política BN→GN se controla desde `YOLO/configs/train.yaml` (sección
-  `bn2gn`) y se aplica mediante `engine.bn2gn_patch` tan pronto como se
-  instancia el `Trainer`.
+  `bn2gn`) y se expone en `TrainerConfig.bn2gn`. La aplicación concreta
+  sobre el modelo YOLOv5 deberá realizarse en el backend (por ejemplo,
+  dentro del propio repo YOLOv5) una vez que exista una instancia de
+  modelo.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import shutil
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 # ---------------------------------------------------------------------------
 # Rutas base de proyecto
@@ -58,22 +61,48 @@ DATASET_ROOT = PROJECT_ROOT / "Dataset"  # Proyecto/Dataset
 YOLOV5_ROOT = YOLO_ROOT / "yolov5"    # copia local de YOLOv5 oficial
 
 if str(YOLOV5_ROOT) not in sys.path:
+    # Necesario para que imports internos de YOLOv5 (models, utils, etc.)
+    # funcionen correctamente cuando cargamos train.py como módulo.
     sys.path.append(str(YOLOV5_ROOT))
 
 # Import de contexto para integración con BN2GN y MIOpen
 try:  # pragma: no cover - se usa como hint de diseño y puede no estar en etapas tempranas
-    from engine.bn2gn_patch import BN2GNConfig, apply_bn2gn_patch  # type: ignore
+    from engine.bn2gn_patch import BN2GNConfig  # type: ignore
 except Exception:  # pragma: no cover - tolerar falta del módulo en etapas tempranas
     BN2GNConfig = object  # type: ignore
-
-    def apply_bn2gn_patch(*_: object, **__: object) -> None:  # type: ignore[override]
-        """Stub silencioso cuando bn2gn_patch no está disponible."""
-        return None
 
 try:  # pragma: no cover
     from engine.bootstrap_miopen import MIOpenConfig  # type: ignore
 except Exception:  # pragma: no cover
     MIOpenConfig = object  # type: ignore
+
+
+# ---------------------------------------------------------------------------
+# Utilidades internas
+# ---------------------------------------------------------------------------
+
+
+def _load_yolov5_train_module() -> Any:
+    """Carga el script oficial de entrenamiento de YOLOv5 como módulo.
+
+    Se fuerza explícitamente la ruta `YOLO/yolov5/train.py` mediante
+    `importlib.util.spec_from_file_location` para evitar conflictos con
+    el propio `YOLO/train.py` del proyecto.
+    """
+
+    train_path = YOLOV5_ROOT / "train.py"
+    if not train_path.is_file():
+        raise RuntimeError(
+            f"No se encontró 'train.py' en el repositorio YOLOv5 esperado: {train_path}"
+        )
+
+    spec = importlib.util.spec_from_file_location("yolov5_train", train_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("No se pudo crear el spec para cargar yolov5.train")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +151,7 @@ class TrainerConfig:
 
     # Esqueleto para integración con MIOpen/BN2GN
     miopen: Optional["MIOpenConfig"] = None  # se aplica en YOLO/train.py antes de importar torch
-    bn2gn: Optional["BN2GNConfig"] = None    # se aplica globalmente al instanciar el Trainer
+    bn2gn: Optional["BN2GNConfig"] = None    # configuración BN2GN (aplicación en backend YOLOv5)
 
     def as_dict(self) -> Dict:
         """Retorna la configuración en formato dict estándar (útil para logs/meta)."""
@@ -143,8 +172,9 @@ class Trainer:
     - Construir un `argparse.Namespace` compatible con `yolov5/train.py`.
     - Delegar el entrenamiento al script oficial de YOLOv5.
     - Sincronizar pesos y artefactos clave a `YOLO/weights` y `YOLO/metrics`.
-    - Aplicar la política BN→GN (si está configurada) **antes** de
-      importar el módulo principal de entrenamiento de YOLOv5.
+    - Exponer la configuración BN→GN (si está configurada) para que el
+      backend YOLOv5 pueda aplicarla donde corresponda (modelo ya
+      instanciado).
     """
 
     def __init__(self, cfg: TrainerConfig) -> None:
@@ -165,8 +195,9 @@ class Trainer:
         # Carpeta de pesos globales (catálogo) para este tipo de tarea.
         self.global_weights_dir = WEIGHTS_ROOT / self.cfg.task
 
-        # Aplicar política BN→GN antes de cualquier interacción con YOLOv5.
-        self._apply_bn2gn_policy()
+        # Nota: la aplicación efectiva de BN→GN se delega al backend
+        # YOLOv5, dado que es allí donde se construye el modelo. Aquí
+        # sólo mantenemos la configuración en `self.cfg.bn2gn`.
 
     # ------------------------------------------------------------------
     # API pública
@@ -187,20 +218,22 @@ class Trainer:
         - Se asume que MIOpen ya fue inicializado externamente mediante
           `bootstrap_miopen` en `YOLO/train.py` antes de instanciar este
           `Trainer`.
-        - La política BN→GN ya se habrá aplicado en `__init__`.
+        - La política BN→GN se encuentra disponible en `self.cfg.bn2gn`,
+          pero su aplicación se debe realizar dentro del backend YOLOv5
+          una vez que exista el modelo.
         """
 
         self._ensure_directories()
         opt = self._build_yolov5_opt()
 
-        # Import tardío de YOLOv5 para minimizar acoplamiento en tiempo de carga
-        try:
-            import train as yolov5_train  # type: ignore
-        except Exception as exc:  # pragma: no cover
+        # Import explícito del script de entrenamiento de YOLOv5 desde
+        # YOLO/yolov5/train.py, evitando colisiones con YOLO/train.py.
+        yolov5_train = _load_yolov5_train_module()
+
+        if not hasattr(yolov5_train, "main"):
             raise RuntimeError(
-                f"No se pudo importar 'train' desde {YOLOV5_ROOT}. "
-                "Verifique que el repositorio oficial de YOLOv5 esté clonado en YOLO/yolov5."
-            ) from exc
+                "El módulo cargado desde YOLO/yolov5/train.py no expone una función 'main(opt)'."
+            )
 
         # Ejecutar entrenamiento principal de YOLOv5
         yolov5_train.main(opt)
@@ -226,6 +259,18 @@ class Trainer:
         project = self.save_dir.parent  # .../YOLO/runs/detect/s
         name = self.save_dir.name       # run_name
 
+        # Configuración BN2GN para propagarla al backend YOLOv5
+        if isinstance(self.cfg.bn2gn, BN2GNConfig):  # type: ignore[arg-type]
+            bn2gn_policy = getattr(self.cfg.bn2gn, "policy", "off")
+            bn2gn_max_groups = int(getattr(self.cfg.bn2gn, "max_groups", 32))
+            bn2gn_min_channels_per_group = int(getattr(self.cfg.bn2gn, "min_channels_per_group", 1))
+            bn2gn_verbose = int(getattr(self.cfg.bn2gn, "verbose", 1))
+        else:
+            bn2gn_policy = "off"
+            bn2gn_max_groups = 32
+            bn2gn_min_channels_per_group = 1
+            bn2gn_verbose = 1
+
         # Construir diccionario base de opciones
         opt_dict = dict(
             # Pesos y modelo
@@ -247,6 +292,7 @@ class Trainer:
             nosave=False,
             noval=False,
             noautoanchor=False,
+            noplots=False,
             evolve=None,
             bucket="",
             cache="ram",
@@ -280,33 +326,15 @@ class Trainer:
             # Logging NDJSON
             ndjson_console=self.cfg.ndjson_console,
             ndjson_file=self.cfg.ndjson_file,
+
+            # Configuración BN2GN (consumida en YOLOv5/train.py)
+            bn2gn_policy=bn2gn_policy,
+            bn2gn_max_groups=bn2gn_max_groups,
+            bn2gn_min_channels_per_group=bn2gn_min_channels_per_group,
+            bn2gn_verbose=bn2gn_verbose,
         )
 
         return argparse.Namespace(**opt_dict)
-
-    # ------------------------------------------------------------------
-    # Integración BN→GN
-    # ------------------------------------------------------------------
-
-    def _apply_bn2gn_policy(self) -> None:
-        """Aplica la política BN→GN si está configurada.
-
-        - Si `self.cfg.bn2gn` es `None`, no se realiza ninguna acción.
-        - Si existe una configuración BN2GN, se delega en
-          `engine.bn2gn_patch.apply_bn2gn_patch`.
-        - Cualquier error durante el patch se registra en stderr sin
-          interrumpir el entrenamiento (fallback: BN nativo de YOLOv5).
-        """
-
-        cfg_bn = self.cfg.bn2gn
-        if cfg_bn is None:
-            return
-
-        try:
-            apply_bn2gn_patch(cfg_bn)  # type: ignore[arg-type]
-        except Exception as exc:  # pragma: no cover
-            # Fallback seguro: no abortar entrenamiento, pero avisar.
-            print(f"[Trainer] Advertencia: fallo al aplicar BN2GN: {exc}")
 
     # ------------------------------------------------------------------
     # Sincronización de artefactos

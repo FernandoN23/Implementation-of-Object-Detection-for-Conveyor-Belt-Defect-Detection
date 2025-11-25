@@ -150,6 +150,7 @@ _MIOPEN_BN_PATTERNS = [
     r"MIOpen Error",               # encabezados
     r"SQLite.*no such column: mode",  # DB rota/completa parcial
     r"BatchNorm.*size mismatch",   # descriptores inconsistentes
+    r"miopenStatusInternalError",  # error genérico expuesto por PyTorch/ROCm
 ]
 
 
