@@ -4,12 +4,39 @@
   \providecommand\backrefprint{}
 
 \backrefparscanfalse
+\bibitem{khanna2022types}
+Khanna, A., Singh, B., y Kumar, S., ``{Types and causes of damage to the
+  conveyor belt – Review, classification and mutual relations}'',
+  {Engineering Failure Analysis}, vol.~141, p.~106553, 2022,
+  \href{https://dx.doi.org/10.1016/j.engfailanal.2022.106553}
+  {\nolinkurl{doi:\detokenize{10.1016/j.engfailanal.2022.106553}}}.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
+\bibitem{angulo2024deteccion}
+Fuente, V. B. A. D.~L., ``{Detección temprana de fallas en cintas
+  transportadoras mediante visión computacional y deep learning}'', memoria
+  para optar al título de ingeniera civil mecánica, {Universidad de Chile},
+  Santiago, Chile, 2024.
+\newblock Acceso abierto.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
 \bibitem{zhang2021deep}
 Zhang, M., Shi, H., Zhang, Y., Yu, Y., y Zhou, M., ``{Deep learning‑based
   damage detection of mining conveyor belt}'', {Measurement: Journal of the
   International Measurement Confederation}, vol.~175, p.~109130, 2021,
   \href{https://dx.doi.org/10.1016/j.measurement.2021.109130}
   {\nolinkurl{doi:\detokenize{10.1016/j.measurement.2021.109130}}}.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
+\bibitem{zhang2021one_stage}
+Zhang, Y., Li, X., Wang, F., Wei, B., y Li, L., ``{A Comprehensive Review of
+  One-stage Networks for Object Detection}'', en {2021 IEEE International
+  Conference on Signal Processing, Communications and Computing (ICSPCC)},
+  IEEE, 2021, \href{https://dx.doi.org/10.1109/ICSPCC52875.2021.9564613}
+  {\nolinkurl{doi:\detokenize{10.1109/ICSPCC52875.2021.9564613}}}.
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
@@ -31,21 +58,19 @@ Arkin, E., Yadikar, N., Xu, X., Aysa, A., y Ubul, K., ``{A survey: object
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
-\bibitem{angulo2024deteccion}
-Fuente, V. B. A. D.~L., ``{Detección temprana de fallas en cintas
-  transportadoras mediante visión computacional y deep learning}'', memoria
-  para optar al título de ingeniera civil mecánica, {Universidad de Chile},
-  Santiago, Chile, 2024.
-\newblock Acceso abierto.
+\bibitem{ajit2020review}
+Ajit, A., Acharya, K., y Samanta, A., ``A review of convolutional neural
+  networks'', en {2020 International Conference on Emerging Trends in
+  Information Technology and Engineering (ic-ETITE)}, IEEE, 2020.
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
-\bibitem{khanna2022types}
-Khanna, A., Singh, B., y Kumar, S., ``{Types and causes of damage to the
-  conveyor belt – Review, classification and mutual relations}'',
-  {Engineering Failure Analysis}, vol.~141, p.~106553, 2022,
-  \href{https://dx.doi.org/10.1016/j.engfailanal.2022.106553}
-  {\nolinkurl{doi:\detokenize{10.1016/j.engfailanal.2022.106553}}}.
+\bibitem{lubinus2023redes}
+Badillo, F.~L., Hernández, C. A.~R., Narváez, B.~M., y Trillos, Y. E.~A.,
+  ``{Redes neuronales convolucionales: un modelo de Deep Learning en imágenes
+  diagnósticas. Revisión de tema}'', {Revista Colombiana de Radiología},
+  2023, \href{https://dx.doi.org/10.53903/01212095.161}
+  {\nolinkurl{doi:\detokenize{10.53903/01212095.161}}}.
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
@@ -58,12 +83,26 @@ Kaur, J. y Singh, W., ``{Tools, techniques, datasets and application areas for
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
-\bibitem{lubinus2023redes}
-Badillo, F.~L., Hernández, C. A.~R., Narváez, B.~M., y Trillos, Y. E.~A.,
-  ``{Redes neuronales convolucionales: un modelo de Deep Learning en imágenes
-  diagnósticas. Revisión de tema}'', {Revista Colombiana de Radiología},
-  2023, \href{https://dx.doi.org/10.53903/01212095.161}
-  {\nolinkurl{doi:\detokenize{10.53903/01212095.161}}}.
+\bibitem{nyuytiymbiy2020parameters}
+Nyuytiymbiy, K., ``{Parameters and Hyperparameters in Machine Learning and Deep
+  Learning}'', {Towards Data Science}, December 2020,
+  \href{https://towardsdatascience.com/parameters-and-hyperparameters-aa609601a9ac}
+  {\nolinkurl{\detokenize{https://towardsdatascience.com/parameters-and-hyperparameters-aa609601a9ac}}}.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
+\bibitem{ultralyticsHyperparameterTuning}
+{Ultralytics}, ``Ultralytics {YOLO} hyperparameter tuning guide''.
+  \url{https://docs.ultralytics.com/es/guides/hyperparameter-tuning/}, 2023.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
+\bibitem{vaswani2017attention}
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A.~N.,
+  Kaiser, {\L}., y Polosukhin, I., ``{Attention Is All You Need}'', en
+  {Advances in Neural Information Processing Systems}, vol.~30, pp.~5998--6008,
+  2017, \href{http://arxiv.org/abs/1706.03762}
+  {\nolinkurl{\detokenize{http://arxiv.org/abs/1706.03762}}}.
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
@@ -112,6 +151,14 @@ Terven, J., Córdova‑Esparza, D., y Romero‑González, J., ``{A
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
+\bibitem{Jani2023ModelCompressionYOLOv5}
+Jani, M., Fayyad, J., Al-Younes, Y., y Najjaran, H., ``Model compression
+  methods for yolov5: A review'', {arXiv preprint arXiv:2307.11904}, 2023,
+  \href{https://dx.doi.org/10.48550/arXiv.2307.11904}
+  {\nolinkurl{doi:\detokenize{10.48550/arXiv.2307.11904}}}.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
 \bibitem{liu2016ssd}
 Liu, W., Anguelov, D., Erhan, D., Szegedy, C., Reed, S., Fu, C., y Berg, A.~C.,
   ``{SSD: Single Shot MultiBox Detector}'', en {Computer Vision – ECCV 2016,
@@ -119,21 +166,6 @@ Liu, W., Anguelov, D., Erhan, D., Szegedy, C., Reed, S., Fu, C., y Berg, A.~C.,
   International Publishing, 2016,
   \href{https://dx.doi.org/10.1007/978-3-319-46448-0_2}
   {\nolinkurl{doi:\detokenize{10.1007/978-3-319-46448-0_2}}}.
-\backrefprint\backrefparscantrue
-
-\backrefparscanfalse
-\bibitem{nyuytiymbiy2020parameters}
-Nyuytiymbiy, K., ``{Parameters and Hyperparameters in Machine Learning and Deep
-  Learning}'', {Towards Data Science}, December 2020,
-  \href{https://towardsdatascience.com/parameters-and-hyperparameters-aa609601a9ac}
-  {\nolinkurl{\detokenize{https://towardsdatascience.com/parameters-and-hyperparameters-aa609601a9ac}}}.
-\backrefprint\backrefparscantrue
-
-\backrefparscanfalse
-\bibitem{ultralytics2025hyperparam}
-{Ultralytics}, ``{Ultralytics YOLO Hyperparameter Tuning Guide}'', 2025,
-  \href{https://docs.ultralytics.com/guides/hyperparameter-tuning/}
-  {\nolinkurl{\detokenize{https://docs.ultralytics.com/guides/hyperparameter-tuning/}}}.
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse

@@ -24,7 +24,6 @@ YOLO/
 ├── engine/
 │   ├── bn2gn_patch.py              ← Parche para normalización por lotes
 │   ├── bootstrap_miopen.py         ← Interfaz de mitigación de MIOpen
-│   ├── Tester.py                   ← Módulo de pruebas finales
 │   ├── Trainer.py                  ← Módulo de entrenamiento
 │   ├── Validator.py                ← Módulo de validación interna/externa
 │   └── warnings.py                 ← Módulo de advertencias y errores menores
@@ -37,8 +36,7 @@ YOLO/
 │   ├── clean_logs_runs.py          ← Script de limpieza de logs y runs
 │   ├── clean_metrics.py            ← Script de limpieza de métricas
 │   ├── clean_weights.py            ← Script de limpieza de pesos registrados
-│   ├── metrics.py                  ← Métricas a utilizar en el modelo
-│   └── visualization.py            ← Visualización de entrenamiento en Tensorboard
+│   └── metrics.py                  ← Script de procesamiento de datos y post-procesado
 │
 ├── weights/
 │

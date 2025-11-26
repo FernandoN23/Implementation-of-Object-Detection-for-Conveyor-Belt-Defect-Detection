@@ -53,9 +53,13 @@
 
 \section{Redes Neuronales Convolucionales (CNN)}
 
-\subsection{Arquitectura}
+\subsection{Contextualización}
 
-\par La detección de objetos en visión por computadora consiste en identificar automáticamente instancias u objetos presentes en una imagen o secuencia, localizándolos mediante cajas delimitadoras y asignándoles una clase. En los modelos modernos, esta tarea se formula como un problema conjunto de clasificación y regresión: para cada región candidata de la imagen se predice la probabilidad de pertenencia a una clase y las coordenadas de la caja delimitadora asociada. Para abordar este problema de manera eficiente, las arquitecturas actuales separan conceptualmente el modelo en dos bloques: (i) un \textit{backbone} convolucional que extrae mapas de características jerárquicos desde la imagen de entrada y (ii) una o varias cabezas de detección encargadas de proyectar dichos mapas en predicciones de clases y cajas delimitadoras \cite{kaur2022tools,lubinus2023redes}. \\
+\par Desde sus orígenes, las redes neuronales artificiales se han concebido como modelos inspirados en el funcionamiento del cerebro humano, en los que un conjunto de neuronas simples se conectan mediante pesos sinápticos para procesar información de manera distribuida. Las redes neuronales convolucionales (CNN, por sus siglas en inglés) profundizan en esta analogía al especializarse en el procesamiento del sistema visual: reciben la imagen como una matriz de píxeles y, a través de una secuencia estructurada de operaciones —capas de convolución, funciones de activación no lineales (por ejemplo, ReLU), etapas de \textit{pooling}, aplanamiento y una capa final de clasificación basada en \textit{softmax}— son capaces de reconocer dígitos, objetos, escenas o acciones con alta precisión \cite{ajit2020review}. \\
+
+\par En una CNN típica, las capas de convolución aplican filtros o \textit{kernels} que se deslizan sobre la imagen, generando mapas de activación que condensan las características más representativas del contenido visual. Gracias a la conectividad local y al compartimiento de parámetros, estos filtros capturan patrones espaciales relevantes reduciendo el número total de pesos a entrenar y otorgando cierta invarianza frente a traslaciones. Las capas de \textit{pooling}, como el \textit{max pooling}, reducen progresivamente la resolución espacial de los mapas de activación, reteniendo las respuestas más fuertes y contribuyendo simultáneamente a disminuir la complejidad computacional y el sobreajuste. Finalmente, una o varias capas totalmente conectadas (\textit{fully connected}) integran la información extraída y producen la decisión final del modelo \cite{ajit2020review,lubinus2023redes}. \\
+
+\par La detección de objetos en visión por computador consiste en identificar automáticamente instancias presentes en una imagen o secuencia, localizándolas mediante cajas delimitadoras y asignándoles una clase. En los modelos modernos, esta tarea se formula como un problema conjunto de clasificación y regresión: para cada región candidata de la imagen se predice, de manera simultánea, la probabilidad de pertenencia a una clase y las coordenadas de la caja delimitadora asociada. La Figura~\ref{fig:2.2-object_detection_example} ilustra ejemplos de detección simple y múltiple de objetos, representativos de este tipo de problemas \cite{kaur2022tools}. \\
 
 \begin{figure}[H]
     \centering
@@ -64,19 +68,32 @@
     \label{fig:2.2-object_detection_example}
 \end{figure}
 
-\par En este contexto, las redes neuronales convolucionales (CNN) constituyen el núcleo de la mayoría de arquitecturas de visión por computador. Una CNN está formada por una sucesión de capas de convolución, funciones de activación no lineales (como ReLU o variantes), capas de normalización y, en algunos casos, capas de reducción de dimensionalidad (\textit{pooling}). Las convoluciones aplican filtros o \textit{kernels} que se desplazan sobre la imagen, compartiendo pesos en el plano espacial. Este mecanismo reduce el número de parámetros, explota la estructura local de las imágenes y confiere invariancia aproximada a traslaciones \cite{lubinus2023redes}. \\
+\subsection{Arquitectura}
+
+\par En este contexto, las redes neuronales convolucionales (CNN) constituyen el núcleo de la mayoría de arquitecturas de visión por computadora. Una CNN está formada por una sucesión de capas de convolución, funciones de activación no lineales (como ReLU o variantes), capas de normalización y, en algunos casos, capas de reducción de dimensionalidad (\textit{pooling}). Las convoluciones aplican filtros o \textit{kernels} que se desplazan sobre la imagen, compartiendo pesos en el plano espacial. Este mecanismo reduce el número de parámetros, explota la estructura local de las imágenes y confiere invariancia aproximada a traslaciones \cite{lubinus2023redes}. \\
 
 \par Tal como se describe en revisiones recientes de aprendizaje profundo, las primeras capas de una CNN tienden a aprender características de bajo nivel (bordes, texturas, gradientes de intensidad), mientras que las capas intermedias y profundas capturan patrones de mayor complejidad (formas, partes de objetos y, finalmente, representaciones semánticas de alto nivel). Este aprendizaje jerárquico permite que una misma arquitectura pueda generalizar sobre grandes volúmenes de datos y adaptarse a distintas tareas visuales mediante el ajuste de sus parámetros \cite{gupta2022deep,lubinus2023redes}. \\
 
-\par En las capas de reducción o \textit{pooling}, como el \textit{max pooling}, se disminuye la resolución espacial de los mapas de características conservando las activaciones más relevantes. Esta etapa reduce la carga computacional y actúa como un mecanismo de regularización, al atenuar pequeños desplazamientos o deformaciones locales en la imagen. Finalmente, uno o varios bloques de capas densas (\textit{fully connected}) agregan la información extraída y realizan la clasificación o regresión final, según el diseño del modelo \cite{lubinus2023redes}. \\
+\par En las capas de reducción o \textit{pooling}, como el \textit{max pooling}, se disminuye la resolución espacial de los mapas de características conservando las activaciones más relevantes. Esta etapa reduce la carga computacional y actúa como un mecanismo de regularización, al atenuar pequeños desplazamientos o deformaciones locales en la imagen. Finalmente, uno o varios bloques de capas densas (\textit{fully connected}) agregan la información extraída y realizan la clasificación o regresión final, según el diseño de \cite{lubinus2023redes} (ver Figura \ref{fig:2.2-CNN_architecture}). \\
 
-\par Para tareas de detección de objetos, las CNN se integran habitualmente en una arquitectura de tipo \textit{backbone--neck--head}. El \textit{backbone} (por ejemplo, variantes de VGG, ResNet u otras arquitecturas optimizadas para eficiencia) extrae los mapas de características base. Sobre estos mapas, el \textit{neck} construye representaciones multiescala mediante estructuras como pirámides de características (FPN, PAN), lo que permite detectar objetos de distintos tamaños. Finalmente, la \textit{head} de detección proyecta esas características a predicciones de clases y cajas delimitadoras, como ocurre en los modelos de una sola etapa (\textit{single-shot}) tipo YOLO y SSD, descritos en secciones posteriores \cite{zhang2021deep}. \\
 
-\subsection{Hiperparámetros comunes}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2.2-CNN/CNN_architecture.png}
+    \caption{Arquitectura típica de Redes Neuronales Convolucionales. Imagen extraída de \cite{lubinus2023redes}.}
+    \label{fig:2.2-CNN_architecture}
+\end{figure}
 
-\par Las arquitecturas basadas en CNN dependen de un conjunto de hiperparámetros que controlan tanto la forma de la red como el proceso de entrenamiento. A diferencia de los parámetros internos del modelo (pesos y sesgos), los hiperparámetros se fijan externamente y condicionan la calidad de las representaciones aprendidas, la velocidad de convergencia y el grado de generalización. En aplicaciones de detección de objetos, la adecuada configuración de estos hiperparámetros resulta crítica para lograr un equilibrio entre precisión y costo computacional \cite{gupta2022deep,zhang2021deep}. \\
 
-\par En la práctica, muchos de estos hiperparámetros son compartidos por distintas arquitecturas de detección basadas en CNN (por ejemplo, SSD, YOLO o variantes híbridas), lo que permite definir configuraciones iniciales razonables y posteriormente ajustarlas de forma iterativa. La Tabla \ref{tab:2-hiperparametros-comunes-cnn} resume algunos de los hiperparámetros más habituales, junto con rangos típicos y una descripción de su efecto sobre el entrenamiento del modelo. \\
+\par Para tareas de detección de objetos, las CNN se integran habitualmente en una arquitectura de tipo \textit{backbone--neck--head}. El \textit{backbone} (por ejemplo, variantes de VGG, ResNet u otras arquitecturas optimizadas para eficiencia) extrae los mapas de características base. Sobre estos mapas, el \textit{neck} construye representaciones multiescala mediante estructuras como pirámides de características (FPN, PAN), lo que permite detectar objetos de distintos tamaños. Finalmente, la \textit{head} de detección proyecta esas características a predicciones de clases y cajas delimitadoras, como ocurre en los modelos de una sola etapa (\textit{single-shot}) tipo YOLO y SSD, descritos en secciones posteriores \cite{zhang2021one_stage}. \\
+
+\subsection{Hiperparámetros en modelos de detección basados en CNN}
+
+\par Los hiperparámetros son valores que se definen externamente al modelo y controlan tanto su arquitectura como el proceso de aprendizaje. A diferencia de los parámetros internos de las redes neuronales (pesos y sesgos), que se ajustan automáticamente durante el entrenamiento, los hiperparámetros se fijan antes de entrenar y guían la optimización. Al finalizar el entrenamiento, el modelo contiene únicamente los parámetros ajustados, mientras que los hiperparámetros permanecen como configuraciones externas a la estructura aprendida \cite{nyuytiymbiy2020parameters}. \\
+
+\par En arquitecturas de detección de objetos basadas en CNN, como SSD, YOLO y variantes híbridas, la elección adecuada de estos hiperparámetros es crucial para lograr un equilibrio entre precisión, capacidad de generalización y costo computacional. Una configuración poco adecuada puede conducir a sobreajuste, subentrenamiento o inestabilidad numérica, mientras que combinaciones bien calibradas permiten aprovechar de forma más eficiente la capacidad representacional de la red \cite{gupta2022deep,zhang2021deep}. \\
+
+\par En la práctica, muchos hiperparámetros son compartidos entre diferentes modelos de detección, lo que permite establecer configuraciones iniciales razonables y luego refinarlas de manera iterativa en función de las métricas de evaluación empleadas en visión computacional. Este ajuste de hiperparámetros suele seguir un proceso experimental, apoyado en recomendaciones de la literatura y en guías de implementación como las proporcionadas por los desarrolladores de frameworks de código abierto \cite{ultralyticsHyperparameterTuning}. La Tabla~\ref{tab:2-hiperparametros-comunes-cnn} resume algunos de los hiperparámetros más habituales, junto con rangos típicos orientados a modelos de detección de una etapa. \\
 
 \begin{table}[H]
     \centering
@@ -109,67 +126,156 @@
     \label{tab:2-hiperparametros-comunes-cnn}
 \end{table}
 
+\par En los esquemas de optimización empleados para entrenamiento de redes convolucionales, la tasa de aprendizaje inicial $lr0$ juega un rol central al determinar la magnitud del paso de actualización de los parámetros en cada iteración. Si denotamos por $\eta_0 = lr0$ la tasa de aprendizaje inicial y por $\eta_f$ la tasa final, el hiperparámetro $lrf$ actúa como un factor de escala tal que, al final del entrenamiento, se cumple aproximadamente $\eta_f = lrf \cdot \eta_0$ \cite{nyuytiymbiy2020parameters}. Junto con ello, el número de épocas $E$ (en la tabla, “Número de \textit{épocas}”) fija cuántas pasadas completas se realizan sobre el conjunto de entrenamiento, mientras que el tamaño de \textit{batch} $B$ (4, 8 o 16 imágenes) controla cuántas muestras se usan para estimar el gradiente en cada actualización. El tamaño de imagen $(H, W)$, fijado típicamente en $640 \times 640$ píxeles, determina la resolución a la que se procesan las entradas y, por tanto, el compromiso entre detalle espacial y costo computacional. \\
+
+\par La regularización L2 se controla mediante el hiperparámetro \texttt{weight\_decay}, que añade a la función de pérdida una penalización sobre el tamaño de los pesos del modelo. De este modo se desincentivan valores excesivamente grandes y se reduce el riesgo de sobreajuste. Los términos \texttt{box\_loss}, \texttt{cls\_loss} y \texttt{object\_loss} actúan como coeficientes que ponderan, dentro de la pérdida total, la importancia relativa de la regresión de cajas, la clasificación de las clases y la detección de la presencia de objeto en cada ancla, respectivamente. Finalmente, el hiperparámetro \texttt{warmup\_epochs} define cuántas épocas iniciales se utilizan para incrementar de forma gradual la tasa de aprendizaje desde valores muy pequeños hasta su valor nominal, estabilizando las primeras iteraciones del entrenamiento. \\
 
 
 
-
+\clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Mecanismo de atención y arquitectura Encoder-Decoder}
 
 \subsection{Mecanismo de atención en transformers}
 
-\par Los modelos modernos basados en transformers utilizan mecanismos de auto-atención para ponderar de manera dinámica la relevancia de cada elemento de la entrada con respecto a los demás. En el contexto de visión por computador, la imagen se representa como una secuencia de \textit{tokens} (por ejemplo, parches proyectados a un espacio de embeddings), sobre los cuales la auto-atención estima qué regiones resultan más informativas para la tarea. Este esquema permite capturar dependencias espaciales de largo alcance, superando la limitación local de los filtros convolucionales clásicos. \\
+\par Los modelos basados en \textit{Transformers} reemplazan las estructuras recurrentes y convolucionales clásicas por capas apiladas de auto-atención y redes totalmente conectadas, lo que permite modelar dependencias globales en las secuencias con alta paralelización computacional \cite{vaswani2017attention}. En su formulación original, el transformador recibe una secuencia de tokens de entrada y, para cada posición, calcula combinaciones ponderadas del resto de posiciones mediante un mecanismo de atención escalado producto punto (\textit{scaled dot-product attention}), basado en tripletas de vectores consulta (\textit{queries}), clave (\textit{keys}) y valor (\textit{values}). \\
 
-\par Debido a la complejidad de estos mecanismos, han surgido métodos de explicabilidad que permiten visualizar la contribución de cada token de entrada en la inferencia. Entre ellos, se propone un enfoque general aplicable a arquitecturas bi-modales y encoder-decoder, capaz de generar mapas de atención interpretables a partir de las ponderaciones internas del modelo. Estas herramientas de interpretabilidad resultan especialmente útiles en arquitecturas de detección basadas en transformers, donde la distribución de la atención sobre la imagen entrega información complementaria sobre las regiones que influyen en la predicción final \cite{chefer2021generic}. \\
+\par En visión por computador, la imagen se discretiza en una secuencia de \textit{tokens} (por ejemplo, parches bidimensionales proyectados a un espacio de \textit{embeddings} mediante una capa lineal o convolucional). Sobre esta representación, las capas de auto-atención permiten que cada token ``atienda'' a todos los demás, capturando relaciones espaciales de largo alcance que complementan la naturaleza local de los filtros convolucionales \cite{vaswani2017attention}. De esta manera, el modelo aprende qué regiones de la imagen son más relevantes para la tarea, redistribuyendo el foco de atención en función del contexto global. \\
+
+\par Dada la complejidad y el carácter poco transparente de estos mecanismos internos, se han desarrollado métodos de explicabilidad específicos para arquitecturas con atención. Entre ellos, Chefer et al.~proponen un enfoque genérico capaz de propagar las ponderaciones de atención a través de arquitecturas bi-modales y encoder--decoder, generando mapas de relevancia interpretables a partir de las activaciones internas del modelo \cite{chefer2021generic}. En el contexto de detección de objetos, estos mapas permiten analizar qué regiones de la imagen influyen en las predicciones finales, aportando información complementaria a las métricas cuantitativas de desempeño. \\
 
 \subsection{Arquitecturas encoder-decoder para detección de objetos}
 
-\par En tareas de detección de objetos, los transformers suelen organizarse bajo un esquema encoder-decoder. Modelos como DETR y DINO utilizan un codificador (\textit{encoder}) que transforma la imagen en una representación latente mediante auto-atención, y un decodificador (\textit{decoder}) que cruza estas representaciones con un conjunto fijo de consultas (\textit{object queries}) para predecir directamente las clases y localizaciones de los objetos presentes. De este modo, el problema de detección se formula como un mapeo directo entre un conjunto de consultas y las instancias de objetos en la imagen, evitando componentes manuales como los algoritmos de propuestas de regiones \cite{carion2020end,zhang2022dino}. \\
+\par En tareas de detección de objetos, los transformers suelen organizarse bajo un esquema encoder-decoder que extiende la formulación secuencial original al dominio de las imágenes. Modelos como DETR (\textit{DEtection TRansformer}) utilizan un \textit{backbone} convolucional para extraer mapas de características, seguido de un encoder transformer que refina dichas representaciones mediante auto-atención y un decoder que opera sobre un conjunto fijo de consultas (\textit{object queries}) \cite{carion2020end}. Cada consulta actúa como un ``ancla'' abstracta que compite por explicar la presencia de un objeto en la escena, de modo que la salida del decoder puede interpretarse como un conjunto de predicciones de cajas y clases, optimizadas mediante una asignación bi-objetos basada en emparejamiento bipartito. \\
 
-\par En versiones más recientes, como DINO, se introducen mejoras sobre el esquema original de DETR mediante el uso de extractores de características multiescala, atención deformable y estrategias de entrenamiento con ramas de desruido (\textit{denoising}). Estas extensiones permiten una convergencia más rápida y una gestión más robusta de muestras difíciles, manteniendo la formulación encoder-decoder como eje central de la arquitectura \cite{zhang2022dino}. \\
+\par Esta formulación permite construir detectores de extremo a extremo, eliminando componentes manuales como el diseño de anclas y la supresión no máxima (\textit{Non-Maximum Suppression, NMS}), habituales en detectores convolucionales clásicos. No obstante, por ejemplo, las primeras versiones de DETR presentan una convergencia lenta y dificultades para modelar de forma eficiente objetos pequeños o distribuciones densas, lo que ha motivado el desarrollo de variantes más avanzadas \cite{carion2020end,zhang2022dino}. \\
 
-\par De manera complementaria, la destilación de conocimiento (\textit{knowledge distillation}) se ha incorporado como una estrategia para transferir la capacidad representacional de modelos visuales de gran escala (\textit{teacher}) hacia arquitecturas más livianas y eficientes (\textit{student}). En el contexto de la detección de objetos con transformers, esta técnica permite condensar el conocimiento aprendido por modelos preentrenados en clasificación o detección sobre grandes bases de datos, reduciendo el costo computacional en la inferencia sin sacrificar significativamente el rendimiento \cite{li2024distilling}. \\
+\par Por otro lado, DINO es un ejemplo representativo de esta nueva generación de detectores tipo DETR. El modelo mantiene la estructura \textit{backbone--encoder--decoder}, pero introduce mejoras específicas en tres frentes: (i) formula las \textit{queries} del decoder como cajas ancla dinámicas de cuatro dimensiones, que se refinan iterativamente a lo largo de las capas; (ii) incorpora atención deformable y características multiescala para concentrar el cómputo en un conjunto reducido de puntos de muestreo alrededor de referencias espaciales, mejorando la sensibilidad a objetos pequeños; y (iii) añade una rama de entrenamiento por \textit{denoising} contrastivo que acelera la convergencia y estabiliza el emparejamiento bipartito \cite{zhang2022dino}. Estas extensiones permiten que DINO alcance resultados de estado del arte en conjuntos de datos como COCO, manteniendo la naturaleza completamente diferenciable y de extremo a extremo del enfoque transformer \cite{zhang2022dino}. \\
 
-
+\par De manera complementaria, la destilación de conocimiento (\textit{knowledge distillation}) se ha incorporado como una estrategia para transferir la capacidad representacional de modelos visuales de gran escala (\textit{teacher}) hacia arquitecturas más livianas y eficientes (\textit{student}). En el contexto de la detección de objetos basada en transformers, esta técnica permite condensar el conocimiento aprendido por detectores preentrenados sobre grandes bases de datos en modelos más compactos, reduciendo el costo computacional de la inferencia sin sacrificar de forma significativa el rendimiento \cite{li2024distilling}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \clearpage
-\section{Modelos de detección de objetos de una sola etapa (YOLO y SSD)}
-
+\section{Modelos de detección de objetos de una sola etapa}
 
 \subsection{Contextualización}
-
 
 \par YOLO y SSD pertenecen a la familia de modelos de detección de objetos de una sola etapa (\textit{one-stage detectors}), en los cuales la localización de las cajas delimitadoras y la clasificación de las instancias se realizan en una única pasada por la red. Ambos se basan en redes neuronales convolucionales (CNN) y se enmarcan dentro de los enfoques de detección de objetos con aprendizaje profundo (\textit{Deep Learning}), donde la propia red efectúa de manera conjunta la extracción de características y la predicción final. En la Figura~\ref{fig:2.4-YOLO_SSD_DL} se esquematiza la relación entre los esquemas tradicionales de detección de objetos basados en \textit{Machine Learning}, los modelos de una etapa como YOLO y SSD —que serán objeto de estudio en esta memoria— y los modelos de dos etapas (\textit{two-stage}), dentro de los cuales destaca la familia R-CNN, pionera en el uso de propuestas de regiones como base para la extracción de características y la detección posterior \cite{kaur2022tools}. \\
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png}
+    \includegraphics[width=0.95\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png}
     \caption{Clasificación de varias técnicas de detección de objetos. Imagen extraída de \cite{kaur2022tools}.}
     \label{fig:2.4-YOLO_SSD_DL}
 \end{figure}
 
+\par Dentro de los detectores de una sola etapa, una revisión exhaustiva de las arquitecturas de regresión propuestas en la literatura reciente identifica a las familias YOLO y SSD —incluyendo sus extensiones como DSSD— como los representantes más influyentes de este paradigma, al combinar elevados niveles de rendimiento con velocidades de inferencia adecuadas para aplicaciones en tiempo real \cite{zhang2021one_stage}. En dicha revisión se analiza la evolución cronológica desde YOLOv1 y SSD-300 hasta variantes más recientes como YOLOv4 y YOLOv5, destacando el compromiso alcanzado entre exactitud, capacidad para detectar objetos pequeños y eficiencia computacional en escenarios exigentes.\\  
+
+\par De forma general, estos modelos se apoyan en la idea de reemplazar las fases explícitas de generación de propuestas de regiones por una red totalmente convolucional que, a partir de mapas de características de distinta resolución, regresa directamente las coordenadas y puntuaciones de confianza de múltiples cajas ancla sobre la imagen de entrada. En el contexto de mantenimiento predictivo, este esquema permite instrumentar sistemas de monitoreo continuo basados en visión computacional, en los cuales las imágenes capturadas de la correa transportadora se procesan en tiempo casi real para detectar y clasificar defectos incipientes. La baja latencia y el alto grado de paralelismo que ofrecen estos detectores facilitan la integración de sus salidas con herramientas de pronóstico —por ejemplo, modelos que estiman la probabilidad de falla o la vida remanente en función de la frecuencia, severidad y evolución temporal de los daños—, habilitando decisiones proactivas sobre la intervención de equipos críticos antes de que se produzcan fallas catastróficas o detenciones no programadas.
 
 
+\subsection{Selección de modelos}
+
+
+\par La revisión de Zhang et al.\ \cite{zhang2021one_stage} entrega un marco cuantitativo para esta decisión. En la Figura \ref{fig:2.4-one_stage_performance_comparative} de dicho trabajo se reportan, sobre el conjunto de datos MS~COCO, métricas de precisión promedio (AP) y velocidad máxima en cuadros por segundo (FPS) para distintos detectores de una etapa. Allí se observa que modelos basados en SSD, como SSD-300 y DSSD-321, alcanzan AP del orden de $31$--$33{,}2$ con velocidades cercanas a $11{,}8$--$16{,}4$~FPS, mientras que las versiones recientes de YOLO (YOLOv3, YOLOv4 y YOLOv5) logran precisiones comparables o superiores junto con incrementos significativos en velocidad, llegando en el caso de YOLOv5 a valores cercanos a $200$~FPS con AP en torno a $45{,}5$ en MS~COCO.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png}
+    \caption{Una revisión del rendimiento de los detectores de una sola etapa. Imagen extraída de \cite{zhang2021one_stage}.}
+    \label{fig:2.4-one_stage_performance_comparative}
+\end{figure}
+
+\par Esta evidencia posiciona a YOLO como una alternativa particularmente atractiva cuando la restricción de tiempo de cómputo es crítica, como ocurre en la inspección continua de correas transportadoras en operación. No obstante lo anterior, la familia SSD mantiene un interés práctico como referencia clásica de detectores multi-escala. La arquitectura SSD fue concebida para superar las limitaciones de YOLOv1 frente a objetos pequeños y con relaciones de aspecto inusuales mediante el uso de múltiples mapas de características y conjuntos de cajas ancla de distintas escalas y proporciones \cite{zhang2021one_stage}. Su comparación directa con un modelo YOLO moderno permite analizar, en un mismo dominio industrial, el rendimiento relativo de dos enfoques representativos: uno enfocado en una representación multi-escala explícita (SSD) y otro en una arquitectura optimizada y profundamente integrada que ha ido incorporando progresivamente mecanismos de fusión de características y mejoras en la función de pérdida (YOLOv5). \\
+
+\par En consecuencia, en esta memoria se selecciona \textbf{YOLOv5} como representante de las arquitecturas YOLO de última generación (de acuerdo al artículo de Zhang et al.), dada su combinación favorable de velocidad y precisión, su soporte activo en marcos de trabajo actuales y la disponibilidad de variantes escalables en tamaño de modelo; en paralelo, se adopta \textbf{SSD} como baseline clásico de detectores de una etapa con énfasis en la detección multi-escala de objetos pequeños. Ambos modelos serán implementados y entrenados sobre un conjunto de datos específico de fallas en correas transportadoras, bajo un mismo protocolo experimental, con el propósito de comparar de forma controlada sus métricas de detección, su capacidad para identificar defectos y sus requerimientos computacionales en un escenario cercano al operativo.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{YOLO (You Only Look Once)}
+\label{subsec:yolo}
 
-\par YOLO (You Only Look Once) es un enfoque de detección de objetos de una sola etapa que destaca por su alta velocidad y eficiencia, al predecir directamente las clases y ubicaciones de objetos en una sola pasada por la red. A diferencia de métodos de dos etapas como R-CNN o Faster R-CNN, YOLO evita la generación de propuestas de regiones, lo que lo hace apto para aplicaciones en tiempo real. Su arquitectura unificada lo convierte en una opción balanceada entre precisión y velocidad \cite{terven2023comprehensive}.\\
+\par YOLO (You Only Look Once) es una familia de modelos de detección de objetos de una sola etapa (\textit{one-stage detectors}) que destaca por su alta velocidad y eficiencia, al predecir directamente las clases y ubicaciones de objetos en una sola pasada por la red neuronal convolucional (\textit{convolutional neural network, CNN}). A diferencia de los métodos de dos etapas (\textit{two-stage detectors}), como R-CNN o Faster R-CNN, YOLO evita la generación explícita de propuestas de regiones (\textit{region proposals}) y formula la detección como un problema de regresión directa sobre una rejilla espacial. Esta arquitectura unificada permite un compromiso favorable entre precisión y velocidad, lo que la hace especialmente adecuada para aplicaciones en tiempo real, como la inspección automática de correas transportadoras \cite{terven2023comprehensive}.\\
 
-\par 
+\par A lo largo de sus versiones, la familia YOLO ha incorporado mejoras progresivas en la arquitectura de la red, en las estrategias de entrenamiento y en los mecanismos de fusión multi-escala. Las primeras versiones (YOLOv1--YOLOv3) introdujeron el uso de cajas ancla (\textit{anchor boxes}) y pirámides de características (\textit{feature pyramids}), mientras que YOLOv4 integró la arquitectura CSPDarknet53 y técnicas avanzadas de entrenamiento \cite{zhang2021one_stage}. Sobre esta base, YOLOv5 consolida una arquitectura moderna orientada a la implementación práctica, optimizando el balance entre costo computacional y desempeño en métricas de detección, lo que explica su amplia adopción en aplicaciones industriales y embebidas \cite{Jani2023ModelCompressionYOLOv5}.
+
+\subsubsection{Arquitectura general de YOLOv5}
+
+\par YOLOv5 adopta una arquitectura modular de tres componentes: espina dorsal (\textit{backbone}), cuello de agregación de características (\textit{neck}) y cabeza de detección (\textit{detection head}), tal como se describe en revisiones recientes del modelo \cite{Jani2023ModelCompressionYOLOv5}. Esta descomposición permite separar claramente el aprendizaje de representaciones de bajo y alto nivel, la fusión de información multi-escala y la predicción final de cajas y clases. Ver Figura \ref{fig:2.4-YOLO_v5_architecture}. \\
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png}
-    \caption{Arquitectura de YOLOv5.}
+    \caption{Arquitectura de YOLOv5, basada en una estructura de tipo \textit{backbone--neck--head} con módulos convolucionales CSP y fusión multi-escala. Imagen extraída de \cite{Jani2023ModelCompressionYOLOv5}.}
     \label{fig:2.4-YOLO_v5_architecture}
 \end{figure}
 
+\par En términos generales, el \textit{backbone} extrae características jerárquicas a partir de la imagen de entrada, el \textit{neck} combina y refina dichas características en múltiples resoluciones, y la \textit{head} produce, para cada nivel de resolución, las predicciones de cajas delimitadoras (\textit{bounding boxes}), confianza de objeto (\textit{objectness}) y probabilidades de clase. Esta organización sigue el esquema \textit{backbone--neck--head} común en detectores de una etapa, pero YOLOv5 lo implementa mediante bloques convolucionales específicos (CSP, C3, SPPF) que mejoran la eficiencia del flujo de información y reducen redundancias en los gradientes \cite{Jani2023ModelCompressionYOLOv5}.
+
+\subsubsection{Bloques convolucionales: backbone, neck y head}
+
+\paragraph{Espina dorsal de la red (\textit{backbone})}
+
+\par El \textit{backbone} de YOLOv5 se basa en una variante de CSPDarknet53, derivada de la arquitectura Darknet-53 con la incorporación de la estrategia de redes parciales por etapa (\textit{Cross Stage Partial Network, CSP}). Esta estrategia consiste, de forma simplificada, en dividir el mapa de características en dos rutas paralelas, procesar una de ellas mediante bloques residuales y luego fusionarlas nuevamente. El objetivo es reducir la duplicación de gradientes y hacer más eficiente el uso de los canales de características. \\
+
+\par En la práctica, YOLOv5 utiliza bloques C3, que son módulos convolucionales de tipo CSP simplificados. Cada bloque C3 agrupa varias capas convolucionales con conexiones de atajo (\textit{shortcut connections}) internas, lo que facilita el aprendizaje de representaciones profundas sin degradar el gradiente. La espina dorsal combina secuencias de bloques \textit{ConvBNSiLU} (convolución + normalización por lotes + función de activación SiLU) y módulos C3, culminando en un bloque de agrupación piramidal espacial rápida (\textit{Spatial Pyramid Pooling Fast, SPPF}). Este último expande el campo receptivo (\textit{receptive field}) mediante operaciones de \textit{max-pooling} con diferentes tamaños de ventana, sin incrementar la resolución de los mapas de características \cite{Jani2023ModelCompressionYOLOv5}. \\
+
+\paragraph{Cuello de agregación (\textit{neck})}
+
+\par El \textit{neck} de YOLOv5 implementa una red de agregación de rutas (\textit{Path Aggregation Network, PANet}) combinada con la filosofía CSP, conocida como CSP-PAN. Su función es fusionar características provenientes de diferentes niveles de resolución del \textit{backbone}, de modo que las capas profundas (con alto contenido semántico) se combinen con capas más superficiales (con mejor resolución espacial) \cite{Jani2023ModelCompressionYOLOv5}. \\
+
+\par Esta fusión se realiza mediante una secuencia de operaciones de muestreo ascendente (\textit{upsampling}), concatenación de mapas de características y bloques C3 adicionales. De este modo, el \textit{neck} genera un conjunto de mapas a distintas escalas que preservan tanto la localización precisa de los objetos como la información contextual, lo que es especialmente relevante en escenas industriales donde defectos pequeños y grandes coexisten en una misma imagen. \\
+
+\paragraph{Cabeza de detección (\textit{detection head})}
+
+\par La \textit{head} de YOLOv5 es una cabeza de detección convolucional multi-escala, conceptualmente similar a la introducida en YOLOv3. Para cada escala de salida (por ejemplo, mapas con baja, media y alta resolución), la cabeza predice, en cada celda de la rejilla y para cada caja ancla (\textit{anchor box}), un vector que incluye: desplazamientos de la caja delimitadora (posición y tamaño), una puntuación de presencia de objeto (\textit{objectness score}) y una distribución de probabilidades sobre las clases. \\
+
+\par Estas predicciones se obtienen mediante capas convolucionales finales de tamaño $1\times1$, que proyectan los mapas de características del \textit{neck} hacia el espacio de parámetros de detección. La formulación permite que la red aprenda, de forma conjunta, la localización y clasificación de múltiples objetos en una sola etapa, manteniendo el tiempo de inferencia bajo, un requisito clave para la detección de fallas en correas transportadoras en tiempo casi real.
+
+\subsubsection{Funciones de activación y funciones de salida en YOLOv5}
+
+\paragraph{Funciones de activación internas}
+
+\par En las capas internas, YOLOv5 utiliza principalmente la función de activación SiLU (\textit{Sigmoid Linear Unit}), también conocida como Swish. La función SiLU combina una parte lineal con una función sigmoide (\textit{sigmoid}) y se expresa, de forma simplificada, como
+\[
+    \mathrm{SiLU}(x) = x \cdot \sigma(x),
+\]
+donde $\sigma(x)$ es la función sigmoide estándar. En comparación con funciones más simples como ReLU (\textit{Rectified Linear Unit}), SiLU entrega transiciones más suaves y mantiene gradientes no nulos en un rango más amplio de valores, lo que favorece la optimización en redes profundas. \\
+
+\par La combinación \textit{ConvBNSiLU} (convolución + normalización por lotes + SiLU) se utiliza de forma repetida en los bloques C3 y en otras partes del \textit{backbone} y el \textit{neck}, contribuyendo a estabilizar el entrenamiento y mejorar la capacidad de generalización del modelo sobre conjuntos de datos complejos.
+
+\paragraph{Funciones de salida para detección y clasificación}
+
+\par En la capa de salida, YOLOv5 emplea funciones de activación específicas para cada tipo de predicción:
+
+\begin{itemize}
+    \item \textbf{Confianza de objeto (\textit{objectness}):} la probabilidad de que exista un objeto en una celda de la rejilla se modela mediante una función sigmoide (\textit{sigmoid}), que asigna valores en el rango $[0,1]$. Esta probabilidad se interpreta como el grado de confianza en que la caja propuesta contiene un objeto de interés.
+    \item \textbf{Probabilidades de clase (\textit{class probabilities}):} para cada clase, YOLOv5 utiliza igualmente funciones sigmoides independientes, lo que permite un esquema de clasificación de tipo multi-etiqueta (\textit{multi-label}), en lugar de una normalización \textit{softmax} estricta. De este modo, una misma caja podría, en teoría, activar más de una clase, aunque en la práctica suele seleccionarse la clase con mayor probabilidad.
+    \item \textbf{Parámetros de la caja delimitadora (\textit{bounding box regression}):} las coordenadas centrales y dimensiones de la caja se parametrizan respecto de las cajas ancla y de la celda de la rejilla. A través de funciones no lineales (incluyendo sigmoides y transformaciones exponenciales), el modelo aprende a ajustar el tamaño y posición de las cajas para aproximarse lo mejor posible a las anotaciones reales.
+\end{itemize}
+
+\par Estas funciones de salida se combinan con funciones de pérdida (\textit{loss functions}) específicas, típicamente basadas en el índice de similitud de intersección sobre unión (\textit{Intersection over Union, IoU}) para las cajas y en la entropía cruzada (\textit{cross-entropy}) para las probabilidades, lo que permite entrenar el modelo de forma robusta frente a solapamientos entre objetos y desbalances entre clases.
+
+\subsubsection{Diferencias clave de YOLOv5 respecto a versiones anteriores}
+
+\par En síntesis, y de acuerdo con revisiones recientes de la literatura \cite{Jani2023ModelCompressionYOLOv5}, las principales diferencias de YOLOv5 frente a versiones previas de la familia se pueden resumir en los siguientes puntos:
+
+\begin{itemize}
+    \item Uso sistemático de la estrategia CSP (\textit{Cross Stage Partial}) en el \textit{backbone} y el \textit{neck}, mediante los módulos C3, lo que mejora la eficiencia del flujo de gradientes y reduce redundancias.
+    \item Incorporación del bloque SPPF (\textit{Spatial Pyramid Pooling Fast}), que extiende el campo receptivo con menor costo computacional que los esquemas de pirámide espacial tradicionales.
+    \item Adopción de la función de activación SiLU (\textit{Sigmoid Linear Unit}) en los bloques convolucionales internos, en lugar de activaciones más simples como ReLU o Mish, mejorando la suavidad del paisaje de optimización.
+    \item Definición de múltiples variantes de tamaño (por ejemplo, YOLOv5n, YOLOv5s, YOLOv5m, YOLOv5l, YOLOv5x), que permiten ajustar el equilibrio entre precisión y velocidad de inferencia según las restricciones de hardware y los requisitos de la aplicación.
+\end{itemize}
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{SSD (Single Shot Multibox Detector)}
+\label{subsec:ssd}
 
-\par SSD (Single Shot Multibox Detector) es otro enfoque en la detección de objetos, caracterizado por su capacidad de realizar clasificación y regresión de cajas delimitadoras en una única pasada de la red, sin requerir etapas de propuesta de regiones. SSD utiliza múltiples mapas de características de diferentes escalas para detectar objetos de diversos tamaños, lo que mejora la precisión especialmente en objetos pequeños \cite{liu2016ssd}. La arquitectura general (que contempla sus dos versiones), se muestra en la Figura \ref{fig:2.4-SSD_architecture}.
+\par SSD (Single Shot Multibox Detector) es un detector de objetos de una sola etapa (\textit{single-shot detector}) que, al igual que YOLO, evita el uso explícito de propuestas de regiones y realiza simultáneamente la clasificación y regresión de cajas delimitadoras en una única pasada de la red. Su diseño se basa en una red convolucional profunda pre-entrenada para clasificación (VGG-16), sobre la cual se añaden capas convolucionales adicionales que producen mapas de características a diferentes escalas. En cada uno de estos mapas, SSD evalúa un conjunto de cajas predeterminadas (\textit{default boxes}) de múltiples escalas y razones de aspecto, generando para cada una puntuaciones de clase y desplazamientos de caja \cite{liu2016ssd}.\\
+
+\par De este modo, SSD modela la detección como un problema de regresión y clasificación conjunta sobre un conjunto fijo de cajas ancla distribuidas de manera densa en varios mapas de características. Esta formulación permite alcanzar un compromiso favorable entre precisión y velocidad, evitando la etapa de \textit{region proposals} y el reprocesamiento de píxeles o características, logrando así detección en tiempo casi real con una precisión comparable a métodos de dos etapas basados en Faster R-CNN \cite{liu2016ssd}. La arquitectura general (que contempla sus dos versiones principales, SSD300 y SSD512), se muestra en la Figura \ref{fig:2.4-SSD_architecture}.
   
 \begin{figure}[H]
     \centering
@@ -178,16 +284,52 @@
     \label{fig:2.4-SSD_architecture}
 \end{figure}
 
-\par 
+\subsubsection{Arquitectura general de SSD}
 
-\subsection{Hiperparámetros}
+\par Conceptualmente, SSD puede describirse como una arquitectura de tipo \textit{backbone} con capas adicionales de características y cabezas de predicción convolucionales, organizada en múltiples niveles de resolución. A partir de una imagen de entrada (típicamente de $300\times300$ o $512\times512$ píxeles), la red VGG-16 pre-entrenada extrae representaciones jerárquicas hasta una cierta profundidad, tras lo cual se agregan capas convolucionales extra que reducen progresivamente la resolución espacial de los mapas de características.\\
 
-\par Los hiperparámetros son valores que controlan el proceso de aprendizaje y condicionan los parámetros internos que el modelo ajusta durante el entrenamiento. Se denominan así por encontrarse en un nivel superior, ya que no forman parte del modelo aprendido, sino que guían su optimización. Al finalizar el entrenamiento, el modelo resultante contiene únicamente los parámetros ajustados, mientras que los hiperparámetros utilizados permanecen externos a dicha estructura \cite{nyuytiymbiy2020parameters}.
-\\
+\par Sobre un conjunto de mapas de salida seleccionados (por ejemplo, \texttt{conv4\_3}, \texttt{conv7}, \texttt{conv8\_2}, \texttt{conv9\_2}, \texttt{conv10\_2} y \texttt{conv11\_2} en SSD300), se definen, para cada celda, varias \textit{default boxes} de distintas escalas y razones de aspecto. Para cada una de estas cajas, pequeñas convoluciones $3\times3$ producen, en una sola operación, los desplazamientos de la caja y las puntuaciones de clase asociadas. El conjunto global de salidas corresponde así a miles de cajas candidata por imagen, que posteriormente se filtran mediante umbral de confianza y supresión de no-máximos (\textit{Non-Maximum Suppression, NMS}) para obtener las detecciones finales \cite{liu2016ssd}.\\
 
-\par El ajuste de hiperparámetros en los modelos de detección de objetos basados en redes neuronales convolucionales, es un proceso iterativo el cual está destinado a optimizar las métricas de evaluación utilizadas en visión computacional \cite{ultralytics2025hyperparam}.
+\subsubsection{Bloques convolucionales: backbone, capas adicionales y cabezas de predicción}
+
+\paragraph{Espina dorsal de la red (\textit{backbone})}
+
+\par El \textit{backbone} de SSD se basa en VGG-16, una arquitectura originalmente diseñada para clasificación de imágenes. En el contexto de SSD, VGG-16 se utiliza hasta la capa \texttt{pool5}, eliminando las capas totalmente conectadas finales y las capas de \textit{dropout}. Las capas \texttt{fc6} y \texttt{fc7} se convierten en capas convolucionales (\texttt{conv6} y \texttt{conv7}), de modo que la red completa se mantiene totalmente convolucional. Además, se modifica la operación de \texttt{pool5} y se emplean convoluciones dilatadas (\textit{atrous}) para mantener un campo receptivo amplio sin reducir en exceso la resolución de los mapas de características \cite{liu2016ssd}.\\
+
+\par Entre los mapas de salida proporcionados por el \textit{backbone}, la capa \texttt{conv4\_3} es especialmente relevante, ya que conserva una resolución relativamente alta y se utiliza directamente para detección. Para compatibilizar su escala de activaciones con las capas más profundas, SSD aplica una normalización L2 por ubicación sobre \texttt{conv4\_3}, escalando posteriormente la norma de las características mediante un factor aprendible durante el entrenamiento. Esto permite que las contribuciones de esta capa superficial se integren de forma estable con las capas más profundas en el proceso de detección \cite{liu2016ssd}.\\
+
+\paragraph{Capas de características adicionales (\textit{extra feature layers})}
+
+\par Sobre la salida de \texttt{conv7}, SSD incorpora una serie de capas convolucionales adicionales que generan mapas de características de resolución decreciente, como \texttt{conv8\_2}, \texttt{conv9\_2}, \texttt{conv10\_2} y \texttt{conv11\_2} en el caso de SSD300, y una capa adicional \texttt{conv12\_2} en SSD512. Estas capas se construyen habitualmente como pares de convoluciones $1\times1$ (para reducir dimensionalidad de canales) seguidas de convoluciones $3\times3$ con \textit{stride} mayor que uno para reducir la resolución espacial.\\
+
+\par El propósito de estas capas extra es conformar una pirámide de mapas de características en la que cada nivel se especializa en un rango de escalas de objetos. De este modo, los mapas de mayor resolución capturan mejor objetos pequeños, mientras que los mapas más gruesos concentran la detección de objetos medianos y grandes. Esta estrategia de múltiples capas de salida permite a SSD aproximar un comportamiento similar al de un \textit{feature pyramid}, pero integrado de forma directa en la arquitectura convolucional \cite{liu2016ssd}.\\
+
+\paragraph{Cabezas de predicción (\textit{prediction heads})}
+
+\par Para cada mapa de características seleccionado, SSD define una cabeza de predicción convolucional que opera de forma densa sobre todas las ubicaciones espaciales. En términos generales, para un mapa de tamaño $m\times n$ con $p$ canales, se asocian $k$ \textit{default boxes} por cada celda. La cabeza de predicción aplica, en cada posición, un conjunto de filtros convolucionales $3\times3\times p$ que producen, por cada caja, $c$ puntuaciones de clase (incluyendo el fondo) y $4$ parámetros de regresión asociados a la caja.\\
+
+\par Esto implica que, para cada mapa, la cabeza de predicción genera $(c+4)kmn$ salidas, correspondientes a la combinación de todas las ubicaciones, cajas y clases. En el caso de SSD300, la combinación de todos los mapas de salida produce del orden de $8732$ \textit{default boxes} por imagen, mientras que SSD512 incrementa este número al operar con una resolución de entrada mayor \cite{liu2016ssd}. Durante el post-procesamiento, las predicciones se filtran mediante umbrales de confianza y NMS por clase, reteniendo únicamente un número acotado de detecciones finales por imagen.\\
+
+\subsubsection{Funciones de activación y funciones de salida en SSD}
+
+\paragraph{Funciones de activación internas}
+
+\par En las capas internas, SSD hereda principalmente las funciones de activación de VGG-16, esto es, funciones ReLU (\textit{Rectified Linear Unit}) aplicadas después de las convoluciones. Estas activaciones se utilizan tanto en el \textit{backbone} como en las capas adicionales de características, lo que permite una representación no lineal suficiente sin introducir funciones más complejas. Adicionalmente, la normalización L2 aplicada a \texttt{conv4\_3} actúa como un mecanismo complementario de estabilización de la escala de características en las primeras capas utilizadas para detección.\\
+
+\paragraph{Funciones de salida para detección y clasificación}
+
+\par En la capa de salida, SSD emplea funciones de activación diferenciadas para la regresión de cajas y la clasificación de objetos:
+
+\begin{itemize}
+    \item \textbf{Regresión de cajas delimitadoras (\textit{bounding box regression}):} los parámetros de cada caja se predicen como desplazamientos (centro y dimensiones) respecto de la \textit{default box} asociada. La función de pérdida para estos parámetros corresponde a una pérdida Smooth L1 (tipo Huber) aplicada a las diferencias entre los offsets predichos y los offsets de las cajas reales, medida sobre el centro y las dimensiones de la caja \cite{liu2016ssd}.
+    \item \textbf{Puntuaciones de clase (\textit{class confidences}):} para cada \textit{default box}, SSD predice una distribución de probabilidad sobre $c$ clases (incluyendo la clase de fondo) mediante una función \textit{softmax}. La pérdida de clasificación correspondiente es la entropía cruzada (\textit{softmax loss}) sobre dichas probabilidades, lo que permite tratar de forma explícita el fondo como una clase adicional \cite{liu2016ssd}.
+\end{itemize}
+
+\par El objetivo total de entrenamiento se formula como una combinación ponderada de la pérdida de localización (Smooth L1) y la pérdida de confianza (\textit{softmax loss}), normalizada por el número de cajas positivas asociadas a objetos reales. Este enfoque, junto con estrategias de \textit{hard negative mining} y de aumento de datos, permite entrenar SSD de manera estable incluso con un gran número de \textit{default boxes} negativas por imagen \cite{liu2016ssd}.\\
 
 
+
+\clearpage 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{DETR (DEtection TRansformer) y DINO}
 
@@ -256,7 +398,7 @@
 F_{\beta} = (1 + \beta^2) \cdot \frac{\text{Precision} \cdot \text{Recall}}{\beta^2 \cdot \text{Precision} + \text{Recall}} \quad \quad F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
 \]
 
-\subsection{IoU y Confianza}
+\subsection{Intersección sobre la unión (IoU)}
 
 \par El \textbf{IoU (Intersection over Union)} evalúa el solapamiento entre la predicción y la verdad de terreno:
 \\
@@ -264,14 +406,26 @@ F_{\beta} = (1 + \beta^2) \cdot \frac{\text{Precision} \cdot \text{Recall}}{\bet
 \text{IoU} = \frac{\text{Área de Intersección}}{\text{Área de Unión}}
 \]
 
-\par La \textbf{confianza} asigna una probabilidad a la predicción, y el \textbf{umbral de confianza} define el valor mínimo para aceptar una detección.
+\par En la Figura \ref{fig:2.6-IoU}, es posible ver una representación mediante conjuntos de la definición de intersección sobre la unión.
 
-\subsection{AP y mAP}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{img/2-Antecedentes/2.6-Metricas/IoU_metric.png}
+    \caption{Representación visual de Intersección sobre la Unión. Imagen extraída de \cite{schlosser2024overview}.}
+    \label{fig:2.6-IoU}
+\end{figure}
 
-\par La \textbf{Average Precision (AP)} corresponde al área bajo la curva precisión-recall para una clase. El \textbf{mean Average Precision (mAP)} es el promedio del AP para todas las clases. \\
+\par Esta métrica es aplicada en la detección de objetos para ver qué tan acertada es la caja delimitadora de predicción respecto a la caja delimitadora real.
 
-\par El \textbf{mAP@50} utiliza un umbral IoU fijo de 0{,}5. \textbf{mAP@50-95} promedia el AP en umbrales de IoU entre 0{,}5 y 0{,}95 (paso de 0{,}05), reflejando un criterio más exigente y robusto.
+\subsection{Precisión promedio (Average Precision, AP) y precisión promedio media (mean Average Precision, mAP)}
 
-\subsection{Matriz de Confusión}
+\par La \textbf{precisión promedio} (\textit{Average Precision}, AP) cuantifica el desempeño del modelo para una clase específica como el área bajo la curva precisión--exhaustividad (\textit{precision--recall}). En términos prácticos, el AP resume en un único valor cómo varía la precisión al recorrer distintos umbrales de confianza, integrando el compromiso entre detectar la mayor cantidad de verdaderos positivos posible y mantener bajo el número de falsos positivos para dicha clase. \\
 
-\par Representa los aciertos y errores del clasificador mediante los conteos de verdaderos/falsos positivos y negativos por clase, permitiendo un análisis detallado del comportamiento del modelo.
+\par La \textbf{precisión promedio media} (\textit{mean Average Precision}, mAP) se define como el promedio del AP calculado sobre todas las clases del problema. Esta métrica entrega una visión global del rendimiento del modelo de detección, evitando que el análisis se concentre únicamente en las clases mayoritarias. En la práctica, se emplean variantes estandarizadas como \textbf{mAP@50}, que utiliza un umbral IoU fijo de 0{,}5 para considerar una predicción como correcta, y \textbf{mAP@50-95}, que promedia el AP sobre umbrales de IoU entre 0{,}5 y 0{,}95 (con paso de 0{,}05), imponiendo un criterio más estricto sobre la calidad geométrica de las cajas predichas. \\
+
+
+\subsection{Matriz de confusión (Confusion Matrix)}
+
+\par La \textbf{matriz de confusión} (\textit{Confusion Matrix}) representa de forma tabular los aciertos y errores del modelo al comparar sus predicciones con la verdad de terreno. En su forma más simple (binaria), recoge los conteos de verdaderos positivos (TP), verdaderos negativos (TN), falsos positivos (FP) y falsos negativos (FN); en el caso multiclase, se extiende a una matriz de dimensión $n \times n$, donde cada fila corresponde a la clase verdadera y cada columna a la clase predicha. \\
+
+\par Esta representación permite analizar en detalle el comportamiento del clasificador, identificando clases que se confunden sistemáticamente entre sí, posibles desequilibrios en el rendimiento (por ejemplo, clases con alta tasa de falsos negativos) y patrones de error que no son evidentes a partir de métricas agregadas. En el contexto de detección de objetos, la matriz de confusión se construye a partir de las detecciones aceptadas según un umbral de confianza e IoU, y resulta especialmente útil para interpretar los resultados por tipo de falla o categoría de interés. \\

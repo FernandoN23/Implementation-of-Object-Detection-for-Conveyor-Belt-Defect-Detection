@@ -30,6 +30,33 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+# ---------------------------------------------------------------------------
+# Integración opcional con mitigadores del proyecto externo (YOLO/engine).
+# - BN→GN (bn2gn_patch.py): para entornos ROCm/MIOpen donde BatchNorm2d
+#   puede ser inestable o menos eficiente.
+# - Filtros globales de warnings (warnings.py): para controlar el ruido
+#   en consola y unificar el tratamiento de advertencias.
+#
+# Si estos módulos no están disponibles (por ejemplo, si se usa YOLOv5 de
+# forma aislada fuera del proyecto principal), las referencias se fijan en
+# None y la validación continúa con el flujo estándar de Ultralytics.
+# ---------------------------------------------------------------------------
+try:  # pragma: no cover - integración dependiente del entorno del proyecto
+    from engine.bn2gn_patch import apply_bn2gn_patch, BN2GNConfig  # type: ignore
+except Exception:  # pragma: no cover
+    apply_bn2gn_patch = None  # type: ignore
+    BN2GNConfig = None  # type: ignore
+
+try:  # pragma: no cover - integración opcional con el orquestador externo
+    from engine.warnings import install_global_warning_filters  # type: ignore
+except Exception:  # pragma: no cover
+    install_global_warning_filters = None  # type: ignore
+
+if install_global_warning_filters is not None:
+    # "force=False" mantiene el mismo comportamiento que en train.py de YOLOv5
+    install_global_warning_filters(force=False)
+# ---------------------------------------------------------------------------
+
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
@@ -266,6 +293,46 @@ def run(
         # Load model
         model = DetectMultiBackend(weights, device=device, dnn=dnn, data=data, fp16=half)
         stride, pt, jit, engine = model.stride, model.pt, model.jit, model.engine
+
+        # ------------------------------------------------------------------
+        # BN→GN integration (opcional) al validar de forma autónoma
+        # ------------------------------------------------------------------
+        # Si el modelo ya fue parchado durante el entrenamiento (train.py)
+        # expondrá el atributo "_bn2gn_policy" y no es necesario aplicar
+        # nada adicional. En escenarios CLI puros, se puede controlar la
+        # política mediante la variable de entorno BN2GN_POLICY
+        #   - "off"      : sin parche (comportamiento original Ultralytics)
+        #   - "on"       : fuerza BN→GN
+        #   - "on_error" : aplica sólo si se detectan fallos numéricos
+        #                   (gestionado internamente por bn2gn_patch).
+        # ------------------------------------------------------------------
+        base_model = getattr(model, "model", model)
+        if (
+            apply_bn2gn_patch is not None
+            and BN2GNConfig is not None
+            and not hasattr(base_model, "_bn2gn_policy")
+        ):
+            bn2gn_policy = os.environ.get("BN2GN_POLICY", "off").lower()
+            if bn2gn_policy in {"on", "on_error"}:
+                try:
+                    cfg_bn2gn = BN2GNConfig(
+                        policy=bn2gn_policy,
+                        max_groups=int(os.environ.get("BN2GN_MAX_GROUPS", 32)),
+                        min_channels_per_group=int(os.environ.get("BN2GN_MIN_CHANNELS_PER_GROUP", 1)),
+                        verbose=int(os.environ.get("BN2GN_VERBOSE", 1)),
+                    )
+                    apply_bn2gn_patch(
+                        base_model,
+                        policy=cfg_bn2gn.policy,
+                        max_groups=cfg_bn2gn.max_groups,
+                        min_channels_per_group=cfg_bn2gn.min_channels_per_group,
+                        verbose=cfg_bn2gn.verbose,
+                    )
+                    setattr(base_model, "_bn2gn_policy", cfg_bn2gn.policy)
+                except Exception as bn2gn_exc:  # pragma: no cover - defensivo
+                    LOGGER.warning(f"BN2GN patch failed during val initialisation: {bn2gn_exc}")
+        # ------------------------------------------------------------------
+
         imgsz = check_img_size(imgsz, s=stride)  # check image size
         half = model.fp16  # FP16 supported on limited backends with CUDA
         if engine:

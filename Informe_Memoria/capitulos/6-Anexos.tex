@@ -1,1 +1,110 @@
-\chapter*{Anexos}
+\chapter{Anexos}
+
+\section{Tablas de Hiperparámetros}
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre} \\
+        \hline 
+        $variant$ & s & Variante del modelo \\
+        \hline
+        $img\_size$ & 640 & Tamaño imagen de entrada \\
+        \hline
+        $optimizer$ & SGD & Optimizador de entrenamiento \\
+        \hline
+        $lr0$ & 0.01 & Tasa de aprendizaje inicial \\
+        \hline
+        $lrf$ & 0.01 & Factor de tasa final \\
+        \hline
+        $momentum$ & 0.937 & Momento del optimizador \\
+        \hline
+        $weight\_decay$ & 0.0005 & Regularización $L_2$ \\
+        \hline
+        $batch\_size$ & 8 & Tamaño de lote de entrenamiento \\
+        \hline
+        $warmup\_epochs$ & 3.0 & Épocas de calentamiento \\
+        \hline
+        $warmup\_momentum$ & 0.8 & Momento en calentamiento \\
+        \hline
+        $warmup\_bias\_lr$ & 0.1 & Tasa de aprendizaje sesgos calentamiento \\
+        \hline
+        $box$ & 0.05 & Peso pérdida de cajas \\
+        \hline
+        $cls$ & 0.5 & Peso pérdida de clasificación \\
+        \hline
+        $obj$ & 1.0 & Peso pérdida de objeto \\
+        \hline
+        $iou\_t$ & 0.2 & Umbral IoU para anclas \\
+        \hline
+        $anchor\_t$ & 4.0 & Umbral de ajuste de anclas \\
+        \hline
+        $hsv\_h$ & 0.015 & Aumentación en tono HSV \\
+        \hline
+        $hsv\_s$ & 0.7 & Aumentación en saturación HSV \\
+        \hline
+        $hsv\_v$ & 0.4 & Aumentación en valor HSV \\
+        \hline
+        $translate$ & 0.1 & Traslación geométrica \\
+        \hline
+        $scale$ & 0.5 & Escalamiento aleatorio \\
+        \hline
+        $fliplr$ & 0.5 & Volteo horizontal \\
+        \hline
+        $mosaic$ & 1.0 & Aumentación tipo mosaico \\
+        \hline
+    \end{tabular}
+    \label{tab:3.3-hiperparametros-yolov5}
+\end{table}
+
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre} \\
+        \hline
+        $min\_dim$ & 300 & Tamaño de entrada ($300\times300$) \\
+        \hline
+        $mean$ & (104, 117, 123) & Media de normalización \\
+        \hline
+        $optimizer$ & SGD & Optimizador \\
+        \hline
+        $lr$ & $1\times10^{-3}$ & Tasa de aprendizaje inicial \\
+        \hline
+        $\gamma$ & 0.1 & Factor de decaimiento de $lr$ \\
+        \hline
+        $lr\_steps$ & $\{80k, 100k, 120k\}$ & Iteraciones de ajuste de $lr$ \\
+        \hline
+        $momentum$ & 0.9 & Momento del optimizador \\
+        \hline
+        $weight\_decay$ & $5\times10^{-4}$ & Regularización $L_2$ \\
+        \hline
+        $batch\_size$ & 16 & Tamaño de lote de entrenamiento \\
+        \hline
+        $overlap\_thresh$ & 0.5 & Umbral IoU para \textit{matching} positivo \\
+        \hline
+        $neg\_pos\_ratio$ & 3 & Relación negativos:positivos \\
+        \hline
+        $neg\_overlap$ & 0.5 & Umbral IoU para negativos \\
+        \hline
+        $conf\_thresh$ & 0.01 & Umbral mínimo de confianza \\
+        \hline
+        $nms\_thresh$ & 0.45 & Umbral IoU para NMS \\
+        \hline
+        $brightness\_\delta$ & 32 & Rango de brillo aleatorio \\
+        \hline
+        $contrast\_range$ & [0.5, 1.5] & Rango de contraste aleatorio \\
+        \hline
+        $saturation\_range$ & [0.5, 1.5] & Rango de saturación aleatoria \\
+        \hline
+        $hue\_\delta$ & 18 & Variación máxima de tono \\
+        \hline
+        $random\_mirror$ & 0.5 & Probabilidad de volteo horizontal \\
+        \hline
+    \end{tabular}
+    \label{tab:3.4-hiperparametros-ssd}
+\end{table}

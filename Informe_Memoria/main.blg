@@ -5,46 +5,44 @@ Reallocating 'name_of_file' (item size: 1) to 10 items.
 The style file: natnumurl.bst
 Reallocating 'name_of_file' (item size: 1) to 8 items.
 Database file #1: library.bib
-Warning--vacio journal en ultralytics2025hyperparam
-You've used 16 entries,
+You've used 20 entries,
             1986 wiz_defined-function locations,
-            557 strings with 7843 characters,
-and the built_in function-call counts, 5008 in all, are:
-= -- 486
-> -- 221
+            581 strings with 8930 characters,
+and the built_in function-call counts, 6119 in all, are:
+= -- 575
+> -- 289
 < -- 0
-+ -- 80
-- -- 64
-* -- 391
-:= -- 669
-add.period$ -- 19
-call.type$ -- 16
-change.case$ -- 17
++ -- 104
+- -- 84
+* -- 488
+:= -- 828
+add.period$ -- 23
+call.type$ -- 20
+change.case$ -- 21
 chr.to.int$ -- 0
-cite$ -- 17
-duplicate$ -- 268
-empty$ -- 437
-format.name$ -- 64
-if$ -- 1223
+cite$ -- 20
+duplicate$ -- 320
+empty$ -- 551
+format.name$ -- 84
+if$ -- 1485
 int.to.chr$ -- 0
-int.to.str$ -- 16
-missing$ -- 13
-newline$ -- 89
-num.names$ -- 16
-pop$ -- 67
+int.to.str$ -- 20
+missing$ -- 16
+newline$ -- 109
+num.names$ -- 20
+pop$ -- 91
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 0
-skip$ -- 212
+skip$ -- 239
 stack$ -- 0
-substring$ -- 242
-swap$ -- 134
+substring$ -- 282
+swap$ -- 148
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 0
-warning$ -- 1
-while$ -- 34
-width$ -- 18
-write$ -- 193
-(There was 1 warning)
+warning$ -- 0
+while$ -- 41
+width$ -- 22
+write$ -- 238

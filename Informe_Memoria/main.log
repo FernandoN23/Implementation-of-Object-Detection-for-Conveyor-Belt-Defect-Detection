@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  25 NOV 2025 19:30
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  26 NOV 2025 17:30
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -2003,17 +2003,17 @@ File: csquotes.cfg
 \coregluevarcm=\skip144
 \corefontwidth=\skip145
 \coreimageshspace=\skip146
-Package hyperref Info: Option `bookmarksopen' set `true' on input line 5902.
+Package hyperref Info: Option `bookmarksopen' set `true' on input line 5901.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-pdfdoc.def
 File: se-pdfdoc.def 2019/11/29 v1.12 stringenc: PDFDocEncoding
 )
-Package hyperref Info: Option `pdfcenterwindow' set `true' on input line 5902.
-Package hyperref Info: Option `pdfdisplaydoctitle' set `true' on input line 5902.
-Package hyperref Info: Option `unicode' set `true' on input line 5902.
-Package hyperref Info: Option `pdffitwindow' set `false' on input line 5902.
-Package hyperref Info: Option `pdfmenubar' set `true' on input line 5902.
-Package hyperref Info: Option `pdftoolbar' set `true' on input line 5902.
-Package hyperref Info: Option `colorlinks' set `true' on input line 5961.
+Package hyperref Info: Option `pdfcenterwindow' set `true' on input line 5901.
+Package hyperref Info: Option `pdfdisplaydoctitle' set `true' on input line 5901.
+Package hyperref Info: Option `unicode' set `true' on input line 5901.
+Package hyperref Info: Option `pdffitwindow' set `false' on input line 5901.
+Package hyperref Info: Option `pdfmenubar' set `true' on input line 5901.
+Package hyperref Info: Option `pdftoolbar' set `true' on input line 5901.
+Package hyperref Info: Option `colorlinks' set `true' on input line 5960.
 \cftbeforelistingsskip=\skip147
 \cftlistingsindent=\skip148
 \cftlistingsnumwidth=\skip149
@@ -2030,7 +2030,7 @@ Package hyperref Info: Option `colorlinks' set `true' on input line 5961.
 \cftbeforeequtitleskip=\skip158
 \cftafterequtitleskip=\skip159
 \c@totalcount@templateIndexEquations=\count424
-LaTeX Font Info:    Trying to load font information for T1+lmvtt on input line 6250.
+LaTeX Font Info:    Trying to load font information for T1+lmvtt on input line 6249.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmvtt.fd
 File: t1lmvtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
@@ -2317,91 +2317,121 @@ LaTeX Info: Redefining \% on input line 1.
 
 ] (capitulos/1-Introducción.tex
 Capítulo 1.
-LaTeX Font Info:    Calculating math sizes for size <8.00006> on input line 41.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8.00006> on input line 41.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5.6> on input line 41.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <4.00003> on input line 41.
 [1
 
 
-{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]) (capitulos/2-Antecedentes.tex [2]
+]
+LaTeX Font Info:    Calculating math sizes for size <8.00006> on input line 52.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <8.00006> on input line 52.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <5.6> on input line 52.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <4.00003> on input line 52.
+ [2{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]) (capitulos/2-Antecedentes.tex [3]
 Capítulo 2.
-<img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png, id=181, 681.54625pt x 352.31625pt>
+<img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png, id=268, 681.54625pt x 352.31625pt>
 File: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png  used on input line 9.
 (pdftex.def)             Requested size: 377.62642pt x 195.2099pt.
-[3
+[4
 
  <./img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png (PNG copy)>]
-<img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png, id=193, 657.95813pt x 492.33937pt>
+<img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png, id=280, 657.95813pt x 492.33937pt>
 File: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png  used on input line 32.
 (pdftex.def)             Requested size: 108.56516pt x 81.23248pt.
-<img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png, id=195, 654.94687pt x 492.33937pt>
+<img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png, id=282, 654.94687pt x 492.33937pt>
 File: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png>
 Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png  used on input line 36.
 (pdftex.def)             Requested size: 108.56516pt x 81.60811pt.
-<img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png, id=196, 634.62094pt x 481.8pt>
+<img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png, id=283, 634.62094pt x 481.8pt>
 File: img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png  used on input line 40.
 (pdftex.def)             Requested size: 108.56516pt x 82.41953pt.
-<img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png, id=197, 643.6547pt x 475.02469pt>
+<img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png, id=284, 643.6547pt x 475.02469pt>
 File: img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png  used on input line 44.
 (pdftex.def)             Requested size: 108.56516pt x 80.12251pt.
-<img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png, id=198, 1073.51062pt x 427.5975pt>
+<img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png, id=285, 1073.51062pt x 427.5975pt>
 File: img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png>
 Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png  used on input line 48.
 (pdftex.def)             Requested size: 188.8096pt x 75.20258pt.
- [4]
-<img/2-Antecedentes/2-Object_Detection_example.png, id=210, 1449.415pt x 348.30125pt>
+ [5] [6 <./img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png> <./img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png>]
+<img/2-Antecedentes/2-Object_Detection_example.png, id=310, 1449.415pt x 348.30125pt>
 File: img/2-Antecedentes/2-Object_Detection_example.png Graphic file (type png)
 <use img/2-Antecedentes/2-Object_Detection_example.png>
-Package pdftex.def Info: img/2-Antecedentes/2-Object_Detection_example.png  used on input line 62.
+Package pdftex.def Info: img/2-Antecedentes/2-Object_Detection_example.png  used on input line 66.
 (pdftex.def)             Requested size: 424.82523pt x 102.08365pt.
- [5 <./img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png> <./img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png> <./img/2-Antecedentes/2-Object_Detection_example.png (PNG copy)>] [6] [7{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}] [8]
-<img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png, id=263, 592.46344pt x 322.20375pt>
+<img/2-Antecedentes/2.2-CNN/CNN_architecture.png, id=318, 1318.9275pt x 477.785pt>
+File: img/2-Antecedentes/2.2-CNN/CNN_architecture.png Graphic file (type png)
+<use img/2-Antecedentes/2.2-CNN/CNN_architecture.png>
+Package pdftex.def Info: img/2-Antecedentes/2.2-CNN/CNN_architecture.png  used on input line 82.
+(pdftex.def)             Requested size: 424.82523pt x 153.8931pt.
+ [7 <./img/2-Antecedentes/2-Object_Detection_example.png (PNG copy)>] [8 <./img/2-Antecedentes/2.2-CNN/CNN_architecture.png (PNG copy)>] [9{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}] [10
+
+] [11]
+<img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png, id=379, 592.46344pt x 322.20375pt>
 File: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png Graphic file (type png)
 <use img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png>
-Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png  used on input line 148.
-(pdftex.def)             Requested size: 377.62642pt x 205.3739pt.
-<img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png, id=267, 1445.4pt x 1320.43312pt>
-File: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png Graphic file (type png)
-<use img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png>
-Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png  used on input line 163.
-(pdftex.def)             Requested size: 424.82523pt x 388.09387pt.
- [9
+Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png  used on input line 168.
+(pdftex.def)             Requested size: 448.42822pt x 243.87935pt.
+ [12
 
  <./img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png>]
-<img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png, id=277, 574.39594pt x 171.64125pt>
+<img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png, id=391, 739.26187pt x 364.36125pt>
+File: img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png Graphic file (type png)
+<use img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png>
+Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png  used on input line 185.
+(pdftex.def)             Requested size: 448.42822pt x 221.02022pt.
+ [13 <./img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png>]
+<img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png, id=407, 660.21657pt x 475.02469pt>
+File: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png Graphic file (type png)
+<use img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png>
+Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png  used on input line 208.
+(pdftex.def)             Requested size: 424.82523pt x 305.66736pt.
+ [14] [15 <./img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png>] [16] [17]
+<img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png, id=447, 574.39594pt x 171.64125pt>
 File: img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png>
-Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png  used on input line 176.
+Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png  used on input line 282.
 (pdftex.def)             Requested size: 377.62642pt x 112.84618pt.
- [10 <./img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png>] [11 <./img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png>] [12]) (capitulos/3-Metodología.tex [13]
-Capítulo 3.
-) (capitulos/4-Resultados_Discusión.tex [14
+ [18 <./img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png>] [19] [20] [21
 
 ]
+<img/2-Antecedentes/2.6-Metricas/IoU_metric.png, id=493, 356.83313pt x 363.60844pt>
+File: img/2-Antecedentes/2.6-Metricas/IoU_metric.png Graphic file (type png)
+<use img/2-Antecedentes/2.6-Metricas/IoU_metric.png>
+Package pdftex.def Info: img/2-Antecedentes/2.6-Metricas/IoU_metric.png  used on input line 413.
+(pdftex.def)             Requested size: 283.22162pt x 288.61237pt.
+ [22] [23 <./img/2-Antecedentes/2.6-Metricas/IoU_metric.png>]) (capitulos/3-Metodología.tex [24]
+Capítulo 3.
+[25
+
+] [26] [27] [28]) (capitulos/4-Resultados_Discusión.tex [29]
 Capítulo 4.
-) (capitulos/5-Conclusiones.tex) (main.bbl [15
+) (capitulos/5-Conclusiones.tex) (main.bbl [30
 
-] [16
+] [31
 
-]) (capitulos/6-Anexos.tex [17]) (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
+]) (capitulos/6-Anexos.tex [32]
+Capítulo 5.
+
+Overfull \hbox (14.93567pt too wide) in paragraph at lines 8--60
+ [][] 
+ []
+
+) [33
+
+] (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
 File: se-utf8.def 2019/11/29 v1.12 stringenc: UTF-8
-) [18
-
-] (main.aux
+) [34] (main.aux
 LaTeX Info: Redefining \. on input line 16.
 LaTeX Info: Redefining \% on input line 16.
 )
@@ -2411,18 +2441,18 @@ L3 programming layer <2024-01-04>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 33738 strings out of 474486
- 574863 string characters out of 5743755
- 1944542 words of memory out of 5000000
- 55263 multiletter control sequences out of 15000+600000
- 660200 words of font info for 139 fonts, out of 8000000 for 9000
+ 34360 strings out of 474486
+ 581987 string characters out of 5743755
+ 2220542 words of memory out of 5000000
+ 55768 multiletter control sequences out of 15000+600000
+ 667453 words of font info for 141 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  113i,13n,110p,3003b,2628s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb>
-Output written on main.pdf (24 pages, 6300489 bytes).
+<C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmvtt10.pfb>
+Output written on main.pdf (40 pages, 6445055 bytes).
 PDF statistics:
- 564 PDF objects out of 1000 (max. 8388607)
- 485 compressed objects within 5 object streams
- 103 named destinations out of 1000 (max. 500000)
- 402 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 973 PDF objects out of 1000 (max. 8388607)
+ 861 compressed objects within 9 object streams
+ 219 named destinations out of 1000 (max. 500000)
+ 641 words of extra memory for PDF output out of 10000 (max. 10000000)
 
