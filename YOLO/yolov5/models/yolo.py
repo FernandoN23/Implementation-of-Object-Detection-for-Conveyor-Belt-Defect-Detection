@@ -191,9 +191,22 @@ class BaseModel(nn.Module):
         LOGGER.info("Fusing layers... ")
         for m in self.model.modules():
             if isinstance(m, (Conv, DWConv)) and hasattr(m, "bn"):
-                m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
-                delattr(m, "bn")  # remove batchnorm
-                m.forward = m.forward_fuse  # update forward
+                #------- BN2GN-safe fusion guard --------------------------------------#
+                bn_module = m.bn
+                if isinstance(bn_module, nn.BatchNorm2d) and hasattr(bn_module, "running_var"):
+                    # Ruta estándar: BatchNorm2d con buffers estadísticos → se puede fusionar.
+                    m.conv = fuse_conv_and_bn(m.conv, bn_module)  # update conv
+                    delattr(m, "bn")  # remove batchnorm
+                    m.forward = m.forward_fuse  # update forward
+                else:
+                    # En modelos parchados a GroupNorm (BN2GN) u otras normalizaciones sin
+                    # running_mean/running_var, la fusión Conv+Norm estándar no es válida.
+                    # Se omite la fusión para evitar errores en tiempo de carga/inferencia.
+                    LOGGER.info(
+                        f"Skipping Conv+Norm fusion on layer {m.__class__.__name__} "
+                        f"with normalization {type(bn_module).__name__}."
+                    )
+                #---------------------------------------------------------------------#
         self.info()
         return self
 

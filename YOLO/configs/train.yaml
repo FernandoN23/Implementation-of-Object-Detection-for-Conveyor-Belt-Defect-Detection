@@ -142,7 +142,7 @@ bn2gn:
 
 
 # --------------------------------------------------------------
-# Presets de prueba rápida (smoke tests)
+# Presets de prueba rápida (smoke tests) + entrenamiento final
 # --------------------------------------------------------------
 presets:
   # ----------------------------------------------------------
@@ -193,3 +193,40 @@ presets:
         rect: true
         single_cls: false
         cache: "ram"
+
+  # ----------------------------------------------------------
+  # 3. Entrenamiento final sobre Dataset del proyecto
+  #    Objetivo: entrenamiento robusto con yolov5s preentrenado
+  #    usando el dataset completo de fallas en correas.
+  # ----------------------------------------------------------
+  belt_defects_yolov5s_final:
+    description: "Entrenamiento final sobre el Dataset del proyecto con yolov5s preentrenado."
+
+    overrides:
+      paths:
+        # Usa la configuración principal del dataset del proyecto
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+
+      training:
+        # Identidad del run final
+        run_name: "belt_defects_yolov5s_final"
+
+        # Configuración más robusta que los smoke tests, manteniendo
+        # un compromiso razonable tiempo/calidad.
+        epochs: 100       # puedes subir a 150 si ves buena convergencia
+        batch_size: 8
+        imgsz: 640
+
+        # Fine-tuning a partir del modelo base yolov5s
+        # (idealmente almacenado en YOLO/weights/yolov5s.pt)
+        pretrain_weights: "YOLO/weights/yolov5s.pt"
+
+        # Hiperparámetros base de YOLOv5 (ajustables a futuro)
+        hyp_yaml: "YOLO/yolov5/data/hyps/hyp.scratch-low.yaml"
+
+        # Detalles adicionales (alineados con tu flujo actual)
+        rect: true
+        single_cls: false
+        cache: "ram"
+        phase: "train"
+        use_albumentations: false
