@@ -6,5 +6,6 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {5.1.1}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}}{33}{table.caption.32}%
-\contentsline {table}{\numberline {5.1.2}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}}{34}{table.caption.33}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {6.1.1}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}}{39}{table.caption.41}%
+\contentsline {table}{\numberline {6.1.2}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}}{40}{table.caption.42}%

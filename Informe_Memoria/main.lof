@@ -12,4 +12,14 @@
 \contentsline {figure}{\numberline {2.6.1}{\ignorespaces Representación visual de Intersección sobre la Unión. Imagen extraída de \cite {schlosser2024overview}.}}{23}{figure.caption.28}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1.1}{\ignorespaces Curva de pérdida vs época por componentes del modelo YOLOv5 variante s.}}{30}{figure.caption.31}%
+\contentsline {figure}{\numberline {4.1.2}{\ignorespaces Curva de pérdida vs época promedio del modelo YOLOv5 variante s.}}{31}{figure.caption.32}%
+\contentsline {figure}{\numberline {4.1.3}{\ignorespaces Curva de F1-score de validación por clase y promedio global del modelo YOLOv5 variante s.}}{31}{figure.caption.33}%
+\contentsline {figure}{\numberline {4.1.4}{\ignorespaces Curva de Precision vs Confident de validación del modelo YOLOv5 variante s}}{32}{figure.caption.34}%
+\contentsline {figure}{\numberline {4.1.5}{\ignorespaces Curva de Recall vs Confident de validación del modelo YOLOv5 variante s}}{32}{figure.caption.35}%
+\contentsline {figure}{\numberline {4.1.6}{\ignorespaces Distribución de Intersecciones sobre la unión aplicado en la validación del modelo YOLOv5 variante s.}}{33}{figure.caption.36}%
+\contentsline {figure}{\numberline {4.2.1}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de agujero, junto a la etiqueta real y la predicha por el modelo.}}{34}{figure.caption.37}%
+\contentsline {figure}{\numberline {4.2.2}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de desgarro, junto a la etiqueta real y la predicha por el modelo.}}{34}{figure.caption.38}%
+\contentsline {figure}{\numberline {4.2.3}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de abrasión, junto a la etiqueta real y la predicha por el modelo.}}{35}{figure.caption.39}%
+\addvspace {10\p@ }
 \addvspace {10\p@ }

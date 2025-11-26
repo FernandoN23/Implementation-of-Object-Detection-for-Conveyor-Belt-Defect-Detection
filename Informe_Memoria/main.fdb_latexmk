@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1764188942.11989 "main.aux" "main.bbl" "main" 1764189053.94606 0
+["bibtex main"] 1764190725.81698 "main.aux" "main.bbl" "main" 1764190731.04421 0
   "./library.bib" 1764184320 9325 553d34ace4c68a2901e1e019cc003bae ""
   "./natnumurl.bst" 1758139420 21201 c3a97a2434b58cd70f7f9c9df607b80a ""
-  "main.aux" 1764189052 51909 36041ba97c7eabbc625a68c9184abf12 "pdflatex"
+  "main.aux" 1764190730 55463 eda2df6a7dbb8ba26cb14f2d3f19c4b0 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1764189049.86701 "c:/Users/seika/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1764189053.94684 0
+["pdflatex"] 1764190726.17684 "c:/Users/seika/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1764190731.0448 0
   "Abstracto.tex" 1763689262 1696 d4fbcf3aa0bd42ad77cf7a3eb22e1ccb ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1760210407 81086 6fddea6b023469843de28035c851ec71 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1758130852 688 37338d6ab346c2f1466b29e195316aa4 ""
@@ -273,8 +273,8 @@
   "capitulos/1-Introducción.tex" 1764186354 6024 ac244a4e1549c8224ede216225fc3933 ""
   "capitulos/2-Antecedentes.tex" 1764185479 57360 cb1c08c225ef36e111a544101937be76 ""
   "capitulos/3-Metodología.tex" 1764189049 15105 37939e5939b4cb204855100688d485ad ""
-  "capitulos/4-Resultados_Discusión.tex" 1764187302 983 10b96d8f45288f3bce1bd581fa12e53b ""
-  "capitulos/5-Conclusiones.tex" 1758139420 22 191e45bd541fc2e414e492f72225b680 ""
+  "capitulos/4-Resultados_Discusión.tex" 1764190720 5883 542146fa1921f6160412aaf292250ab2 ""
+  "capitulos/5-Conclusiones.tex" 1764190337 22 a79e722b62e8948d7bf24fbd45b92ac6 ""
   "capitulos/6-Anexos.tex" 1764179186 3986 cd440f32a57d5ea56fc52508c17a9c81 ""
   "img//departamentos/uchile2.pdf" 1758139420 18772 1d92f499584e10e4c8e0b3bf44be0bbf ""
   "img/2-Antecedentes/2-Object_Detection_example.png" 1764098882 751229 8088d2f3fe22b26b3b93790ff7951a61 ""
@@ -290,12 +290,21 @@
   "img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png" 1757896398 1041760 412addc3d7fdb3ccb250ffd968c4fea9 ""
   "img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png" 1757896398 640994 da2c46d96b86dab9f91c41b99f9dd901 ""
   "img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png" 1757896398 673910 aedb0dba39bae921d1ca048d731e1066 ""
-  "main.aux" 1764189052 51909 36041ba97c7eabbc625a68c9184abf12 "pdflatex"
-  "main.bbl" 1764188942 8491 1243bb02f8a1ff33aaa49786baf4b04f "bibtex main"
-  "main.lof" 1764189052 1841 8d407caaab11e8d8b91b6521338089ce "pdflatex"
-  "main.lot" 1764189052 750 4c2974951519beacd19f1010c46a8f9c "pdflatex"
+  "img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png" 1764177284 61371 5e52b894c2490cff3173e2290ac96a1b ""
+  "img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/loss_curves.png" 1764177284 105024 15109c63fccbadc43212123364c0cacf ""
+  "img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/train/loss_components.png" 1764177284 96997 af7b5644f505796a1c20934bcd17a6a1 ""
+  "img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png" 1764177284 230380 dc0bcb48f5a71baf900cc9738517761e ""
+  "img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png" 1764177284 193539 cd41688b5db32ba9a910bf4c8c63f12c ""
+  "img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png" 1764177284 204439 c72a1ba1e9e689bcfb6a5d48dfa6b9af ""
+  "img/4-Resultados_Discusion/YOLO/pruebas/hole_test.jpeg" 1764190449 136284 930781458fa358ca0225ccac852e294a ""
+  "img/4-Resultados_Discusion/YOLO/pruebas/tear_test.jpeg" 1764190458 199469 f4996cd900a3210b27b6b62d3670ceae ""
+  "img/4-Resultados_Discusion/YOLO/pruebas/wear_test.jpeg" 1764190432 211209 25111691d40a60ecec8b10876048f5d5 ""
+  "main.aux" 1764190730 55463 eda2df6a7dbb8ba26cb14f2d3f19c4b0 "pdflatex"
+  "main.bbl" 1764190726 8491 1243bb02f8a1ff33aaa49786baf4b04f "bibtex main"
+  "main.lof" 1764190730 3475 877cd048754a478b455ff459f5d8a777 "pdflatex"
+  "main.lot" 1764190730 770 d3b2f6282e6b0bee06d4e9f6a7638116 "pdflatex"
   "main.tex" 1764112702 3228 926b83b31663daedab6d4abdf95818a7 ""
-  "main.toc" 1764189052 7462 5a6b6a2791a2620705b388bef853fba7 "pdflatex"
+  "main.toc" 1764190730 7458 a6eace93236d3859395007fde389a2bf "pdflatex"
   "template.tex" 1764179659 290937 ede9db494556dc9bf18c5ac4c5e84a1a ""
   "template_config.tex" 1758139420 21965 2a99f3119ef44872b6f304c32fbac1fa ""
   (generated)

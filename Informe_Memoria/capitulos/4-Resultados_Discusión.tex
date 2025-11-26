@@ -3,83 +3,150 @@
 \section{Métricas de entrenamiento y validación}
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{YOLOv5}
 
-
-
-\subsubsection{Curva de pérdida vs época promedio}
-
+\par En esta subsección, se expondrán los resultados obtenidos para el modelo \textbf{YOLOv5} utilizando su variante \textbf{s} y los hiperparámetros considerados en la Tabla \ref{tab:3.3-hiperparametros-yolov5}.
 
 
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Curva de pérdida vs época específicas}
 
+\par La \textit{Curva de pérdida vs época}, que considera los 3 tipos de pérdidas calculadas por el modelo (box, object, class) de la validación, se muestra en la Figura \ref{fig:4.1-YOLOV5s_loss_comp}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/train/loss_components.png}
+    \caption{Curva de pérdida vs época por componentes del modelo YOLOv5 variante s.}
+    \label{fig:4.1-YOLOV5s_loss_comp}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Curva de pérdida vs época promedio}
+
+\par La \textit{curva de pérdida promedio por época}, obtenida a partir de la combinación ponderada de las tres pérdidas específicas (obj, cls y box) en entrenamiento y validación, se muestra en la Figura \ref{fig:4.1-YOLOV5s_loss_promedio}.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/loss_curves.png}
+    \caption{Curva de pérdida vs época promedio del modelo YOLOv5 variante s.}
+    \label{fig:4.1-YOLOV5s_loss_promedio}
+\end{figure}
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{F1-Score}
 
+\par La curva de F1-score del modelo entrenado, tanto a nivel global como desagregada por clase, se presenta en la Figura \ref{fig:4.1-YOLOV5s_F1_score}.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png}
+    \caption{Curva de F1-score de validación por clase y promedio global del modelo YOLOv5 variante s.}
+    \label{fig:4.1-YOLOV5s_F1_score}
+\end{figure}
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Precision y Recall}
 
+\par Las curvas de precisión y recall de validación del modelo YOLOv5 variante s se presentan en las Figuras \ref{fig:4.1-YOLOV5s_Precision} y \ref{fig:4.1-YOLOV5s_Recall}, respectivamente.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png}
+    \caption{Curva de Precision vs Confident de validación del modelo YOLOv5 variante s}
+    \label{fig:4.1-YOLOV5s_Precision}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png}
+    \caption{Curva de Recall vs Confident de validación del modelo YOLOv5 variante s}
+    \label{fig:4.1-YOLOV5s_Recall}
+\end{figure}
 
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Distribución de IoU's}
 
+\par La distribución de valores de \textit{Intersection over Union} (IoU) obtenida en la validación del modelo YOLOv5 variante s se muestra en la Figura \ref{fig:4.1-YOLOV5s_IoU_dist}.
 
 
-
-
-
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png}
+    \caption{Distribución de Intersecciones sobre la unión aplicado en la validación del modelo YOLOv5 variante s.}
+    \label{fig:4.1-YOLOV5s_IoU_dist}
+\end{figure}
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{SSD}
 
-\subsubsection{Curva de pérdida vs época promedio}
 
-
-
-
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Curva de pérdida vs época específicas}
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Curva de pérdida vs época promedio}
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{F1-Score}
 
 
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Precision y Recall}
 
 
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Distribución de IoU's}
 
 
 
 
-
-
-
-
-
-
-
-
+\clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Pruebas y detección de fallas}
 
 \subsection{YOLOv5}
 
+\par A continuación, se adjuntan imágenes de pruebas del modelo YOLOv5 tras su implementación. Estas se muestran en las Figuras \ref{fig:4.2-pruebas_YOLOv5s_hole}, \ref{fig:4.2-pruebas_YOLOv5s_tear}, \ref{fig:4.2-pruebas_YOLOv5s_wear}.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/hole_test.jpeg}
+    \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de agujero, junto a la etiqueta real y la predicha por el modelo.}
+    \label{fig:4.2-pruebas_YOLOv5s_hole}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/tear_test.jpeg}
+    \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de desgarro, junto a la etiqueta real y la predicha por el modelo.}
+    \label{fig:4.2-pruebas_YOLOv5s_tear}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/wear_test.jpeg}
+    \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de abrasión, junto a la etiqueta real y la predicha por el modelo.}
+    \label{fig:4.2-pruebas_YOLOv5s_wear}
+\end{figure}
