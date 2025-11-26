@@ -160,11 +160,11 @@ presets:
         task_model: "detect"
         phase: "val"
         variant: "s"
-        run_name: "beltdefects_yolov5s_val"
+        run_name: "s_belt_defects_yolov5s_val"
 
         # Ajustar esta ruta a los pesos reales una vez entrenado el modelo
         # (por ejemplo: YOLO/weights/detect/s/train/beltdefects_yolov5s_best.pt).
-        weights: "YOLO/weights/detect/s/train/beltdefects_yolov5s_best.pt"
+        weights: "YOLO/weights/detect/s/train/s_belt_defects_yolov5s_final_best.pt"
 
         batch_size: 4
         imgsz: 640

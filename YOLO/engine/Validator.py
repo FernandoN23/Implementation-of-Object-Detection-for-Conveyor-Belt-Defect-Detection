@@ -34,7 +34,8 @@ Responsabilidades principales
   posibles sufijos de auto-numeración) y sincronizar métricas clave a
   `YOLO/metrics/...`.
 - Propagar la configuración BN→GN (BatchNorm→GroupNorm), cuando exista,
-  hacia los backends de validación de YOLOv5 mediante flags explícitos.
+  hacia los backends de validación de YOLOv5 mediante variables de
+  entorno, sin modificar la firma de sus funciones `run()`.
 
 Notas
 -----
@@ -214,7 +215,7 @@ class ValidatorConfig:
     plots: bool = True
     exist_ok: bool = False
 
-    # Logging NDJSON
+    # Logging NDJSON (reservado para futuras extensiones a nivel de proyecto)
     ndjson_console: bool = False
     ndjson_file: bool = False
 
@@ -266,17 +267,28 @@ class Validator:
 
         Flujo:
         1) Crear estructura mínima de directorios de salida.
-        2) Construir opciones (`Namespace`) para el backend adecuado.
-        3) Cargar el módulo de validación de YOLOv5 (detección o
-           clasificación) y ejecutar su función principal.
-        4) Resolver la carpeta de run efectiva (auto-sufijos).
-        5) Sincronizar métricas clave a `YOLO/metrics`.
+        2) Propagar, si corresponde, la política BN2GN vía variables de
+           entorno.
+        3) Construir opciones (`Namespace`) para el backend adecuado y
+           cargar el módulo YOLOv5 correspondiente.
+        4) Ejecutar el backend (`main(opt)` o `run(**kwargs)`).
+        5) Resolver la carpeta de run efectiva (auto-sufijos).
+        6) Sincronizar métricas clave a `YOLO/metrics`.
         """
 
         # 1) Crear estructura mínima de directorios
         self._ensure_directories()
 
-        # 2) Construir opciones para el backend adecuado
+        # 2) Propagar BN2GN vía variables de entorno (si existe config)
+        if self.cfg.bn2gn is not None and isinstance(self.cfg.bn2gn, BN2GNConfig):  # type: ignore[arg-type]
+            os.environ["BN2GN_POLICY"] = str(getattr(self.cfg.bn2gn, "policy", "off"))
+            os.environ["BN2GN_MAX_GROUPS"] = str(getattr(self.cfg.bn2gn, "max_groups", 32))
+            os.environ["BN2GN_MIN_CHANNELS_PER_GROUP"] = str(
+                getattr(self.cfg.bn2gn, "min_channels_per_group", 1)
+            )
+            os.environ["BN2GN_VERBOSE"] = str(getattr(self.cfg.bn2gn, "verbose", 1))
+
+        # 3) Construir opciones para el backend adecuado y cargar módulo
         task_model = self.cfg.task_model.lower()
         if task_model == "detect":
             opt = self._build_yolov5_detect_val_opt()
@@ -287,7 +299,7 @@ class Validator:
         else:
             raise ValueError(f"task_model desconocido en ValidatorConfig: {self.cfg.task_model!r}")
 
-        # 3) Ejecutar backend YOLOv5
+        # 4) Ejecutar backend YOLOv5 (manteniendo la interfaz original)
         if hasattr(module, "main"):
             module.main(opt)  # type: ignore[arg-type]
         elif hasattr(module, "run"):
@@ -297,10 +309,10 @@ class Validator:
                 "El módulo de validación de YOLOv5 no expone ni 'main(opt)' ni 'run(**kwargs)'."
             )
 
-        # 4) Resolver directorio de run efectivo (incluyendo auto-sufijos)
+        # 5) Resolver directorio de run efectivo (incluyendo auto-sufijos)
         self._resolve_effective_run_dirs()
 
-        # 5) Sincronizar métricas a la jerarquía del proyecto
+        # 6) Sincronizar métricas a la jerarquía del proyecto
         self._sync_metrics()
 
     # ------------------------------------------------------------------
@@ -321,19 +333,8 @@ class Validator:
         project = RUNS_ROOT / "detect" / self.cfg.variant / self.cfg.phase
         name = self.cfg.run_name
 
-        # Configuración BN2GN a propagar al backend de detección
-        if isinstance(self.cfg.bn2gn, BN2GNConfig):  # type: ignore[arg-type]
-            bn2gn_policy = getattr(self.cfg.bn2gn, "policy", "off")
-            bn2gn_max_groups = int(getattr(self.cfg.bn2gn, "max_groups", 32))
-            bn2gn_min_channels_per_group = int(getattr(self.cfg.bn2gn, "min_channels_per_group", 1))
-            bn2gn_verbose = int(getattr(self.cfg.bn2gn, "verbose", 1))
-        else:
-            bn2gn_policy = "off"
-            bn2gn_max_groups = 32
-            bn2gn_min_channels_per_group = 1
-            bn2gn_verbose = 1
-
         # Construir diccionario base de opciones para detección
+        # Debe estar alineado con la firma de `yolov5/val.py::run`.
         opt_dict = dict(
             # Pesos y dataset
             weights=self.cfg.weights,
@@ -347,7 +348,7 @@ class Validator:
             max_det=self.cfg.max_det,
 
             # Control de dataset/split
-            task=self.cfg.phase,  # "val" o "test" → data[task]
+            task=self.cfg.phase,  # "train", "val" o "test"; aquí usamos "val"/"test"
 
             # Recursos
             device=self.cfg.device,
@@ -363,26 +364,14 @@ class Validator:
             exist_ok=self.cfg.exist_ok,
             half=False,        # por defecto; se puede exponer en valid.yaml si se requiere
             dnn=False,
-            plots=self.cfg.plots,
 
-            # Parámetros adicionales con valores razonables por defecto
+            # Parámetros adicionales presentes en la firma de `run`
             single_cls=False,
             augment=False,
             verbose=True,
-            rect=False,
-            classes=None,
-            agnostic_nms=False,
-            max_frames=0,
 
-            # Logging NDJSON (consumido opcionalmente por un fork de YOLOv5)
-            ndjson_console=self.cfg.ndjson_console,
-            ndjson_file=self.cfg.ndjson_file,
-
-            # Configuración BN2GN a nivel de backend de detección
-            bn2gn_policy=bn2gn_policy,
-            bn2gn_max_groups=bn2gn_max_groups,
-            bn2gn_min_channels_per_group=bn2gn_min_channels_per_group,
-            bn2gn_verbose=bn2gn_verbose,
+            # Parámetro adicional soportado por `run` (no en parse_opt)
+            plots=self.cfg.plots,
         )
 
         return argparse.Namespace(**opt_dict)
@@ -399,18 +388,6 @@ class Validator:
         # runs de detección para mantener claridad en la jerarquía.
         project = RUNS_ROOT / "classify" / self.cfg.variant / self.cfg.phase
         name = self.cfg.run_name
-
-        # Configuración BN2GN a propagar al backend de clasificación
-        if isinstance(self.cfg.bn2gn, BN2GNConfig):  # type: ignore[arg-type]
-            bn2gn_policy = getattr(self.cfg.bn2gn, "policy", "off")
-            bn2gn_max_groups = int(getattr(self.cfg.bn2gn, "max_groups", 32))
-            bn2gn_min_channels_per_group = int(getattr(self.cfg.bn2gn, "min_channels_per_group", 1))
-            bn2gn_verbose = int(getattr(self.cfg.bn2gn, "verbose", 1))
-        else:
-            bn2gn_policy = "off"
-            bn2gn_max_groups = 32
-            bn2gn_min_channels_per_group = 1
-            bn2gn_verbose = 1
 
         opt_dict = dict(
             # Pesos y dataset (en clasificación, `data` suele ser ruta a
@@ -432,17 +409,9 @@ class Validator:
             exist_ok=self.cfg.exist_ok,
             half=False,
             dnn=False,
-            plots=self.cfg.plots,
 
-            # Logging NDJSON (si el backend extendido lo soporta)
-            ndjson_console=self.cfg.ndjson_console,
-            ndjson_file=self.cfg.ndjson_file,
-
-            # Configuración BN2GN (en caso de que el backend la utilice)
-            bn2gn_policy=bn2gn_policy,
-            bn2gn_max_groups=bn2gn_max_groups,
-            bn2gn_min_channels_per_group=bn2gn_min_channels_per_group,
-            bn2gn_verbose=bn2gn_verbose,
+            # Salida detallada (alineado con parse_opt de classify/val.py)
+            verbose=True,
         )
 
         return argparse.Namespace(**opt_dict)
