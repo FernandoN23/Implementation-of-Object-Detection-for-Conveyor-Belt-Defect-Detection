@@ -1,0 +1,183 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: YOLO/configs/valid.yaml
+# Descripción: Configuración de campañas de validación YOLO
+#              (detección de fallas en correas transportadoras).
+#==============================================================
+
+# --------------------------------------------------------------
+# Sección: paths
+# Rutas base para dataset y otros recursos.
+# --------------------------------------------------------------
+paths:
+  # Ruta al dataset.yaml principal del proyecto (relativa a la raíz del proyecto).
+  dataset_cfg: "YOLO/configs/dataset.yaml"
+
+# --------------------------------------------------------------
+# Sección: validation
+# Parámetros generales de validación (detección por defecto).
+# --------------------------------------------------------------
+validation:
+  # Tipo de modelo a validar: "detect" (YOLOv5) o "classify" (futuro).
+  task_model: "detect"
+
+  # Fase lógica de validación: "val" (split de validación) o "test".
+  # Esta clave se mapea directamente al campo `task` de yolov5/val.py
+  # para seleccionar data[task] en el dataset.yaml.
+  phase: "val"
+
+  # Variante del modelo (para organizar runs y métricas).
+  # n, s, m, l, x, etc.
+  variant: "s"
+
+  # Nombre lógico del experimento de validación.
+  run_name: "val_default"
+
+  # Ruta o alias a los pesos a validar.
+  # Puede ser una ruta absoluta/relativa a un .pt o un alias YOLOv5
+  # (por ejemplo, "yolov5s.pt" cuando se llama desde el repo oficial).
+  weights: ""
+
+  # Hiperparámetros de validación
+  batch_size: 4          # tamaño de batch para validación
+  imgsz: 640             # tamaño de imagen (px)
+  conf_thres: 0.001      # umbral de confianza
+  iou_thres: 0.6         # umbral IoU para NMS
+  max_det: 300           # máx. detecciones por imagen
+
+  # Recursos
+  device: ""             # "", "0", "0,1", "cpu", etc.
+  workers: 4             # dataloader workers
+
+  # Flags de guardado / salida
+  save_txt: false        # guardar predicciones en formato YOLO *.txt
+  save_hybrid: false     # guardar labels+predicciones híbridas
+  save_conf: false       # incluir confianza en los txt
+  save_json: false       # exportar COCO-JSON para pycocotools
+  plots: true            # generar resultados.png, PR/F1, conf_matrix, etc.
+  exist_ok: false        # reutilizar carpeta de run si existe
+
+  # Logging NDJSON opcional (coherente con TrainerConfig)
+  ndjson_console: false
+  ndjson_file: false
+
+# --------------------------------------------------------------
+# Sección: miopen
+# Configuración del entorno ROCm/MIOpen para validación.
+# La política del proyecto es desactivar SIEMPRE la caché.
+# --------------------------------------------------------------
+miopen:
+  find_mode: "FAST"          # MIOPEN_FIND_MODE
+  user_db_path: null         # ruta explícita o null para usar la por defecto
+  disable_cache: true        # política fija del proyecto
+  log_level: 0               # nivel de log de MIOpen (0 = silencioso)
+  extra_env: {}              # diccionario de variables extra MIOpen
+  strict_before_torch: true  # forzar bootstrap antes de importar torch
+  verbose: 1                 # nivel de verbosidad del bootstrap
+
+# --------------------------------------------------------------
+# Sección: bn2gn
+# Política BatchNorm -> GroupNorm para modelos cargados en ROCm.
+# En validación se usará para parchear el modelo cargado en val.py.
+# --------------------------------------------------------------
+bn2gn:
+  # Política global:
+  # - "off"  : no aplicar parche.
+  # - "on"   : aplicar parche estándar BN->GN.
+  # - "safe" : (reserva para política más conservadora si se implementa).
+  policy: "on"
+
+  # Máximo número de grupos para GroupNorm.
+  max_groups: 32
+
+  # Mínimo de canales por grupo.
+  min_channels_per_group: 1
+
+  # Nivel de verbosidad del parcheo.
+  verbose: 1
+
+# --------------------------------------------------------------
+# Sección: presets
+# Conjuntos predefinidos de overrides para campañas de validación.
+# Cada preset fusiona superficialmente sus "overrides" sobre las
+# secciones raíz (paths, validation, miopen, bn2gn).
+# --------------------------------------------------------------
+presets:
+
+  # ----------------------------------------------------------
+  # Preset: Validación humo con COCO128 + yolov5s.pt oficial
+  # Útil para verificar la tubería de validación en el entorno ROCm.
+  # ----------------------------------------------------------
+  smoke_coco128_yolov5s_val:
+    description: "Validación de humo sobre COCO128 usando yolov5s.pt oficial."
+    overrides:
+      paths:
+        # Dataset oficial COCO128 del repo YOLOv5.
+        dataset_cfg: "YOLO/yolov5/data/coco128.yaml"
+
+      validation:
+        task_model: "detect"
+        phase: "val"
+        variant: "s"
+        run_name: "smoke_coco128_yolov5s_val"
+
+        # Pesos: modelo oficial YOLOv5s del subrepo YOLO/yolov5.
+        weights: "YOLO/yolov5/yolov5s.pt"
+
+        batch_size: 4
+        imgsz: 640
+        conf_thres: 0.001
+        iou_thres: 0.6
+        max_det: 300
+
+        device: ""     # detección automática
+        workers: 0     # seguro en Windows/ROCm
+
+        save_txt: false
+        save_hybrid: false
+        save_conf: false
+        save_json: false
+        plots: true
+        exist_ok: false
+
+  # ----------------------------------------------------------
+  # Preset: Validación principal en dataset de fallas en correas
+  # Requiere que existan pesos entrenados previamente.
+  # ----------------------------------------------------------
+  beltdefects_yolov5s_val:
+    description: "Validación en dataset de fallas en correas transportadoras con modelo YOLOv5s."
+    overrides:
+      paths:
+        # Dataset principal del proyecto (con clases de fallas).
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+
+      validation:
+        task_model: "detect"
+        phase: "val"
+        variant: "s"
+        run_name: "beltdefects_yolov5s_val"
+
+        # Ajustar esta ruta a los pesos reales una vez entrenado el modelo
+        # (por ejemplo: YOLO/weights/detect/s/train/beltdefects_yolov5s_best.pt).
+        weights: "YOLO/weights/detect/s/train/beltdefects_yolov5s_best.pt"
+
+        batch_size: 4
+        imgsz: 640
+        conf_thres: 0.001
+        iou_thres: 0.6
+        max_det: 300
+
+        device: ""
+        workers: 4
+
+        save_txt: false
+        save_hybrid: false
+        save_conf: false
+        save_json: false
+        plots: true
+        exist_ok: false
