@@ -5,11 +5,11 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: clean_metrics.py
-# Descripción: Limpia métricas del modelo YOLOv5 adaptado para correas
-#              transportadoras, eliminando el contenido interno de:
-#              YOLO/metrics/detect/{variante}/{carpeta}
-#              donde {carpeta} ∈ {final_metrics, train, val}.
+# Archivo: clean_runs.py
+# Descripción: Limpia ejecuciones (runs) del modelo YOLOv5 adaptado,
+#              eliminando el contenido interno de:
+#              YOLO/runs/detect/{variante}/{carpeta}
+#              donde {variante} ∈ {n,s,m,l,x} y {carpeta} ∈ {train, val}.
 #              Se preservan siempre los directorios base. Consola
 #              interactiva con confirmación (s/n).
 # =============================================================
@@ -20,7 +20,7 @@ from typing import Optional
 
 # Variantes soportadas del modelo YOLOv5 (n, s, m, l, x)
 VARIANTS = ["n", "s", "m", "l", "x"]
-METRIC_FOLDERS = ["final_metrics", "train", "val"]
+RUN_FOLDERS = ["train", "val"]
 
 
 # --- Utilidades de path/proyecto ---
@@ -46,7 +46,7 @@ def find_project_root(start: Optional[Path] = None) -> Path:
 # --- Entrada interactiva ---
 
 def select_variant() -> str:
-    """Solicita al usuario la variante del modelo cuyas métricas desea limpiar."""
+    """Solicita al usuario la variante del modelo cuyas runs desea limpiar."""
     while True:
         v = input("Seleccione variante [n/s/m/l/x]: ").strip().lower()
         if v in VARIANTS:
@@ -54,12 +54,12 @@ def select_variant() -> str:
         print("Entrada inválida. Intente nuevamente.")
 
 
-def select_metrics_folder() -> str:
-    """Selecciona la carpeta de métricas a limpiar para la variante dada."""
-    opts = "/".join(METRIC_FOLDERS)
+def select_runs_folder() -> str:
+    """Selecciona la carpeta de runs a limpiar para la variante dada."""
+    opts = "/".join(RUN_FOLDERS)
     while True:
-        f = input(f"Seleccione carpeta de métricas [{opts}]: ").strip().lower()
-        if f in METRIC_FOLDERS:
+        f = input(f"Seleccione carpeta de runs [{opts}]: ").strip().lower()
+        if f in RUN_FOLDERS:
             return f
         print("Entrada inválida. Intente nuevamente.")
 
@@ -69,25 +69,25 @@ def confirm(prompt: str) -> bool:
     return resp == "s"
 
 
-# --- Operaciones sobre métricas ---
+# --- Operaciones sobre runs ---
 
-def collect_metric_files(root: Path, variant: str, folder: str) -> tuple[Path, list[Path]]:
-    """Determina la carpeta objetivo y los archivos internos a eliminar.
+def collect_run_children(root: Path, variant: str, folder: str) -> tuple[Path, list[Path]]:
+    """Determina la carpeta objetivo y los elementos internos a eliminar.
 
     Estructura objetivo:
-        root/YOLO/metrics/detect/{variant}/{folder}
+        root/runs/detect/{variant}/{folder}
 
     Se preserva siempre el directorio {folder}, eliminando solo su contenido
     (archivos y subdirectorios).
     """
-    metrics_root = root / "YOLO" /"metrics" / "detect" / variant / folder
-    files: list[Path] = []
+    runs_root = root / "YOLO" / "runs" / "detect" / variant / folder
+    children: list[Path] = []
 
-    if metrics_root.exists() and metrics_root.is_dir():
-        for child in metrics_root.iterdir():
-            files.append(child)
+    if runs_root.exists() and runs_root.is_dir():
+        for child in runs_root.iterdir():
+            children.append(child)
 
-    return metrics_root, files
+    return runs_root, children
 
 
 def delete_child(path: Path) -> None:
@@ -107,23 +107,23 @@ def main() -> None:
     # 1) Localizar raíz del proyecto (carpeta YOLO/)
     root = find_project_root()
 
-    # 2) Elegir variante y carpeta de métricas
+    # 2) Elegir variante y carpeta de runs
     variant = select_variant()
-    folder = select_metrics_folder()
+    folder = select_runs_folder()
 
     # 3) Recolectar objetivos
-    metrics_root, children = collect_metric_files(root, variant, folder)
+    runs_root, children = collect_run_children(root, variant, folder)
 
-    if not metrics_root.exists() or not metrics_root.is_dir():
-        print(f"La carpeta de métricas no existe: {metrics_root}")
+    if not runs_root.exists() or not runs_root.is_dir():
+        print(f"La carpeta de runs no existe: {runs_root}")
         return
 
     if not children:
-        print(f"No se encontraron elementos dentro de: {metrics_root}")
+        print(f"No se encontraron elementos dentro de: {runs_root}")
         return
 
     print("Se eliminará el contenido interno de la siguiente carpeta, preservando el directorio base:")
-    print(f" - Carpeta: {metrics_root}")
+    print(f" - Carpeta: {runs_root}")
     print("Elementos a eliminar:")
     for ch in children[:20]:
         print(f"   · {ch}")
