@@ -1,3 +1,5 @@
+from torch.utils import viz
+
 from data import *
 from utils.augmentations import SSDAugmentation
 from layers.modules import MultiBoxLoss
