@@ -233,19 +233,25 @@ class RandomSampleCrop(object):
 
     def __call__(self, image, boxes=None, labels=None):
         height, width, _ = image.shape
+
         while True:
-            # randomly choose a mode
-            mode = random.choice(self.sample_options)
+            # ---------------------------
+            # FIX: evitar numpy.random.choice con objetos heterogéneos
+            # ---------------------------
+            idx = random.randint(0, len(self.sample_options))
+            mode = self.sample_options[idx]
+            # ---------------------------
+
             if mode is None:
                 return image, boxes, labels
 
             min_iou, max_iou = mode
             if min_iou is None:
-                min_iou = float('-inf')
+                min_iou = float("-inf")
             if max_iou is None:
-                max_iou = float('inf')
+                max_iou = float("inf")
 
-            # max trails (50)
+            # max trials (50)
             for _ in range(50):
                 current_image = image
 
@@ -260,18 +266,17 @@ class RandomSampleCrop(object):
                 top = random.uniform(height - h)
 
                 # convert to integer rect x1,y1,x2,y2
-                rect = np.array([int(left), int(top), int(left+w), int(top+h)])
+                rect = np.array([int(left), int(top), int(left + w), int(top + h)])
 
                 # calculate IoU (jaccard overlap) b/t the cropped and gt boxes
                 overlap = jaccard_numpy(boxes, rect)
 
                 # is min and max overlap constraint satisfied? if not try again
-                if overlap.min() < min_iou and max_iou < overlap.max():
+                if overlap.min() < min_iou or overlap.max() > max_iou:
                     continue
 
                 # cut the crop from the image
-                current_image = current_image[rect[1]:rect[3], rect[0]:rect[2],
-                                              :]
+                current_image = current_image[rect[1]:rect[3], rect[0]:rect[2], :]
 
                 # keep overlap with gt box IF center in sampled patch
                 centers = (boxes[:, :2] + boxes[:, 2:]) / 2.0
@@ -296,14 +301,12 @@ class RandomSampleCrop(object):
                 current_labels = labels[mask]
 
                 # should we use the box left and top corner or the crop's
-                current_boxes[:, :2] = np.maximum(current_boxes[:, :2],
-                                                  rect[:2])
-                # adjust to crop (by substracting crop's left,top)
+                current_boxes[:, :2] = np.maximum(current_boxes[:, :2], rect[:2])
+                # adjust to crop (by subtracting crop's left,top)
                 current_boxes[:, :2] -= rect[:2]
 
-                current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:],
-                                                  rect[2:])
-                # adjust to crop (by substracting crop's left,top)
+                current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:], rect[2:])
+                # adjust to crop (by subtracting crop's left,top)
                 current_boxes[:, 2:] -= rect[:2]
 
                 return current_image, current_boxes, current_labels

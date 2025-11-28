@@ -5,23 +5,39 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: dataset.yaml
-# Configuración del dataset utilizado por los modelos YOLO.
-# Define rutas, clases y nombres de defectos detectados.
+# Archivo: SSD/configs/dataset.yaml
+# Descripción: Configuración del dataset utilizado por el modelo SSD.
+#              Define rutas, clases y formato de anotaciones.
 # ==============================================================
 
-# Raíz del dataset
+# Raíz del dataset (compartida con YOLO)
 path: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
 
-# Rutas relativas a 'path'
-train: train/images
-val:   valid/images
-test:  test/images  # opcional, puedes dejarlo vacío si no lo usas
+# Rutas relativas a 'path' para SSD (layout tipo YOLO: images + labels)
+train:
+  images: train/images
+  labels: train/labels
 
-# Clases
+val:
+  images: valid/images
+  labels: valid/labels
+
+test:
+  images: test/images
+  labels: test/labels
+
+# Clases del problema de defectos en correas
 names:
   0: Hole
   1: Impact Damage
   2: Puncture
   3: Tear
   4: Wear
+
+# Formato de anotaciones en disco
+# - 'yolo': archivos .txt por imagen con líneas:
+#   <class_id> <cx> <cy> <w> <h>   (coordenadas normalizadas en [0,1])
+format: yolo
+
+# Dimensión de entrada recomendada por defecto para SSD300
+img_dim_default: 300

@@ -1,0 +1,99 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: SSD/configs/train.yaml
+# Descripción: Configuración de entrenamiento para SSD300.
+#              Define experimento, rutas, hiperparámetros y presets.
+# ==============================================================
+
+# -----------------------------------------------------------------
+# Identidad del experimento
+# -----------------------------------------------------------------
+experiment:
+  task: detect              # tarea lógica (detección)
+  variant: ssd300           # variante del modelo (ej. ssd300, ssd512)
+  run_name: ssd300_belt_defects
+  phase: train              # train / val / test
+
+# -----------------------------------------------------------------
+# Rutas base del proyecto SSD
+# -----------------------------------------------------------------
+paths:
+  dataset_config: SSD/configs/dataset.yaml
+  weights_root: SSD/weights
+  runs_root: SSD/runs
+  metrics_root: SSD/metrics
+  base_weights: SSD/weights/base/vgg16_reducedfc.pth
+
+# -----------------------------------------------------------------
+# Presets de entrenamiento
+#   - ssd300_default: hiperparámetros canónicos para SSD300
+# -----------------------------------------------------------------
+presets:
+  ssd300_default:
+    # Hiperparámetros de optimización
+    opt: SGD
+    lr: 0.001                # 1e-3
+    momentum: 0.9
+    weight_decay: 0.0005     # 5e-4
+    gamma: 0.1
+    lr_steps: [80000, 100000, 120000]
+
+    # Configuración de entrenamiento
+    img_dim: 300             # tamaño de entrada (SSD300)
+    batch_size: 32
+    max_iter: 120000
+    num_workers: 6           # ajustar según CPU disponible
+
+    # Dispositivo y control de runs
+    device: ""               # "" → auto (CUDA/HIP/CPU según disponible)
+    resume: null             # ruta a .pth para reanudar (opcional)
+    save_period: 5000        # guardar estado cada N iteraciones (opcional)
+    seed: 0
+    exist_ok: false          # evitar sobreescritura de runs previos
+
+    # Parámetros de pérdida y matching
+    loss:
+      overlap_thresh: 0.5    # IoU para matching positivo
+      neg_pos_ratio: 3       # relación negativos:positivos
+      neg_overlap: 0.5       # IoU para negativos
+
+    # Parámetros de inferencia (Detect/NMS)
+    inference:
+      conf_thresh: 0.01      # umbral mínimo de confianza
+      nms_thresh: 0.45       # IoU para NMS
+      top_k: 200             # máx. detecciones por imagen
+
+    # Parámetros de augmentación (SSDAugmentation)
+    augmentation:
+      mean: [104, 117, 123]
+      brightness_delta: 32
+      contrast_range: [0.5, 1.5]
+      saturation_range: [0.5, 1.5]
+      hue_delta: 18
+      random_mirror_prob: 0.5
+
+    # Logging y métricas
+    logging:
+      ndjson_console: false
+      ndjson_file: false
+
+    # Integración BN→GN (opcional, alineado con YOLO)
+    bn2gn:
+      enabled: false
+      policy: "off"          # off | auto | force
+      max_groups: 32
+      min_channels_per_group: 1
+      verbose: 1
+
+    # Integración MIOpen (ROCm) - valores típicos, ajustables
+    miopen:
+      enabled: true
+      env:
+        MIOPEN_ENABLE_LOGGING: "0"
+        MIOPEN_FIND_MODE: "1"
+        MIOPEN_DEBUG_DISABLE_FIND_DB: "1"
