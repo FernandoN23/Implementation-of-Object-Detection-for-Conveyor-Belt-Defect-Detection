@@ -169,6 +169,8 @@ class TrainerConfigSSD:
     run_name: str
     phase: str
     is_test: bool  # Flag para indicar si es un preset de prueba
+    preset_name: str  # Nombre del preset utilizado (ej. ssd300_voc_debug)
+    dataset_backend: str  # 'yolo', 'voc', 'coco'
 
     # Paths base (absolutos)
     train_config_path: Path
@@ -300,6 +302,8 @@ class TrainerConfigSSD:
             run_name=str(exp_cfg.get("run_name", "ssd300_experiment")),
             phase=str(exp_cfg.get("phase", "train")),
             is_test=bool(p.get("is_test", False)),
+            preset_name=preset,  # Guardamos el nombre del preset
+            dataset_backend=str(p.get("dataset_backend", "yolo")),
 
             # Paths
             train_config_path=train_config_path,
@@ -388,9 +392,9 @@ class TrainerSSD:
         self.cfg = cfg
 
         # Ajustar nombre de variante si es un test
-        variant_name = cfg.variant
-        if cfg.is_test:
-            variant_name += "_test"
+        # Si es test, usamos el nombre del preset (ej. ssd300_voc_debug)
+        # Si no, usamos la variante estándar (ej. ssd300)
+        variant_name = cfg.preset_name if cfg.is_test else cfg.variant
 
         # Rutas de salida organizadas por task/variant/phase/run_name
         subdir = Path(cfg.task) / variant_name / cfg.phase / cfg.run_name
@@ -409,14 +413,40 @@ class TrainerSSD:
         # Fijar semillas para reproducibilidad básica
         self._set_seeds(cfg.seed)
 
-        # Configuración de dataset
-        self.dataset_cfg = load_dataset_config(cfg.data_config)
-        self.class_names = self._extract_class_names(self.dataset_cfg)
+        # ---------------------------------------------------------------------
+        # Configuración de Clases (Dinámica según Backend)
+        # ---------------------------------------------------------------------
+        if cfg.dataset_backend == "voc":
+            # Cargar clases VOC estándar (20 + 1 background implícito en lógica SSD)
+            # SSD espera num_classes = 21 para VOC
+            try:
+                voc_mod = _load_module_from(SSD_ROOT / "ssd/data/voc0712.py", "voc_data")
+                self.class_names = list(voc_mod.VOC_CLASSES)  # type: ignore
+                self.num_classes = 21
+            except Exception as e:
+                print(f"[TrainerSSD] Error cargando VOC classes: {e}. Usando default 21.")
+                self.class_names = [f"class_{i}" for i in range(20)]
+                self.num_classes = 21
 
-        # FIX: SSD requiere clase background (0) + clases dataset
-        self.num_classes = len(self.class_names) + 1
+        elif cfg.dataset_backend == "coco":
+            # Cargar clases COCO estándar (80 + 1 background)
+            try:
+                coco_mod = _load_module_from(SSD_ROOT / "ssd/data/coco.py", "coco_data")
+                self.class_names = list(coco_mod.COCO_CLASSES)  # type: ignore
+                self.num_classes = 81  # 80 clases + 1 background
+            except Exception as e:
+                print(f"[TrainerSSD] Error cargando COCO classes: {e}. Usando default 81.")
+                self.class_names = [f"class_{i}" for i in range(80)]
+                self.num_classes = 81
+        else:
+            # Backend 'yolo' o custom: Cargar desde dataset.yaml
+            self.dataset_cfg = load_dataset_config(cfg.data_config)
+            self.class_names = self._extract_class_names(self.dataset_cfg)
+            # FIX: SSD requiere clase background (0) + clases dataset
+            self.num_classes = len(self.class_names) + 1
+
         print(
-            f"[TrainerSSD] Configurado con {self.num_classes} clases (1 background + {len(self.class_names)} dataset).")
+            f"[TrainerSSD] Backend: {cfg.dataset_backend} | Configurado con {self.num_classes} clases (1 background + {self.num_classes - 1} dataset).")
 
         # Estado de entrenamiento
         self.iteration = 0

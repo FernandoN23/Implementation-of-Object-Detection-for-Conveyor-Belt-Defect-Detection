@@ -37,6 +37,9 @@ presets:
   # 1) Preset principal: dataset de fallas (formato YOLO adaptado)
   # ---------------------------------------------------------------
   ssd300_default:
+    # Flag de prueba (modifica ruta de salida si es true)
+    is_test: false
+
     # Backend de dataset y rutas
     dataset_backend: yolo
     dataset_root: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
@@ -56,13 +59,13 @@ presets:
     # Configuración de entrenamiento
     img_dim: 300             # tamaño de entrada (SSD300)
     batch_size: 32
-    max_iter: 120000
+    max_iter: 5000
     num_workers: 6           # ajustar según CPU disponible
 
     # Dispositivo y control de runs
     device: ""               # "" → auto (CUDA/HIP/CPU según disponible)
     resume: null             # ruta a .pth para reanudar (opcional)
-    save_period: 5000        # guardar estado cada N iteraciones (opcional)
+    save_period: 100        # guardar estado cada N iteraciones (opcional)
     seed: 0
     exist_ok: false          # evitar sobreescritura de runs previos
 
@@ -112,6 +115,8 @@ presets:
   # 2) Preset de depuración con VOC (usa ssd/data/voc0712.py)
   # ---------------------------------------------------------------
   ssd300_voc_debug:
+    is_test: true
+
     # Backend y rutas de VOC
     dataset_backend: voc
     dataset_root: C:/Users/memorista/data/VOCdevkit   # ajustar según tu estructura
@@ -132,7 +137,7 @@ presets:
 
     img_dim: 300
     batch_size: 32
-    max_iter: 120000
+    max_iter: 250
     num_workers: 6
 
     device: ""
@@ -181,6 +186,8 @@ presets:
   # 3) Preset de depuración con COCO (usa ssd/data/coco.py)
   # ---------------------------------------------------------------
   ssd300_coco_debug:
+    is_test: true
+
     # Backend y rutas de COCO
     dataset_backend: coco
     dataset_root: C:/Users/memorista/data/coco        # ajustar según tu estructura
@@ -198,7 +205,7 @@ presets:
 
     img_dim: 300
     batch_size: 32
-    max_iter: 120000
+    max_iter: 250
     num_workers: 6
 
     device: ""
