@@ -32,8 +32,8 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 FILE = Path(__file__).resolve()
-SSD_ROOT = FILE.parents[1]           # .../SSD
-PROJECT_ROOT = SSD_ROOT.parent       # raíz del proyecto
+SSD_ROOT = FILE.parents[1]  # .../SSD
+PROJECT_ROOT = SSD_ROOT.parent  # raíz del proyecto
 CONFIGS_ROOT = SSD_ROOT / "configs"  # SSD/configs
 DEFAULT_DATASET_CONFIG = CONFIGS_ROOT / "dataset.yaml"
 
@@ -41,22 +41,88 @@ DEFAULT_DATASET_CONFIG = CONFIGS_ROOT / "dataset.yaml"
 # Carga dinámica de SSDAugmentation desde SSD/ssd/utils/Augmentations.py
 # ---------------------------------------------------------------------------
 
-AUGMENTATIONS_PATH = SSD_ROOT / "ssd" / "utils" / "Augmentations.py"
+AUGMENTATIONS_PATH = SSD_ROOT / "ssd" / "utils" / "augmentations.py"
+# Nota: el archivo original suele ser augmentations.py (minúscula) o Augmentations.py
+# Probamos ambos por robustez
+if not AUGMENTATIONS_PATH.is_file():
+    AUGMENTATIONS_PATH = SSD_ROOT / "ssd" / "utils" / "Augmentations.py"
 
 if not AUGMENTATIONS_PATH.is_file():
     raise ImportError(
-        f"No se encontró Augmentations.py en la ruta esperada: {AUGMENTATIONS_PATH}"
+        f"No se encontró augmentations.py en la ruta esperada: {SSD_ROOT / 'ssd' / 'utils'}"
     )
 
-_spec = importlib.util.spec_from_file_location("ssd_augmentations", AUGMENTATIONS_PATH)
-if _spec is None or _spec.loader is None:
-    raise ImportError(f"No se pudo crear el spec para {AUGMENTATIONS_PATH}")
 
-_ssd_aug = importlib.util.module_from_spec(_spec)
-_sys_loader = _spec.loader
-_sys_loader.exec_module(_ssd_aug)  # type: ignore[arg-type]
+# FIX (2025-05): Multiprocessing Pickle Fix (Robust Version)
+# En Windows (spawn), los procesos hijos no heredan sys.modules del padre.
+# Pickle intenta importar clases por nombre. Si registramos un módulo 'fake'
+# en el padre, pickle le dice al hijo "importa ssd.utils.augmentations".
+# El hijo intenta y falla porque no sabe dónde está ese archivo.
 
-SSDAugmentation = _ssd_aug.SSDAugmentation  # type: ignore[attr-defined]
+# Solución: El Proxy es una clase real en ESTE archivo (data_loader.py).
+# Pickle serializa el Proxy sin problemas.
+# Cuando el hijo ejecuta proxy(img), llama a _get_aug_instance_lazy.
+# Esta función carga el módulo manualmente en el hijo.
+
+def _load_aug_module_isolated():
+    """Carga el módulo de augmentations desde la ruta física."""
+    # Nombre único para evitar colisiones, pero consistente
+    module_name = "ssd_augmentations_dynamic"
+
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+
+    spec = importlib.util.spec_from_file_location(module_name, AUGMENTATIONS_PATH)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"No se pudo crear spec para {AUGMENTATIONS_PATH}")
+
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = mod  # Registrar para que imports internos funcionen
+
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        del sys.modules[module_name]
+        raise
+
+    return mod
+
+
+class SSDAugmentationProxy:
+    """Proxy serializable para SSDAugmentation.
+
+    Permite que DataLoader use multiprocessing en Windows sin error de pickle.
+    En lugar de guardar la clase dinámica, guardamos los parámetros de init
+    y reconstruimos el objeto real al llamarse (__call__) en el worker.
+    """
+
+    def __init__(self, size=300, mean=(104, 117, 123)):
+        self.size = size
+        self.mean = mean
+        # NO guardamos self._aug en __init__ para asegurar que sea None al pickling
+        self._aug = None
+
+    def __call__(self, img, boxes, labels):
+        # Lazy initialization en el proceso trabajador (o main si num_workers=0)
+        if self._aug is None:
+            mod = _load_aug_module_isolated()
+            # Asumimos que la clase se llama SSDAugmentation
+            AugClass = getattr(mod, "SSDAugmentation", None)
+            if AugClass is None:
+                raise ImportError(f"La clase 'SSDAugmentation' no se encontró en {AUGMENTATIONS_PATH}")
+
+            self._aug = AugClass(self.size, self.mean)
+
+        return self._aug(img, boxes, labels)
+
+    def __getstate__(self):
+        """Control explícito de lo que se serializa."""
+        return {'size': self.size, 'mean': self.mean, '_aug': None}
+
+    def __setstate__(self, state):
+        self.size = state['size']
+        self.mean = state['mean']
+        self._aug = None  # Forzar recarga en el nuevo proceso
 
 
 # ---------------------------------------------------------------------------
@@ -106,13 +172,13 @@ class YoloDetectionDataset(data.Dataset):
     """
 
     def __init__(
-        self,
-        root: Path,
-        images_rel: str,
-        labels_rel: str,
-        img_dim: int = 300,
-        transform: Optional[SSDAugmentation] = None,
-        skip_empty: bool = False,
+            self,
+            root: Path,
+            images_rel: str,
+            labels_rel: str,
+            img_dim: int = 300,
+            transform: Optional[Any] = None,
+            skip_empty: bool = False,
     ) -> None:
         super().__init__()
         self.root = Path(root)
@@ -211,8 +277,10 @@ class YoloDetectionDataset(data.Dataset):
                 boxes[:, 0::2] = np.clip(boxes[:, 0::2], 0.0, 1.0)
                 boxes[:, 1::2] = np.clip(boxes[:, 1::2], 0.0, 1.0)
 
-        # Augmentations SSD
+        # Augmentations SSD (usando el Proxy)
         if self.transform is not None:
+            # La llamada a self.transform(...) invocará al __call__ del proxy
+            # que a su vez cargará dinámicamente SSDAugmentation si es necesario
             img, boxes, labels = self.transform(img, boxes, labels)
 
         if not isinstance(img, np.ndarray):
@@ -274,8 +342,9 @@ def build_dataloaders(cfg: Any):
     img_dim = int(getattr(cfg, "img_dim", ds_cfg.get("img_dim_default", 300)))
     mean = ds_cfg.get("mean", [104, 117, 123])
 
-    train_transform = SSDAugmentation(size=img_dim, mean=tuple(mean))
-    val_transform = SSDAugmentation(size=img_dim, mean=tuple(mean))
+    # FIX: Usar SSDAugmentationProxy en lugar de la clase dinámica directa
+    train_transform = SSDAugmentationProxy(size=img_dim, mean=tuple(mean))
+    val_transform = SSDAugmentationProxy(size=img_dim, mean=tuple(mean))
 
     train_dataset = YoloDetectionDataset(
         root=dataset_root,
@@ -324,13 +393,7 @@ def build_dataloaders(cfg: Any):
 # ---------------------------------------------------------------------------
 
 def _debug_single_sample(stem: str = "0044") -> None:
-    """Test rápido usando una imagen individual del dataset.
-
-    Imprime únicamente:
-      - ruta absoluta de la imagen
-      - tensor de etiquetas transformadas [N, 5]
-        (x_min, y_min, x_max, y_max, class_id) en [0,1]
-    """
+    """Test rápido usando una imagen individual del dataset."""
     ds_cfg = load_dataset_config(DEFAULT_DATASET_CONFIG)
     dataset_root = Path(ds_cfg["path"])
     train_images_rel = ds_cfg["train"]["images"]
@@ -339,7 +402,8 @@ def _debug_single_sample(stem: str = "0044") -> None:
     img_dim = int(ds_cfg.get("img_dim_default", 300))
     mean = ds_cfg.get("mean", [104, 117, 123])
 
-    transform = SSDAugmentation(size=img_dim, mean=tuple(mean))
+    # Usar proxy también aquí
+    transform = SSDAugmentationProxy(size=img_dim, mean=tuple(mean))
 
     dataset = YoloDetectionDataset(
         root=dataset_root,
@@ -362,7 +426,6 @@ def _debug_single_sample(stem: str = "0044") -> None:
     # Salida mínima pedida
     print(str(sample.image_path))
     print(target_tensor)
-
 
 
 if __name__ == "__main__":

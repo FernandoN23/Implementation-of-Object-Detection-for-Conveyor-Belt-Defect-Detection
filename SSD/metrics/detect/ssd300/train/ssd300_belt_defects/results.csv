@@ -1,0 +1,1 @@
+epoch,iteration,lr,train_loss_loc,train_loss_conf,train_loss_total,val_loss_loc,val_loss_conf,val_loss_total

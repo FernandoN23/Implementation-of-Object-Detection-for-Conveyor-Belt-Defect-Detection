@@ -3,7 +3,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from layers import *
-from data import voc, coco
+from data import voc
+
+try:
+    from data import coco
+except Exception as e:
+    # Si falla la carga de COCO (ej. archivo labels no encontrado),
+    # advertimos y continuamos. Solo fallará si intentamos usar COCO explícitamente.
+    print(f"[SSD] Advertencia: Configuración COCO no disponible ({e}). Se continuará sin ella.")
+    coco = None
+
 import os
 
 
@@ -29,14 +38,24 @@ class SSD(nn.Module):
         super(SSD, self).__init__()
         self.phase = phase
         self.num_classes = num_classes
+
+        # Selección de configuración:
+        # Si num_classes es 21, usa VOC. De lo contrario, intenta usar COCO.
+        # Si coco es None (falló import) y se requiere, esto lanzará error aquí, lo cual es correcto.
         self.cfg = (coco, voc)[num_classes == 21]
+
         self.priorbox = PriorBox(self.cfg)
-        self.priors = Variable(self.priorbox.forward(), volatile=True)
+
+        # FIX (2025-05): Migración de 'volatile=True' a 'no_grad' y registro como buffer.
+        # Al usar register_buffer, 'priors' se moverá automáticamente a GPU cuando se haga model.to(device).
+        with torch.no_grad():
+            self.register_buffer('priors', self.priorbox.forward())
+
         self.size = size
 
         # SSD network
         self.vgg = nn.ModuleList(base)
-        # Layer learns to scale the l2 normalized features from conv4_3
+        # Layer learns to scale the l2 normalization of the conv4_3 feature map
         self.L2Norm = L2Norm(512, 20)
         self.extras = nn.ModuleList(extras)
 
@@ -66,9 +85,9 @@ class SSD(nn.Module):
                     2: localization layers, Shape: [batch,num_priors*4]
                     3: priorbox layers, Shape: [2,num_priors*4]
         """
-        sources = list()
-        loc = list()
-        conf = list()
+        sources = []
+        loc = []
+        conf = []
 
         # apply vgg up to conv4_3 relu
         for k in range(23):
@@ -95,12 +114,19 @@ class SSD(nn.Module):
 
         loc = torch.cat([o.view(o.size(0), -1) for o in loc], 1)
         conf = torch.cat([o.view(o.size(0), -1) for o in conf], 1)
+
+        # FIX: Asegurar que priors esté en el mismo dispositivo que la entrada
+        # Aunque register_buffer ayuda, en forward nos aseguramos por robustez
+        # especialmente si se carga un state_dict antiguo.
+        if self.priors.device != x.device:
+            self.priors = self.priors.to(x.device)
+
         if self.phase == "test":
             output = self.detect(
-                loc.view(loc.size(0), -1, 4),                   # loc preds
+                loc.view(loc.size(0), -1, 4),  # loc preds
                 self.softmax(conf.view(conf.size(0), -1,
-                             self.num_classes)),                # conf preds
-                self.priors.type(type(x.data))                  # default boxes
+                                       self.num_classes)),  # conf preds
+                self.priors.type(type(x.data))  # default boxes
             )
         else:
             output = (
@@ -115,7 +141,7 @@ class SSD(nn.Module):
         if ext == '.pkl' or '.pth':
             print('Loading weights into state dict...')
             self.load_state_dict(torch.load(base_file,
-                                 map_location=lambda storage, loc: storage))
+                                            map_location=lambda storage, loc: storage))
             print('Finished!')
         else:
             print('Sorry only .pth and .pkl files supported.')
@@ -134,9 +160,8 @@ def vgg(cfg, i, batch_norm=False):
         else:
             conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
             if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
-            else:
-                layers += [conv2d, nn.ReLU(inplace=True)]
+                layers += [conv2d, nn.BatchNorm2d(v)]
+            layers += [conv2d, nn.ReLU(inplace=True)]
             in_channels = v
     pool5 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
     conv6 = nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6)
@@ -150,16 +175,14 @@ def add_extras(cfg, i, batch_norm=False):
     # Extra layers added to VGG for feature scaling
     layers = []
     in_channels = i
-    flag = False
     for k, v in enumerate(cfg):
         if in_channels != 'S':
             if v == 'S':
                 layers += [nn.Conv2d(in_channels, cfg[k + 1],
-                           kernel_size=(1, 3)[flag], stride=2, padding=1)]
+                                     kernel_size=(1, 3)[k % 2], stride=2, padding=1)]
             else:
-                layers += [nn.Conv2d(in_channels, v, kernel_size=(1, 3)[flag])]
-            flag = not flag
-        in_channels = v
+                layers += [nn.Conv2d(in_channels, v, kernel_size=(1, 3)[k % 2])]
+            in_channels = v
     return layers
 
 
@@ -171,7 +194,7 @@ def multibox(vgg, extra_layers, cfg, num_classes):
         loc_layers += [nn.Conv2d(vgg[v].out_channels,
                                  cfg[k] * 4, kernel_size=3, padding=1)]
         conf_layers += [nn.Conv2d(vgg[v].out_channels,
-                        cfg[k] * num_classes, kernel_size=3, padding=1)]
+                                  cfg[k] * num_classes, kernel_size=3, padding=1)]
     for k, v in enumerate(extra_layers[1::2], 2):
         loc_layers += [nn.Conv2d(v.out_channels, cfg[k]
                                  * 4, kernel_size=3, padding=1)]

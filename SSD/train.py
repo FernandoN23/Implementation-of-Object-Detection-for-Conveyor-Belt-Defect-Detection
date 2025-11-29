@@ -9,12 +9,14 @@
 # Descripción: Script de entrada (CLI) para el entrenamiento de SSD.
 #              Orquesta el bootstrap MIOpen (opcional), la carga de
 #              configuración y la ejecución de TrainerSSD.
-#==============================================================
+# ==============================================================
 
 from __future__ import annotations
 
 import argparse
 import sys
+import os
+import types
 from dataclasses import replace
 from pathlib import Path
 from typing import Optional
@@ -25,8 +27,8 @@ import importlib.util
 # --------------------------------------------------------------
 
 FILE = Path(__file__).resolve()
-SSD_ROOT = FILE.parent              # .../SSD
-PROJECT_ROOT = SSD_ROOT.parent      # raíz del proyecto
+SSD_ROOT = FILE.parent  # .../SSD
+PROJECT_ROOT = SSD_ROOT.parent  # raíz del proyecto
 CONFIGS_ROOT = SSD_ROOT / "configs"  # SSD/configs
 
 TRAINER_PATH = SSD_ROOT / "engine" / "Trainer.py"
@@ -43,6 +45,11 @@ def _load_module_from(path: Path, name: str):
 
     Se utiliza para importar módulos internos (Trainer, bootstrap_miopen)
     sin requerir instalación del proyecto como paquete.
+
+    FIX (2025-05):
+    1. Registro temprano en sys.modules (fix dataclasses/pickle).
+    2. Inyección temporal de path.parent en sys.path para resolver
+       imports relativos implícitos (legacy imports como 'from layers import *').
     """
     path = path.resolve()
     if not path.is_file():
@@ -53,7 +60,28 @@ def _load_module_from(path: Path, name: str):
         raise ImportError(f"No se pudo crear spec para módulo: {path}")
 
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)  # type: ignore[arg-type]
+
+    # 1) Registro temprano en sys.modules
+    sys.modules[name] = module
+
+    # 2) Context Manager para sys.path:
+    # Agregamos el directorio del archivo a sys.path para que pueda encontrar
+    # sus dependencias hermanas (ej: ssd.py encontrando layers/)
+    module_dir = str(path.parent)
+    sys.path.insert(0, module_dir)
+
+    try:
+        spec.loader.exec_module(module)  # type: ignore[arg-type]
+    except Exception:
+        # Limpieza en caso de fallo crítico
+        if name in sys.modules:
+            del sys.modules[name]
+        raise
+    finally:
+        # 3) Limpieza de sys.path para no contaminar el resto de la ejecución
+        if module_dir in sys.path:
+            sys.path.remove(module_dir)
+
     return module
 
 
@@ -76,8 +104,8 @@ def _maybe_bootstrap_miopen(enable: bool = True) -> None:
 
     try:
         mod = _load_module_from(MIOPEN_BOOTSTRAP_PATH, "ssd_bootstrap_miopen")
-        MIOpenConfig = mod.MIOpenConfig           # type: ignore[attr-defined]
-        bootstrap = mod.bootstrap                 # type: ignore[attr-defined]
+        MIOpenConfig = mod.MIOpenConfig  # type: ignore[attr-defined]
+        bootstrap = mod.bootstrap  # type: ignore[attr-defined]
 
         cfg = MIOpenConfig()  # usa valores por defecto definidos en el módulo
         exported = bootstrap(cfg)
@@ -88,6 +116,47 @@ def _maybe_bootstrap_miopen(enable: bool = True) -> None:
             print(f"[SSD/train] bootstrap_miopen aplicado. Variables: {keys}")
     except Exception as exc:  # pragma: no cover - defensivo
         print(f"[SSD/train] Advertencia: fallo bootstrap_miopen: {exc}", file=sys.stderr)
+
+
+# --------------------------------------------------------------
+# Utilidad de Mocking (Legacy Fix)
+# --------------------------------------------------------------
+
+def _mock_legacy_coco_dependency():
+    """Crea un módulo 'fake' para data.coco y ssd.data.coco.
+
+    El código original importa 'data.coco' y ejecuta código que busca
+    archivos físicos (coco_labels.txt). Si el usuario no tiene COCO,
+    esto rompe la ejecución incluso si solo quiere usar VOC o su propio dataset.
+
+    Este mock inyecta las clases necesarias en sys.modules para satisfacer
+    la importación sin ejecutar lógica de I/O.
+    """
+
+    # Definir clases dummy que emulan la interfaz esperada por ssd/data/__init__.py
+    class DummyDataset:
+        def __init__(self, *args, **kwargs): pass
+
+    class DummyTransform:
+        def __init__(self, *args, **kwargs): pass
+
+    # Crear el módulo mock
+    mock_coco = types.ModuleType("data.coco")
+    mock_coco.COCODetection = DummyDataset
+    mock_coco.COCOAnnotationTransform = DummyTransform
+    mock_coco.COCO_CLASSES = []
+    mock_coco.COCO_ROOT = ""
+    mock_coco.get_label_map = lambda x: {}
+
+    # Inyectar en sys.modules bajo los nombres posibles que use el legacy code
+    # El traceback indica que 'ssd.py' añade su carpeta a path, así que
+    # se importa como 'data.coco'
+    sys.modules["data.coco"] = mock_coco
+
+    # Por seguridad, inyectar también rutas completas si fuesen usadas
+    sys.modules["ssd.data.coco"] = mock_coco
+
+    print("[SSD/train] Mock inyectado: 'data.coco' (Dependencia legacy neutralizada).")
 
 
 # --------------------------------------------------------------
@@ -165,18 +234,21 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
 def main(argv: Optional[list[str]] = None) -> int:
     args = _parse_args(argv)
 
-    # 1) Bootstrap MIOpen/ROCm (si corresponde) ANTES de importar Trainer/torch
+    # 1) FIX (2025-05): Neutralizar dependencia COCO antes de cualquier carga.
+    _mock_legacy_coco_dependency()
+
+    # 2) Bootstrap MIOpen/ROCm (si corresponde) ANTES de importar Trainer/torch
     _maybe_bootstrap_miopen(enable=not args.no_bootstrap_miopen)
 
-    # 2) Importar Trainer dinámicamente (esto traerá torch dentro)
+    # 3) Importar Trainer dinámicamente (esto traerá torch dentro)
     trainer_mod = _load_module_from(TRAINER_PATH, "ssd_trainer")
     TrainerConfigSSD = trainer_mod.TrainerConfigSSD  # type: ignore[attr-defined]
-    TrainerSSD = trainer_mod.TrainerSSD              # type: ignore[attr-defined]
+    TrainerSSD = trainer_mod.TrainerSSD  # type: ignore[attr-defined]
 
-    # 3) Construir configuración base desde YAML/preset
+    # 4) Construir configuración base desde YAML/preset
     cfg = TrainerConfigSSD.from_yaml(args.train_config, preset=args.preset)
 
-    # 4) Aplicar overrides simples desde CLI
+    # 5) Aplicar overrides simples desde CLI
     overrides = {}
     if args.device:
         overrides["device"] = args.device
@@ -190,7 +262,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if overrides:
         cfg = replace(cfg, **overrides)
 
-    # 5) Si exist_ok=False y la carpeta de ejecución ya existe, ajustar run_name
+    # 6) Si exist_ok=False y la carpeta de ejecución ya existe, ajustar run_name
     if not cfg.exist_ok:
         subdir = Path(cfg.task) / cfg.variant / cfg.phase / cfg.run_name
         run_dir = cfg.runs_root / subdir
@@ -209,7 +281,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                     break
                 i += 1
 
-    # 6) Ejecutar entrenamiento
+    # 7) Ejecutar entrenamiento
     trainer = TrainerSSD(cfg)
     trainer.fit()
 

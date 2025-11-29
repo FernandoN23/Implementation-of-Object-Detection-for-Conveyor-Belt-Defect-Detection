@@ -48,6 +48,10 @@ def _load_module_from(path: Path, name: str):
     Esto permite usar los submódulos del repo original de SSD
     (ubicados bajo `SSD/ssd` y `SSD/utility`) sin requerir que
     todo el proyecto esté instalado como paquete en el entorno.
+
+    FIX (2025-05):
+    1. Registro temprano en sys.modules (fix dataclasses).
+    2. Inyección temporal de path.parent en sys.path (fix legacy imports).
     """
     path = path.resolve()
     if not path.is_file():
@@ -58,28 +62,80 @@ def _load_module_from(path: Path, name: str):
         raise ImportError(f"No se pudo crear spec para módulo: {path}")
 
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)  # type: ignore[arg-type]
+
+    # 1) Registro temprano en sys.modules
+    sys.modules[name] = module
+
+    # 2) Context Manager para sys.path (IMPORTANTE para 'ssd.py')
+    module_dir = str(path.parent)
+    sys.path.insert(0, module_dir)
+
+    try:
+        spec.loader.exec_module(module)  # type: ignore[arg-type]
+    except Exception:
+        # Limpieza en caso de fallo
+        if name in sys.modules:
+            del sys.modules[name]
+        raise
+    finally:
+        # 3) Limpieza de sys.path
+        if module_dir in sys.path:
+            sys.path.remove(module_dir)
+
     return module
 
 
-# Módulo de datos (adaptador YOLO → SSD)
-_DATA_LOADER_PATH = SSD_ROOT / "utility" / "data_loader.py"
-_data_loader = _load_module_from(_DATA_LOADER_PATH, "ssd_data_loader")
+# -----------------------------------------------------------------------------
+# FIX (2025-05): Importación Standard para Multiprocessing (Data Loader)
+# El módulo 'data_loader' define clases (Dataset) que se envían a procesos hijos.
+# Para que 'pickle' funcione en Windows (spawn), el módulo debe ser importable
+# por ruta estándar (sys.path), no cargado dinámicamente con nombres inventados.
+# -----------------------------------------------------------------------------
+
+# Asegurar que la raíz 'SSD' está en sys.path para imports como 'utility.data_loader'
+if str(SSD_ROOT) not in sys.path:
+    sys.path.append(str(SSD_ROOT))
+
+try:
+    # Importación estándar: los objetos quedarán vinculados a "utility.data_loader"
+    # que es un path físico real que los workers pueden resolver.
+    from utility import data_loader as _data_loader
+except ImportError as e:
+    # Fallback o diagnóstico detallado
+    raise ImportError(f"Fallo al importar utility.data_loader desde {SSD_ROOT}. Error: {e}")
+
 load_dataset_config = _data_loader.load_dataset_config
 build_dataloaders = _data_loader.build_dataloaders
 
-# Módulo principal del modelo SSD
+
+# -----------------------------------------------------------------------------
+# Carga del Modelo SSD (Legacy)
+# El modelo no se envía a los workers, así que _load_module_from es seguro aquí
+# y ayuda a manejar las dependencias internas de 'ssd.py'.
+# -----------------------------------------------------------------------------
 _SSD_MODEL_PATH = SSD_ROOT / "ssd" / "ssd.py"
 _ssd_model = _load_module_from(_SSD_MODEL_PATH, "ssd_model")
 # Función de construcción del modelo (convención del repo SSD original)
 build_ssd = _ssd_model.build_ssd  # type: ignore[attr-defined]
 
-# Módulo de pérdida Multibox
-_MBL_PATH = SSD_ROOT / "ssd" / "layers" / "modules" / "multibox_loss.py"
-_mbl = _load_module_from(_MBL_PATH, "ssd_multibox_loss")
-MultiBoxLoss = _mbl.MultiBoxLoss  # type: ignore[attr-defined]
+# -----------------------------------------------------------------------------
+# Inyección de dependencias Legacy (MultiBoxLoss)
+# El archivo multibox_loss.py utiliza imports relativos ('from ..box_utils')
+# lo que obliga a cargarlo como parte de un paquete.
+# -----------------------------------------------------------------------------
+_LEGACY_ROOT = str(SSD_ROOT / "ssd")
+if _LEGACY_ROOT not in sys.path:
+    sys.path.insert(0, _LEGACY_ROOT)
 
-# Módulo de métricas (implementado en SSD/ssd/utils/metrics.py)
+try:
+    from layers.modules.multibox_loss import MultiBoxLoss
+except ImportError as e:
+    raise ImportError(
+        f"No se pudo importar MultiBoxLoss desde {_LEGACY_ROOT}. "
+        f"Asegúrese de que SSD/ssd/layers/__init__.py exista. Detalles: {e}"
+    )
+
+# Módulo de métricas (Legacy)
 _METRICS_PATH = SSD_ROOT / "ssd" / "utils" / "metrics.py"
 _metrics_mod = _load_module_from(_METRICS_PATH, "ssd_metrics")
 fitness = _metrics_mod.fitness  # type: ignore[attr-defined]

@@ -38,6 +38,7 @@ SSD/
 │   ├── clean_logs_runs.py          ← Script de limpieza de logs y runs
 │   ├── clean_metrics.py            ← Script de limpieza de métricas
 │   ├── clean_weights.py            ← Script de limpieza de pesos registrados
+│   ├── data_loader.py              ← Módulo para cargar datos en formato SSD
 │   └── metrics.py                  ← Script de procesamiento de datos y post-procesado
 │
 ├── weights/
