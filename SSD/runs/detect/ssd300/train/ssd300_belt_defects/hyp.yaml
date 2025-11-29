@@ -25,7 +25,7 @@ batch_size: 32
 max_iter: 5000
 num_workers: 6
 device: cuda:0
-resume: null
+resume: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\SSD\weights\detect\ssd300\train\ssd300_belt_defects\last.pth
 save_period: 100
 seed: 0
 exist_ok: false
