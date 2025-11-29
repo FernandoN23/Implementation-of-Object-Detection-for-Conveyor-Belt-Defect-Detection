@@ -6,91 +6,129 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{YOLOv5}
 
-\par En esta subsección, se expondrán los resultados obtenidos para el modelo \textbf{YOLOv5} utilizando su variante \textbf{s} y los hiperparámetros considerados en la Tabla \ref{tab:3.3-hiperparametros-yolov5}.
+\par En esta subsección, se exponen y discuten los resultados obtenidos tras el entrenamiento del modelo \textbf{YOLOv5} en su variante \textbf{s} (small), utilizando la configuración de hiperparámetros detallada previamente en la Tabla \ref{tab:3.3-hiperparametros-yolov5}.
 
-
+% Si alcanzamos, variante x (más pesada), para ver extremos entre velocidad-precision.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Curva de pérdida vs época específicas}
+\subsubsection{Curva de pérdida vs época por componentes}
 
-\par La \textit{Curva de pérdida vs época}, que considera los 3 tipos de pérdidas calculadas por el modelo (box, object, class) de la validación, se muestra en la Figura \ref{fig:4.1-YOLOV5s_loss_comp}.
+\par El comportamiento de la función de pérdida se analiza descomponiéndola en sus tres componentes principales: pérdida de caja (\textit{box loss}), pérdida de objeto (\textit{obj loss}) y pérdida de clasificación (\textit{cls loss}). La Figura \ref{fig:4.1-YOLOV5s_loss_comp_train} ilustra la evolución de estas métricas para el conjunto de \textbf{entrenamiento}. Se observa una convergencia asintótica estable en los tres componentes. La pérdida de caja (línea azul) inicia en valores cercanos a $0{,}09$ y desciende hasta estabilizarse en torno a $0{,}03$, indicando un aprendizaje progresivo de las coordenadas espaciales. La pérdida de clasificación (línea verde) muestra la caída más pronunciada, convergiendo rápidamente hacia valores cercanos a $0$, lo que sugiere que el modelo aprende a discriminar las clases con facilidad en etapas tempranas.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/train/loss_components.png}
-    \caption{Curva de pérdida vs época por componentes del modelo YOLOv5 variante s.}
-    \label{fig:4.1-YOLOV5s_loss_comp}
+    \caption{Curva de pérdida vs época por componentes (entrenamiento) del modelo YOLOv5 variante s.}
+    \label{fig:4.1-YOLOV5s_loss_comp_train}
 \end{figure}
+
+\par Por su parte, la Figura \ref{fig:4.1-YOLOV5s_loss_comp_val} presenta el comportamiento de estas mismas pérdidas sobre el conjunto de \textbf{validación}. Es destacable que la tendencia de las curvas de validación replica fielmente la del entrenamiento, sin presentar divergencias significativas (aumento del error en validación mientras disminuye en entrenamiento), lo cual es un indicador robusto de ausencia de sobreajuste (\textit{overfitting}) severo. La pérdida de caja en validación se estabiliza cerca de $0{,}03$, consistente con el entrenamiento.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/val/loss_components.png}
+    \caption{Curva de pérdida vs época por componentes (validación) del modelo YOLOv5 variante s.}
+    \label{fig:4.1-YOLOV5s_loss_comp_val}
+\end{figure}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Curva de pérdida vs época promedio}
 
-\par La \textit{curva de pérdida promedio por época}, obtenida a partir de la combinación ponderada de las tres pérdidas específicas (obj, cls y box) en entrenamiento y validación, se muestra en la Figura \ref{fig:4.1-YOLOV5s_loss_promedio}.
-
+\par La \textit{curva de pérdida promedio por época}, que agrega los componentes ponderados, se presenta en la Figura \ref{fig:4.1-YOLOV5s_loss_promedio}. Se aprecia que la pérdida media de validación (línea naranja) se mantiene sistemáticamente por debajo de la pérdida de entrenamiento (línea azul), finalizando en valores aproximados de $0{,}013$ y $0{,}015$ respectivamente. De esta forma, la Figura \ref{fig:4.1-YOLOV5s_loss_promedio}, indica que el modelo presenta un ligero bajo-ajuste (\textit{underfitting}), pero con tendencia a anularse para épocas mayores a 100. 
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/loss_curves.png}
-    \caption{Curva de pérdida vs época promedio del modelo YOLOv5 variante s.}
+    \caption{Curva de pérdida media vs época (entrenamiento y validación) del modelo YOLOv5 variante s.}
     \label{fig:4.1-YOLOV5s_loss_promedio}
 \end{figure}
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{F1-Score}
-
-\par La curva de F1-score del modelo entrenado, tanto a nivel global como desagregada por clase, se presenta en la Figura \ref{fig:4.1-YOLOV5s_F1_score}.
-
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png}
-    \caption{Curva de F1-score de validación por clase y promedio global del modelo YOLOv5 variante s.}
-    \label{fig:4.1-YOLOV5s_F1_score}
-\end{figure}
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Precision y Recall}
 
-\par Las curvas de precisión y recall de validación del modelo YOLOv5 variante s se presentan en las Figuras \ref{fig:4.1-YOLOV5s_Precision} y \ref{fig:4.1-YOLOV5s_Recall}, respectivamente.
+\par El desempeño del modelo en cuanto a la fiabilidad y exhaustividad de sus detecciones se analiza mediante las curvas de precisión y recall, presentadas en las Figuras \ref{fig:4.1-YOLOV5s_Precision} y \ref{fig:4.1-YOLOV5s_Recall}, respectivamente. \\
 
+\par La curva de precisión (Figura \ref{fig:4.1-YOLOV5s_Precision}) indica que la precisión global alcanza el valor de \textbf{1.00} al utilizar un umbral de confianza estricto de \textbf{0.950}. Esto demuestra que, cuando el modelo realiza predicciones con alta confianza, estas son extremadamente fiables, minimizando la tasa de falsos positivos.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png}
-    \caption{Curva de Precision vs Confident de validación del modelo YOLOv5 variante s}
+    \includegraphics[width=0.85\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png}
+    \caption{Curva de Precisión vs Confianza de validación del modelo YOLOv5 variante s.}
     \label{fig:4.1-YOLOV5s_Precision}
 \end{figure}
 
 
+
+\par Por otro lado, la curva de recall (Figura \ref{fig:4.1-YOLOV5s_Recall}) revela comportamientos diferenciados entre clases. 
+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png}
-    \caption{Curva de Recall vs Confident de validación del modelo YOLOv5 variante s}
+    \includegraphics[width=0.85\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png}
+    \caption{Curva de Recall vs Confianza de validación del modelo YOLOv5 variante s.}
     \label{fig:4.1-YOLOV5s_Recall}
 \end{figure}
 
+\par Nótese que, las fallas de tipo \textit{Hole} y \textit{Impact Damage} mantienen una exhaustividad superior a 0.8 incluso con umbrales de confianza elevados ($>0.6$). Sin embargo, la clase \textit{Puncture} (línea verde) sufre una caída abrupta en su capacidad de detección a medida que aumenta el umbral de confianza, lo que implica una tendencia del modelo a omitir estas fallas específicas si se exige una alta certeza.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{F1-Score}
+
+\par Como síntesis de las métricas anteriores, la Figura \ref{fig:4.1-YOLOV5s_F1_score} presenta el F1-Score. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png}
+    \caption{Curva de F1-score de validación por clase y promedio global del modelo YOLOv5 variante s.}
+    \label{fig:4.1-YOLOV5s_F1_score}
+\end{figure}
+
+\par Se observa que el modelo alcanza un F1 máximo global de \textbf{0.87} para un umbral de confianza de \textbf{0.430}, punto que representa el mejor equilibrio entre precisión y recall. \\
+
+\par Al analizar el desempeño por clase, se confirma la disparidad observada previamente: las clases \textit{Hole} (Agujero) e \textit{Impact Damage} (Daño por impacto) presentan un rendimiento superior, con curvas que superan el 0.95 en su punto máximo. En contraste, la clase \textit{Puncture} (Perforación) muestra el desempeño más bajo, con un F1 pico cercano a 0.65, lo que indica una mayor dificultad del modelo para caracterizar geométricamente este defecto.
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Distribución de IoU's}
+\subsubsection{Distribución de IoU}
 
-\par La distribución de valores de \textit{Intersection over Union} (IoU) obtenida en la validación del modelo YOLOv5 variante s se muestra en la Figura \ref{fig:4.1-YOLOV5s_IoU_dist}.
-
+\par Finalmente, la calidad de la localización se evalúa mediante la distribución de la Intersección sobre la Unión (IoU) de las predicciones validadas, presentada en la Figura \ref{fig:4.1-YOLOV5s_IoU_dist}. 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png}
-    \caption{Distribución de Intersecciones sobre la unión aplicado en la validación del modelo YOLOv5 variante s.}
+    \includegraphics[width=0.9\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png}
+    \caption{Distribución de valores de IoU en el conjunto de validación para el modelo YOLOv5 variante s.}
     \label{fig:4.1-YOLOV5s_IoU_dist}
 \end{figure}
 
+\par El histograma revela una distribución sesgada hacia la derecha, con una moda prominente en el intervalo de \textbf{0.80 a 0.85}. Esto indica que, cuando el modelo detecta un objeto exitosamente, la caja delimitadora predicha posee un alto grado de solapamiento con la etiqueta real. \\
+
+\par Es importante notar la presencia de una cantidad significativa de valores en el rango 0.0-0.05. Este fenómeno no corresponde necesariamente a errores de localización por imprecisión, sino que se atribuye a una ponderación mayor de casos "saludables" (imágenes de fondo sin fallas) incluidos en el conjunto de validación para testear la robustez, así como a aquellos casos donde el modelo no logró predecir una caja (falsos negativos), resultando en una intersección nula con la verdad de terreno.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Matriz de Confusión}
+
+\par Para profundizar en el análisis de los errores de clasificación y la capacidad de discriminación del modelo entre las distintas tipologías de fallas, se presenta la matriz de confusión normalizada en la Figura \ref{fig:4.1-YOLOV5s_conf_matrix}. En esta representación, las filas indican la clase predicha por el modelo y las columnas la clase verdadera (etiqueta real). \\
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_confusion_matrix.png}
+    \caption{Matriz de confusión normalizada obtenida en la validación del modelo YOLOv5 variante s.}
+    \label{fig:4.1-YOLOV5s_conf_matrix}
+\end{figure}
+
+\par Se observa que la clase \textit{Hole} (Agujero) presenta el mejor desempeño, con una tasa de aciertos del \textbf{96\%}, y un porcentaje marginal de falsos negativos ($0{,}04$) clasificados como fondo. Las clases \textit{Wear} (Abrasión) y \textit{Tear} (Desgarro) también exhiben una alta robustez, con aciertos del \textbf{92\%} y \textbf{90\%} respectivamente. \\
+
+\par Sin embargo, la matriz confirma la dificultad del modelo para detectar la clase \textit{Puncture} (Perforación), identificada previamente en las curvas de recall. Solo el \textbf{74\%} de las perforaciones reales son clasificadas correctamente. Lo más crítico es que el \textbf{25\%} de estas instancias son clasificadas erróneamente en la fila \textit{background} (última fila), lo que significa que el modelo no logra detectar la presencia de la falla (Falsos Negativos). \\
+
+\par Adicionalmente, existe una leve confusión entre \textit{Impact Damage} y \textit{Tear}, donde un $7\%$ de los daños por impacto son predichos como desgarros, lo cual es esperable dada la similitud visual geométrica entre una grieta inicial y un daño por impacto severo.
+
+
+
+\clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{SSD}
 
@@ -105,13 +143,15 @@
 
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Precision y Recall}
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{F1-Score}
 
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Precision y Recall}
 
 
 

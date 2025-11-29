@@ -59,51 +59,52 @@
     \label{tab:3.3-hiperparametros-yolov5}
 \end{table}
 
-
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}
     \begin{tabular}{|c|c|c|}
         \hline
-        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre} \\
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre / Descripción} \\
         \hline
-        $min\_dim$ & 300 & Tamaño de entrada ($300\times300$) \\
+        $variant$ & ssd300 & Variante del modelo \\
         \hline
-        $mean$ & (104, 117, 123) & Media de normalización \\
+        $img\_dim$ & 300 & Tamaño imagen de entrada ($300\times300$) \\
         \hline
-        $optimizer$ & SGD & Optimizador \\
+        $opt$ & SGD & Optimizador \\
         \hline
-        $lr$ & $1\times10^{-3}$ & Tasa de aprendizaje inicial \\
-        \hline
-        $\gamma$ & 0.1 & Factor de decaimiento de $lr$ \\
-        \hline
-        $lr\_steps$ & $\{80k, 100k, 120k\}$ & Iteraciones de ajuste de $lr$ \\
+        $lr$ & 0.001 & Tasa de aprendizaje inicial \\
         \hline
         $momentum$ & 0.9 & Momento del optimizador \\
         \hline
-        $weight\_decay$ & $5\times10^{-4}$ & Regularización $L_2$ \\
+        $weight\_decay$ & 0.001 & Regularización $L_2$ \\
         \hline
-        $batch\_size$ & 16 & Tamaño de lote de entrenamiento \\
+        $gamma$ & 0.1 & Factor de decaimiento de $lr$ \\
+        \hline
+        $lr\_steps$ & $[1000, 3000, 4500]$ & Iteraciones de ajuste de $lr$ \\
+        \hline
+        $batch\_size$ & 32 & Tamaño de lote de entrenamiento \\
+        \hline
+        $max\_iter$ & 5000 & Iteraciones máximas de entrenamiento \\
         \hline
         $overlap\_thresh$ & 0.5 & Umbral IoU para \textit{matching} positivo \\
         \hline
         $neg\_pos\_ratio$ & 3 & Relación negativos:positivos \\
         \hline
-        $neg\_overlap$ & 0.5 & Umbral IoU para negativos \\
-        \hline
         $conf\_thresh$ & 0.01 & Umbral mínimo de confianza \\
         \hline
         $nms\_thresh$ & 0.45 & Umbral IoU para NMS \\
         \hline
-        $brightness\_\delta$ & 32 & Rango de brillo aleatorio \\
+        $top\_k$ & 200 & Máximo de detecciones consideradas \\
         \hline
-        $contrast\_range$ & [0.5, 1.5] & Rango de contraste aleatorio \\
+        $hue\_delta$ & 18 & Variación máxima de tono (HSV) \\
         \hline
-        $saturation\_range$ & [0.5, 1.5] & Rango de saturación aleatoria \\
+        $saturation\_range$ & $[0.5, 1.5]$ & Rango de saturación (HSV) \\
         \hline
-        $hue\_\delta$ & 18 & Variación máxima de tono \\
+        $brightness\_delta$ & 32 & Variación de brillo \\
         \hline
-        $random\_mirror$ & 0.5 & Probabilidad de volteo horizontal \\
+        $contrast\_range$ & $[0.5, 1.5]$ & Rango de contraste \\
+        \hline
+        $random\_mirror\_prob$ & 0.5 & Probabilidad de volteo horizontal \\
         \hline
     \end{tabular}
     \label{tab:3.4-hiperparametros-ssd}
