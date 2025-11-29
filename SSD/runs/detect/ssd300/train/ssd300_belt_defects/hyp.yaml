@@ -1,0 +1,58 @@
+task: detect
+variant: ssd300
+run_name: ssd300_belt_defects
+phase: train
+is_test: false
+preset_name: ssd300_default
+dataset_backend: yolo
+train_config_path: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\SSD\configs\train.yaml
+data_config: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\SSD\configs\dataset.yaml
+weights_root: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\SSD\weights
+runs_root: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\SSD\runs
+metrics_root: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\SSD\metrics
+base_weights: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\SSD\weights\base\vgg16_reducedfc.pth
+opt: SGD
+lr: 0.001
+momentum: 0.9
+weight_decay: 0.001
+gamma: 0.1
+lr_steps: !!python/tuple
+- 1000
+- 3000
+- 4500
+img_dim: 300
+batch_size: 32
+max_iter: 5000
+num_workers: 6
+device: cuda:0
+resume: null
+save_period: 100
+seed: 0
+exist_ok: false
+overlap_thresh: 0.5
+neg_pos_ratio: 3
+neg_overlap: 0.5
+conf_thresh: 0.01
+nms_thresh: 0.45
+top_k: 200
+mean: !!python/tuple
+- 104
+- 117
+- 123
+brightness_delta: 32
+contrast_range: !!python/tuple
+- 0.5
+- 1.5
+saturation_range: !!python/tuple
+- 0.5
+- 1.5
+hue_delta: 18
+random_mirror_prob: 0.5
+ndjson_console: false
+ndjson_file: false
+bn2gn_cfg:
+  enabled: false
+  policy: 'off'
+  max_groups: 32
+  min_channels_per_group: 1
+  verbose: 1

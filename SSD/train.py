@@ -156,7 +156,7 @@ def _mock_legacy_coco_dependency():
     # Por seguridad, inyectar también rutas completas si fuesen usadas
     sys.modules["ssd.data.coco"] = mock_coco
 
-    print("[SSD/train] Mock inyectado: 'data.coco' (Dependencia legacy neutralizada).")
+    # print("[SSD/train] Mock inyectado: 'data.coco' (Dependencia legacy neutralizada).")
 
 
 # --------------------------------------------------------------
@@ -263,15 +263,19 @@ def main(argv: Optional[list[str]] = None) -> int:
         cfg = replace(cfg, **overrides)
 
     # 6) Si exist_ok=False y la carpeta de ejecución ya existe, ajustar run_name
-    if not cfg.exist_ok:
-        subdir = Path(cfg.task) / cfg.variant / cfg.phase / cfg.run_name
+    # FIX: Solo renombrar si NO estamos reanudando (resume es None/False)
+    if not cfg.exist_ok and not cfg.resume:
+        # Ajustar nombre de variante si es un test (lógica replicada de Trainer para check previo)
+        variant_name = cfg.preset_name if cfg.is_test else cfg.variant
+
+        subdir = Path(cfg.task) / variant_name / cfg.phase / cfg.run_name
         run_dir = cfg.runs_root / subdir
         if run_dir.exists():
             base = cfg.run_name
             i = 1
             while True:
                 candidate = f"{base}_{i}"
-                candidate_subdir = Path(cfg.task) / cfg.variant / cfg.phase / candidate
+                candidate_subdir = Path(cfg.task) / variant_name / cfg.phase / candidate
                 if not (cfg.runs_root / candidate_subdir).exists():
                     print(
                         f"[SSD/train] Advertencia: run_name '{cfg.run_name}' ya existe; "

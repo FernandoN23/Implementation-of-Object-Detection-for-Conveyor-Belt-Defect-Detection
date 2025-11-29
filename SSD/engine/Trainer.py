@@ -19,6 +19,8 @@ import random
 import sys
 import time
 import importlib.util
+import yaml
+import matplotlib.pyplot as plt
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -462,6 +464,9 @@ class TrainerSSD:
         # Inicializar CSV de resultados
         self._init_results_csv()
 
+        # Generar hyp.yaml al inicio
+        self._save_hyp_yaml()
+
     # ----------------------------------------------------------
     # Utilidades internas
     # ----------------------------------------------------------
@@ -515,7 +520,8 @@ class TrainerSSD:
         # 2) Cargar pesos base VGG16 preentrenados si corresponde
         if self.cfg.resume is None and self.cfg.base_weights:
             try:
-                vgg_state = torch.load(self.cfg.base_weights, map_location="cpu")
+                # FIX: weights_only=False para permitir carga de pesos base
+                vgg_state = torch.load(self.cfg.base_weights, map_location="cpu", weights_only=False)
                 if hasattr(self.model, "vgg"):
                     # El repo original expone el backbone como `ssd_net.vgg`
                     self.model.vgg.load_state_dict(vgg_state)  # type: ignore[attr-defined]
@@ -626,7 +632,8 @@ class TrainerSSD:
     def _load_checkpoint(self, ckpt_path: Path) -> None:
         """Carga un checkpoint existente para reanudar entrenamiento."""
         print(f"[TrainerSSD] Reanudando desde checkpoint: {ckpt_path}")
-        ckpt = torch.load(ckpt_path, map_location="cpu")
+        # FIX: weights_only=False para permitir carga de objetos complejos (config)
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
         self.model.load_state_dict(ckpt["model_state_dict"])
         self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         self.epoch = int(ckpt.get("epoch", 0))
@@ -676,6 +683,140 @@ class TrainerSSD:
             writer.writerow(row)
 
     # ----------------------------------------------------------
+    # Reportes y Gráficos
+    # ----------------------------------------------------------
+
+    def _save_hyp_yaml(self) -> None:
+        """Guarda los hiperparámetros en un archivo hyp.yaml en la carpeta runs."""
+        try:
+            # Convertir dataclass a dict
+            d = asdict(self.cfg)
+
+            # Función auxiliar para limpiar objetos no serializables (Path)
+            def clean(obj):
+                if isinstance(obj, Path):
+                    return str(obj)
+                if isinstance(obj, dict):
+                    return {k: clean(v) for k, v in obj.items()}
+                if isinstance(obj, list):
+                    return [clean(v) for v in obj]
+                if isinstance(obj, tuple):
+                    return tuple(clean(v) for v in obj)
+                return obj
+
+            hyp_path = self.save_dir / "hyp.yaml"
+            with open(hyp_path, "w", encoding="utf-8") as f:
+                yaml.dump(clean(d), f, sort_keys=False, default_flow_style=False)
+
+            print(f"[TrainerSSD] Hiperparámetros guardados en: {hyp_path}")
+        except Exception as e:
+            print(f"[TrainerSSD] Advertencia: No se pudo guardar hyp.yaml: {e}")
+
+    def _plot_training_curves(self, final: bool = False) -> None:
+        """Genera y guarda el gráfico de curvas de pérdida."""
+        if not self.results_csv_path.exists():
+            return
+
+        try:
+            epochs = []
+            train_loss_total = []
+            val_loss_total = []
+
+            # Listas para componentes
+            train_loss_loc = []
+            train_loss_conf = []
+            val_loss_loc = []
+            val_loss_conf = []
+
+            with open(self.results_csv_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        e = int(row["epoch"])
+
+                        # Totales
+                        tl = float(row["train_loss_total"])
+                        vl = float(row["val_loss_total"])
+
+                        # Componentes
+                        t_loc = float(row["train_loss_loc"])
+                        t_conf = float(row["train_loss_conf"])
+                        v_loc = float(row["val_loss_loc"])
+                        v_conf = float(row["val_loss_conf"])
+
+                        epochs.append(e)
+                        train_loss_total.append(tl)
+                        val_loss_total.append(vl)
+
+                        train_loss_loc.append(t_loc)
+                        train_loss_conf.append(t_conf)
+                        val_loss_loc.append(v_loc)
+                        val_loss_conf.append(v_conf)
+
+                    except ValueError:
+                        continue
+
+            if not epochs:
+                return
+
+            # Crear directorios necesarios
+            losses_dir = self.save_dir / "losses"
+            losses_dir.mkdir(parents=True, exist_ok=True)
+
+            components_dir = losses_dir / "components"
+            components_dir.mkdir(parents=True, exist_ok=True)
+
+            # --- Gráfico 1: Curva General (Total Loss) ---
+            plt.figure(figsize=(10, 6))
+            plt.plot(epochs, train_loss_total, label="Train mean loss", linewidth=1.5)
+            plt.plot(epochs, val_loss_total, label="Val mean loss", linewidth=1.5)
+
+            plt.title(f"Loss curves | {self.cfg.variant}", fontsize=14)
+            plt.xlabel("Epoch", fontsize=12)
+            plt.ylabel("Mean loss (loc + conf)", fontsize=12)
+            plt.legend(fontsize=12)
+            plt.grid(True, linestyle="--", alpha=0.5)
+            plt.tight_layout()
+
+            # Guardar en runs/losses (siempre)
+            plt.savefig(losses_dir / "loss_curve.png", dpi=300)
+
+            # Si es final, guardar copia en metrics
+            if final:
+                plt.savefig(self.metrics_dir / "final_loss_curve.png", dpi=300)
+
+            plt.close()
+
+            # --- Gráfico 2: Curva por Componentes (Solo al final) ---
+            if final:
+                plt.figure(figsize=(10, 6))
+
+                # Graficar componentes de Train
+                plt.plot(epochs, train_loss_loc, label="Train Loc", linewidth=1.5, color='tab:blue')
+                plt.plot(epochs, train_loss_conf, label="Train Conf", linewidth=1.5, color='tab:orange')
+                plt.plot(epochs, train_loss_total, label="Train Total", linewidth=2.0, color='tab:green', linestyle='-')
+
+                # Opcional: Graficar componentes de Val (punteado) para referencia
+                # plt.plot(epochs, val_loss_loc, label="Val Loc", linewidth=1.0, color='tab:blue', linestyle='--')
+                # plt.plot(epochs, val_loss_conf, label="Val Conf", linewidth=1.0, color='tab:orange', linestyle='--')
+                # plt.plot(epochs, val_loss_total, label="Val Total", linewidth=1.5, color='tab:green', linestyle='--')
+
+                plt.title(f"Loss Components | {self.cfg.variant}", fontsize=14)
+                plt.xlabel("Epoch", fontsize=12)
+                plt.ylabel("Loss", fontsize=12)
+                plt.legend(fontsize=10)
+                plt.grid(True, linestyle="--", alpha=0.5)
+                plt.tight_layout()
+
+                # Guardar en runs/losses/components y metrics
+                plt.savefig(components_dir / "loss_components.png", dpi=300)
+                plt.savefig(self.metrics_dir / "final_loss_components.png", dpi=300)
+                plt.close()
+
+        except Exception as e:
+            print(f"[TrainerSSD] Advertencia: Error al graficar curvas: {e}")
+
+    # ----------------------------------------------------------
     # Ciclo de entrenamiento / validación
     # ----------------------------------------------------------
 
@@ -707,6 +848,14 @@ class TrainerSSD:
             self._append_results_csv(train_stats, val_stats)
             self._save_checkpoint(is_best=is_best)
 
+            # Graficar si corresponde según save_period (o al menos cada época si save_period es pequeño)
+            # Usamos el criterio de iteraciones acumuladas
+            if self.iteration > 0 and self.iteration % self.cfg.save_period == 0:
+                self._plot_training_curves(final=False)
+            # Fallback: si save_period es muy grande, graficar al menos al final de la época para feedback visual
+            elif self.epoch % 1 == 0:
+                self._plot_training_curves(final=False)
+
             elapsed = time.time() - start_time
             print(
                 f"[TrainerSSD] Epoch {self.epoch:03d} | iter={self.iteration:06d}/{max_iter} | "
@@ -719,6 +868,9 @@ class TrainerSSD:
             if self.iteration >= max_iter:
                 print("[TrainerSSD] Se alcanzó max_iter; entrenamiento finalizado.")
                 break
+
+        # Al finalizar, generar gráfico final en metrics
+        self._plot_training_curves(final=True)
 
     def _train_one_epoch(self, max_iter: int) -> Dict[str, float]:
         """Ejecuta una época de entrenamiento y retorna pérdidas medias."""
