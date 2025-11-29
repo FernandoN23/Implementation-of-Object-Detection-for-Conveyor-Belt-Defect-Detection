@@ -9,7 +9,7 @@
 # Descripción: Entrenador principal del modelo SSD.
 #              Orquestador de entrenamiento/validación para SSD300
 #              sobre dataset con etiquetas en formato YOLO.
-#==============================================================
+# ==============================================================
 
 from __future__ import annotations
 
@@ -32,8 +32,8 @@ import torch.nn as nn
 # --------------------------------------------------------------
 
 FILE = Path(__file__).resolve()
-SSD_ROOT = FILE.parents[1]           # .../SSD
-PROJECT_ROOT = SSD_ROOT.parent       # raíz del proyecto
+SSD_ROOT = FILE.parents[1]  # .../SSD
+PROJECT_ROOT = SSD_ROOT.parent  # raíz del proyecto
 CONFIGS_ROOT = SSD_ROOT / "configs"  # SSD/configs
 
 
@@ -107,7 +107,6 @@ except ImportError as e:
 load_dataset_config = _data_loader.load_dataset_config
 build_dataloaders = _data_loader.build_dataloaders
 
-
 # -----------------------------------------------------------------------------
 # Carga del Modelo SSD (Legacy)
 # El modelo no se envía a los workers, así que _load_module_from es seguro aquí
@@ -153,7 +152,7 @@ else:  # pragma: no cover - entorno sin parche
 
 # ==============================================================
 # Configuración de entrenamiento
-#==============================================================
+# ==============================================================
 
 
 @dataclass
@@ -169,6 +168,7 @@ class TrainerConfigSSD:
     variant: str
     run_name: str
     phase: str
+    is_test: bool  # Flag para indicar si es un preset de prueba
 
     # Paths base (absolutos)
     train_config_path: Path
@@ -226,9 +226,9 @@ class TrainerConfigSSD:
 
     @classmethod
     def from_yaml(
-        cls,
-        train_config_path: str | Path,
-        preset: str = "ssd300_default",
+            cls,
+            train_config_path: str | Path,
+            preset: str = "ssd300_default",
     ) -> "TrainerConfigSSD":
         """Construye `TrainerConfigSSD` a partir de SSD/configs/train.yaml.
 
@@ -299,6 +299,7 @@ class TrainerConfigSSD:
             variant=str(exp_cfg.get("variant", "ssd300")),
             run_name=str(exp_cfg.get("run_name", "ssd300_experiment")),
             phase=str(exp_cfg.get("phase", "train")),
+            is_test=bool(p.get("is_test", False)),
 
             # Paths
             train_config_path=train_config_path,
@@ -356,7 +357,7 @@ class TrainerConfigSSD:
 
 # ==============================================================
 # Entrenador principal
-#==============================================================
+# ==============================================================
 
 
 class TrainerSSD:
@@ -386,8 +387,13 @@ class TrainerSSD:
     def __init__(self, cfg: TrainerConfigSSD) -> None:
         self.cfg = cfg
 
+        # Ajustar nombre de variante si es un test
+        variant_name = cfg.variant
+        if cfg.is_test:
+            variant_name += "_test"
+
         # Rutas de salida organizadas por task/variant/phase/run_name
-        subdir = Path(cfg.task) / cfg.variant / cfg.phase / cfg.run_name
+        subdir = Path(cfg.task) / variant_name / cfg.phase / cfg.run_name
         self.save_dir = cfg.runs_root / subdir
         self.weights_dir = cfg.weights_root / subdir
         self.metrics_dir = cfg.metrics_root / subdir
@@ -406,7 +412,11 @@ class TrainerSSD:
         # Configuración de dataset
         self.dataset_cfg = load_dataset_config(cfg.data_config)
         self.class_names = self._extract_class_names(self.dataset_cfg)
-        self.num_classes = len(self.class_names)
+
+        # FIX: SSD requiere clase background (0) + clases dataset
+        self.num_classes = len(self.class_names) + 1
+        print(
+            f"[TrainerSSD] Configurado con {self.num_classes} clases (1 background + {len(self.class_names)} dataset).")
 
         # Estado de entrenamiento
         self.iteration = 0
@@ -493,7 +503,13 @@ class TrainerSSD:
         # 3) BN → GN si está disponible y configurado
         if apply_bn2gn_patch is not None and self.cfg.bn2gn_cfg:
             try:
-                self.model = apply_bn2gn_patch(self.model, self.cfg.bn2gn_cfg)  # type: ignore[call-arg]
+                # FIX: Desempaquetar argumentos y eliminar 'enabled' que no es aceptado por apply_bn2gn_patch
+                bn_args = self.cfg.bn2gn_cfg.copy()
+                bn_args.pop("enabled", None)
+
+                # apply_bn2gn_patch modifica el modelo in-place y retorna un entero (número de reemplazos).
+                # NO asignar el retorno a self.model.
+                apply_bn2gn_patch(self.model, **bn_args)
                 print("[TrainerSSD] Parche BN→GN aplicado al modelo.")
             except Exception as exc:  # pragma: no cover - defensivo
                 print(f"[TrainerSSD] Advertencia: no se pudo aplicar BN→GN: {exc}")
@@ -610,9 +626,9 @@ class TrainerSSD:
                 writer.writerow(header)
 
     def _append_results_csv(
-        self,
-        train_stats: Dict[str, float],
-        val_stats: Dict[str, float],
+            self,
+            train_stats: Dict[str, float],
+            val_stats: Dict[str, float],
     ) -> None:
         row = [
             self.epoch,

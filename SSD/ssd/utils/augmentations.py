@@ -232,6 +232,11 @@ class RandomSampleCrop(object):
         )
 
     def __call__(self, image, boxes=None, labels=None):
+        # FIX: Si no hay cajas, no se puede calcular IoU ni recortar con restricciones.
+        # Retornar imagen original.
+        if boxes is None or boxes.size == 0:
+            return image, boxes, labels
+
         height, width, _ = image.shape
 
         while True:

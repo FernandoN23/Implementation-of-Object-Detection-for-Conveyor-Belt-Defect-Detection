@@ -9,7 +9,7 @@
 # Descripción: Inicialización temprana de variables y paths MIOpen/ROCm
 #              (debe ejecutarse ANTES de importar torch) y utilidades
 #              de verificación/log para entornos Windows ROCm Preview.
-#==============================================================
+# ==============================================================
 
 """
 Bootstrap MIOpen/ROCm (Windows Preview) ⚙️
@@ -201,6 +201,12 @@ def export_env(cfg: MIOpenConfig) -> Dict[str, str]:
 
     os.environ["MIOPEN_LOG_LEVEL"] = str(cfg.log_level)
     exported["MIOPEN_LOG_LEVEL"] = str(cfg.log_level)
+
+    # FIX: Forzar silencio de MIOpen
+    os.environ["MIOPEN_ENABLE_LOGGING"] = "0"
+    exported["MIOPEN_ENABLE_LOGGING"] = "0"
+    os.environ["MIOPEN_DEBUG_DISABLE_FIND_DB"] = "1"
+    exported["MIOPEN_DEBUG_DISABLE_FIND_DB"] = "1"
 
     # Variables extra opcionales
     for k, v in (cfg.extra_env or {}).items():

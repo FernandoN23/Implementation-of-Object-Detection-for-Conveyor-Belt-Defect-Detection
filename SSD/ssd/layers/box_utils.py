@@ -49,8 +49,8 @@ def intersect(box_a, box_b):
 
 def jaccard(box_a, box_b):
     """Compute the jaccard overlap of two sets of boxes.  The jaccard overlap
-    is simply the intersection over union of two boxes.  Here we operate on
-    ground truth boxes and default boxes.
+    is simply the intersection over union of two boxes.
+    Here we operate on ground truth boxes and default boxes.
     E.g.:
         A ∩ B / A ∪ B = A ∩ B / (area(A) + area(B) - A ∩ B)
     Args:
@@ -85,6 +85,12 @@ def match(threshold, truths, priors, variances, labels, loc_t, conf_t, idx):
     Return:
         The matched indices corresponding to 1)location and 2)confidence preds.
     """
+    # FIX: Handle images with no ground truth boxes (empty truths)
+    # This prevents IndexError: max(): Expected reduction dim 0 to have non-zero size
+    if truths.numel() == 0:
+        conf_t[idx] = 0  # Set all priors to background (label 0)
+        return
+
     # jaccard index
     overlaps = jaccard(
         truths,
