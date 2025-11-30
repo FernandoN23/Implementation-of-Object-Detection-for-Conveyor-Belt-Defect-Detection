@@ -342,8 +342,9 @@ class ValidatorSSD:
         print(f"{'all':<15} {nt.sum():<10} {mp:.3f}      {mr:.3f}      {map50:.3f}      {map95:.3f}")
 
         for i, c in enumerate(ap_class):
+            # FIX: Usar ap[i].mean() para obtener el escalar mAP@0.5:0.95 de la clase
             print(
-                f"{self.class_names[c]:<15} {nt[c]:<10} {p[i]:.3f}      {r[i]:.3f}      {ap50[i]:.3f}      {ap[i]:.3f}")
+                f"{self.class_names[c]:<15} {nt[c]:<10} {p[i]:.3f}      {r[i]:.3f}      {ap50[i]:.3f}      {ap[i].mean():.3f}")
 
         return {
             "precision": float(mp),
@@ -355,13 +356,21 @@ class ValidatorSSD:
         }
 
     def _select_images_for_visualization(self, n: int) -> set:
-        random.seed(self.cfg.seed)
+        seed = getattr(self.cfg, "seed", 0)
+        random.seed(seed)
         all_stems = [s.image_path.stem for s in self.val_loader.dataset.samples]
         return set(random.sample(all_stems, min(n, len(all_stems))))
 
     def _plot_single_overlay(self, img_tensor, pred_tensor, gt_boxes, gt_labels, stem):
         img_np = img_tensor.permute(1, 2, 0).cpu().numpy()
-        mean = self.cfg.augmentation.mean
+
+        # FIX: Acceso seguro a la configuración de aumentación
+        aug = getattr(self.cfg, "augmentation", None)
+        if aug and hasattr(aug, "mean"):
+            mean = aug.mean
+        else:
+            mean = [104, 117, 123]  # Default SSD mean
+
         img_np = img_np + np.array(mean)
         img_np = np.clip(img_np, 0, 255).astype(np.uint8)
         img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
@@ -462,41 +471,41 @@ class ValidatorSSD:
             mean_pr /= valid_classes
 
         ax_pr.plot(px, mean_pr, linewidth=4, color="blue", label=f"all classes {map50:.3f} mAP@0.5")
-        ax_pr.set_xlabel("Recall");
-        ax_pr.set_ylabel("Precision");
+        ax_pr.set_xlabel("Recall")
+        ax_pr.set_ylabel("Precision")
         ax_pr.set_title("Precision-Recall Curve")
-        ax_pr.set_xlim(0, 1);
-        ax_pr.set_ylim(0, 1);
-        ax_pr.legend(bbox_to_anchor=(1.04, 1), loc="upper left");
+        ax_pr.set_xlim(0, 1)
+        ax_pr.set_ylim(0, 1)
+        ax_pr.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
         ax_pr.grid(True, linestyle='--', alpha=0.5)
 
         best_f1_idx = mean_f1.argmax()
         ax_f1.plot(px, mean_f1, linewidth=4, color="blue",
                    label=f"all classes {mean_f1[best_f1_idx]:.2f} at {px[best_f1_idx]:.3f}")
-        ax_f1.set_xlabel("Confidence");
-        ax_f1.set_ylabel("F1");
+        ax_f1.set_xlabel("Confidence")
+        ax_f1.set_ylabel("F1")
         ax_f1.set_title("F1-Confidence Curve")
-        ax_f1.set_xlim(0, 1);
-        ax_f1.set_ylim(0, 1);
-        ax_f1.legend(bbox_to_anchor=(1.04, 1), loc="upper left");
+        ax_f1.set_xlim(0, 1)
+        ax_f1.set_ylim(0, 1)
+        ax_f1.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
         ax_f1.grid(True, linestyle='--', alpha=0.5)
 
         ax_p.plot(px, mean_p, linewidth=4, color="blue", label=f"all classes {mean_p[500]:.2f} at 0.500")
-        ax_p.set_xlabel("Confidence");
-        ax_p.set_ylabel("Precision");
+        ax_p.set_xlabel("Confidence")
+        ax_p.set_ylabel("Precision")
         ax_p.set_title("Precision-Confidence Curve")
-        ax_p.set_xlim(0, 1);
-        ax_p.set_ylim(0, 1);
-        ax_p.legend(bbox_to_anchor=(1.04, 1), loc="upper left");
+        ax_p.set_xlim(0, 1)
+        ax_p.set_ylim(0, 1)
+        ax_p.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
         ax_p.grid(True, linestyle='--', alpha=0.5)
 
         ax_r.plot(px, mean_r, linewidth=4, color="blue", label=f"all classes {mean_r[500]:.2f} at 0.500")
-        ax_r.set_xlabel("Confidence");
-        ax_r.set_ylabel("Recall");
+        ax_r.set_xlabel("Confidence")
+        ax_r.set_ylabel("Recall")
         ax_r.set_title("Recall-Confidence Curve")
-        ax_r.set_xlim(0, 1);
-        ax_r.set_ylim(0, 1);
-        ax_r.legend(bbox_to_anchor=(1.04, 1), loc="upper left");
+        ax_r.set_xlim(0, 1)
+        ax_r.set_ylim(0, 1)
+        ax_r.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
         ax_r.grid(True, linestyle='--', alpha=0.5)
 
         fig_pr.savefig(self.save_dir / "PR_curve.png", dpi=300, bbox_inches='tight')
@@ -504,7 +513,7 @@ class ValidatorSSD:
         fig_p.savefig(self.save_dir / "P_curve.png", dpi=300, bbox_inches='tight')
         fig_r.savefig(self.save_dir / "R_curve.png", dpi=300, bbox_inches='tight')
 
-        plt.close(fig_pr);
-        plt.close(fig_f1);
-        plt.close(fig_p);
+        plt.close(fig_pr)
+        plt.close(fig_f1)
+        plt.close(fig_p)
         plt.close(fig_r)

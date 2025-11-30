@@ -180,6 +180,7 @@ def main():
         weights_path = Path(args.weights).resolve()
     else:
         # Intentar inferir ruta: weights_root / task / variant / phase / run_name / best.pth
+        # Nota: Buscamos en la carpeta de entrenamiento ('train') para validar
         train_run_dir = cfg.weights_root / cfg.task / cfg.variant / "train" / cfg.run_name.replace("_validation", "")
         weights_path = train_run_dir / "best.pth"
 
@@ -237,7 +238,9 @@ def main():
 
     # 7. Ejecutar Validación
     run_name = getattr(cfg, "run_name", "ssd300_validation")
-    save_dir = cfg.metrics_root / cfg.task / cfg.variant / cfg.phase / run_name
+    # Usamos 'val' o 'valid' según lo definido en valid.yaml (phase)
+    phase = getattr(cfg, "phase", "val")
+    save_dir = cfg.metrics_root / cfg.task / cfg.variant / phase / run_name
     print(f"[SSD/valid] Guardando resultados en: {save_dir}")
 
     validator = ValidatorSSD(
@@ -248,7 +251,8 @@ def main():
         save_dir=save_dir
     )
 
-    metrics = validator.run()
+    # FIX: Usar run_full_report para generar gráficos y métricas completas
+    metrics = validator.run_full_report()
 
     # Guardar métricas numéricas en YAML simple
     metrics_file = save_dir / "metrics.yaml"

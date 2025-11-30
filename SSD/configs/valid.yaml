@@ -24,9 +24,9 @@ paths:
 
 presets:
   # ---------------------------------------------------------------
-  # Preset por defecto (alineado con ssd300_default de train.yaml)
+  # Preset principal para validación
   # ---------------------------------------------------------------
-  ssd300_default:
+  ssd300:
     # Backend de dataset (debe coincidir con el usado en train)
     dataset_backend: "yolo"
 
@@ -35,6 +35,9 @@ presets:
     batch_size: 32        # Puede ser mayor que en train (no hay backprop)
     num_workers: 4        # Ajustar según CPU
     device: ""            # "" -> auto (CUDA/HIP/CPU)
+
+    # Semilla para reproducibilidad (selección de imágenes para overlays)
+    seed: 0
 
     # Parámetros de Inferencia (NMS & Post-procesado)
     inference:
@@ -52,6 +55,10 @@ presets:
       # Umbral de IoU para considerar una detección como True Positive (TP)
       # Usado para el cálculo de mAP@50 y Matriz de Confusión.
       iou_thres: 0.5
+
+    # Configuración de Augmentación (Necesaria para des-normalizar imágenes en visualización)
+    augmentation:
+      mean: [104, 117, 123]
 
     # Configuración de Logging
     logging:
