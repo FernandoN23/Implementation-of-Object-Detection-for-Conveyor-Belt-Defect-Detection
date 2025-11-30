@@ -32,12 +32,26 @@ PROJECT_ROOT = SSD_ROOT.parent  # raíz del proyecto
 CONFIGS_ROOT = SSD_ROOT / "configs"
 
 VALIDATOR_PATH = SSD_ROOT / "engine" / "Validator.py"
-DATA_LOADER_PATH = SSD_ROOT / "utility" / "data_loader.py"
 SSD_MODEL_PATH = SSD_ROOT / "ssd" / "ssd.py"
+
+# --------------------------------------------------------------
+# FIX: Asegurar que la raíz SSD esté en sys.path para imports estándar
+# --------------------------------------------------------------
+if str(SSD_ROOT) not in sys.path:
+    sys.path.append(str(SSD_ROOT))
+
+try:
+    # Importación estándar para que los workers de DataLoader puedan resolver el módulo
+    from utility import data_loader as _data_loader
+
+    build_dataloaders = _data_loader.build_dataloaders
+    load_dataset_config = _data_loader.load_dataset_config
+except ImportError as e:
+    raise ImportError(f"Fallo al importar utility.data_loader desde {SSD_ROOT}. Error: {e}")
 
 
 # --------------------------------------------------------------
-# Utilidad de carga dinámica
+# Utilidad de carga dinámica (solo para módulos que no van a workers)
 # --------------------------------------------------------------
 
 def _load_module_from(path: Path, name: str):
@@ -71,15 +85,22 @@ def _load_module_from(path: Path, name: str):
 def _mock_legacy_coco_dependency():
     """Neutraliza dependencia de COCO para evitar errores de importación."""
 
-    class Dummy: pass
+    class DummyDataset:
+        def __init__(self, *args, **kwargs): pass
 
-    mock = types.ModuleType("data.coco")
-    mock.COCODetection = Dummy
-    mock.COCOAnnotationTransform = Dummy
-    mock.COCO_CLASSES = []
-    mock.COCO_ROOT = ""
-    sys.modules["data.coco"] = mock
-    sys.modules["ssd.data.coco"] = mock
+    class DummyTransform:
+        def __init__(self, *args, **kwargs): pass
+
+    # Crear el módulo mock
+    mock_coco = types.ModuleType("data.coco")
+    mock_coco.COCODetection = DummyDataset
+    mock_coco.COCOAnnotationTransform = DummyTransform
+    mock_coco.COCO_CLASSES = []
+    mock_coco.COCO_ROOT = ""
+    mock_coco.get_label_map = lambda x: {}
+
+    sys.modules["data.coco"] = mock_coco
+    sys.modules["ssd.data.coco"] = mock_coco
 
 
 # --------------------------------------------------------------
@@ -159,14 +180,10 @@ def main():
         weights_path = Path(args.weights).resolve()
     else:
         # Intentar inferir ruta: weights_root / task / variant / phase / run_name / best.pth
-        # Nota: La fase en train suele ser 'train', aquí estamos en 'valid'.
-        # Asumimos que el usuario quiere validar lo que entrenó en 'train'.
-        # Ajuste manual de ruta común:
         train_run_dir = cfg.weights_root / cfg.task / cfg.variant / "train" / cfg.run_name.replace("_validation", "")
         weights_path = train_run_dir / "best.pth"
 
         if not weights_path.exists():
-            # Fallback a last.pth
             weights_path = train_run_dir / "last.pth"
 
     if not weights_path.exists():
@@ -177,39 +194,30 @@ def main():
     print(f"[SSD/valid] Usando pesos: {weights_path}")
 
     # 4. Cargar Módulos Dinámicos
-    # Data Loader
-    dl_mod = _load_module_from(DATA_LOADER_PATH, "ssd_data_loader")
-    build_dataloaders = dl_mod.build_dataloaders
-    load_dataset_config = dl_mod.load_dataset_config
-
-    # Modelo SSD
+    # Modelo SSD (sigue siendo dinámico)
     ssd_mod = _load_module_from(SSD_MODEL_PATH, "ssd_model")
     build_ssd = ssd_mod.build_ssd
 
-    # Validator
+    # Validator (sigue siendo dinámico)
     val_mod = _load_module_from(VALIDATOR_PATH, "ssd_validator")
     ValidatorSSD = val_mod.ValidatorSSD
 
     # 5. Construir DataLoader
-    # build_dataloaders espera un objeto con atributos data_config, img_dim, batch_size, num_workers
-    # cfg ya cumple con esto.
+    # build_dataloaders ahora se importa de forma estándar
     _, val_loader = build_dataloaders(cfg)
 
     # Obtener nombres de clases del dataset config
     ds_cfg_dict = load_dataset_config(cfg.data_config)
     class_names = list(ds_cfg_dict["names"].values())
-    # SSD requiere background en index 0, pero nuestra lista class_names es solo foreground.
-    # El Validator maneja la lógica de índices.
     num_classes = len(class_names) + 1
 
     # 6. Construir Modelo
     print(f"[SSD/valid] Construyendo SSD300 (clases={num_classes})...")
-    # Phase='test' es CRÍTICO para que SSD active self.detect y devuelva predicciones decodificadas
     model = build_ssd("test", cfg.img_dim, num_classes)
 
     # Cargar estado
     device = torch.device(args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu"))
-    state_dict = torch.load(weights_path, map_location=device)
+    state_dict = torch.load(weights_path, map_location=device, weights_only=False)
 
     # Manejo de DataParallel o claves 'model_state_dict'
     if "model_state_dict" in state_dict:
@@ -228,8 +236,8 @@ def main():
     model.eval()
 
     # 7. Ejecutar Validación
-    # Definir directorio de salida específico para esta validación
-    save_dir = cfg.metrics_root / cfg.task / cfg.variant / cfg.phase / cfg.run_name
+    run_name = getattr(cfg, "run_name", "ssd300_validation")
+    save_dir = cfg.metrics_root / cfg.task / cfg.variant / cfg.phase / run_name
     print(f"[SSD/valid] Guardando resultados en: {save_dir}")
 
     validator = ValidatorSSD(

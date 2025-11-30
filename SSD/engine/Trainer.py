@@ -20,7 +20,6 @@ import sys
 import time
 import importlib.util
 import yaml
-import matplotlib.pyplot as plt
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -45,16 +44,7 @@ CONFIGS_ROOT = SSD_ROOT / "configs"  # SSD/configs
 
 
 def _load_module_from(path: Path, name: str):
-    """Carga dinámica de un módulo Python desde un path arbitrario.
-
-    Esto permite usar los submódulos del repo original de SSD
-    (ubicados bajo `SSD/ssd` y `SSD/utility`) sin requerir que
-    todo el proyecto esté instalado como paquete en el entorno.
-
-    FIX (2025-05):
-    1. Registro temprano en sys.modules (fix dataclasses).
-    2. Inyección temporal de path.parent en sys.path (fix legacy imports).
-    """
+    """Carga dinámica de un módulo Python desde un path arbitrario."""
     path = path.resolve()
     if not path.is_file():
         raise ImportError(f"No se encontró el módulo requerido en: {path}")
@@ -89,9 +79,6 @@ def _load_module_from(path: Path, name: str):
 
 # -----------------------------------------------------------------------------
 # FIX (2025-05): Importación Standard para Multiprocessing (Data Loader)
-# El módulo 'data_loader' define clases (Dataset) que se envían a procesos hijos.
-# Para que 'pickle' funcione en Windows (spawn), el módulo debe ser importable
-# por ruta estándar (sys.path), no cargado dinámicamente con nombres inventados.
 # -----------------------------------------------------------------------------
 
 # Asegurar que la raíz 'SSD' está en sys.path para imports como 'utility.data_loader'
@@ -99,31 +86,20 @@ if str(SSD_ROOT) not in sys.path:
     sys.path.append(str(SSD_ROOT))
 
 try:
-    # Importación estándar: los objetos quedarán vinculados a "utility.data_loader"
-    # que es un path físico real que los workers pueden resolver.
     from utility import data_loader as _data_loader
 except ImportError as e:
-    # Fallback o diagnóstico detallado
     raise ImportError(f"Fallo al importar utility.data_loader desde {SSD_ROOT}. Error: {e}")
 
 load_dataset_config = _data_loader.load_dataset_config
 build_dataloaders = _data_loader.build_dataloaders
 
 # -----------------------------------------------------------------------------
-# Carga del Modelo SSD (Legacy)
-# El modelo no se envía a los workers, así que _load_module_from es seguro aquí
-# y ayuda a manejar las dependencias internas de 'ssd.py'.
+# Carga de Módulos de Detección y Validación
 # -----------------------------------------------------------------------------
 _SSD_MODEL_PATH = SSD_ROOT / "ssd" / "ssd.py"
 _ssd_model = _load_module_from(_SSD_MODEL_PATH, "ssd_model")
-# Función de construcción del modelo (convención del repo SSD original)
 build_ssd = _ssd_model.build_ssd  # type: ignore[attr-defined]
 
-# -----------------------------------------------------------------------------
-# Inyección de dependencias Legacy (MultiBoxLoss)
-# El archivo multibox_loss.py utiliza imports relativos ('from ..box_utils')
-# lo que obliga a cargarlo como parte de un paquete.
-# -----------------------------------------------------------------------------
 _LEGACY_ROOT = str(SSD_ROOT / "ssd")
 if _LEGACY_ROOT not in sys.path:
     sys.path.insert(0, _LEGACY_ROOT)
@@ -143,6 +119,12 @@ fitness = _metrics_mod.fitness  # type: ignore[attr-defined]
 ap_per_class = _metrics_mod.ap_per_class  # type: ignore[attr-defined]
 ConfusionMatrix = _metrics_mod.ConfusionMatrix  # type: ignore[attr-defined]
 
+# Módulo Validator (para cálculo de métricas históricas)
+_VALIDATOR_PATH = SSD_ROOT / "engine" / "Validator.py"
+_validator_mod = _load_module_from(_VALIDATOR_PATH, "ssd_validator")
+ValidatorSSD = _validator_mod.ValidatorSSD  # type: ignore[attr-defined]
+calculate_metrics_only = ValidatorSSD.calculate_metrics_only  # type: ignore[attr-defined]
+
 # Parche BatchNorm → GroupNorm (si está disponible)
 _BN2GN_PATH = SSD_ROOT / "engine" / "bn2gn_patch.py"
 if _BN2GN_PATH.is_file():
@@ -153,17 +135,13 @@ else:  # pragma: no cover - entorno sin parche
 
 
 # ==============================================================
-# Configuración de entrenamiento
+# Configuración de entrenamiento (TrainerConfigSSD)
 # ==============================================================
 
 
 @dataclass
 class TrainerConfigSSD:
-    """Configuración de alto nivel para `TrainerSSD`.
-
-    Normaliza el contenido de `SSD/configs/train.yaml` para que el
-    entrenador trabaje con tipos explícitos y rutas absolutas.
-    """
+    """Configuración de alto nivel para `TrainerSSD`."""
 
     # Identidad del experimento
     task: str
@@ -224,8 +202,7 @@ class TrainerConfigSSD:
     ndjson_console: bool
     ndjson_file: bool
 
-    # Configuración opcional BN→GN (se mantiene como dict genérico; el
-    # módulo `bn2gn_patch` se encarga de interpretarlo)
+    # Configuración opcional BN→GN
     bn2gn_cfg: Optional[Dict[str, Any]] = None
 
     @classmethod
@@ -234,15 +211,7 @@ class TrainerConfigSSD:
             train_config_path: str | Path,
             preset: str = "ssd300_default",
     ) -> "TrainerConfigSSD":
-        """Construye `TrainerConfigSSD` a partir de SSD/configs/train.yaml.
-
-        Parameters
-        ----------
-        train_config_path:
-            Ruta al YAML de entrenamiento (por defecto SSD/configs/train.yaml).
-        preset:
-            Nombre del preset dentro de la clave `presets:` (ej. `ssd300_default`).
-        """
+        """Construye `TrainerConfigSSD` a partir de SSD/configs/train.yaml."""
 
         import yaml
 
@@ -367,35 +336,11 @@ class TrainerConfigSSD:
 
 
 class TrainerSSD:
-    """Entrenador de modelo SSD (SSD300 por defecto).
-
-    Responsabilidades principales:
-
-    - Cargar configuraciones YAML (train/dataset) mediante TrainerConfigSSD.
-    - Construir dataloaders a través de `SSD/utility/data_loader.py`.
-    - Instanciar el modelo SSD (`build_ssd`) y aplicar parches BN→GN si
-      están disponibles.
-    - Configurar criterio de pérdida `MultiBoxLoss` y optimizador (SGD).
-    - Ejecutar ciclo de entrenamiento/control basado en iteraciones
-      (`max_iter`), con validación por época.
-    - Registrar métricas de pérdidas en CSV y almacenar checkpoints de
-      pesos (`best` y `last`).
-
-    Notas
-    -----
-    - La mitigación MIOpen/ROCm *no* se ejecuta desde este módulo; debe
-      hacerse antes de importar `torch` utilizando `engine/bootstrap_miopen.py`.
-    - Las métricas avanzadas de detección (P/R/F1/mAP y curvas) pueden
-      integrarse posteriormente utilizando `ssd.utils.metrics` a partir
-      de las salidas de validación; aquí se deja un hook para esa lógica.
-    """
+    """Entrenador de modelo SSD (SSD300 por defecto)."""
 
     def __init__(self, cfg: TrainerConfigSSD) -> None:
         self.cfg = cfg
 
-        # Ajustar nombre de variante si es un test
-        # Si es test, usamos el nombre del preset (ej. ssd300_voc_debug)
-        # Si no, usamos la variante estándar (ej. ssd300)
         variant_name = cfg.preset_name if cfg.is_test else cfg.variant
 
         # Rutas de salida organizadas por task/variant/phase/run_name
@@ -419,8 +364,6 @@ class TrainerSSD:
         # Configuración de Clases (Dinámica según Backend)
         # ---------------------------------------------------------------------
         if cfg.dataset_backend == "voc":
-            # Cargar clases VOC estándar (20 + 1 background implícito en lógica SSD)
-            # SSD espera num_classes = 21 para VOC
             try:
                 voc_mod = _load_module_from(SSD_ROOT / "ssd/data/voc0712.py", "voc_data")
                 self.class_names = list(voc_mod.VOC_CLASSES)  # type: ignore
@@ -431,20 +374,17 @@ class TrainerSSD:
                 self.num_classes = 21
 
         elif cfg.dataset_backend == "coco":
-            # Cargar clases COCO estándar (80 + 1 background)
             try:
                 coco_mod = _load_module_from(SSD_ROOT / "ssd/data/coco.py", "coco_data")
                 self.class_names = list(coco_mod.COCO_CLASSES)  # type: ignore
-                self.num_classes = 81  # 80 clases + 1 background
+                self.num_classes = 81
             except Exception as e:
                 print(f"[TrainerSSD] Error cargando COCO classes: {e}. Usando default 81.")
                 self.class_names = [f"class_{i}" for i in range(80)]
                 self.num_classes = 81
         else:
-            # Backend 'yolo' o custom: Cargar desde dataset.yaml
             self.dataset_cfg = load_dataset_config(cfg.data_config)
             self.class_names = self._extract_class_names(self.dataset_cfg)
-            # FIX: SSD requiere clase background (0) + clases dataset
             self.num_classes = len(self.class_names) + 1
 
         print(
@@ -453,9 +393,10 @@ class TrainerSSD:
         # Estado de entrenamiento
         self.iteration = 0
         self.epoch = 0
-        self.best_metric = float("inf")  # menor pérdida de validación
+        self.best_metric = -float("inf")
         self._current_lr = cfg.lr
         self._lr_step_index = 0
+        self.is_metric_validation_epoch = False
 
         # Construcción de componentes principales
         self._build_model_and_loss()
@@ -493,7 +434,6 @@ class TrainerSSD:
     def _extract_class_names(dataset_cfg: Dict[str, Any]) -> List[str]:
         names = dataset_cfg.get("names", {})
         if isinstance(names, dict):
-            # Se asume que las claves son índices de clase (0,1,2,...) en str o int
             return [v for k, v in sorted(names.items(), key=lambda kv: int(kv[0]))]
         if isinstance(names, (list, tuple)):
             return list(names)
@@ -504,26 +444,15 @@ class TrainerSSD:
     # ----------------------------------------------------------
 
     def _build_model_and_loss(self) -> None:
-        """Instancia el modelo SSD y configura el criterio de pérdida.
+        """Instancia el modelo SSD y configura el criterio de pérdida."""
 
-        - Usa `build_ssd('train', img_dim, num_classes)` del repo original.
-        - Carga pesos base VGG16 si `base_weights` está definido y no
-          se está reanudando desde un checkpoint.
-        - Aplica parche BN→GN si `bn2gn_cfg.enabled=True` y el módulo
-          `bn2gn_patch` está disponible.
-        - Configura `MultiBoxLoss` con parámetros canónicos para SSD.
-        """
-
-        # 1) Modelo SSD (arquitectura)
         self.model: nn.Module = build_ssd("train", self.cfg.img_dim, self.num_classes)  # type: ignore[call-arg]
 
         # 2) Cargar pesos base VGG16 preentrenados si corresponde
         if self.cfg.resume is None and self.cfg.base_weights:
             try:
-                # FIX: weights_only=False para permitir carga de pesos base
                 vgg_state = torch.load(self.cfg.base_weights, map_location="cpu", weights_only=False)
                 if hasattr(self.model, "vgg"):
-                    # El repo original expone el backbone como `ssd_net.vgg`
                     self.model.vgg.load_state_dict(vgg_state)  # type: ignore[attr-defined]
                     print(
                         f"[TrainerSSD] Pesos VGG16 preentrenados cargados desde: {self.cfg.base_weights}"
@@ -539,12 +468,8 @@ class TrainerSSD:
         # 3) BN → GN si está disponible y configurado
         if apply_bn2gn_patch is not None and self.cfg.bn2gn_cfg:
             try:
-                # FIX: Desempaquetar argumentos y eliminar 'enabled' que no es aceptado por apply_bn2gn_patch
                 bn_args = self.cfg.bn2gn_cfg.copy()
                 bn_args.pop("enabled", None)
-
-                # apply_bn2gn_patch modifica el modelo in-place y retorna un entero (número de reemplazos).
-                # NO asignar el retorno a self.model.
                 apply_bn2gn_patch(self.model, **bn_args)
                 print("[TrainerSSD] Parche BN→GN aplicado al modelo.")
             except Exception as exc:  # pragma: no cover - defensivo
@@ -554,10 +479,6 @@ class TrainerSSD:
         self.model.to(self.device)
 
         # 5) Criterio de pérdida (MultiBoxLoss clásico de SSD)
-        # La signatura del repo original suele ser:
-        #   MultiBoxLoss(num_classes, overlap_thresh, prior_for_matching,
-        #                bkg_label, neg_pos, neg_overlap, encode_target,
-        #                use_gpu=True)
         self.criterion = MultiBoxLoss(
             self.num_classes,
             self.cfg.overlap_thresh,
@@ -588,7 +509,6 @@ class TrainerSSD:
 
     def _build_dataloaders(self) -> None:
         """Construye DataLoaders de entrenamiento y validación."""
-
         train_loader, val_loader = build_dataloaders(self.cfg)
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -614,7 +534,7 @@ class TrainerSSD:
         return last, best
 
     def _save_checkpoint(self, is_best: bool) -> None:
-        """Guarda checkpoint `last.pth` y opcionalmente `best.pth`."""
+        """Guarda checkpoint `last.pth`, `best.pth` y una copia nombrada."""
         last_path, best_path = self._checkpoint_paths()
 
         state = {
@@ -625,14 +545,21 @@ class TrainerSSD:
             "cfg": asdict(self.cfg),
             "current_lr": self._current_lr,
         }
+
+        # 1. Guardar last.pth
         torch.save(state, last_path)
+
+        # 2. Guardar best.pth
         if is_best:
             torch.save(state, best_path)
+
+        # 3. Guardar copia nombrada (ej: ssd300_default_120000.pth)
+        named_path = self.weights_dir / f"{self.cfg.preset_name}_{self.iteration}.pth"
+        torch.save(state, named_path)
 
     def _load_checkpoint(self, ckpt_path: Path) -> None:
         """Carga un checkpoint existente para reanudar entrenamiento."""
         print(f"[TrainerSSD] Reanudando desde checkpoint: {ckpt_path}")
-        # FIX: weights_only=False para permitir carga de objetos complejos (config)
         ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
         self.model.load_state_dict(ckpt["model_state_dict"])
         self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
@@ -657,6 +584,12 @@ class TrainerSSD:
                 "val_loss_loc",
                 "val_loss_conf",
                 "val_loss_total",
+                # Nuevas métricas de detección
+                "val_mAP_0.5",
+                "val_mAP_0.5_0.95",
+                "val_P",
+                "val_R",
+                "val_F1",
             ]
             with self.results_csv_path.open("w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
@@ -666,6 +599,7 @@ class TrainerSSD:
             self,
             train_stats: Dict[str, float],
             val_stats: Dict[str, float],
+            metric_stats: Dict[str, float],
     ) -> None:
         row = [
             self.epoch,
@@ -677,144 +611,43 @@ class TrainerSSD:
             val_stats.get("loss_loc", float("nan")),
             val_stats.get("loss_conf", float("nan")),
             val_stats.get("loss_total", float("nan")),
+            # Nuevas métricas
+            metric_stats.get("mAP_0.5", float("nan")),
+            metric_stats.get("mAP_0.5_0.95", float("nan")),
+            metric_stats.get("P", float("nan")),
+            metric_stats.get("R", float("nan")),
+            metric_stats.get("F1", float("nan")),
         ]
         with self.results_csv_path.open("a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(row)
 
     # ----------------------------------------------------------
-    # Reportes y Gráficos
+    # Reportes y Gráficos (Ajustado)
     # ----------------------------------------------------------
 
     def _save_hyp_yaml(self) -> None:
         """Guarda los hiperparámetros en un archivo hyp.yaml en la carpeta runs."""
         try:
-            # Convertir dataclass a dict
             d = asdict(self.cfg)
 
-            # Función auxiliar para limpiar objetos no serializables (Path)
+            # Añadir información clave para trazabilidad
+            d['preset_name'] = self.cfg.preset_name
+            d['variant'] = self.cfg.variant
+
             def clean(obj):
-                if isinstance(obj, Path):
-                    return str(obj)
-                if isinstance(obj, dict):
-                    return {k: clean(v) for k, v in obj.items()}
-                if isinstance(obj, list):
-                    return [clean(v) for v in obj]
-                if isinstance(obj, tuple):
-                    return tuple(clean(v) for v in obj)
+                if isinstance(obj, Path): return str(obj)
+                if isinstance(obj, dict): return {k: clean(v) for k, v in obj.items()}
+                if isinstance(obj, list): return [clean(v) for v in obj]
+                if isinstance(obj, tuple): return tuple(clean(v) for v in obj)
                 return obj
 
             hyp_path = self.save_dir / "hyp.yaml"
             with open(hyp_path, "w", encoding="utf-8") as f:
                 yaml.dump(clean(d), f, sort_keys=False, default_flow_style=False)
-
             print(f"[TrainerSSD] Hiperparámetros guardados en: {hyp_path}")
         except Exception as e:
             print(f"[TrainerSSD] Advertencia: No se pudo guardar hyp.yaml: {e}")
-
-    def _plot_training_curves(self, final: bool = False) -> None:
-        """Genera y guarda el gráfico de curvas de pérdida."""
-        if not self.results_csv_path.exists():
-            return
-
-        try:
-            epochs = []
-            train_loss_total = []
-            val_loss_total = []
-
-            # Listas para componentes
-            train_loss_loc = []
-            train_loss_conf = []
-            val_loss_loc = []
-            val_loss_conf = []
-
-            with open(self.results_csv_path, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    try:
-                        e = int(row["epoch"])
-
-                        # Totales
-                        tl = float(row["train_loss_total"])
-                        vl = float(row["val_loss_total"])
-
-                        # Componentes
-                        t_loc = float(row["train_loss_loc"])
-                        t_conf = float(row["train_loss_conf"])
-                        v_loc = float(row["val_loss_loc"])
-                        v_conf = float(row["val_loss_conf"])
-
-                        epochs.append(e)
-                        train_loss_total.append(tl)
-                        val_loss_total.append(vl)
-
-                        train_loss_loc.append(t_loc)
-                        train_loss_conf.append(t_conf)
-                        val_loss_loc.append(v_loc)
-                        val_loss_conf.append(v_conf)
-
-                    except ValueError:
-                        continue
-
-            if not epochs:
-                return
-
-            # Crear directorios necesarios
-            losses_dir = self.save_dir / "losses"
-            losses_dir.mkdir(parents=True, exist_ok=True)
-
-            components_dir = losses_dir / "components"
-            components_dir.mkdir(parents=True, exist_ok=True)
-
-            # --- Gráfico 1: Curva General (Total Loss) ---
-            plt.figure(figsize=(10, 6))
-            plt.plot(epochs, train_loss_total, label="Train mean loss", linewidth=1.5)
-            plt.plot(epochs, val_loss_total, label="Val mean loss", linewidth=1.5)
-
-            plt.title(f"Loss curves | {self.cfg.variant}", fontsize=14)
-            plt.xlabel("Epoch", fontsize=12)
-            plt.ylabel("Mean loss (loc + conf)", fontsize=12)
-            plt.legend(fontsize=12)
-            plt.grid(True, linestyle="--", alpha=0.5)
-            plt.tight_layout()
-
-            # Guardar en runs/losses (siempre)
-            plt.savefig(losses_dir / "loss_curve.png", dpi=300)
-
-            # Si es final, guardar copia en metrics
-            if final:
-                plt.savefig(self.metrics_dir / "final_loss_curve.png", dpi=300)
-
-            plt.close()
-
-            # --- Gráfico 2: Curva por Componentes (Solo al final) ---
-            if final:
-                plt.figure(figsize=(10, 6))
-
-                # Graficar componentes de Train
-                plt.plot(epochs, train_loss_loc, label="Train Loc", linewidth=1.5, color='tab:blue')
-                plt.plot(epochs, train_loss_conf, label="Train Conf", linewidth=1.5, color='tab:orange')
-                plt.plot(epochs, train_loss_total, label="Train Total", linewidth=2.0, color='tab:green', linestyle='-')
-
-                # Opcional: Graficar componentes de Val (punteado) para referencia
-                # plt.plot(epochs, val_loss_loc, label="Val Loc", linewidth=1.0, color='tab:blue', linestyle='--')
-                # plt.plot(epochs, val_loss_conf, label="Val Conf", linewidth=1.0, color='tab:orange', linestyle='--')
-                # plt.plot(epochs, val_loss_total, label="Val Total", linewidth=1.5, color='tab:green', linestyle='--')
-
-                plt.title(f"Loss Components | {self.cfg.variant}", fontsize=14)
-                plt.xlabel("Epoch", fontsize=12)
-                plt.ylabel("Loss", fontsize=12)
-                plt.legend(fontsize=10)
-                plt.grid(True, linestyle="--", alpha=0.5)
-                plt.tight_layout()
-
-                # Guardar en runs/losses/components y metrics
-                plt.savefig(components_dir / "loss_components.png", dpi=300)
-                plt.savefig(self.metrics_dir / "final_loss_components.png", dpi=300)
-                plt.close()
-
-        except Exception as e:
-            print(f"[TrainerSSD] Advertencia: Error al graficar curvas: {e}")
 
     # ----------------------------------------------------------
     # Ciclo de entrenamiento / validación
@@ -826,9 +659,13 @@ class TrainerSSD:
         max_iter = self.cfg.max_iter
         num_batches = len(self.train_loader)
 
+        # La validación de métricas (mAP) se realiza al final de cada época.
+        # Esto ocurre cuando la iteración actual es un múltiplo de num_batches.
+
         print(
             f"[TrainerSSD] Inicio entrenamiento SSD: max_iter={max_iter}, "
-            f"batch_size={self.cfg.batch_size}, batches/epoch={num_batches}."
+            f"batch_size={self.cfg.batch_size}, batches/epoch={num_batches}. "
+            f"Validación mAP al final de cada época."
         )
 
         while self.iteration < max_iter:
@@ -836,41 +673,46 @@ class TrainerSSD:
             start_time = time.time()
 
             train_stats = self._train_one_epoch(max_iter)
-            val_stats = self._validate_one_epoch()
 
-            # Métrica de referencia: pérdida total de validación
-            val_loss = val_stats.get("loss_total", float("inf"))
-            is_best = val_loss < self.best_metric
+            # Determinar si se necesita calcular métricas de detección (mAP)
+            # Se calcula si: 1) Es el final de la época, O 2) Es la última iteración total.
+            is_end_of_epoch = (self.iteration > 0 and self.iteration % num_batches == 0)
+            is_final_iteration = (self.iteration >= max_iter)
+            calculate_metrics = is_end_of_epoch or is_final_iteration
+
+            val_stats, metric_stats = self._validate_and_metric_one_epoch(calculate_metrics)
+
+            # Métrica de referencia: fitness (basado en mAP@0.5:0.95)
+            current_fitness = metric_stats.get("fitness", -float("inf"))
+            is_best = current_fitness > self.best_metric
             if is_best:
-                self.best_metric = val_loss
+                self.best_metric = current_fitness
 
             # Logging y checkpoints
-            self._append_results_csv(train_stats, val_stats)
+            self._append_results_csv(train_stats, val_stats, metric_stats)
             self._save_checkpoint(is_best=is_best)
 
-            # Graficar si corresponde según save_period (o al menos cada época si save_period es pequeño)
-            # Usamos el criterio de iteraciones acumuladas
-            if self.iteration > 0 and self.iteration % self.cfg.save_period == 0:
-                self._plot_training_curves(final=False)
-            # Fallback: si save_period es muy grande, graficar al menos al final de la época para feedback visual
-            elif self.epoch % 1 == 0:
-                self._plot_training_curves(final=False)
-
             elapsed = time.time() - start_time
-            print(
+
+            log_msg = (
                 f"[TrainerSSD] Epoch {self.epoch:03d} | iter={self.iteration:06d}/{max_iter} | "
                 f"LR={self._current_lr:.6f} | "
                 f"train_loss={train_stats['loss_total']:.4f} | "
-                f"val_loss={val_stats['loss_total']:.4f} | "
-                f"time={elapsed:.1f}s"
+                f"val_loss={val_stats['loss_total']:.4f}"
             )
+            if calculate_metrics:
+                log_msg += (
+                    f" | mAP@.5={metric_stats['mAP_0.5']:.3f} | "
+                    f"mAP@.5:.95={metric_stats['mAP_0.5_0.95']:.3f}"
+                )
+            log_msg += f" | time={elapsed:.1f}s"
+            print(log_msg)
 
             if self.iteration >= max_iter:
                 print("[TrainerSSD] Se alcanzó max_iter; entrenamiento finalizado.")
                 break
 
-        # Al finalizar, generar gráfico final en metrics
-        self._plot_training_curves(final=True)
+        print("[TrainerSSD] Entrenamiento finalizado. Use utility/metrics.py para generar gráficos históricos.")
 
     def _train_one_epoch(self, max_iter: int) -> Dict[str, float]:
         """Ejecuta una época de entrenamiento y retorna pérdidas medias."""
@@ -929,19 +771,12 @@ class TrainerSSD:
         }
 
     @torch.no_grad()
-    def _validate_one_epoch(self) -> Dict[str, float]:
-        """Evalúa el modelo en el conjunto de validación (sólo pérdidas).
+    def _validate_and_metric_one_epoch(self, calculate_metrics: bool) -> Tuple[Dict[str, float], Dict[str, float]]:
+        """Evalúa Loss y opcionalmente métricas de detección."""
 
-        La integración con métricas de detección (P/R/F1/mAP) se puede
-        añadir posteriormente reutilizando `ssd.utils.metrics` y las
-        predicciones de la fase de test del modelo SSD.
-        """
-
-        self.model.eval()
-
-        loss_loc_sum = 0.0
-        loss_conf_sum = 0.0
-        n_batches = 0
+        # 1. Cálculo de Loss (siempre)
+        self.model.train()
+        loss_loc_sum, loss_conf_sum, n_batches = 0.0, 0.0, 0
 
         for images, targets in self.val_loader:
             images = images.to(self.device, non_blocking=True)
@@ -950,10 +785,8 @@ class TrainerSSD:
             out = self.model(images)
             if isinstance(out, (tuple, list)) and len(out) == 3:
                 loc, conf, priors = out
-            else:  # pragma: no cover - defensivo
-                raise RuntimeError(
-                    "La salida del modelo SSD en fase 'train' debe ser (loc, conf, priors)."
-                )
+            else:
+                raise RuntimeError("Salida SSD incorrecta en validación de Loss.")
 
             loss_loc, loss_conf = self.criterion((loc, conf, priors), targets)
 
@@ -962,17 +795,53 @@ class TrainerSSD:
             n_batches += 1
 
         if n_batches == 0:
-            return {"loss_loc": float("nan"), "loss_conf": float("nan"), "loss_total": float("nan")}
+            val_stats = {"loss_loc": float("nan"), "loss_conf": float("nan"), "loss_total": float("nan")}
+        else:
+            loss_loc_mean = loss_loc_sum / n_batches
+            loss_conf_mean = loss_conf_sum / n_batches
+            val_stats = {
+                "loss_loc": loss_loc_mean,
+                "loss_conf": loss_conf_mean,
+                "loss_total": loss_loc_mean + loss_conf_mean,
+            }
 
-        loss_loc_mean = loss_loc_sum / n_batches
-        loss_conf_mean = loss_conf_sum / n_batches
-        loss_total_mean = loss_loc_mean + loss_conf_mean
-
-        return {
-            "loss_loc": loss_loc_mean,
-            "loss_conf": loss_conf_mean,
-            "loss_total": loss_total_mean,
+        # 2. Cálculo de Métricas de Detección (mAP, P, R, F1)
+        metric_stats = {
+            "mAP_0.5": float("nan"), "mAP_0.5_0.95": float("nan"),
+            "P": float("nan"), "R": float("nan"), "F1": float("nan"),
+            "fitness": -float("inf")
         }
+
+        if calculate_metrics:
+            # Temporalmente cambiamos el modo del modelo a 'test' para activar la capa Detect
+            self.model.phase = "test"
+            self.model.eval()
+
+            try:
+                metrics = calculate_metrics_only(
+                    model=self.model,
+                    data_loader=self.val_loader,
+                    cfg=self.cfg,
+                    class_names=self.class_names
+                )
+
+                # Calcular fitness
+                mAP_0_95 = metrics.get("mAP_0.5_0.95", 0.0)
+                mAP_0_5 = metrics.get("mAP_0.5", 0.0)
+                current_fitness = \
+                fitness(np.array([metrics.get("P", 0.0), metrics.get("R", 0.0), mAP_0_5, mAP_0_95]).reshape(1, -1))[0]
+
+                metric_stats.update(metrics)
+                metric_stats["fitness"] = float(current_fitness)
+
+            except Exception as e:
+                print(f"[TrainerSSD] Advertencia: Fallo al calcular métricas de detección: {e}")
+
+            # Restaurar el modelo a modo 'train'
+            self.model.phase = "train"
+            self.model.train()
+
+        return val_stats, metric_stats
 
 
 __all__ = ["TrainerConfigSSD", "TrainerSSD"]
