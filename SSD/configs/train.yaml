@@ -30,7 +30,7 @@ presets:
   # ---------------------------------------------------------------
   # 1) Preset principal: dataset de fallas (formato YOLO adaptado)
   # ---------------------------------------------------------------
-  ssd300_100ep:
+  ssd300:
     # Flag de prueba (modifica ruta de salida si es true)
     is_test: false
 
@@ -110,7 +110,7 @@ presets:
   # ---------------------------------------------------------------
   # 2) Preset principal: dataset de fallas (formato YOLO adaptado)
   # ---------------------------------------------------------------
-  ssd512_100ep:
+  ssd512:
     # Flag de prueba (modifica ruta de salida si es true)
     is_test: false
 
