@@ -534,7 +534,7 @@ class TrainerSSD:
         return last, best
 
     def _save_checkpoint(self, is_best: bool) -> None:
-        """Guarda checkpoint `last.pth`, `best.pth` y una copia nombrada."""
+        """Guarda checkpoint `last.pth` y opcionalmente `best.pth`."""
         last_path, best_path = self._checkpoint_paths()
 
         state = {
@@ -546,16 +546,12 @@ class TrainerSSD:
             "current_lr": self._current_lr,
         }
 
-        # 1. Guardar last.pth
+        # 1. Guardar last.pth (Siempre se sobrescribe)
         torch.save(state, last_path)
 
-        # 2. Guardar best.pth
+        # 2. Guardar best.pth (Solo si superó el récord anterior)
         if is_best:
             torch.save(state, best_path)
-
-        # 3. Guardar copia nombrada (ej: ssd300_default_120000.pth)
-        named_path = self.weights_dir / f"{self.cfg.preset_name}_{self.iteration}.pth"
-        torch.save(state, named_path)
 
     def _load_checkpoint(self, ckpt_path: Path) -> None:
         """Carga un checkpoint existente para reanudar entrenamiento."""
