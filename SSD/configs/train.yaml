@@ -30,7 +30,7 @@ presets:
   # ---------------------------------------------------------------
   # 1) Preset principal: dataset de fallas (formato YOLO adaptado)
   # ---------------------------------------------------------------
-  ssd300_default:
+  ssd300_100ep:
     # Flag de prueba (modifica ruta de salida si es true)
     is_test: false
 
@@ -47,10 +47,10 @@ presets:
     lr: 0.001                # 1e-3
     momentum: 0.9
     weight_decay: 0.001      # Aumentado a 1e-3 para regularización (Overfitting fix)
-    gamma: 0.1
-    # Ajuste agresivo anti-overfitting (Ep 20, Ep 60, Ep 90)
+    gamma: 0.5
+    # Ajuste suave al final del entrenamiento (Ep 70 y Ep 90 de 100 épocas)
     # 1 Epoch = 50 iters
-    lr_steps: [ 1000, 3000, 4500 ]
+    lr_steps: [ 3500, 4500 ]
 
     # Configuración de entrenamiento
     img_dim: 300             # tamaño de entrada (SSD300)
@@ -108,7 +108,87 @@ presets:
         MIOPEN_DEBUG_DISABLE_FIND_DB: "1"
 
   # ---------------------------------------------------------------
-  # 2) Preset de depuración con VOC (usa ssd/data/voc0712.py)
+  # 2) Preset principal: dataset de fallas (formato YOLO adaptado)
+  # ---------------------------------------------------------------
+  ssd512_100ep:
+    # Flag de prueba (modifica ruta de salida si es true)
+    is_test: false
+
+    # Backend de dataset y rutas
+    dataset_backend: yolo
+    dataset_root: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
+    yolo_sets:
+      train: train/images
+      val: valid/images
+      test: test/images
+
+    # Hiperparámetros de optimización
+    opt: SGD
+    lr: 0.001                # 1e-3
+    momentum: 0.9
+    weight_decay: 0.001      # Aumentado a 1e-3 para regularización (Overfitting fix)
+    gamma: 0.5
+    # Ajuste suave al final del entrenamiento (Ep 70 y Ep 90 de 100 épocas)
+    # 1 Epoch = 50 iters
+    lr_steps: [ 3500, 4500 ]
+
+    # Configuración de entrenamiento
+    img_dim: 512             # tamaño de entrada (SSD300)
+    batch_size: 32
+    max_iter: 5000           # 100 épocas * 50 iters
+    num_workers: 6           # ajustar según CPU disponible
+
+    # Dispositivo y control de runs
+    device: ""               # "" → auto (CUDA/HIP/CPU según disponible)
+    resume: null             # ruta a .pth para reanudar (opcional)
+    save_period: 50         # guardar estado cada época
+    seed: 0
+    exist_ok: false          # evitar sobreescritura de runs previos
+
+    # Parámetros de pérdida y matching
+    loss:
+      overlap_thresh: 0.5    # IoU para matching positivo
+      neg_pos_ratio: 3       # relación negativos:positivos
+      neg_overlap: 0.5       # IoU para negativos
+
+    # Parámetros de inferencia (Detect/NMS)
+    inference:
+      conf_thresh: 0.01      # umbral mínimo de confianza
+      nms_thresh: 0.45       # IoU para NMS
+      top_k: 200             # máx. detecciones por imagen
+
+    # Parámetros de augmentación (SSDAugmentation)
+    augmentation:
+      mean: [ 104, 117, 123 ]
+      brightness_delta: 32
+      contrast_range: [ 0.5, 1.5 ]
+      saturation_range: [ 0.5, 1.5 ]
+      hue_delta: 18
+      random_mirror_prob: 0.5
+
+    # Logging y métricas
+    logging:
+      ndjson_console: false
+      ndjson_file: false
+
+    # Integración BN→GN (opcional, alineado con YOLO)
+    bn2gn:
+      enabled: false
+      policy: "off"          # off | auto | force
+      max_groups: 32
+      min_channels_per_group: 1
+      verbose: 1
+
+    # Integración MIOpen (ROCm) - valores típicos, ajustables
+    miopen:
+      enabled: true
+      env:
+        MIOPEN_ENABLE_LOGGING: "0"
+        MIOPEN_FIND_MODE: "1"
+        MIOPEN_DEBUG_DISABLE_FIND_DB: "1"
+
+  # ---------------------------------------------------------------
+  # 3) Preset de depuración con VOC (usa ssd/data/voc0712.py)
   # ---------------------------------------------------------------
   ssd300_voc_debug:
     is_test: true
@@ -179,7 +259,7 @@ presets:
         MIOPEN_DEBUG_DISABLE_FIND_DB: "1"
 
   # ---------------------------------------------------------------
-  # 3) Preset de depuración con COCO (usa ssd/data/coco.py)
+  # 4) Preset de depuración con COCO (usa ssd/data/coco.py)
   # ---------------------------------------------------------------
   ssd300_coco_debug:
     is_test: true
