@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 import sys
 import importlib.util
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -89,40 +89,51 @@ def _load_aug_module_isolated():
 
 
 class SSDAugmentationProxy:
-    """Proxy serializable para SSDAugmentation.
-
-    Permite que DataLoader use multiprocessing en Windows sin error de pickle.
-    En lugar de guardar la clase dinámica, guardamos los parámetros de init
-    y reconstruimos el objeto real al llamarse (__call__) en el worker.
-    """
+    """Proxy serializable para SSDAugmentation (Solo Entrenamiento)."""
 
     def __init__(self, size=300, mean=(104, 117, 123)):
         self.size = size
         self.mean = mean
-        # NO guardamos self._aug en __init__ para asegurar que sea None al pickling
         self._aug = None
 
     def __call__(self, img, boxes, labels):
-        # Lazy initialization en el proceso trabajador (o main si num_workers=0)
         if self._aug is None:
             mod = _load_aug_module_isolated()
-            # Asumimos que la clase se llama SSDAugmentation
             AugClass = getattr(mod, "SSDAugmentation", None)
             if AugClass is None:
                 raise ImportError(f"La clase 'SSDAugmentation' no se encontró en {AUGMENTATIONS_PATH}")
-
             self._aug = AugClass(self.size, self.mean)
 
         return self._aug(img, boxes, labels)
 
     def __getstate__(self):
-        """Control explícito de lo que se serializa."""
         return {'size': self.size, 'mean': self.mean, '_aug': None}
 
     def __setstate__(self, state):
         self.size = state['size']
         self.mean = state['mean']
-        self._aug = None  # Forzar recarga en el nuevo proceso
+        self._aug = None
+
+
+class BaseTransformAdapter:
+    """Transformación determinista para Validación/Test.
+
+    Realiza Resize a (size, size) y resta de media.
+    No aplica recortes aleatorios ni distorsiones.
+    """
+
+    def __init__(self, size, mean):
+        self.size = size
+        self.mean = np.array(mean, dtype=np.float32)
+
+    def __call__(self, image, boxes=None, labels=None):
+        # Resize
+        x = cv2.resize(image, (self.size, self.size)).astype(np.float32)
+        # Subtract mean
+        x -= self.mean
+        # Convert to float32
+        x = x.astype(np.float32)
+        return x, boxes, labels
 
 
 # ---------------------------------------------------------------------------
@@ -277,10 +288,8 @@ class YoloDetectionDataset(data.Dataset):
                 boxes[:, 0::2] = np.clip(boxes[:, 0::2], 0.0, 1.0)
                 boxes[:, 1::2] = np.clip(boxes[:, 1::2], 0.0, 1.0)
 
-        # Augmentations SSD (usando el Proxy)
+        # Augmentations SSD (usando el Proxy o BaseTransform)
         if self.transform is not None:
-            # La llamada a self.transform(...) invocará al __call__ del proxy
-            # que a su vez cargará dinámicamente SSDAugmentation si es necesario
             img, boxes, labels = self.transform(img, boxes, labels)
 
         if not isinstance(img, np.ndarray):
@@ -342,9 +351,9 @@ def build_dataloaders(cfg: Any):
     img_dim = int(getattr(cfg, "img_dim", ds_cfg.get("img_dim_default", 300)))
     mean = ds_cfg.get("mean", [104, 117, 123])
 
-    # FIX: Usar SSDAugmentationProxy en lugar de la clase dinámica directa
+    # FIX: Usar SSDAugmentationProxy para Train y BaseTransformAdapter para Val
     train_transform = SSDAugmentationProxy(size=img_dim, mean=tuple(mean))
-    val_transform = SSDAugmentationProxy(size=img_dim, mean=tuple(mean))
+    val_transform = BaseTransformAdapter(size=img_dim, mean=tuple(mean))
 
     train_dataset = YoloDetectionDataset(
         root=dataset_root,

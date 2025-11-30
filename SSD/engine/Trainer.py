@@ -623,7 +623,7 @@ class TrainerSSD:
             writer.writerow(row)
 
     # ----------------------------------------------------------
-    # Reportes y Gráficos (Ajustado)
+    # Reportes y Gráficos
     # ----------------------------------------------------------
 
     def _save_hyp_yaml(self) -> None:
@@ -659,13 +659,13 @@ class TrainerSSD:
         max_iter = self.cfg.max_iter
         num_batches = len(self.train_loader)
 
-        # La validación de métricas (mAP) se realiza al final de cada época.
-        # Esto ocurre cuando la iteración actual es un múltiplo de num_batches.
+        # Determinar la frecuencia de validación de métricas (mAP)
+        metric_validation_period = max(self.cfg.save_period, num_batches)
 
         print(
             f"[TrainerSSD] Inicio entrenamiento SSD: max_iter={max_iter}, "
             f"batch_size={self.cfg.batch_size}, batches/epoch={num_batches}. "
-            f"Validación mAP al final de cada época."
+            f"Validación mAP cada {metric_validation_period} iters."
         )
 
         while self.iteration < max_iter:
@@ -674,13 +674,9 @@ class TrainerSSD:
 
             train_stats = self._train_one_epoch(max_iter)
 
-            # Determinar si se necesita calcular métricas de detección (mAP)
-            # Se calcula si: 1) Es el final de la época, O 2) Es la última iteración total.
-            is_end_of_epoch = (self.iteration > 0 and self.iteration % num_batches == 0)
-            is_final_iteration = (self.iteration >= max_iter)
-            calculate_metrics = is_end_of_epoch or is_final_iteration
-
-            val_stats, metric_stats = self._validate_and_metric_one_epoch(calculate_metrics)
+            # Validar Loss y Métricas
+            metric_validation_needed = (self.iteration % metric_validation_period == 0) or (self.iteration >= max_iter)
+            val_stats, metric_stats = self._validate_and_metric_one_epoch(metric_validation_needed)
 
             # Métrica de referencia: fitness (basado en mAP@0.5:0.95)
             current_fitness = metric_stats.get("fitness", -float("inf"))
@@ -700,7 +696,7 @@ class TrainerSSD:
                 f"train_loss={train_stats['loss_total']:.4f} | "
                 f"val_loss={val_stats['loss_total']:.4f}"
             )
-            if calculate_metrics:
+            if metric_validation_needed:
                 log_msg += (
                     f" | mAP@.5={metric_stats['mAP_0.5']:.3f} | "
                     f"mAP@.5:.95={metric_stats['mAP_0.5_0.95']:.3f}"
@@ -817,25 +813,22 @@ class TrainerSSD:
             self.model.phase = "test"
             self.model.eval()
 
-            try:
-                metrics = calculate_metrics_only(
-                    model=self.model,
-                    data_loader=self.val_loader,
-                    cfg=self.cfg,
-                    class_names=self.class_names
-                )
+            # Eliminamos el try-except para ver el traceback completo en caso de error
+            metrics = calculate_metrics_only(
+                model=self.model,
+                data_loader=self.val_loader,
+                cfg=self.cfg,
+                class_names=self.class_names
+            )
 
-                # Calcular fitness
-                mAP_0_95 = metrics.get("mAP_0.5_0.95", 0.0)
-                mAP_0_5 = metrics.get("mAP_0.5", 0.0)
-                current_fitness = \
-                fitness(np.array([metrics.get("P", 0.0), metrics.get("R", 0.0), mAP_0_5, mAP_0_95]).reshape(1, -1))[0]
+            # Calcular fitness
+            mAP_0_95 = metrics.get("mAP_0.5_0.95", 0.0)
+            mAP_0_5 = metrics.get("mAP_0.5", 0.0)
+            current_fitness = \
+            fitness(np.array([metrics.get("P", 0.0), metrics.get("R", 0.0), mAP_0_5, mAP_0_95]).reshape(1, -1))[0]
 
-                metric_stats.update(metrics)
-                metric_stats["fitness"] = float(current_fitness)
-
-            except Exception as e:
-                print(f"[TrainerSSD] Advertencia: Fallo al calcular métricas de detección: {e}")
+            metric_stats.update(metrics)
+            metric_stats["fitness"] = float(current_fitness)
 
             # Restaurar el modelo a modo 'train'
             self.model.phase = "train"

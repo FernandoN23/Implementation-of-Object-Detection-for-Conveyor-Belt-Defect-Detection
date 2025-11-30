@@ -1,16 +1,18 @@
 import torch
-from torch.autograd import Function
+import torch.nn as nn
 from ..box_utils import decode, nms
 from data import voc as cfg
 
 
-class Detect(Function):
+class Detect(nn.Module):
     """At test time, Detect is the final layer of SSD.  Decode location preds,
     apply non-maximum suppression to location predictions based on conf
     scores and threshold to a top_k number of output predictions for both
     confidence score and locations.
     """
+
     def __init__(self, num_classes, bkg_label, top_k, conf_thresh, nms_thresh):
+        super(Detect, self).__init__()
         self.num_classes = num_classes
         self.background_label = bkg_label
         self.top_k = top_k
@@ -21,6 +23,7 @@ class Detect(Function):
         self.conf_thresh = conf_thresh
         self.variance = cfg['variance']
 
+    @torch.no_grad()
     def forward(self, loc_data, conf_data, prior_data):
         """
         Args:
@@ -33,7 +36,10 @@ class Detect(Function):
         """
         num = loc_data.size(0)  # batch size
         num_priors = prior_data.size(0)
-        output = torch.zeros(num, self.num_classes, self.top_k, 5)
+
+        # FIX: Asegurar que output esté en el mismo dispositivo que los datos
+        output = torch.zeros(num, self.num_classes, self.top_k, 5, device=loc_data.device)
+
         conf_preds = conf_data.view(num, num_priors,
                                     self.num_classes).transpose(2, 1)
 
@@ -55,8 +61,11 @@ class Detect(Function):
                 output[i, cl, :count] = \
                     torch.cat((scores[ids[:count]].unsqueeze(1),
                                boxes[ids[:count]]), 1)
+
+        # Limit total detections to top_k per image (optional but standard in SSD)
         flt = output.contiguous().view(num, -1, 5)
         _, idx = flt[:, :, 0].sort(1, descending=True)
         _, rank = idx.sort(1)
         flt[(rank < self.top_k).unsqueeze(-1).expand_as(flt)].fill_(0)
+
         return output

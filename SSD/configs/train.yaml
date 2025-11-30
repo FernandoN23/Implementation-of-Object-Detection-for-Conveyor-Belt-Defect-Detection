@@ -61,7 +61,7 @@ presets:
     # Dispositivo y control de runs
     device: ""               # "" → auto (CUDA/HIP/CPU según disponible)
     resume: null             # ruta a .pth para reanudar (opcional)
-    save_period: 100         # guardar estado cada 2 épocas (50*2)
+    save_period: 50         # guardar estado cada época
     seed: 0
     exist_ok: false          # evitar sobreescritura de runs previos
 
