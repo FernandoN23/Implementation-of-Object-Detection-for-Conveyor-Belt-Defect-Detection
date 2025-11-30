@@ -3,7 +3,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Identificación de fallas}
 
-\par De acuerdo al Capítulo 2, sección 2.1, las fallas en correas transportadoras se encuentran enmarcadas de acuerdo a \cite{khanna2022types} y para la implementación de modelos de reconocimiento de objetos que identifiquen estaas fallas, se consideraron las siguientes fallas:
+\par De acuerdo al Capítulo 2, sección 2.1, las fallas en correas transportadoras se encuentran enmarcadas de acuerdo a \cite{khanna2022types} y para la implementación de modelos de reconocimiento de objetos que identifiquen estas fallas, se consideraron las siguientes fallas:
 
 \begin{itemize}
     \item Agujero (Hole): pérdida completa de material a través del espesor de la banda, de tamaño apreciable, originada por eventos de daño severo (impactos altos, atrapamiento de material o elementos extraños).
@@ -108,6 +108,7 @@ YOLO/
 \par La configuración del entrenamiento de YOLOv5 considera un conjunto de hiperparámetros que controlan tanto la optimización del modelo como las funciones de pérdida y las técnicas de aumentación de datos. La Tabla \ref{tab:3.4-hiperparametros-ssd} (Ver Capítulo 5.1) resume los hiperparámetros principales seleccionados en esta memoria, junto con su valor fijado y una breve descripción de su rol dentro del proceso de entrenamiento. Estos valores se basan en configuraciones por defecto y en recomendaciones de ajuste de hiperparámetros propuestas para la familia Ultralytics YOLO \cite{ultralyticsHyperparameterTuning}.
 
 
+%Añadir cantidad de hiperparámetros de YOLOv5-s 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -166,3 +167,5 @@ SSD/
 \par La configuración del entrenamiento de SSD considera un conjunto de hiperparámetros que controlan la optimización del detector, la definición de las cajas por defecto y los criterios de correspondencia entre predicciones y anotaciones reales. La Tabla \ref{tab:3.4-hiperparametros-ssd} (ver Capítulo 5.1) resume los hiperparámetros principales seleccionados en esta memoria, junto con su valor fijado y una breve descripción de su rol dentro del proceso de entrenamiento. \\
 
 \par En particular, se incluyen parámetros asociados a la tasa de aprendizaje base y su programación, el momento y la regularización, así como a las escalas y razones de aspecto de las cajas por defecto, los umbrales de IoU para la asignación de ejemplos positivos/negativos y las estrategias de aumentación de datos. Estos valores se basan en la configuración propuesta en el trabajo original de \textit{Single Shot MultiBox Detector} \cite{liu2016ssd}, adaptada al dominio de fallas en correas transportadoras para permitir una comparación controlada con los experimentos realizados con YOLOv5.
+
+%Añadir cantidad de hiperparámetros de SSD300

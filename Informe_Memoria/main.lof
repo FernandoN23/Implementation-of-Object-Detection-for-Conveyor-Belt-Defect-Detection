@@ -12,16 +12,31 @@
 \contentsline {figure}{\numberline {2.6.1}{\ignorespaces Representación visual de Intersección sobre la Unión. Imagen extraída de \cite {schlosser2024overview}.}}{23}{figure.caption.28}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {4.1.1}{\ignorespaces Curva de pérdida vs época por componentes (entrenamiento) del modelo YOLOv5 variante s.}}{31}{figure.caption.31}%
-\contentsline {figure}{\numberline {4.1.2}{\ignorespaces Curva de pérdida vs época por componentes (validación) del modelo YOLOv5 variante s.}}{31}{figure.caption.32}%
-\contentsline {figure}{\numberline {4.1.3}{\ignorespaces Curva de pérdida media vs época (entrenamiento y validación) del modelo YOLOv5 variante s.}}{32}{figure.caption.33}%
-\contentsline {figure}{\numberline {4.1.4}{\ignorespaces Curva de Precisión vs Confianza de validación del modelo YOLOv5 variante s.}}{33}{figure.caption.34}%
-\contentsline {figure}{\numberline {4.1.5}{\ignorespaces Curva de Recall vs Confianza de validación del modelo YOLOv5 variante s.}}{33}{figure.caption.35}%
-\contentsline {figure}{\numberline {4.1.6}{\ignorespaces Curva de F1-score de validación por clase y promedio global del modelo YOLOv5 variante s.}}{34}{figure.caption.36}%
-\contentsline {figure}{\numberline {4.1.7}{\ignorespaces Distribución de valores de IoU en el conjunto de validación para el modelo YOLOv5 variante s.}}{35}{figure.caption.37}%
-\contentsline {figure}{\numberline {4.1.8}{\ignorespaces Matriz de confusión normalizada obtenida en la validación del modelo YOLOv5 variante s.}}{36}{figure.caption.38}%
-\contentsline {figure}{\numberline {4.2.1}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de agujero, junto a la etiqueta real y la predicha por el modelo.}}{38}{figure.caption.39}%
-\contentsline {figure}{\numberline {4.2.2}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de desgarro, junto a la etiqueta real y la predicha por el modelo.}}{38}{figure.caption.40}%
-\contentsline {figure}{\numberline {4.2.3}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de abrasión, junto a la etiqueta real y la predicha por el modelo.}}{39}{figure.caption.41}%
+\contentsline {figure}{\numberline {4.1.1}{\ignorespaces Distribución de frecuencia de las clases de fallas a través de las particiones del conjunto de datos.}}{31}{figure.caption.32}%
+\contentsline {figure}{\numberline {4.1.2}{\ignorespaces Composición detallada de las particiones del conjunto de datos, diferenciando entre imágenes con objetos y casos de fondo.}}{31}{figure.caption.33}%
+\contentsline {figure}{\numberline {4.2.1}{\ignorespaces Curva de pérdida vs época por componentes (entrenamiento) del modelo YOLOv5 variante s.}}{32}{figure.caption.34}%
+\contentsline {figure}{\numberline {4.2.2}{\ignorespaces Curva de pérdida vs época por componentes (validación) del modelo YOLOv5 variante s.}}{33}{figure.caption.35}%
+\contentsline {figure}{\numberline {4.2.3}{\ignorespaces Curva de pérdida media vs época (entrenamiento y validación) del modelo YOLOv5 variante s.}}{33}{figure.caption.36}%
+\contentsline {figure}{\numberline {4.2.4}{\ignorespaces Curva de Precisión vs Confianza de validación del modelo YOLOv5 variante s.}}{34}{figure.caption.37}%
+\contentsline {figure}{\numberline {4.2.5}{\ignorespaces Curva de Recall vs Confianza de validación del modelo YOLOv5 variante s.}}{35}{figure.caption.38}%
+\contentsline {figure}{\numberline {4.2.6}{\ignorespaces Curva de F1-score de validación por clase y promedio global del modelo YOLOv5 variante s.}}{36}{figure.caption.39}%
+\contentsline {figure}{\numberline {4.2.7}{\ignorespaces Curvas de Precisión Promedio Media (mAP) para umbrales de IoU de 0.5 y 0.5:0.95 durante el entrenamiento del modelo YOLOv5 variante s.}}{37}{figure.caption.40}%
+\contentsline {figure}{\numberline {4.2.8}{\ignorespaces Distribución de valores de IoU en el conjunto de validación para el modelo YOLOv5 variante s.}}{37}{figure.caption.41}%
+\contentsline {figure}{\numberline {4.2.9}{\ignorespaces Matriz de confusión normalizada obtenida en la validación del modelo YOLOv5 variante s.}}{38}{figure.caption.42}%
+\contentsline {figure}{\numberline {4.2.10}{\ignorespaces Curva de pérdida vs época por componentes (entrenamiento) del modelo SSD300.}}{40}{figure.caption.43}%
+\contentsline {figure}{\numberline {4.2.11}{\ignorespaces Curva de pérdida vs época por componentes (validación) del modelo SSD300.}}{41}{figure.caption.44}%
+\contentsline {figure}{\numberline {4.2.12}{\ignorespaces Curva de pérdida media vs época (entrenamiento y validación) del modelo SSD300.}}{42}{figure.caption.45}%
+\contentsline {figure}{\numberline {4.2.13}{\ignorespaces Curva de Precisión vs Confianza de validación del modelo SSD300.}}{43}{figure.caption.46}%
+\contentsline {figure}{\numberline {4.2.14}{\ignorespaces Curva de Recall vs Confianza de validación del modelo SSD300.}}{43}{figure.caption.47}%
+\contentsline {figure}{\numberline {4.2.15}{\ignorespaces Curva de F1-score de validación vs Confianza por clase y promedio global de validación del modelo SSD300.}}{44}{figure.caption.48}%
+\contentsline {figure}{\numberline {4.2.16}{\ignorespaces Curvas de Precisión Promedio Media (mAP) para umbrales de IoU de 0.5 y 0.5:0.95 durante el entrenamiento del modelo SSD300.}}{45}{figure.caption.49}%
+\contentsline {figure}{\numberline {4.2.17}{\ignorespaces Distribución de valores de IoU en el conjunto de validación para el modelo SSD300.}}{46}{figure.caption.50}%
+\contentsline {figure}{\numberline {4.2.18}{\ignorespaces Matriz de confusión normalizada obtenida en la validación del modelo SSD300.}}{47}{figure.caption.51}%
+\contentsline {figure}{\numberline {4.3.1}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de abrasión, junto a la etiqueta real y la predicha por el modelo.}}{48}{figure.caption.52}%
+\contentsline {figure}{\numberline {4.3.2}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de agujero, junto a la etiqueta real y la predicha por el modelo.}}{48}{figure.caption.53}%
+\contentsline {figure}{\numberline {4.3.3}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de desgarro, junto a la etiqueta real y la predicha por el modelo.}}{49}{figure.caption.54}%
+\contentsline {figure}{\numberline {4.3.4}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de abrasión, junto a la etiqueta real y la predicha por el modelo.}}{49}{figure.caption.55}%
+\contentsline {figure}{\numberline {4.3.5}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de agujero, junto a la etiqueta real y la predicha por el modelo.}}{50}{figure.caption.56}%
+\contentsline {figure}{\numberline {4.3.6}{\ignorespaces Prueba de detección del modelo YOLOv5. Se muestra la falla de desgarro, junto a la etiqueta real y la predicha por el modelo.}}{50}{figure.caption.57}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
