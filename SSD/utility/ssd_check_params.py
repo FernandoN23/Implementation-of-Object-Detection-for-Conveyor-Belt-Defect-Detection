@@ -7,9 +7,11 @@
 # --------------------------------------------------------------
 # Archivo: SSD/utility/ssd_check_params.py
 # Descripción: Herramienta de diagnóstico de arquitectura.
-#              Carga la configuración del modelo y calcula la
-#              cantidad total de parámetros, desglosando por
-#              componentes (Backbone, Extras, Heads).
+#
+# CORRECCIÓN V4 (ESTRATEGIA TEST.PY):
+# - En lugar de parchar 'open', usamos _mock_legacy_coco_dependency
+#   (igual que en test.py) para neutralizar la dependencia de COCO
+#   por completo. Esto evita cualquier error de lectura de archivos.
 # ==============================================================
 
 from __future__ import annotations
@@ -17,9 +19,12 @@ from __future__ import annotations
 import argparse
 import sys
 import yaml
+import types
 import importlib.util
+import traceback
 from pathlib import Path
 from typing import Dict, Any
+from unittest.mock import patch
 
 import torch
 import torch.nn as nn
@@ -36,7 +41,7 @@ SSD_MODEL_PATH = SSD_ROOT / "ssd" / "ssd.py"
 
 
 # --------------------------------------------------------------
-# Utilidad de carga dinámica (Robusta)
+# Utilidad de carga dinámica
 # --------------------------------------------------------------
 
 def _load_module_from(path: Path, name: str):
@@ -52,7 +57,7 @@ def _load_module_from(path: Path, name: str):
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
 
-    # Contexto para imports relativos (necesario para ssd.py)
+    # Contexto para imports relativos
     module_dir = str(path.parent)
     sys.path.insert(0, module_dir)
     try:
@@ -64,21 +69,50 @@ def _load_module_from(path: Path, name: str):
 
 
 # --------------------------------------------------------------
+# Mocking de Dependencias (Estrategia de test.py)
+# --------------------------------------------------------------
+
+def _mock_legacy_coco_dependency():
+    """
+    Neutraliza la dependencia de 'data.coco' inyectando un módulo dummy
+    en sys.modules. Esto evita que ssd.py intente cargar archivos
+    de etiquetas de COCO que no existen.
+    """
+
+    class DummyDataset:
+        def __init__(self, *args, **kwargs): pass
+
+    class DummyTransform:
+        def __init__(self, *args, **kwargs): pass
+
+    mock_coco = types.ModuleType("data.coco")
+    mock_coco.COCODetection = DummyDataset
+    mock_coco.COCOAnnotationTransform = DummyTransform
+    mock_coco.COCO_CLASSES = []
+    mock_coco.COCO_ROOT = ""
+    # Esta función lambda evita el error en get_label_map
+    mock_coco.get_label_map = lambda x: {}
+
+    # Inyectamos el mock en las rutas de importación posibles
+    sys.modules["data.coco"] = mock_coco
+    sys.modules["ssd.data.coco"] = mock_coco
+
+
+# --------------------------------------------------------------
 # Funciones de Conteo
 # --------------------------------------------------------------
 
 def count_params(module: nn.Module) -> int:
-    """Cuenta parámetros totales en un módulo."""
+    if module is None: return 0
     return sum(p.numel() for p in module.parameters())
 
 
 def count_trainable(module: nn.Module) -> int:
-    """Cuenta parámetros entrenables (requires_grad=True)."""
+    if module is None: return 0
     return sum(p.numel() for p in module.parameters() if p.requires_grad)
 
 
 def format_num(num: int) -> str:
-    """Formatea números con separador de miles."""
     return f"{num:,}"
 
 
@@ -88,18 +122,8 @@ def format_num(num: int) -> str:
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Resumen de parámetros del modelo SSD")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default=str(CONFIGS_ROOT / "train.yaml"),
-        help="Ruta al archivo de configuración de entrenamiento"
-    )
-    parser.add_argument(
-        "--preset",
-        type=str,
-        default="ssd300_default",
-        help="Nombre del preset a analizar"
-    )
+    parser.add_argument("--config", type=str, default=str(CONFIGS_ROOT / "train.yaml"))
+    parser.add_argument("--preset", type=str, default="ssd300")
     return parser.parse_args()
 
 
@@ -122,39 +146,53 @@ def main():
     preset_cfg = full_cfg["presets"][args.preset]
     exp_cfg = full_cfg.get("experiment", {})
 
-    # 2. Obtener datos del Dataset (para num_classes)
+    # 2. Obtener datos del Dataset
     dataset_config_rel = full_cfg.get("paths", {}).get("dataset_config", "SSD/configs/dataset.yaml")
     dataset_config_path = (PROJECT_ROOT / dataset_config_rel).resolve()
 
-    with dataset_config_path.open("r", encoding="utf-8") as f:
-        ds_cfg = yaml.safe_load(f)
+    if not dataset_config_path.exists():
+        print(f"[Warning] No se encontró {dataset_config_path}. Usando 2 clases por defecto.")
+        num_classes = 2
+    else:
+        with dataset_config_path.open("r", encoding="utf-8") as f:
+            ds_cfg = yaml.safe_load(f)
+        num_classes = len(ds_cfg.get("names", [])) + 1
 
-    num_classes = len(ds_cfg["names"]) + 1  # +1 background
     img_dim = preset_cfg.get("img_dim", 300)
     variant = exp_cfg.get("variant", "ssd300")
 
     # 3. Cargar Modelo SSD
     print(f"[Info] Cargando definición del modelo desde: {SSD_MODEL_PATH}")
+
+    # --- APLICAR MOCK ANTES DE IMPORTAR ---
+    _mock_legacy_coco_dependency()
+
     try:
-        ssd_mod = _load_module_from(SSD_MODEL_PATH, "ssd_model")
-        build_ssd = ssd_mod.build_ssd
-        # Instanciar (pesos aleatorios, solo nos importa la arquitectura)
-        model = build_ssd("train", img_dim, num_classes)
-    except Exception as e:
-        print(f"[Error] Fallo al instanciar el modelo: {e}")
+        # Usamos patch solo para sys.argv por seguridad (argumentos legacy)
+        with patch.object(sys, 'argv', ["ssd.py", "train"]):
+
+            ssd_mod = _load_module_from(SSD_MODEL_PATH, "ssd_model")
+            build_ssd = ssd_mod.build_ssd
+
+            print(f"[Info] Instanciando build_ssd('train', {img_dim}, {num_classes})...")
+            model = build_ssd("train", img_dim, num_classes)
+
+    except Exception:
+        print("\n" + "!" * 60)
+        print("[ERROR CRÍTICO] Ocurrió una excepción al cargar el modelo.")
+        print("!" * 60 + "\n")
+        traceback.print_exc()
         return
 
     # 4. Calcular Parámetros
     total_params = count_params(model)
     trainable_params = count_trainable(model)
 
-    # Desglose por componentes principales de SSD
-    # SSD tiene: vgg (backbone), extras (capas extra), loc (head), conf (head)
-    vgg_params = count_params(model.vgg)
-    extras_params = count_params(model.extras)
-    loc_params = count_params(model.loc)
-    conf_params = count_params(model.conf)
-    l2norm_params = count_params(model.L2Norm)
+    vgg_params = count_params(getattr(model, 'vgg', None))
+    extras_params = count_params(getattr(model, 'extras', None))
+    loc_params = count_params(getattr(model, 'loc', None))
+    conf_params = count_params(getattr(model, 'conf', None))
+    l2norm_params = count_params(getattr(model, 'L2Norm', None))
 
     # 5. Imprimir Reporte
     print("\n" + "=" * 60)
@@ -165,19 +203,16 @@ def main():
     print(f"    Preset:          {args.preset}")
     print(f"    Input Dim:       {img_dim}x{img_dim}")
     print(f"    Clases:          {num_classes} (1 Background + {num_classes - 1} Objetos)")
-    print(f"    Batch Size:      {preset_cfg.get('batch_size', 'N/A')}")
-    print(f"    Optimizador:     {preset_cfg.get('opt', 'N/A')}")
-    print(f"    Learning Rate:   {preset_cfg.get('lr', 'N/A')}")
 
     print(f"\n[2] Desglose de Parámetros")
     print(f"    {'-' * 46}")
     print(f"    {'Componente':<25} | {'Parámetros':>18}")
     print(f"    {'-' * 46}")
-    print(f"    {'Backbone (VGG16 Base)':<25} | {format_num(vgg_params):>18}")
-    print(f"    {'L2 Norm Scale':<25} | {format_num(l2norm_params):>18}")
-    print(f"    {'Extra Layers':<25} | {format_num(extras_params):>18}")
-    print(f"    {'Localization Head':<25} | {format_num(loc_params):>18}")
-    print(f"    {'Confidence Head':<25} | {format_num(conf_params):>18}")
+    if vgg_params: print(f"    {'Backbone (VGG16 Base)':<25} | {format_num(vgg_params):>18}")
+    if l2norm_params: print(f"    {'L2 Norm Scale':<25} | {format_num(l2norm_params):>18}")
+    if extras_params: print(f"    {'Extra Layers':<25} | {format_num(extras_params):>18}")
+    if loc_params: print(f"    {'Localization Head':<25} | {format_num(loc_params):>18}")
+    if conf_params: print(f"    {'Confidence Head':<25} | {format_num(conf_params):>18}")
     print(f"    {'-' * 46}")
     print(f"    {'TOTAL':<25} | {format_num(total_params):>18}")
     print(f"    {'-' * 46}")
