@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1764554830.75522 "main.aux" "main.bbl" "main" 1764554839.7151 0
+["bibtex main"] 1764554830.75522 "main.aux" "main.bbl" "main" 1764555575.04565 0
   "./library.bib" 1764184320 9325 553d34ace4c68a2901e1e019cc003bae ""
   "./natnumurl.bst" 1758139420 21201 c3a97a2434b58cd70f7f9c9df607b80a ""
-  "main.aux" 1764554838 69010 4fed95a29912e6b9bdd35eb8e92eee21 "pdflatex"
+  "main.aux" 1764555573 69010 4fed95a29912e6b9bdd35eb8e92eee21 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1764554831.01243 "c:/Users/seika/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1764554839.71573 0
+["pdflatex"] 1764555565.59995 "c:/Users/seika/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1764555575.04631 0
   "Abstracto.tex" 1763689262 1696 d4fbcf3aa0bd42ad77cf7a3eb22e1ccb ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1760210407 81086 6fddea6b023469843de28035c851ec71 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1758130852 688 37338d6ab346c2f1466b29e195316aa4 ""
@@ -269,7 +269,7 @@
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/xurl/xurl.sty" 1641733940 4675 e4b8c405820368c2dfb03526e16d725a ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-abspage.sty" 1750428951 2269 2de6c7a5fd634dfef00a960544463a38 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-base.sty" 1750428951 20785 198a9cb2e04238d92c320d0d9edbd76a ""
-  "c:/Users/seika/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" 1764112702 3228 926b83b31663daedab6d4abdf95818a7 ""
+  "c:/Users/seika/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" 1764555565 3236 90e72f59926c2cc1de3e43fb46f06976 ""
   "capitulos/1-Introducción.tex" 1764186354 6024 ac244a4e1549c8224ede216225fc3933 ""
   "capitulos/2-Antecedentes.tex" 1764451824 57289 bf4cea47c62e9aeafb57084a349d0784 ""
   "capitulos/3-Metodología.tex" 1764553494 15470 322d8291294d804890eb9227dcf0b983 ""
@@ -316,12 +316,12 @@
   "img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_hole_test.jpeg" 1764190449 136284 930781458fa358ca0225ccac852e294a ""
   "img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_tear_test.jpeg" 1764190458 199469 f4996cd900a3210b27b6b62d3670ceae ""
   "img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_wear_test.jpeg" 1764190432 211209 25111691d40a60ecec8b10876048f5d5 ""
-  "main.aux" 1764554838 69010 4fed95a29912e6b9bdd35eb8e92eee21 "pdflatex"
+  "main.aux" 1764555573 69010 4fed95a29912e6b9bdd35eb8e92eee21 "pdflatex"
   "main.bbl" 1764554830 8491 1243bb02f8a1ff33aaa49786baf4b04f "bibtex main"
-  "main.lof" 1764554838 6622 27e1418c0c175ba80bd96626622df982 "pdflatex"
-  "main.lot" 1764554838 917 caf85a630ec4763d4aa4982942b6db4e "pdflatex"
-  "main.tex" 1764112702 3228 926b83b31663daedab6d4abdf95818a7 ""
-  "main.toc" 1764554838 8550 6cc693f7f1106d8ccef172117182cbb2 "pdflatex"
+  "main.lof" 1764555573 6622 27e1418c0c175ba80bd96626622df982 "pdflatex"
+  "main.lot" 1764555573 917 caf85a630ec4763d4aa4982942b6db4e "pdflatex"
+  "main.tex" 1764555565 3236 90e72f59926c2cc1de3e43fb46f06976 ""
+  "main.toc" 1764555573 8550 6cc693f7f1106d8ccef172117182cbb2 "pdflatex"
   "template.tex" 1764179659 290937 ede9db494556dc9bf18c5ac4c5e84a1a ""
   "template_config.tex" 1758139420 21965 2a99f3119ef44872b6f304c32fbac1fa ""
   (generated)
