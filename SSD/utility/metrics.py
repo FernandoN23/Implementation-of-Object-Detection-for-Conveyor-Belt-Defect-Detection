@@ -7,7 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: SSD/utility/metrics.py
 # Descripción: Utilidades para visualización de historial de entrenamiento.
-#              Procesa results.csv y genera curvas de Loss/LR/mAP estilo YOLO.
+#              Procesa results.csv y genera curvas organizadas en carpetas.
 # ==============================================================
 
 from __future__ import annotations
@@ -23,34 +23,44 @@ import pandas as pd
 # Configuración de estilo global similar a YOLOv5
 plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "seaborn-whitegrid")
 
+# Paleta de colores estándar YOLO
+COLOR_TRAIN = '#1f77b4'  # Azul
+COLOR_VAL = '#ff7f0e'  # Naranja
+COLOR_MAP50 = '#1f77b4'
+COLOR_MAP95 = '#ff7f0e'
+
 
 def smooth(y: np.ndarray, f: float = 0.05) -> np.ndarray:
     """Suaviza la curva y usando una ventana de convolución (Box filter)."""
     if len(y) == 0:
         return y
-    nf = round(len(y) * f * 2) // 2 + 1  # número impar
+    nf = round(len(y) * f * 2) // 2 * 2 + 1
+    nf = max(nf, 1)
+
     p = np.ones(nf // 2)
     yp = np.concatenate((p * y[0], y, p * y[-1]), 0)
     return np.convolve(yp, np.ones(nf) / nf, mode="valid")
 
 
-def plot_results(file: str | Path = "results.csv", save_dir: str | Path = "") -> None:
+def plot_results(file: str | Path = "results.csv", save_dir: str | Path = "", model_name: str = "SSD300") -> None:
     """
-    Lee results.csv y genera gráficos de evolución de entrenamiento.
-    Genera:
-      1. results.png: Grid con Loc, Conf, Total Loss (Train/Val) y LR.
-      2. val_loss_components.png: Comparativa de componentes de Val Loss.
-      3. historical_metrics.png: Curvas de mAP, P, R, F1 vs Epoch.
+    Lee results.csv y genera gráficos organizados con estilo YOLO.
     """
     file = Path(file)
     save_dir = Path(save_dir) if save_dir else file.parent
-    save_dir.mkdir(parents=True, exist_ok=True)
+
+    losses_dir = save_dir / "losses"
+    components_dir = losses_dir / "components"
+    metrics_dir = save_dir / "metrics_history"
+
+    losses_dir.mkdir(parents=True, exist_ok=True)
+    components_dir.mkdir(parents=True, exist_ok=True)
+    metrics_dir.mkdir(parents=True, exist_ok=True)
 
     if not file.is_file():
         print(f"[SSD/utility] Advertencia: No se encontró {file}")
         return
 
-    # Leer CSV usando pandas para robustez
     try:
         df = pd.read_csv(file)
         df.columns = [c.strip() for c in df.columns]
@@ -60,137 +70,129 @@ def plot_results(file: str | Path = "results.csv", save_dir: str | Path = "") ->
 
     epochs = df["epoch"].values
 
-    # Columnas de métricas de detección
-    metric_cols = ["val_mAP_0.5", "val_mAP_0.95", "val_P", "val_R", "val_F1"]
-    has_metrics = all(c in df.columns for c in metric_cols)
-
-    # Renombrar mAP_0.5_0.95 si existe
     if "val_mAP_0.5_0.95" in df.columns:
         df = df.rename(columns={"val_mAP_0.5_0.95": "val_mAP_0.95"})
 
     # -------------------------------------------------------------------------
-    # Gráfico 1: Grid de Resultados (Loss + LR)
+    # 1. Gráficos de Pérdidas (Losses)
     # -------------------------------------------------------------------------
 
-    # Verificar columnas de Loss
-    loss_cols = ["train_loss_loc", "train_loss_conf", "val_loss_loc", "val_loss_conf", "train_loss_total",
-                 "val_loss_total", "lr"]
-    if all(c in df.columns for c in loss_cols):
-        fig, ax = plt.subplots(2, 2, figsize=(12, 8), tight_layout=True)
-        ax = ax.ravel()
+    # 1.1 Total Loss (Train vs Val)
+    if "train_loss_total" in df.columns and "val_loss_total" in df.columns:
+        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
 
-        metrics_map = [
-            ("Localization Loss", "train_loss_loc", "val_loss_loc"),
-            ("Confidence Loss", "train_loss_conf", "val_loss_conf"),
-            ("Total Loss", "train_loss_total", "val_loss_total"),
-            ("Learning Rate", "lr", None),
-        ]
+        y_train = df["train_loss_total"].values
+        y_val = df["val_loss_total"].values
 
-        for i, (title, train_col, val_col) in enumerate(metrics_map):
-            y_train = df[train_col].values
+        ax.plot(epochs, y_train, color=COLOR_TRAIN, alpha=0.3, linewidth=1)
+        ax.plot(epochs, smooth(y_train), color=COLOR_TRAIN, linewidth=2, label="Train mean loss")
 
-            # Plot Train (Original tenue + Suavizado fuerte)
-            ax[i].plot(epochs, y_train, color="tab:blue", alpha=0.3, linewidth=1)
-            ax[i].plot(epochs, smooth(y_train), color="tab:blue", linewidth=2, label="Train")
+        ax.plot(epochs, y_val, color=COLOR_VAL, alpha=0.3, linewidth=1)
+        ax.plot(epochs, smooth(y_val), color=COLOR_VAL, linewidth=2, label="Val mean loss")
 
-            if val_col and val_col in df.columns:
-                y_val = df[val_col].values
-                # Plot Val (Original tenue + Suavizado fuerte)
-                ax[i].plot(epochs, y_val, color="tab:orange", alpha=0.3, linewidth=1)
-                ax[i].plot(epochs, smooth(y_val), color="tab:orange", linewidth=2, label="Val")
+        ax.set_title(f"Loss curves | {model_name}", fontsize=14)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Mean loss (box, obj, cls)")  # Etiqueta genérica estilo YOLO
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
 
-            ax[i].set_title(title)
-            ax[i].set_xlabel("Epoch")
-            ax[i].grid(True, linestyle="--", alpha=0.5)
-
-            if i == 3:
-                ax[i].set_ylabel("LR")
-            else:
-                ax[i].set_ylabel("Loss")
-                ax[i].legend()
-
-        fig.savefig(save_dir / "results.png", dpi=300)
+        fig.savefig(losses_dir / "total_loss.png", dpi=300)
         plt.close(fig)
-        print(f"[SSD/utility] Gráfico guardado: {save_dir / 'results.png'}")
+        print(f"[SSD/utility] Guardado: {losses_dir / 'total_loss.png'}")
 
-        # -------------------------------------------------------------------------
-        # Gráfico 2: Componentes de Val Loss (Estilo input_file_15.png)
-        # -------------------------------------------------------------------------
-        fig_comp, ax_comp = plt.subplots(1, 1, figsize=(10, 6), tight_layout=True)
+    # 1.2 Train Components (Loc vs Conf)
+    if "train_loss_loc" in df.columns and "train_loss_conf" in df.columns:
+        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
 
-        val_loc = df["val_loss_loc"].values
-        val_conf = df["val_loss_conf"].values
+        y_loc = df["train_loss_loc"].values
+        y_conf = df["train_loss_conf"].values
 
-        ax_comp.plot(epochs, smooth(val_loc), color="tab:blue", linewidth=2, label="val loc (box)")
-        ax_comp.plot(epochs, smooth(val_conf), color="tab:orange", linewidth=2, label="val conf (cls)")
+        ax.plot(epochs, smooth(y_loc), color=COLOR_TRAIN, linewidth=2, label="train loc (box)")
+        ax.plot(epochs, smooth(y_conf), color=COLOR_VAL, linewidth=2, label="train conf (cls)")
 
-        ax_comp.set_title("Val loss components | SSD300", fontsize=14)
-        ax_comp.set_xlabel("Epoch", fontsize=12)
-        ax_comp.set_ylabel("Loss", fontsize=12)
-        ax_comp.legend(fontsize=12)
-        ax_comp.grid(True, linestyle="--", alpha=0.5)
+        ax.set_title(f"Train loss components | {model_name}", fontsize=14)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Loss")
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
 
-        fig_comp.savefig(save_dir / "val_loss_components.png", dpi=300)
-        plt.close(fig_comp)
-        print(f"[SSD/utility] Gráfico guardado: {save_dir / 'val_loss_components.png'}")
-    else:
-        print("[SSD/utility] Advertencia: Columnas de Loss incompletas. Saltando gráficos de Loss.")
+        fig.savefig(components_dir / "train_loss_components.png", dpi=300)
+        plt.close(fig)
+        print(f"[SSD/utility] Guardado: {components_dir / 'train_loss_components.png'}")
+
+    # 1.3 Val Components (Loc vs Conf)
+    if "val_loss_loc" in df.columns and "val_loss_conf" in df.columns:
+        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
+
+        y_loc = df["val_loss_loc"].values
+        y_conf = df["val_loss_conf"].values
+
+        ax.plot(epochs, smooth(y_loc), color=COLOR_TRAIN, linewidth=2, label="val loc (box)")
+        ax.plot(epochs, smooth(y_conf), color=COLOR_VAL, linewidth=2, label="val conf (cls)")
+
+        ax.set_title(f"Val loss components | {model_name}", fontsize=14)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Loss")
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        fig.savefig(components_dir / "val_loss_components.png", dpi=300)
+        plt.close(fig)
+        print(f"[SSD/utility] Guardado: {components_dir / 'val_loss_components.png'}")
 
     # -------------------------------------------------------------------------
-    # Gráfico 3: Métricas Históricas (mAP, P, R, F1 vs Epoch)
+    # 2. Gráficos de Métricas Históricas (Metrics History)
     # -------------------------------------------------------------------------
-    if has_metrics:
-        fig_hist, ax_hist = plt.subplots(2, 2, figsize=(12, 8), tight_layout=True)
-        ax_hist = ax_hist.ravel()
 
-        # 3.1 mAP Curves (Estilo input_file_20.png)
-        ax_hist[0].plot(epochs, smooth(df["val_mAP_0.5"].values), linewidth=2, label="mAP@0.5")
-        ax_hist[0].plot(epochs, smooth(df["val_mAP_0.95"].values), linewidth=2, label="mAP@0.5:0.95")
-        ax_hist[0].set_title("mAP curves | SSD300", fontsize=14)
-        ax_hist[0].set_xlabel("Epoch")
-        ax_hist[0].set_ylabel("mAP")
-        ax_hist[0].set_ylim(0, 1.05)
-        ax_hist[0].legend()
-        ax_hist[0].grid(True, linestyle="--", alpha=0.5)
+    metric_cols = ["val_mAP_0.5", "val_mAP_0.95", "val_P", "val_R", "val_F1"]
+    if all(c in df.columns for c in metric_cols):
 
-        # 3.2 Precision (P)
-        ax_hist[1].plot(epochs, smooth(df["val_P"].values), linewidth=2, color='tab:green')
-        ax_hist[1].set_title("Precision (P) | SSD300")
-        ax_hist[1].set_xlabel("Epoch")
-        ax_hist[1].set_ylabel("Precision")
-        ax_hist[1].set_ylim(0, 1.05)
-        ax_hist[1].grid(True, linestyle="--", alpha=0.5)
+        # 2.1 mAP Curves
+        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
+        ax.plot(epochs, smooth(df["val_mAP_0.5"].values), color=COLOR_MAP50, linewidth=2, label="mAP@0.5")
+        ax.plot(epochs, smooth(df["val_mAP_0.95"].values), color=COLOR_MAP95, linewidth=2, label="mAP@0.5:0.95")
 
-        # 3.3 Recall (R)
-        ax_hist[2].plot(epochs, smooth(df["val_R"].values), linewidth=2, color='tab:red')
-        ax_hist[2].set_title("Recall (R) | SSD300")
-        ax_hist[2].set_xlabel("Epoch")
-        ax_hist[2].set_ylabel("Recall")
-        ax_hist[2].set_ylim(0, 1.05)
-        ax_hist[2].grid(True, linestyle="--", alpha=0.5)
+        ax.set_title(f"mAP curves | {model_name}", fontsize=14)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("mAP")
+        ax.set_ylim(0, 1.05)
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
 
-        # 3.4 F1 Score
-        ax_hist[3].plot(epochs, smooth(df["val_F1"].values), linewidth=2, color='tab:purple')
-        ax_hist[3].set_title("F1 Score | SSD300")
-        ax_hist[3].set_xlabel("Epoch")
-        ax_hist[3].set_ylabel("F1")
-        ax_hist[3].set_ylim(0, 1.05)
-        ax_hist[3].grid(True, linestyle="--", alpha=0.5)
+        fig.savefig(metrics_dir / "map_curves.png", dpi=300)
+        plt.close(fig)
+        print(f"[SSD/utility] Guardado: {metrics_dir / 'map_curves.png'}")
 
-        fig_hist.savefig(save_dir / "historical_metrics.png", dpi=300)
-        plt.close(fig_hist)
-        print(f"[SSD/utility] Gráfico guardado: {save_dir / 'historical_metrics.png'}")
+        # 2.2 Precision, Recall, F1 (Separados para claridad o juntos)
+        # Aquí los graficamos juntos pero con colores consistentes
+        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
+        ax.plot(epochs, smooth(df["val_P"].values), color=COLOR_TRAIN, linewidth=2, label="Precision")
+        ax.plot(epochs, smooth(df["val_R"].values), color=COLOR_VAL, linewidth=2, label="Recall")
+        ax.plot(epochs, smooth(df["val_F1"].values), color='tab:green', linewidth=2,
+                label="F1")  # F1 en verde para distinguir
+
+        ax.set_title(f"Precision, Recall, F1 | {model_name}", fontsize=14)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Metric")
+        ax.set_ylim(0, 1.05)
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        fig.savefig(metrics_dir / "prf1_curves.png", dpi=300)
+        plt.close(fig)
+        print(f"[SSD/utility] Guardado: {metrics_dir / 'prf1_curves.png'}")
+
     else:
-        print("[SSD/utility] Advertencia: Columnas de métricas de detección incompletas. Saltando gráficos históricos.")
+        print("[SSD/utility] Nota: No se encontraron columnas de métricas históricas completas.")
 
 
 if __name__ == "__main__":
-    # Bloque de prueba manual
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", type=str, default="results.csv", help="Ruta al archivo results.csv")
     parser.add_argument("--dir", type=str, default="", help="Directorio de salida (opcional)")
+    parser.add_argument("--name", type=str, default="SSD300", help="Nombre del modelo para títulos")
     args = parser.parse_args()
 
-    plot_results(args.file, args.dir)
+    plot_results(args.file, args.dir, args.name)
