@@ -42,9 +42,9 @@
 
 \subsection{Entorno virtual}
 
-\par Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio \textit{Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection}. Todas las librerías requeridas se gestionan mediante el archivo de requerimientos (\textit{Environment/requirements.txt}), que agrupa paquetes para aprendizaje profundo, procesamiento de datos, visión por computador y visualización de resultados. \\
+\par Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio \textit{Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection}. Todas las librerías requeridas se gestionan mediante el archivo de requerimientos, que agrupa paquetes para aprendizaje profundo, procesamiento de datos, visión por computador y visualización de resultados. \\
 
-\par La creación y activación del entorno se realiza con las utilidades estándar de \textit{Python} y la instalación automatizada de dependencias a partir de \textbf{Environment/requirements.txt}. La ejecución de los modelos se efectúa sobre una GPU AMD Radeon compatible con la pila ROCm/DirectML, utilizando la distribución oficial de PyTorch para esta plataforma.
+\par La creación y activación del entorno se realiza con las utilidades estándar de \textit{Python} y la instalación automatizada de dependencias a partir del archivo de requerimientos y el uso de un controlador de versiones: GIT. La ejecución de los modelos se efectúa sobre una GPU AMD Radeon compatible con la pila ROCm/DirectML, utilizando la distribución oficial de PyTorch para esta plataforma.
 
 
 
@@ -152,6 +152,7 @@ SSD/
 |   |-- clean_logs_runs.py  : Script de limpieza de logs y runs
 |   |-- clean_metrics.py    : Script de limpieza de metricas
 |   |-- clean_weights.py    : Script de limpieza de pesos registrados
+|   |-- data_loader.py      : Módulo de carga de datos que sigue el formato SSD 
 |   `-- metrics.py          : Script de procesamiento de datos y post-procesado
 |-- weights/                : Carpeta de almacenamiento de pesos finales
 |-- ssd/                    : Carpeta con el modelo oficial de SSD
@@ -160,7 +161,7 @@ SSD/
 `-- test.py                 : Script principal de pruebas
 \end{lstlisting}
 
-\par En el caso de SSD, los scripts \textit{train.py}, \textit{valid.py} y \textit{test.py} reutilizan el mismo motor definido en \textit{engine/}, modificando únicamente la lógica de construcción del modelo para instanciar la arquitectura SSD a partir del codigo contenido en \textit{ssd/}. El archivo \textit{train.py} lee las configuraciones de \textit{configs/train.yaml}, \textit{configs/dataset.yaml} y \textit{configs/model\_variants.yaml}, crea el modelo SSD con las cajas por defecto y capas de predicción correspondientes, y delega el entrenamiento al módulo \textit{Trainer.py}, registrando pérdidas, métricas y pesos en las carpetas \textit{metrics/}, \textit{runs/} y \textit{weights/}. De forma análoga, \textit{valid.py} y \textit{test.py} aprovechan \textit{Validator.py} y la misma estructura de carpetas para evaluar el modelo sobre los conjuntos de validación y prueba, manteniendo un flujo de experimentación homogéneo entre SSD y YOLOv5.
+\par En el caso de SSD, los scripts \textit{train.py}, \textit{valid.py} y \textit{test.py} orquestan el flujo de trabajo reutilizando el motor definido en \textit{engine/}. El archivo \textit{train.py} inicializa el proceso leyendo las configuraciones de \textit{configs/}. Un componente crítico en esta etapa es el módulo \textit{utility/data\_loader.py}, encargado de la ingestión y preprocesamiento de los datos; este script normaliza y redimensiona las imágenes y etiquetas para cumplir con los estrictos requisitos de entrada espacial de la arquitectura SSD (configurados a $300\times300$ o $512\times512$ píxeles). Una vez preparados los datos, se instancia el modelo desde \textit{ssd/} y se delega la optimización al módulo \textit{Trainer.py}, registrando sistemáticamente las pérdidas, métricas y pesos en las carpetas \textit{metrics/}, \textit{runs/} y \textit{weights/}. De forma análoga, \textit{valid.py} y \textit{test.py} aprovechan \textit{Validator.py} y la misma estructura de carpetas para evaluar el modelo sobre los conjuntos de validación y prueba, manteniendo un flujo de experimentación homogéneo entre SSD y YOLOv5.
 
 \subsubsection{Hiperparámetros de SSD}
 

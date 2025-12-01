@@ -46,6 +46,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\clearpage
 \section{Métricas modelos de una sola etapa}
 
 
@@ -332,7 +333,7 @@
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/wear_test.jpeg}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_wear_test.jpeg}
     \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de abrasión, junto a la etiqueta real y la predicha por el modelo.}
     \label{fig:4.3-pruebas_YOLOv5s_wear}
 \end{figure}
@@ -340,7 +341,7 @@
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/hole_test.jpeg}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_hole_test.jpeg}
     \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de agujero, junto a la etiqueta real y la predicha por el modelo.}
     \label{fig:4.3-pruebas_YOLOv5s_hole}
 \end{figure}
@@ -348,7 +349,7 @@
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/tear_test.jpeg}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_tear_test.jpeg}
     \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de desgarro, junto a la etiqueta real y la predicha por el modelo.}
     \label{fig:4.3-pruebas_YOLOv5s_tear}
 \end{figure}
@@ -361,24 +362,24 @@
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/pruebas/wear_test.jpeg}
-    \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de abrasión, junto a la etiqueta real y la predicha por el modelo.}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/pruebas/ssd_wear_test.jpeg}
+    \caption{Prueba de detección del modelo SSD300. Se muestra la falla de abrasión, junto a la etiqueta real y la predicha por el modelo.}
     \label{fig:4.3-pruebas_SSD300_wear}
 \end{figure}
 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/pruebas/hole_test.jpeg}
-    \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de agujero, junto a la etiqueta real y la predicha por el modelo.}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/pruebas/ssd_hole_test.jpeg}
+    \caption{Prueba de detección del modelo SSD300. Se muestra la falla de agujero, junto a la etiqueta real y la predicha por el modelo.}
     \label{fig:4.3-pruebas_SSD300_hole}
 \end{figure}
 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/pruebas/tear_test.jpeg}
-    \caption{Prueba de detección del modelo YOLOv5. Se muestra la falla de desgarro, junto a la etiqueta real y la predicha por el modelo.}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/pruebas/ssd_tear_test.jpeg}
+    \caption{Prueba de detección del modelo SSD300. Se muestra la falla de desgarro, junto a la etiqueta real y la predicha por el modelo.}
     \label{fig:4.3-pruebas_SSD300_tear}
 \end{figure}
 
@@ -387,5 +388,38 @@
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Discusión entre YOLOv5 y SSD300}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Análisis del desempeño de YOLOv5}
+
+\par El modelo YOLOv5, en su variante \textit{small} (s), demostró una capacidad de aprendizaje robusta y eficiente, alcanzando un mAP@0.5 cercano a 0.99 y una estabilidad notable en las funciones de pérdida. Este comportamiento se atribuye en gran medida a la arquitectura del \textit{backbone} CSPDarknet53 y al cuello de tipo PANet, diseñados para optimizar el flujo de gradientes y la fusión de características a distintas escalas, tal como se describió en la Sección \ref{subsec:yolo}. \\
+
+\par Al examinar los hiperparámetros de entrenamiento (Tabla 6.1.1), se observa el uso del optimizador SGD con un \textit{momentum} de 0.937 y una tasa de aprendizaje inicial ($lr0$) de 0.01. Esta configuración, combinada con un decaimiento de pesos (\textit{weight decay}) de 0.0005, permitió al modelo converger rápidamente sin caer en mínimos locales prematuros. Es relevante destacar el uso de la técnica de aumento de datos \textit{Mosaic} (con probabilidad 1.0), característica distintiva de YOLOv4 y v5. Esta técnica mejora la capacidad del modelo para detectar objetos en contextos complejos y a diferentes escalas, lo que explica el alto rendimiento en las clases \textit{Hole} y \textit{Impact Damage}. \\
 
 
+\par Sin embargo, la clase \textit{Puncture} presentó un desempeño inferior en términos de \textit{Recall}. Este resultado es multifactorial y no solo responde a desafíos geométricos, sino también a la limitada disponibilidad de datos de entrenamiento para esta categoría específica. Aunque la resolución de entrada de $640 \times 640$ píxeles es superior a la de SSD300, las perforaciones pequeñas y alargadas resultan difíciles de caracterizar cuando el modelo dispone de una representatividad estadística baja en comparación con clases mayoritarias. A pesar de la optimización automática de anclas (\textit{AutoAnchor}) de YOLOv5, la escasa cantidad de muestras impide que la red generalice eficazmente la variabilidad morfológica de estas fallas, lo que sugiere que el modelo se beneficiaría tanto de un ajuste más agresivo en los hiperparámetros de aumento geométrico (\textit{scale}, \textit{shear}) como de estrategias de balanceo de datos para mitigar el sesgo de clase.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Análisis del desempeño de SSD}
+
+\par El modelo SSD300 exhibió un comportamiento competente, logrando identificar la presencia de fallas con un mAP@0.5 superior a 0.80, aunque con limitaciones evidentes en la precisión de localización fina (mAP@0.5:0.95 cercano a 0.45). Este desempeño es consistente con la arquitectura base VGG16 utilizada como \textit{backbone}, la cual, a diferencia de las redes modernas con conexiones residuales, posee una menor capacidad para propagar información semántica detallada a través de las capas profundas.\\
+
+\par En cuanto a la configuración del entrenamiento (Tabla 6.1.2), se utilizó una tasa de aprendizaje inicial ($lr$) de 0.001, un orden de magnitud menor que la empleada en YOLOv5. Si bien esto favorece la estabilidad, también ralentiza el proceso de actualización de pesos, lo que se refleja en una convergencia más tardía de las curvas de pérdida. Además, la resolución de entrada fija de $300 \times 300$ píxeles constituye un cuello de botella estructural. Tal como se discutió en la Sección \ref{subsec:ssd}, las capas de predicción de SSD operan sobre mapas de características de resolución decreciente; para objetos pequeños como los de la clase \textit{Puncture}, la información espacial se diluye en las capas superiores, resultando en una alta tasa de falsos negativos, como evidenció la matriz de confusión.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Comparativa de convergencia y arquitectura: YOLOv5 vs. SSD}
+
+\par Al contrastar ambos modelos, la diferencia más significativa radica en la velocidad de convergencia y la eficiencia del aprendizaje. YOLOv5 alcanzó métricas de desempeño asintóticas en menos de 50 épocas, mientras que SSD requirió un número de iteraciones significativamente mayor para estabilizar sus pérdidas. \\
+
+\par Este fenómeno encuentra su justificación teórica en las diferencias arquitectónicas expuestas en el Capítulo 2. YOLOv5 incorpora módulos CSP (\textit{Cross Stage Partial}) y funciones de activación SiLU, diseñados específicamente para maximizar la eficiencia del gradiente y reducir la redundancia computacional. Por el contrario, SSD se basa en VGG16, una arquitectura secuencial y densa que carece de conexiones residuales modernas, lo que la hace más propensa al desvanecimiento del gradiente y dificulta la optimización profunda. \\
+
+\par Adicionalmente, la estrategia de desacople de cabezas (\textit{decoupled head}) y el uso de \textit{Path Aggregation Network} (PANet) en YOLO permiten una mejor integración de características de bajo y alto nivel. En contraste, SSD realiza predicciones independientes desde diferentes capas, lo que limita la fusión de contexto semántico y detalle espacial. Los resultados obtenidos corroboran lo planteado por Zhang et al. \cite{zhang2021one_stage}, posicionando a las arquitecturas YOLO modernas como superiores en el compromiso velocidad-precisión frente a los detectores de una etapa clásicos como SSD.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Desempeño en pruebas}
+
+\par Las pruebas de inferencia en tiempo real, ejecutadas sobre una Raspberry Pi, confirmaron la viabilidad operativa de ambos modelos en hardware de recursos limitados. No obstante, el análisis cualitativo de las detecciones revela diferencias sustanciales en la robustez de cada arquitectura. \\
+
+\par El modelo YOLOv5s exhibió una superioridad notable en la consistencia de las predicciones. Tal como se observa en la Figura \ref{fig:4.3-pruebas_YOLOv5s_hole}, YOLO logró identificar correctamente la falla de tipo \textit{Hole} con una confianza de 0.66 y un IoU de 0.933, demostrando un ajuste geométrico preciso. En contraste, el modelo SSD300 falló en la detección de esta misma instancia (Figura \ref{fig:4.3-pruebas_SSD300_hole}), arrojando métricas nulas (P=0, R=0) y confundiendo la morfología del agujero con una grieta (\textit{Tear}) o fondo, lo que ratifica las limitaciones de su extractor de características para objetos con geometrías complejas o de menor escala. \\
+
+\par Adicionalmente, en la detección de desgarros (\textit{Tear}), se observó que SSD300 tiende a generar múltiples cajas delimitadoras redundantes sobre una misma falla (Figura \ref{fig:4.3-pruebas_SSD300_tear}), resultando en una precisión baja (0.333) para esa imagen específica debido al exceso de falsos positivos. Por el contrario, YOLOv5 (Figura \ref{fig:4.3-pruebas_YOLOv5s_tear}) entregó una predicción más limpia y unificada, con una confianza máxima de 0.87, lo que sugiere una mayor eficacia de su mecanismo de supresión de no máximos (NMS) y una mejor generalización de sus anclas dinámicas. \\
