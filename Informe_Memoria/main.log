@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  17 SEP 2025 17:37
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  30 NOV 2025 23:19
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -2003,17 +2003,17 @@ File: csquotes.cfg
 \coregluevarcm=\skip144
 \corefontwidth=\skip145
 \coreimageshspace=\skip146
-Package hyperref Info: Option `bookmarksopen' set `true' on input line 5902.
+Package hyperref Info: Option `bookmarksopen' set `true' on input line 5901.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-pdfdoc.def
 File: se-pdfdoc.def 2019/11/29 v1.12 stringenc: PDFDocEncoding
 )
-Package hyperref Info: Option `pdfcenterwindow' set `true' on input line 5902.
-Package hyperref Info: Option `pdfdisplaydoctitle' set `true' on input line 5902.
-Package hyperref Info: Option `unicode' set `true' on input line 5902.
-Package hyperref Info: Option `pdffitwindow' set `false' on input line 5902.
-Package hyperref Info: Option `pdfmenubar' set `true' on input line 5902.
-Package hyperref Info: Option `pdftoolbar' set `true' on input line 5902.
-Package hyperref Info: Option `colorlinks' set `true' on input line 5961.
+Package hyperref Info: Option `pdfcenterwindow' set `true' on input line 5901.
+Package hyperref Info: Option `pdfdisplaydoctitle' set `true' on input line 5901.
+Package hyperref Info: Option `unicode' set `true' on input line 5901.
+Package hyperref Info: Option `pdffitwindow' set `false' on input line 5901.
+Package hyperref Info: Option `pdfmenubar' set `true' on input line 5901.
+Package hyperref Info: Option `pdftoolbar' set `true' on input line 5901.
+Package hyperref Info: Option `colorlinks' set `true' on input line 5960.
 \cftbeforelistingsskip=\skip147
 \cftlistingsindent=\skip148
 \cftlistingsnumwidth=\skip149
@@ -2030,7 +2030,7 @@ Package hyperref Info: Option `colorlinks' set `true' on input line 5961.
 \cftbeforeequtitleskip=\skip158
 \cftafterequtitleskip=\skip159
 \c@totalcount@templateIndexEquations=\count424
-LaTeX Font Info:    Trying to load font information for T1+lmvtt on input line 6250.
+LaTeX Font Info:    Trying to load font information for T1+lmvtt on input line 6249.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmvtt.fd
 File: t1lmvtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
@@ -2287,19 +2287,17 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 
 
 
-] [2
-
 ] (main.toc
 LaTeX Info: Redefining \. on input line 1.
 LaTeX Info: Redefining \% on input line 1.
-)
+ [2
+
+
+])
 \tf@toc=\write3
 \openout3 = `main.toc'.
 
- [3
-
-
-] (main.lot
+ [3] (main.lot
 LaTeX Info: Redefining \. on input line 1.
 LaTeX Info: Redefining \% on input line 1.
 )
@@ -2311,69 +2309,294 @@ LaTeX Info: Redefining \% on input line 1.
 ] (main.lof
 LaTeX Info: Redefining \. on input line 1.
 LaTeX Info: Redefining \% on input line 1.
-)
+ [5
+
+])
 \tf@lof=\write5
 \openout5 = `main.lof'.
 
- [5
-
-] (capitulos/1-Introducción.tex
+ [6] (capitulos/1-Introducción.tex
 Capítulo 1.
-LaTeX Font Info:    Calculating math sizes for size <8.00006> on input line 41.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8.00006> on input line 41.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5.6> on input line 41.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <4.00003> on input line 41.
 [1
 
 
-{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]) (capitulos/2-Antecedentes.tex [2]
-Capítulo 2.
-[3
-
 ]
-<img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png, id=164, 657.95813pt x 492.33937pt>
+LaTeX Font Info:    Calculating math sizes for size <8.00006> on input line 52.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <8.00006> on input line 52.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <5.6> on input line 52.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <4.00003> on input line 52.
+ [2{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]) (capitulos/2-Antecedentes.tex [3]
+Capítulo 2.
+<img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png, id=367, 681.54625pt x 352.31625pt>
+File: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png Graphic file (type png)
+<use img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png>
+Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png  used on input line 9.
+(pdftex.def)             Requested size: 377.62642pt x 195.2099pt.
+[4
+
+ <./img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png (PNG copy)>]
+<img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png, id=379, 657.95813pt x 492.33937pt>
 File: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png>
-Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png  used on input line 25.
+Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png  used on input line 32.
 (pdftex.def)             Requested size: 108.56516pt x 81.23248pt.
-<img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png, id=166, 654.94687pt x 492.33937pt>
+<img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png, id=381, 654.94687pt x 492.33937pt>
 File: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png>
-Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png  used on input line 29.
+Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png  used on input line 36.
 (pdftex.def)             Requested size: 108.56516pt x 81.60811pt.
-<img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png, id=167, 634.62094pt x 481.8pt>
+<img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png, id=382, 634.62094pt x 481.8pt>
 File: img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png>
-Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png  used on input line 33.
+Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png  used on input line 40.
 (pdftex.def)             Requested size: 108.56516pt x 82.41953pt.
-<img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png, id=168, 643.6547pt x 475.02469pt>
+<img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png, id=383, 643.6547pt x 475.02469pt>
 File: img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png>
-Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png  used on input line 37.
+Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png  used on input line 44.
 (pdftex.def)             Requested size: 108.56516pt x 80.12251pt.
-<img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png, id=169, 1073.51062pt x 427.5975pt>
+<img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png, id=384, 1073.51062pt x 427.5975pt>
 File: img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png Graphic file (type png)
 <use img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png>
-Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png  used on input line 41.
+Package pdftex.def Info: img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png  used on input line 48.
 (pdftex.def)             Requested size: 188.8096pt x 75.20258pt.
- [4 <./img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png> <./img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png>] [5] [6] [7{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}]) (capitulos/3-Metodología.tex [8]
-Capítulo 3.
-) (capitulos/4-Resultados_Discusión.tex [9
+ [5] [6 <./img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png> <./img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png> <./img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png>]
+<img/2-Antecedentes/2-Object_Detection_example.png, id=410, 1449.415pt x 348.30125pt>
+File: img/2-Antecedentes/2-Object_Detection_example.png Graphic file (type png)
+<use img/2-Antecedentes/2-Object_Detection_example.png>
+Package pdftex.def Info: img/2-Antecedentes/2-Object_Detection_example.png  used on input line 66.
+(pdftex.def)             Requested size: 424.82523pt x 102.08365pt.
+<img/2-Antecedentes/2.2-CNN/CNN_architecture.png, id=418, 1318.9275pt x 477.785pt>
+File: img/2-Antecedentes/2.2-CNN/CNN_architecture.png Graphic file (type png)
+<use img/2-Antecedentes/2.2-CNN/CNN_architecture.png>
+Package pdftex.def Info: img/2-Antecedentes/2.2-CNN/CNN_architecture.png  used on input line 82.
+(pdftex.def)             Requested size: 424.82523pt x 153.8931pt.
+ [7 <./img/2-Antecedentes/2-Object_Detection_example.png (PNG copy)>] [8 <./img/2-Antecedentes/2.2-CNN/CNN_architecture.png (PNG copy)>] [9{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}] [10
+
+] [11]
+<img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png, id=478, 592.46344pt x 322.20375pt>
+File: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png Graphic file (type png)
+<use img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png>
+Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png  used on input line 168.
+(pdftex.def)             Requested size: 448.42822pt x 243.87935pt.
+ [12
+
+ <./img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png>]
+<img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png, id=491, 739.26187pt x 364.36125pt>
+File: img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png Graphic file (type png)
+<use img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png>
+Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png  used on input line 185.
+(pdftex.def)             Requested size: 448.42822pt x 221.02022pt.
+ [13 <./img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png>]
+<img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png, id=506, 660.21657pt x 475.02469pt>
+File: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png Graphic file (type png)
+<use img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png>
+Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png  used on input line 208.
+(pdftex.def)             Requested size: 424.82523pt x 305.66736pt.
+ [14] [15 <./img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png>] [16] [17]
+<img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png, id=545, 574.39594pt x 171.64125pt>
+File: img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png Graphic file (type png)
+<use img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png>
+Package pdftex.def Info: img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png  used on input line 282.
+(pdftex.def)             Requested size: 377.62642pt x 112.84618pt.
+ [18 <./img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png>] [19] [20] [21
 
 ]
+<img/2-Antecedentes/2.6-Metricas/IoU_metric.png, id=592, 356.83313pt x 363.60844pt>
+File: img/2-Antecedentes/2.6-Metricas/IoU_metric.png Graphic file (type png)
+<use img/2-Antecedentes/2.6-Metricas/IoU_metric.png>
+Package pdftex.def Info: img/2-Antecedentes/2.6-Metricas/IoU_metric.png  used on input line 413.
+(pdftex.def)             Requested size: 283.22162pt x 288.61237pt.
+ [22] [23 <./img/2-Antecedentes/2.6-Metricas/IoU_metric.png>]) (capitulos/3-Metodología.tex [24]
+Capítulo 3.
+[25
+
+] [26] [27] [28]) (capitulos/4-Resultados_Discusión.tex [29]
 Capítulo 4.
-) (capitulos/5-Conclusiones.tex) (main.bbl [10
+<img/4-Resultados_Discusion/Dataset/class_distribution.png, id=703, 722.7pt x 433.62pt>
+File: img/4-Resultados_Discusion/Dataset/class_distribution.png Graphic file (type png)
+<use img/4-Resultados_Discusion/Dataset/class_distribution.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/Dataset/class_distribution.png  used on input line 32.
+(pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
+[30
 
-] [11
+]
+<img/4-Resultados_Discusion/Dataset/split_composition.png, id=710, 578.16pt x 433.62pt>
+File: img/4-Resultados_Discusion/Dataset/split_composition.png Graphic file (type png)
+<use img/4-Resultados_Discusion/Dataset/split_composition.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/Dataset/split_composition.png  used on input line 39.
+(pdftex.def)             Requested size: 377.62642pt x 283.21927pt.
+ [31 <./img/4-Resultados_Discusion/Dataset/class_distribution.png> <./img/4-Resultados_Discusion/Dataset/split_composition.png>]
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/train/loss_components.png, id=720, 578.16pt x 361.35pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/train/loss_components.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/train/loss_components.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/train/loss_components.png  used on input line 67.
+(pdftex.def)             Requested size: 377.62642pt x 236.01607pt.
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/val/loss_components.png, id=722, 578.16pt x 361.35pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/val/loss_components.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/val/loss_components.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/val/loss_components.png  used on input line 76.
+(pdftex.def)             Requested size: 377.62642pt x 236.01607pt.
+ [32
 
-]) (capitulos/6-Anexos.tex [12]) (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
+ <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/train/loss_components.png>]
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/loss_curves.png, id=731, 578.16pt x 361.35pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/loss_curves.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/loss_curves.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/loss_curves.png  used on input line 89.
+(pdftex.def)             Requested size: 377.62642pt x 236.01607pt.
+ [33 <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/val/loss_components.png> <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/losses/loss_curves.png>]
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png, id=742, 650.43pt x 433.62pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png  used on input line 104.
+(pdftex.def)             Requested size: 401.22942pt x 267.49185pt.
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png, id=744, 650.43pt x 433.62pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png  used on input line 115.
+(pdftex.def)             Requested size: 401.22942pt x 267.49185pt.
+ [34 <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_P_curve.png>]
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png, id=752, 650.43pt x 433.62pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png  used on input line 130.
+(pdftex.def)             Requested size: 401.22942pt x 267.49185pt.
+ [35 <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_R_curve.png>]
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/map_curves.png, id=760, 578.16pt x 361.35pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/map_curves.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/map_curves.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/map_curves.png  used on input line 146.
+(pdftex.def)             Requested size: 401.22942pt x 250.76535pt.
+ [36 <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_F1_curve.png>]
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png, id=769, 578.16pt x 361.35pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png  used on input line 163.
+(pdftex.def)             Requested size: 424.82523pt x 265.51462pt.
+ [37 <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/map_curves.png> <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/iou_distribution.png>]
+<img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_confusion_matrix.png, id=778, 867.24pt x 650.43pt>
+File: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_confusion_matrix.png Graphic file (type png)
+<use img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_confusion_matrix.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_confusion_matrix.png  used on input line 180.
+(pdftex.def)             Requested size: 448.42822pt x 336.31999pt.
+ [38 <./img/4-Resultados_Discusion/YOLO/final_metrics/belt_defects_yolov5s_final/val_confusion_matrix.png>] [39]
+<img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/train_loss_components.png, id=795, 722.7pt x 433.62pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/train_loss_components.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/train_loss_components.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/train_loss_components.png  used on input line 206.
+(pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
+<img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/val_loss_components.png, id=797, 722.7pt x 433.62pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/val_loss_components.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/val_loss_components.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/val_loss_components.png  used on input line 215.
+(pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
+ [40
+
+ <./img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/train_loss_components.png>]
+<img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/total_loss.png, id=805, 722.7pt x 433.62pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/total_loss.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/total_loss.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/total_loss.png  used on input line 229.
+(pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
+ [41 <./img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/components/val_loss_components.png>]
+<img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/P_curve.png, id=814, 707.5233pt x 494.3268pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/P_curve.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/P_curve.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/P_curve.png  used on input line 244.
+(pdftex.def)             Requested size: 377.62642pt x 263.83994pt.
+ [42 <./img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/losses/total_loss.png>]
+<img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/R_curve.png, id=822, 707.5233pt x 494.3268pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/R_curve.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/R_curve.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/R_curve.png  used on input line 252.
+(pdftex.def)             Requested size: 377.62642pt x 263.83994pt.
+ [43 <./img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/P_curve.png> <./img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/R_curve.png>]
+<img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/F1_curve.png, id=831, 707.5233pt x 494.3268pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/F1_curve.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/F1_curve.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/F1_curve.png  used on input line 268.
+(pdftex.def)             Requested size: 377.62642pt x 263.83994pt.
+<img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/metrics_history/map_curves.png, id=833, 722.7pt x 433.62pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/metrics_history/map_curves.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/metrics_history/map_curves.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/metrics_history/map_curves.png  used on input line 284.
+(pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
+ [44 <./img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/F1_curve.png>]
+<img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/iou_distribution.png, id=841, 722.7pt x 433.62pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/iou_distribution.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/iou_distribution.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/iou_distribution.png  used on input line 299.
+(pdftex.def)             Requested size: 424.82523pt x 254.89404pt.
+ [45 <./img/4-Resultados_Discusion/SSD/ssd300/train/ssd300_belt_defects/metrics_history/map_curves.png>]
+<img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/confusion_matrix.png, id=849, 867.24pt x 650.43pt>
+File: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/confusion_matrix.png Graphic file (type png)
+<use img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/confusion_matrix.png>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/confusion_matrix.png  used on input line 318.
+(pdftex.def)             Requested size: 448.42822pt x 336.31999pt.
+ [46 <./img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/iou_distribution.png>] [47 <./img/4-Resultados_Discusion/SSD/ssd300/valid/ssd300_validation/confusion_matrix.png>]
+<img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_wear_test.jpeg, id=865, 963.6pt x 584.93532pt>
+File: img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_wear_test.jpeg Graphic file (type jpg)
+<use img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_wear_test.jpeg>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_wear_test.jpeg  used on input line 336.
+(pdftex.def)             Requested size: 377.62642pt x 229.23059pt.
+<img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_hole_test.jpeg, id=866, 963.6pt x 581.92406pt>
+File: img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_hole_test.jpeg Graphic file (type jpg)
+<use img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_hole_test.jpeg>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_hole_test.jpeg  used on input line 344.
+(pdftex.def)             Requested size: 377.62642pt x 228.05052pt.
+<img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_tear_test.jpeg, id=867, 963.6pt x 586.44093pt>
+File: img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_tear_test.jpeg Graphic file (type jpg)
+<use img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_tear_test.jpeg>
+Package pdftex.def Info: img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_tear_test.jpeg  used on input line 352.
+(pdftex.def)             Requested size: 377.62642pt x 229.82063pt.
+ [48
+
+ <./img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_wear_test.jpeg> <./img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_hole_test.jpeg>]
+<img/4-Resultados_Discusion/SSD/pruebas/ssd_wear_test.jpeg, id=877, 963.6pt x 587.19376pt>
+File: img/4-Resultados_Discusion/SSD/pruebas/ssd_wear_test.jpeg Graphic file (type jpg)
+<use img/4-Resultados_Discusion/SSD/pruebas/ssd_wear_test.jpeg>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/pruebas/ssd_wear_test.jpeg  used on input line 365.
+(pdftex.def)             Requested size: 377.62642pt x 230.11566pt.
+<img/4-Resultados_Discusion/SSD/pruebas/ssd_hole_test.jpeg, id=878, 963.6pt x 584.93532pt>
+File: img/4-Resultados_Discusion/SSD/pruebas/ssd_hole_test.jpeg Graphic file (type jpg)
+<use img/4-Resultados_Discusion/SSD/pruebas/ssd_hole_test.jpeg>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/pruebas/ssd_hole_test.jpeg  used on input line 373.
+(pdftex.def)             Requested size: 377.62642pt x 229.23059pt.
+ [49 <./img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_tear_test.jpeg> <./img/4-Resultados_Discusion/SSD/pruebas/ssd_wear_test.jpeg>]
+<img/4-Resultados_Discusion/SSD/pruebas/ssd_tear_test.jpeg, id=884, 963.6pt x 584.93532pt>
+File: img/4-Resultados_Discusion/SSD/pruebas/ssd_tear_test.jpeg Graphic file (type jpg)
+<use img/4-Resultados_Discusion/SSD/pruebas/ssd_tear_test.jpeg>
+Package pdftex.def Info: img/4-Resultados_Discusion/SSD/pruebas/ssd_tear_test.jpeg  used on input line 381.
+(pdftex.def)             Requested size: 377.62642pt x 229.23059pt.
+ [50 <./img/4-Resultados_Discusion/SSD/pruebas/ssd_hole_test.jpeg> <./img/4-Resultados_Discusion/SSD/pruebas/ssd_tear_test.jpeg>] [51
+
+]) (capitulos/5-Conclusiones.tex [52]
+Capítulo 5.
+) (main.bbl [53
+
+] [54
+
+]) (capitulos/6-Anexos.tex [55]
+Capítulo 6.
+
+Overfull \hbox (14.93567pt too wide) in paragraph at lines 8--60
+ [][] 
+ []
+
+
+Overfull \hbox (11.52827pt too wide) in paragraph at lines 65--111
+ [][] 
+ []
+
+) [56
+
+] (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
 File: se-utf8.def 2019/11/29 v1.12 stringenc: UTF-8
-) [13
-
-] (main.aux
+) [57] (main.aux
 LaTeX Info: Redefining \. on input line 16.
 LaTeX Info: Redefining \% on input line 16.
 )
@@ -2383,18 +2606,18 @@ L3 programming layer <2024-01-04>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 33680 strings out of 474486
- 572562 string characters out of 5743755
- 1943542 words of memory out of 5000000
- 55220 multiletter control sequences out of 15000+600000
- 660200 words of font info for 139 fonts, out of 8000000 for 9000
+ 34653 strings out of 474486
+ 599596 string characters out of 5743755
+ 2237542 words of memory out of 5000000
+ 55998 multiletter control sequences out of 15000+600000
+ 667453 words of font info for 141 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 113i,12n,110p,3003b,2445s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb>
-Output written on main.pdf (19 pages, 4861971 bytes).
+ 113i,13n,110p,3003b,2629s stack positions out of 10000i,1000n,20000p,200000b,200000s
+<C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmvtt10.pfb>
+Output written on main.pdf (64 pages, 10455057 bytes).
 PDF statistics:
- 468 PDF objects out of 1000 (max. 8388607)
- 406 compressed objects within 5 object streams
- 88 named destinations out of 1000 (max. 500000)
- 329 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1325 PDF objects out of 1440 (max. 8388607)
+ 1140 compressed objects within 12 object streams
+ 282 named destinations out of 1000 (max. 500000)
+ 859 words of extra memory for PDF output out of 10000 (max. 10000000)
 

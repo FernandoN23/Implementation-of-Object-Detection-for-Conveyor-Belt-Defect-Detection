@@ -1,0 +1,34 @@
+{
+  "task_model": "detect",
+  "variant": "s",
+  "experiment_id": "belt_defects_yolov5s_final",
+  "train_run": "belt_defects_yolov5s_final",
+  "val_run": "s_belt_defects_yolov5s_val",
+  "dataset": {
+    "config": "C:\\Users\\memorista\\Desktop\\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\\YOLO\\configs\\dataset.yaml",
+    "class_names": [
+      "Hole",
+      "Impact Damage",
+      "Puncture",
+      "Tear",
+      "Wear"
+    ],
+    "num_train_images": null,
+    "num_val_images": null
+  },
+  "hyperparams": {
+    "img_size": 640
+  },
+  "metrics": {
+    "final_map50_95": 0.52286,
+    "train_final_mean_loss": 0.014833966666666665,
+    "val_final_mean_loss": 0.012967166666666669
+  },
+  "iou_distribution": {
+    "mean": 0.6767759323120117,
+    "median": 0.7636258602142334,
+    "p75": 0.8539814949035645,
+    "p90": 0.9087285995483398,
+    "num_samples": 1124
+  }
+}

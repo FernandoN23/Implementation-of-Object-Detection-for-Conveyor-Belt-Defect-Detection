@@ -3,28 +3,170 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Identificación de fallas}
 
-\par 
+\par De acuerdo al Capítulo 2, sección 2.1, las fallas en correas transportadoras se encuentran enmarcadas de acuerdo a \cite{khanna2022types} y para la implementación de modelos de reconocimiento de objetos que identifiquen estas fallas, se consideraron las siguientes fallas:
 
+\begin{itemize}
+    \item Agujero (Hole): pérdida completa de material a través del espesor de la banda, de tamaño apreciable, originada por eventos de daño severo (impactos altos, atrapamiento de material o elementos extraños).
+    \item Daño por impacto (Impact Damage): deformaciones, cortes o abrasiones localizadas en la zona de carga, producidas por el impacto repetitivo o puntual del material transportado.
+    \item Perforación (Puncture): daño puntual en el que un elemento punzante atraviesa la banda generando una abertura de menor extensión superficial que un agujero, usualmente de carácter incipiente.
+    \item Desgarro (Tear): separación longitudinal o transversal de la banda, asociada a sobrecargas, material atascado o concentraciones de tensión, y que puede propagarse a lo largo de la correa.
+    \item Abrasión (Wear): desgaste progresivo de la superficie de la correa debido a fricción, que se manifiesta como adelgazamiento del recubrimiento y patrones característicos de pérdida de material.
+\end{itemize}
 
-
+\par De esta forma, las fallas antes mencionadas se convierten en \textit{clases} para los modelos de detección de objetos.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Base de datos}
+\section{Base de datos y entorno virtual}
 
 
-\subsection{Recopilación}
+\subsection{Base de datos elaborada}
+\par El entrenamiento de modelos basados en redes neuronales (convolucionales o no) requiere disponer de un conjunto de datos suficientemente representativo, anotado y particionado en subconjuntos mutuamente excluyentes:
+
+\begin{itemize}
+    \item \textbf{Entrenamiento (train)}: conjunto utilizado para ajustar los parámetros del modelo mediante el proceso de optimización. Suele concentrar entre un 60\% y un 80\% del total de muestras disponibles.
+    \item \textbf{Validación (valid)}: conjunto empleado durante el entrenamiento para calcular métricas intermedias, seleccionar hiperparámetros y monitorizar el sobreajuste. Sus ejemplos no se usan para actualizar los pesos del modelo y, por lo general, representan una fracción menor que el conjunto de entrenamiento.
+    \item \textbf{Prueba (test)}: conjunto reservado para la evaluación final e independiente del modelo, una vez completado el ajuste y la selección de hiperparámetros. Permite estimar el desempeño esperado en condiciones de uso real.
+\end{itemize}
+
+
+\subsection{Recopilación y limpieza}
+
+\par Mediante el sitio web \textit{Roboflow}, así como plataformas de datos abiertos tales como \textit{Kaggle Datasets}, \textit{ImageNet}, \textit{Open Images Dataset} y otros repositorios académicos de libre acceso, se recopilaron bases de datos relacionadas con fallas en correas transportadoras y con entornos industriales de transporte de material a granel. Cada conjunto presentaba su propia organización de clases, resolución de imágenes y formato de anotación, por lo que fue necesario unificar las etiquetas al formato YOLO antes de su utilización en los modelos de detección. \\
+
+\par Posteriormente, se aplicó un proceso de depuración y limpieza de datos. En primer lugar, se descartaron imágenes irrelevantes (sin presencia clara de correa transportadora o sin defecto observable) y aquellas con problemas severos de calidad, como baja resolución, desenfoque o ruido excesivo. En segundo lugar, se normalizaron las anotaciones corrigiendo etiquetas inconsistentes, reclasificando ejemplos cuya clase no coincidía con el defecto presente y ajustando las cajas delimitadoras cuando su posición o tamaño eran inadecuados. Finalmente, se homogeneizó la nomenclatura de clases y el formato de las etiquetas, garantizando una base de datos coherente y consistente para el entrenamiento y evaluación de los modelos. \\
+
+\par En total, se logró confeccionar una base de datos de 2312 imágenes, todas con resolución de 640x640px y etiquetas normalizadas de acuerdo al formato que usa YOLO.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Entorno virtual}
+
+\par Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio \textit{Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection}. Todas las librerías requeridas se gestionan mediante el archivo de requerimientos, que agrupa paquetes para aprendizaje profundo, procesamiento de datos, visión por computador y visualización de resultados. \\
+
+\par La creación y activación del entorno se realiza con las utilidades estándar de \textit{Python} y la instalación automatizada de dependencias a partir del archivo de requerimientos y el uso de un controlador de versiones: GIT. La ejecución de los modelos se efectúa sobre una GPU AMD Radeon compatible con la pila ROCm/DirectML, utilizando la distribución oficial de PyTorch para esta plataforma.
 
 
 
-\subsection{Etiquetado}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Implementación de YOLOv5}
+
+\subsection{Estructura de trabajo}
+
+\par La implementación de YOLOv5 desde el modelo oficial de Ultralytics en el ambiente actual sigue la estructura de trabajo mostrada en el Código \ref{lst:estructura-yolov5}. El modelo oficial de YOLOv5 se guarda en una carpeta dentro de YOLO. Posteriormente, se configuran todos los archivos necesarios a modo de capa envolvente del modelo original para poder utilizarlo de manera compatible al entorno virtual. \\
 
 
+\begin{lstlisting}[
+    float,
+    floatplacement=H,                               
+    caption={Estructura de directorios para la implementación de YOLO.},
+    label={lst:estructura-yolov5},
+    basicstyle=\ttfamily\scriptsize,
+    numbers=none,                            % sin numeracion de lineas
+    columns=fullflexible,
+    frame=single,
+    xleftmargin=2.5cm,
+    framexleftmargin=0.5cm,
+    framexrightmargin=0.5cm,
+    breaklines=true,
+    breakatwhitespace=true
+]
+YOLO/
+|-- configs/
+|   |-- dataset.yaml        : Rutas y clases del dataset
+|   |-- model_variants.yaml : Parametros de escalado (variantes)
+|   |-- train.yaml          : Hiperparametros de entrenamiento
+|   `-- valid.yaml          : Hiperparametros de validacion
+|-- engine/
+|   |-- bn2gn_patch.py      : Parche para normalizacion por lotes
+|   |-- bootstrap_miopen.py : Interfaz de mitigacion de MIOpen
+|   |-- Trainer.py          : Modulo de entrenamiento
+|   |-- Validator.py        : Modulo de validacion interna/externa
+|   `-- warnings.py         : Modulo de advertencias y errores menores
+|-- metrics/                : Carpeta de almacenamiento de metricas
+|-- runs/                   : Carpeta de almacenamiento de ejecuciones
+|-- utility/
+|   |-- check_dataset.py    : Revisa formato dataset para modelo a entrenar
+|   |-- clean_logs_runs.py  : Script de limpieza de logs y runs
+|   |-- clean_metrics.py    : Script de limpieza de metricas
+|   |-- clean_weights.py    : Script de limpieza de pesos registrados
+|   `-- metrics.py          : Script de procesamiento de datos y post-procesado
+|-- weights/                : Carpeta de almacenamiento de pesos finales
+|-- yolov5/                 : Carpeta con el modelo oficial YOLOv5
+|-- train.py                : Script principal de entrenamiento
+|-- valid.py                : Script principal de validacion
+`-- test.py                 : Script principal de pruebas
+\end{lstlisting}
 
-\subsection{Partición}
+\par El flujo principal de experimentación se organiza en torno a los scripts \textit{train.py}, \textit{valid.py} y \textit{test.py}, que actúan como puntos de entrada al motor implementado en \textit{engine/}. El script \textit{train.py} lee la configuración desde \textit{configs/train.yaml}, \textit{configs/dataset.yaml} y \textit{configs/model\_variants.yaml}, instancia la variante de modelo seleccionada a partir del código base contenido en \textit{yolov5/} y delega el proceso de entrenamiento al módulo \textit{Trainer.py}. Durante este proceso se aplica el parche de normalización \textit{bn2gn\_patch.py} y la inicialización de MIOpen mediante \textit{bootstrap\_miopen.py}, se registran pérdidas y métricas por época en \textit{metrics/} y \textit{runs/}, y se almacenan los pesos intermedios y finales en \textit{weights/}. \\
+
+\par Una vez completado el entrenamiento, el script \textit{valid.py} utiliza el módulo \textit{Validator.py} junto con la configuración de \textit{configs/valid.yaml} para cargar los pesos seleccionados desde \textit{weights/} y evaluar el modelo sobre el conjunto de validación, generando métricas agregadas (por ejemplo, precisión, exhaustividad y mAP) y salidas gráficas que se guardan nuevamente en \textit{metrics/} y \textit{runs/}. Finalmente, el script \textit{test.py} permite aplicar el modelo entrenado sobre la partición de prueba independiente, obteniendo predicciones cualitativas y cuantitativas que sirven para verificar la capacidad de generalización del detector en condiciones próximas al uso operativo. Los scripts auxiliares contenidos en \textit{utility/} se emplean para comprobar la coherencia del conjunto de datos y mantener ordenados los registros de ejecución, métricas y pesos generados a lo largo de los experimentos.
+
+\subsubsection{Hiperparámetros de YOLOv5}
+
+\par La configuración del entrenamiento de YOLOv5 considera un conjunto de hiperparámetros que controlan tanto la optimización del modelo como las funciones de pérdida y las técnicas de aumentación de datos. La Tabla \ref{tab:3.4-hiperparametros-ssd} (Ver Capítulo 5.1) resume los hiperparámetros principales seleccionados en esta memoria, junto con su valor fijado y una breve descripción de su rol dentro del proceso de entrenamiento. Estos valores se basan en configuraciones por defecto y en recomendaciones de ajuste de hiperparámetros propuestas para la familia Ultralytics YOLO \cite{ultralyticsHyperparameterTuning}.
 
 
- 
+%Añadir cantidad de hiperparámetros de YOLOv5-s 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Implementación de SSD}
 
+\subsection{Estructura de trabajo}
 
+\par La implementación del detector \textit{Single Shot MultiBox Detector} (SSD) se integró reutilizando la misma estructura de trabajo definida para YOLOv5, de modo de compartir el entorno virtual, la configuración de experimentos y el flujo de entrenamiento/validación. En este caso, el código base de la arquitectura se organiza en la carpeta \textit{ssd/}, mientras que los módulos de configuración, motor y utilidades se mantienen en las mismas ubicaciones lógicas dentro de \textit{YOLO/}, tal como se muestra en el Código~\ref{lst:estructura-ssd}. \\
 
+\begin{lstlisting}[
+    float,
+    floatplacement=H,                               
+    caption={Estructura de directorios para la implementacion de SSD.},
+    label={lst:estructura-ssd},
+    basicstyle=\ttfamily\scriptsize,
+    numbers=none,
+    columns=fullflexible,
+    frame=single,
+    xleftmargin=2.5cm,
+    framexleftmargin=0.5cm,
+    framexrightmargin=0.5cm,
+    breaklines=true,
+    breakatwhitespace=true
+]
+SSD/
+|-- configs/
+|   |-- dataset.yaml        : Rutas y clases del dataset
+|   |-- model_variants.yaml : Parametros de escalado (variantes)
+|   |-- train.yaml          : Hiperparametros de entrenamiento
+|   `-- valid.yaml          : Hiperparametros de validacion
+|-- engine/
+|   |-- bn2gn_patch.py      : Parche para normalizacion por lotes
+|   |-- bootstrap_miopen.py : Interfaz de mitigacion de MIOpen
+|   |-- Trainer.py          : Modulo de entrenamiento
+|   |-- Validator.py        : Modulo de validacion interna/externa
+|   `-- warnings.py         : Modulo de advertencias y errores menores
+|-- metrics/                : Carpeta de almacenamiento de metricas
+|-- runs/                   : Carpeta de almacenamiento de ejecuciones
+|-- utility/
+|   |-- check_dataset.py    : Revisa formato dataset para modelo a entrenar
+|   |-- clean_logs_runs.py  : Script de limpieza de logs y runs
+|   |-- clean_metrics.py    : Script de limpieza de metricas
+|   |-- clean_weights.py    : Script de limpieza de pesos registrados
+|   |-- data_loader.py      : Módulo de carga de datos que sigue el formato SSD 
+|   `-- metrics.py          : Script de procesamiento de datos y post-procesado
+|-- weights/                : Carpeta de almacenamiento de pesos finales
+|-- ssd/                    : Carpeta con el modelo oficial de SSD
+|-- train.py                : Script principal de entrenamiento
+|-- valid.py                : Script principal de validacion
+`-- test.py                 : Script principal de pruebas
+\end{lstlisting}
+
+\par En el caso de SSD, los scripts \textit{train.py}, \textit{valid.py} y \textit{test.py} orquestan el flujo de trabajo reutilizando el motor definido en \textit{engine/}. El archivo \textit{train.py} inicializa el proceso leyendo las configuraciones de \textit{configs/}. Un componente crítico en esta etapa es el módulo \textit{utility/data\_loader.py}, encargado de la ingestión y preprocesamiento de los datos; este script normaliza y redimensiona las imágenes y etiquetas para cumplir con los estrictos requisitos de entrada espacial de la arquitectura SSD (configurados a $300\times300$ o $512\times512$ píxeles). Una vez preparados los datos, se instancia el modelo desde \textit{ssd/} y se delega la optimización al módulo \textit{Trainer.py}, registrando sistemáticamente las pérdidas, métricas y pesos en las carpetas \textit{metrics/}, \textit{runs/} y \textit{weights/}. De forma análoga, \textit{valid.py} y \textit{test.py} aprovechan \textit{Validator.py} y la misma estructura de carpetas para evaluar el modelo sobre los conjuntos de validación y prueba, manteniendo un flujo de experimentación homogéneo entre SSD y YOLOv5.
+
+\subsubsection{Hiperparámetros de SSD}
+
+\par La configuración del entrenamiento de SSD considera un conjunto de hiperparámetros que controlan la optimización del detector, la definición de las cajas por defecto y los criterios de correspondencia entre predicciones y anotaciones reales. La Tabla \ref{tab:3.4-hiperparametros-ssd} (ver Capítulo 5.1) resume los hiperparámetros principales seleccionados en esta memoria, junto con su valor fijado y una breve descripción de su rol dentro del proceso de entrenamiento. \\
+
+\par En particular, se incluyen parámetros asociados a la tasa de aprendizaje base y su programación, el momento y la regularización, así como a las escalas y razones de aspecto de las cajas por defecto, los umbrales de IoU para la asignación de ejemplos positivos/negativos y las estrategias de aumentación de datos. Estos valores se basan en la configuración propuesta en el trabajo original de \textit{Single Shot MultiBox Detector} \cite{liu2016ssd}, adaptada al dominio de fallas en correas transportadoras para permitir una comparación controlada con los experimentos realizados con YOLOv5.
+
+%Añadir cantidad de hiperparámetros de SSD300

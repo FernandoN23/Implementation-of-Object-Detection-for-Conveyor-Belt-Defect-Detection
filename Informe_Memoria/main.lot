@@ -1,6 +1,12 @@
 \babel@toc {spanish}{}\relax 
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {2.6.1}{\ignorespaces Definiciones generales \textit {Machine Learning} \cite {schlosser2024overview}}}{7}{table.caption.10}%
+\contentsline {table}{\numberline {2.2.1}{\ignorespaces Hiperparámetros comunes en modelos de detección basados en CNN}}{9}{table.caption.12}%
+\contentsline {table}{\numberline {2.6.1}{\ignorespaces Definiciones generales \textit {Machine Learning} \cite {schlosser2024overview}}}{22}{table.caption.27}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1.1}{\ignorespaces Resumen de las propiedades y distribución del conjunto de datos.}}{30}{table.caption.31}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {6.1.1}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}}{56}{table.caption.59}%
+\contentsline {table}{\numberline {6.1.2}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}}{57}{table.caption.60}%
