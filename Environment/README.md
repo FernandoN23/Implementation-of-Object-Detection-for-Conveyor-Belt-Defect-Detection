@@ -1,28 +1,25 @@
-# ⚙️ Configuración de entorno para ejecución de modelos  
-## 🐍 Entorno Python 3.12 + PyTorch 2.8.0 (AMD ROCm 6.4.4 Preview Edition)
+# ⚙️ Configuración de entorno para ejecución de modelos
 
-Este entorno permite ejecutar proyectos Python en **GPU AMD Radeon y CPUs Ryzen AI** mediante la nueva versión oficial de **PyTorch 2.8.0a0 (Windows Preview)** con soporte **ROCm 6.4.4 / DirectML**.  
+## 🐍 Entorno Python 3.12 + PyTorch 2.9.0 (AMD ROCm 7.1.1)
 
-La instalación es completamente automatizada mediante `pip`. Incluye librerías esenciales para **Deep Learning**, **detección de objetos (YOLOv11, DETR)**, y herramientas de **visualización y análisis** (TensorBoard, scikit-learn, OpenCV, etc.).
+Este entorno permite ejecutar proyectos Python en **GPU AMD Radeon y CPUs Ryzen AI** mediante la nueva versión oficial de **PyTorch 2.9.0** con soporte **ROCm 7.1.1 / HIP SDK**.
+
+La instalación es completamente automatizada mediante `pip`. Incluye librerías esenciales para **Deep Learning**, **detección de objetos (YOLOv5/v8/v11, DETR)** y herramientas de **visualización y análisis** (TensorBoard, scikit-learn, OpenCV, etc.).
 
 ---
 ## 📋 Requisitos previos
 
 - **Windows 11** actualizado (recomendado: últimas actualizaciones de Windows Update).
-- **Python 3.12** instalado y accesible desde terminal / PyCharm  
+- **Python 3.12** instalado y accesible desde terminal / PyCharm.  
   ↳ Verificar: `python --version`
-- **pip** actualizado  
+- **pip** actualizado.  
   ↳ `python -m pip install --upgrade pip`
-- **Controlador AMD con PyTorch on Windows (Preview) – ROCm 6.4.4**  
-  ↳ Requiere **AMD Software: PyTorch on Windows Preview Edition 25.20.01.14**  
-  ↳ Instalar desde la página oficial de AMD ([descargar](https://www.amd.com/en/resources/support-articles/release-notes/RN-AMDGPU-WINDOWS-PYTORCH-PREVIEW.html)).
-- **GPU/CPU compatibles**  
-  ↳ Radeon compatibles (serie 8000/9000 según lista oficial) **o** CPU **Ryzen AI Max+ PRO 395** (aceleración vía ROCm/DirectML).  
+- **Controlador AMD compatible con ROCm 7.1.1** ↳ Requiere **AMD Software: Adrenalin Edition 24.40.0.0** (o superior compatible).  
+  ↳ Consultar notas de lanzamiento oficiales ([ver enlace](https://www.amd.com/en/resources/support-articles/release-notes/RN-AMDGPU-WINDOWS-PYTORCH-7-1-1.html)).
+- **GPU/CPU compatibles** ↳ Radeon compatibles (serie 7000/8000/9000 según lista oficial) **o** CPU **Ryzen AI** (aceleración vía ROCm).
 - **(Opcional)** Git Bash para comandos de terminal en Windows ([descargar](https://gitforwindows.org/)).  
-  *(Puedes usar PowerShell o la terminal integrada de PyCharm si prefieres.)*
-- **Ruta al repositorio del proyecto**  
-  https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git
-
+  *(Puedes usar PowerShell o la terminal integrada de PyCharm si prefieres).*
+- **Ruta al repositorio del proyecto** https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git
 ## 🚀 Crear y activar el entorno virtual
 
 En Git Bash:
@@ -49,7 +46,7 @@ Nota: si se trabaja con Pycharm, basta con seleccionar el intérprete una vez in
 
 ## 📦 Instalación de dependencias
 
-La instalación del entorno es completamente automática gracias al archivo `Environment/requirements.txt`, que incluye **PyTorch oficial (ROCm 6.4.4)** y todas las librerías necesarias para la ejecución de modelos (YOLOv11, DETR, métricas, visualización, etc.).
+La instalación del entorno es completamente automática gracias al archivo Environment/requirements.txt, que orquesta la instalación del **SDK de ROCm 7.1.1** seguido de los binarios de PyTorch.
 
 ---
 
@@ -73,12 +70,12 @@ python -c "import torchvision, torchaudio; print('TorchVision:', torchvision.__v
 python -c "import tensorboard; print('TensorBoard OK')"
 ```
 
-Se debe verificar las versiones instaladas, donde deberías ver 2.7.0 para PyTorch, la versión ROCm en uso, y confirmación de TensorBoard.
+Se debe verificar las versiones instaladas, donde deberías ver `2.9.0+rocmsdk...` para PyTorch, la versión ROCm en uso, y confirmación de TensorBoard.
 
-⚠️Por último, ejecutar el script de test `verify_torch_amd.py` en la terminal mediante el siguiente comando:
+⚠️Por último, ejecutar el script de test `check_environment.py` en la terminal mediante el siguiente comando:
 
 ```bash
-python Environment/verify_torch_amd.py  
+python Environment/check_environment.py  
 ```
 Este código permite verificar el uso de CPU/GPU a la hora de utilizar Pytorch.
 
@@ -95,6 +92,7 @@ Tras usar el ambiente, ejecutar el siguiente comando para eliminarlo/salir:
 ```bash
 deactivate
 rm -rf .venv
+# En PowerShell: Remove-Item -Recurse -Force .venv
 ```
 
 Nota: esto permite realizar una limpieza del ambiente sin necesidad de eliminar todo el repositorio.
