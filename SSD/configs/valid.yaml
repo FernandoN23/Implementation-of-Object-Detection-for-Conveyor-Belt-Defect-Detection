@@ -12,7 +12,7 @@
 
 experiment:
   task: "detect"
-  variant: "ssd300"
+  variant: "ssd300" # Variante por defecto (se sobrescribe al elegir preset)
   run_name: "ssd300_validation"
   phase: "valid"  # Carpeta de salida: SSD/metrics/detect/{variant}/valid/{run_name}
 
@@ -24,7 +24,7 @@ paths:
 
 presets:
   # ---------------------------------------------------------------
-  # Preset principal para validación
+  # Preset principal para validación SSD300
   # ---------------------------------------------------------------
   ssd300:
     # Backend de dataset (debe coincidir con el usado en train)
@@ -65,3 +65,31 @@ presets:
       ndjson_console: false
       ndjson_file: false
       verbose: true       # Imprimir progreso detallado
+
+  # ---------------------------------------------------------------
+  # Preset principal para validación SSD512
+  # ---------------------------------------------------------------
+  ssd512:
+    dataset_backend: "yolo"
+
+    # Dimensión ajustada para alta resolución
+    img_dim: 512
+    batch_size: 32        # Ajustar si hay problemas de VRAM (aunque en validación consume menos)
+    num_workers: 4
+    device: ""
+
+    seed: 0
+
+    inference:
+      conf_thresh: 0.001
+      nms_thresh: 0.45
+      top_k: 200
+      iou_thres: 0.5
+
+    augmentation:
+      mean: [104, 117, 123]
+
+    logging:
+      ndjson_console: false
+      ndjson_file: false
+      verbose: true
