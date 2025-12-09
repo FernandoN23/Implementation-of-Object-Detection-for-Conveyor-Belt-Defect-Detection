@@ -37,12 +37,12 @@ paths:
 # --------------------------------------------------------------
 training:
   # Tarea principal
-  task: "detect"        # por ahora sólo detección (YOLOv5); a futuro: "classify", "segment", etc.
+  task: "detect"        # por ahora sólo detección (YOLOv5)
 
-  # Variante del modelo (YOLOv11 a futuro; aquí sirve como etiqueta lógica)
+  # Variante del modelo (etiqueta lógica por defecto)
   variant: "s"          # n | s | m | l | x
 
-  # Identidad del experimento
+  # Identidad del experimento (valor base)
   run_name: "belt_defects_baseline"
 
   # Fase lógica de ejecución (afecta jerarquía de runs/metrics/weights)
@@ -51,7 +51,7 @@ training:
   # Dispositivo (vacío = autodetección en Trainer/select_device)
   device: ""
 
-  # Configuración base de entrenamiento
+  # Configuración base de entrenamiento (valores por defecto si no se usa preset)
   epochs: 100
   batch_size: 8
   imgsz: 640
@@ -62,9 +62,8 @@ training:
   # - hyp_yaml referencia un .yaml estándar de YOLOv5 (hiperparámetros base).
   hyp_yaml: "YOLO/yolov5/data/hyps/hyp.scratch-low.yaml"
 
-  # Pesos iniciales (puede ser ruta vacía para entrenamiento desde cero)
-  # - Ruta relativa al root del proyecto o absoluta.
-  pretrain_weights: "YOLO/yolov5/yolov5s.pt"
+  # Pesos iniciales por defecto (puede ser ruta vacía para entrenamiento desde cero)
+  pretrain_weights: "YOLO/weights/yolov5s.pt"
 
   # Opciones de entrenamiento (se mapean 1:1 a argumentos de yolov5/train.py)
   rect: false           # entrenamiento rectangular
@@ -100,13 +99,11 @@ miopen:
   find_mode: "FAST"
 
   # Carpeta de DB de usuario MIOpen (se crea si no existe).
-  # - Usar una ruta local limpia para evitar DBs del sistema potencialmente corruptas.
   user_db_path: "C:/Users/memorista/.miopen_db"
 
   # *** POLÍTICA PROYECTO: DESACTIVAR SIEMPRE LA CACHÉ ***
-  # - engine/bootstrap_miopen.py exporta MIOPEN_DISABLE_CACHE=1 si este
-  #   valor es true, y YOLO/train.py puede forzarlo igualmente a true.
-  disable_cache: true   # <- requerido: caché siempre deshabilitada
+  # - engine/bootstrap_miopen.py exporta MIOPEN_DISABLE_CACHE=1
+  disable_cache: true
 
   # Nivel de log MIOpen (0 silencioso, 1 info, 2 debug)
   log_level: 0
@@ -131,102 +128,123 @@ bn2gn:
   #   "on_error" → intentar BN; si falla por errores típicos MIOpen, reintentar con GN.
   policy: "on"          # *** PROYECTO: BN2GN ON por defecto ***
 
-  # Máximo de grupos para GroupNorm (el helper del patch elegirá el mejor divisor)
+  # Máximo de grupos para GroupNorm
   max_groups: 32
 
-  # Mínimo de canales por grupo (evitar grupos degenerados)
+  # Mínimo de canales por grupo
   min_channels_per_group: 1
 
-  # Verbosidad del patch BN2GN (0: silencioso, 1: info, 2: detalle)
+  # Verbosidad del patch BN2GN
   verbose: 1
 
 
 # --------------------------------------------------------------
-# Presets de prueba rápida (smoke tests) + entrenamiento final
+# Presets de prueba rápida (smoke tests) y Entrenamiento Completo
 # --------------------------------------------------------------
 presets:
   # ----------------------------------------------------------
-  # 1. Prueba rápida con coco128 + yolov5s.pt
-  #    Objetivo: validar que toda la tubería (bootstrap MIOpen,
-  #    bn2gn, Trainer, yolov5/train, métricas y plots) funciona.
+  # Smoke Test: Validar pipeline con COCO128
   # ----------------------------------------------------------
   smoke_coco128_yolov5s:
     description: "Prueba rápida con coco128 y yolov5s.pt para validar el pipeline end-to-end."
-
-    # Overrides frente a las secciones 'paths' y 'training'
     overrides:
       paths:
-        # Se usa directamente el dataset oficial coco128.yaml de YOLOv5
         dataset_cfg: "YOLO/yolov5/data/coco128.yaml"
-
       training:
         run_name: "smoke_coco128_yolov5s"
+        variant: "s"
         epochs: 1
         batch_size: 4
         imgsz: 640
-        pretrain_weights: "YOLO/yolov5/yolov5s.pt"
+        pretrain_weights: "YOLO/weights/yolov5s.pt"
         hyp_yaml: "YOLO/yolov5/data/hyps/hyp.scratch-low.yaml"
         rect: false
-        single_cls: false
         cache: "ram"
 
-  # ----------------------------------------------------------
-  # 2. Prueba rápida con Dataset del proyecto (Proyecto/Dataset)
-  #    Objetivo: validar integración con dataset.yaml del proyecto
-  #    y rutas Proyecto/Dataset (nivel superior a YOLO).
-  # ----------------------------------------------------------
-  smoke_project_dataset_scratch:
-    description: "Prueba corta sobre el Dataset del proyecto entrenando desde cero."
+  # ==========================================================
+  # Presets de Entrenamiento Final (Todas las variantes)
+  # Configuración base: 200 épocas, Batch 16, Dataset Proyecto
+  # Pesos base esperados en: YOLO/weights/yolov5{var}.pt
+  # ==========================================================
 
+  # Variante N (Nano)
+  yolov5_n:
+    description: "Entrenamiento YOLOv5 NANO (200 ep, batch 16)."
     overrides:
       paths:
-        # Reutiliza la configuración principal del dataset del proyecto
         dataset_cfg: "YOLO/configs/dataset.yaml"
-
       training:
-        run_name: "smoke_project_scratch"
-        epochs: 3
-        batch_size: 4
+        run_name: "yolov5_n"
+        variant: "n"
+        epochs: 200
+        batch_size: 16
         imgsz: 640
-        pretrain_weights: ""  # entrenamiento desde cero (sin .pt inicial)
-        hyp_yaml: "YOLO/yolov5/data/hyps/hyp.scratch-low.yaml"
+        pretrain_weights: "YOLO/weights/yolov5n.pt"
         rect: true
-        single_cls: false
         cache: "ram"
 
-  # ----------------------------------------------------------
-  # 3. Entrenamiento final sobre Dataset del proyecto
-  #    Objetivo: entrenamiento robusto con yolov5s preentrenado
-  #    usando el dataset completo de fallas en correas.
-  # ----------------------------------------------------------
-  belt_defects_yolov5s_final:
-    description: "Entrenamiento final sobre el Dataset del proyecto con yolov5s preentrenado."
-
+  # Variante S (Small)
+  yolov5_s:
+    description: "Entrenamiento YOLOv5 SMALL (200 ep, batch 16)."
     overrides:
       paths:
-        # Usa la configuración principal del dataset del proyecto
         dataset_cfg: "YOLO/configs/dataset.yaml"
-
       training:
-        # Identidad del run final
-        run_name: "belt_defects_yolov5s_final"
-
-        # Configuración más robusta que los smoke tests, manteniendo
-        # un compromiso razonable tiempo/calidad.
-        epochs: 100       # puedes subir a 150 si ves buena convergencia
-        batch_size: 8
+        run_name: "yolov5_s"
+        variant: "s"
+        epochs: 200
+        batch_size: 16
         imgsz: 640
-
-        # Fine-tuning a partir del modelo base yolov5s
-        # (idealmente almacenado en YOLO/weights/yolov5s.pt)
         pretrain_weights: "YOLO/weights/yolov5s.pt"
-
-        # Hiperparámetros base de YOLOv5 (ajustables a futuro)
-        hyp_yaml: "YOLO/yolov5/data/hyps/hyp.scratch-low.yaml"
-
-        # Detalles adicionales (alineados con tu flujo actual)
         rect: true
-        single_cls: false
         cache: "ram"
-        phase: "train"
-        use_albumentations: false
+
+  # Variante M (Medium)
+  yolov5_m:
+    description: "Entrenamiento YOLOv5 MEDIUM (200 ep, batch 16)."
+    overrides:
+      paths:
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+      training:
+        run_name: "yolov5_m"
+        variant: "m"
+        epochs: 200
+        batch_size: 16
+        imgsz: 640
+        pretrain_weights: "YOLO/weights/yolov5m.pt"
+        rect: true
+        cache: "ram"
+
+  # Variante L (Large)
+  yolov5_l:
+    description: "Entrenamiento YOLOv5 LARGE (200 ep, batch 16)."
+    overrides:
+      paths:
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+      training:
+        run_name: "yolov5_l"
+        variant: "l"
+        epochs: 200
+        batch_size: 16
+        imgsz: 640
+        pretrain_weights: "YOLO/weights/yolov5l.pt"
+        rect: true
+        cache: "ram"
+
+  # Variante X (Extra Large)
+  yolov5_x:
+    description: "Entrenamiento YOLOv5 EXTRA LARGE (200 ep, batch 16)."
+    overrides:
+      paths:
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+      training:
+        run_name: "yolov5_x"
+        variant: "x"
+        epochs: 200
+        # Nota: Batch 16 en variante X consume mucha VRAM.
+        # Ajustar si ocurre CUDA OOM.
+        batch_size: 16
+        imgsz: 640
+        pretrain_weights: "YOLO/weights/yolov5x.pt"
+        rect: true
+        cache: "ram"

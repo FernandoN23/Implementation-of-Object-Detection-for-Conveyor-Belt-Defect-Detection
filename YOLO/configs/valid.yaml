@@ -23,30 +23,27 @@ paths:
 # Parámetros generales de validación (detección por defecto).
 # --------------------------------------------------------------
 validation:
-  # Tipo de modelo a validar: "detect" (YOLOv5) o "classify" (futuro).
+  # Tipo de modelo a validar: "detect" (YOLOv5).
   task_model: "detect"
 
   # Fase lógica de validación: "val" (split de validación) o "test".
-  # Esta clave se mapea directamente al campo `task` de yolov5/val.py
-  # para seleccionar data[task] en el dataset.yaml.
+  # Se usa para seleccionar la partición correcta del dataset.
   phase: "val"
 
   # Variante del modelo (para organizar runs y métricas).
-  # n, s, m, l, x, etc.
+  # n, s, m, l, x.
   variant: "s"
 
   # Nombre lógico del experimento de validación.
   run_name: "val_default"
 
   # Ruta o alias a los pesos a validar.
-  # Puede ser una ruta absoluta/relativa a un .pt o un alias YOLOv5
-  # (por ejemplo, "yolov5s.pt" cuando se llama desde el repo oficial).
   weights: ""
 
   # Hiperparámetros de validación
-  batch_size: 4          # tamaño de batch para validación
+  batch_size: 16         # Estandarizado a 16 según requerimiento
   imgsz: 640             # tamaño de imagen (px)
-  conf_thres: 0.001      # umbral de confianza
+  conf_thres: 0.001      # umbral de confianza (bajo para cálculo preciso de mAP)
   iou_thres: 0.6         # umbral IoU para NMS
   max_det: 300           # máx. detecciones por imagen
 
@@ -62,7 +59,7 @@ validation:
   plots: true            # generar resultados.png, PR/F1, conf_matrix, etc.
   exist_ok: false        # reutilizar carpeta de run si existe
 
-  # Logging NDJSON opcional (coherente con TrainerConfig)
+  # Logging NDJSON opcional
   ndjson_console: false
   ndjson_file: false
 
@@ -73,7 +70,7 @@ validation:
 # --------------------------------------------------------------
 miopen:
   find_mode: "FAST"          # MIOPEN_FIND_MODE
-  user_db_path: null         # ruta explícita o null para usar la por defecto
+  user_db_path: "C:/Users/memorista/.miopen_db"
   disable_cache: true        # política fija del proyecto
   log_level: 0               # nivel de log de MIOpen (0 = silencioso)
   extra_env: {}              # diccionario de variables extra MIOpen
@@ -86,10 +83,7 @@ miopen:
 # En validación se usará para parchear el modelo cargado en val.py.
 # --------------------------------------------------------------
 bn2gn:
-  # Política global:
-  # - "off"  : no aplicar parche.
-  # - "on"   : aplicar parche estándar BN->GN.
-  # - "safe" : (reserva para política más conservadora si se implementa).
+  # Política global: "on" para máxima compatibilidad ROCm en Windows.
   policy: "on"
 
   # Máximo número de grupos para GroupNorm.
@@ -104,80 +98,101 @@ bn2gn:
 # --------------------------------------------------------------
 # Sección: presets
 # Conjuntos predefinidos de overrides para campañas de validación.
-# Cada preset fusiona superficialmente sus "overrides" sobre las
-# secciones raíz (paths, validation, miopen, bn2gn).
+# Alineados con los nombres de ejecución definidos en train.yaml.
 # --------------------------------------------------------------
 presets:
 
   # ----------------------------------------------------------
-  # Preset: Validación humo con COCO128 + yolov5s.pt oficial
-  # Útil para verificar la tubería de validación en el entorno ROCm.
+  # Smoke Test: Validación rápida con COCO128
   # ----------------------------------------------------------
-  smoke_coco128_yolov5s_val:
+  smoke_coco128_val:
     description: "Validación de humo sobre COCO128 usando yolov5s.pt oficial."
     overrides:
       paths:
-        # Dataset oficial COCO128 del repo YOLOv5.
         dataset_cfg: "YOLO/yolov5/data/coco128.yaml"
-
       validation:
         task_model: "detect"
         phase: "val"
         variant: "s"
-        run_name: "smoke_coco128_yolov5s_val"
-
-        # Pesos: modelo oficial YOLOv5s del subrepo YOLO/yolov5.
+        run_name: "smoke_coco128_val"
         weights: "YOLO/yolov5/yolov5s.pt"
-
         batch_size: 4
         imgsz: 640
-        conf_thres: 0.001
-        iou_thres: 0.6
-        max_det: 300
+        workers: 0     # seguro en Windows/ROCm para pruebas cortas
 
-        device: ""     # detección automática
-        workers: 0     # seguro en Windows/ROCm
+  # ==========================================================
+  # Presets de Validación Final (Todas las variantes)
+  # Buscan los pesos generados por los presets de train.yaml
+  # Ruta esperada: YOLO/runs/train/{train_run_name}/weights/best.pt
+  # ==========================================================
 
-        save_txt: false
-        save_hybrid: false
-        save_conf: false
-        save_json: false
-        plots: true
-        exist_ok: false
-
-  # ----------------------------------------------------------
-  # Preset: Validación principal en dataset de fallas en correas
-  # Requiere que existan pesos entrenados previamente.
-  # ----------------------------------------------------------
-  beltdefects_yolov5s_val:
-    description: "Validación en dataset de fallas en correas transportadoras con modelo YOLOv5s."
+  # Variante N (Nano)
+  yolov5_n:
+    description: "Validación modelo Nano entrenado (Dataset Proyecto)."
     overrides:
       paths:
-        # Dataset principal del proyecto (con clases de fallas).
         dataset_cfg: "YOLO/configs/dataset.yaml"
-
       validation:
-        task_model: "detect"
-        phase: "val"
-        variant: "s"
-        run_name: "s_belt_defects_yolov5s_val"
-
-        # Ajustar esta ruta a los pesos reales una vez entrenado el modelo
-        # (por ejemplo: YOLO/weights/detect/s/train/beltdefects_yolov5s_best.pt).
-        weights: "YOLO/weights/detect/s/train/s_belt_defects_yolov5s_final_best.pt"
-
-        batch_size: 4
+        variant: "n"
+        run_name: "val_yolov5_n"
+        # Apunta al resultado del preset 'yolov5_n' de train.yaml
+        weights: "YOLO/runs/train/yolov5_n/weights/best.pt"
+        batch_size: 16
         imgsz: 640
-        conf_thres: 0.001
-        iou_thres: 0.6
-        max_det: 300
 
-        device: ""
-        workers: 4
+  # Variante S (Small)
+  yolov5_s:
+    description: "Validación modelo Small entrenado (Dataset Proyecto)."
+    overrides:
+      paths:
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+      validation:
+        variant: "s"
+        run_name: "val_yolov5_s"
+        # Apunta al resultado del preset 'yolov5_s' de train.yaml
+        weights: "YOLO/runs/train/yolov5_s/weights/best.pt"
+        batch_size: 16
+        imgsz: 640
 
-        save_txt: false
-        save_hybrid: false
-        save_conf: false
-        save_json: false
-        plots: true
-        exist_ok: false
+  # Variante M (Medium)
+  yolov5_m:
+    description: "Validación modelo Medium entrenado (Dataset Proyecto)."
+    overrides:
+      paths:
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+      validation:
+        variant: "m"
+        run_name: "val_yolov5_m"
+        # Apunta al resultado del preset 'yolov5_m' de train.yaml
+        weights: "YOLO/runs/train/yolov5_m/weights/best.pt"
+        batch_size: 16
+        imgsz: 640
+
+  # Variante L (Large)
+  yolov5_l:
+    description: "Validación modelo Large entrenado (Dataset Proyecto)."
+    overrides:
+      paths:
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+      validation:
+        variant: "l"
+        run_name: "val_yolov5_l"
+        # Apunta al resultado del preset 'yolov5_l' de train.yaml
+        weights: "YOLO/runs/train/yolov5_l/weights/best.pt"
+        batch_size: 16
+        imgsz: 640
+
+  # Variante X (Extra Large)
+  yolov5_x:
+    description: "Validación modelo Extra Large entrenado (Dataset Proyecto)."
+    overrides:
+      paths:
+        dataset_cfg: "YOLO/configs/dataset.yaml"
+      validation:
+        variant: "x"
+        run_name: "val_yolov5_x"
+        # Apunta al resultado del preset 'yolov5_x' de train.yaml
+        weights: "YOLO/runs/train/yolov5_x/weights/best.pt"
+        # Nota: Si ocurre OOM en GPU al validar X, reducir batch_size manualmente.
+        batch_size: 16
+        imgsz: 640
