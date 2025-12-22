@@ -1,17 +1,17 @@
 # --------------------------------------------------------------
 # Archivo: SSD/configs/train.yaml
-# Descripción: Configuración de entrenamiento para SSD300.
-#              Define experimento, rutas, hiperparámetros y presets.
+# Descripción: Configuración de entrenamiento para SSD300/SSD512.
+#              Actualizado para entrenamiento extendido (200 ep).
 # ==============================================================
 
 # -----------------------------------------------------------------
 # Identidad del experimento
 # -----------------------------------------------------------------
 experiment:
-  task: detect              # tarea lógica (detección)
-  variant: ssd300           # variante del modelo (ej. ssd300, ssd512)
+  task: detect
+  variant: ssd300
   run_name: ssd300_belt_defects
-  phase: train              # train / val / test
+  phase: train
 
 # -----------------------------------------------------------------
 # Rutas base del proyecto SSD
@@ -28,13 +28,10 @@ paths:
 # -----------------------------------------------------------------
 presets:
   # ---------------------------------------------------------------
-  # 1) Preset principal: dataset de fallas (formato YOLO adaptado)
+  # 1) Preset principal: SSD300
   # ---------------------------------------------------------------
   ssd300:
-    # Flag de prueba (modifica ruta de salida si es true)
     is_test: false
-
-    # Backend de dataset y rutas
     dataset_backend: yolo
     dataset_root: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
     yolo_sets:
@@ -44,40 +41,39 @@ presets:
 
     # Hiperparámetros de optimización
     opt: SGD
-    lr: 0.001                # 1e-3
+    lr: 0.005                # Aumentado para aprendizaje inicial rápido
     momentum: 0.9
-    weight_decay: 0.001      # Aumentado a 1e-3 para regularización (Overfitting fix)
-    gamma: 0.5
-    # Ajuste suave al final del entrenamiento (Ep 70 y Ep 90 de 100 épocas)
-    # 1 Epoch = 50 iters
-    lr_steps: [ 3500, 4500 ]
+    weight_decay: 0.001
+    gamma: 0.1               # Decaimiento más agresivo para estabilizar el LR alto al final
+
+    # Estrategia de Learning Rate (Base: 1 Epoch = 50 iters)
+    # Total: 200 Épocas = 10,000 iters
+    # Paso 1: Época 125 (6250 iters) -> LR baja a 0.0005
+    # Paso 2: Época 150 (7500 iters) -> LR baja a 0.00005
+    lr_steps: [ 6250, 7500 ]
 
     # Configuración de entrenamiento
-    img_dim: 300             # tamaño de entrada (SSD300)
-    batch_size: 32
-    max_iter: 5000           # 100 épocas * 50 iters
-    num_workers: 6           # ajustar según CPU disponible
+    img_dim: 300
+    batch_size: 16
+    max_iter: 10000          # 200 épocas * 50 iters
+    num_workers: 6
 
-    # Dispositivo y control de runs
-    device: ""               # "" → auto (CUDA/HIP/CPU según disponible)
-    resume: null             # ruta a .pth para reanudar (opcional)
-    save_period: 50         # guardar estado cada época
+    device: ""
+    resume: null
+    save_period: 50
     seed: 0
-    exist_ok: false          # evitar sobreescritura de runs previos
+    exist_ok: false
 
-    # Parámetros de pérdida y matching
     loss:
-      overlap_thresh: 0.5    # IoU para matching positivo
-      neg_pos_ratio: 3       # relación negativos:positivos
-      neg_overlap: 0.5       # IoU para negativos
+      overlap_thresh: 0.5
+      neg_pos_ratio: 3
+      neg_overlap: 0.5
 
-    # Parámetros de inferencia (Detect/NMS)
     inference:
-      conf_thresh: 0.01      # umbral mínimo de confianza
-      nms_thresh: 0.45       # IoU para NMS
-      top_k: 200             # máx. detecciones por imagen
+      conf_thresh: 0.01
+      nms_thresh: 0.45
+      top_k: 200
 
-    # Parámetros de augmentación (SSDAugmentation)
     augmentation:
       mean: [104, 117, 123]
       brightness_delta: 32
@@ -86,20 +82,17 @@ presets:
       hue_delta: 18
       random_mirror_prob: 0.5
 
-    # Logging y métricas
     logging:
       ndjson_console: false
       ndjson_file: false
 
-    # Integración BN→GN (opcional, alineado con YOLO)
     bn2gn:
       enabled: false
-      policy: "off"          # off | auto | force
+      policy: "off"
       max_groups: 32
       min_channels_per_group: 1
       verbose: 1
 
-    # Integración MIOpen (ROCm) - valores típicos, ajustables
     miopen:
       enabled: true
       env:
@@ -108,13 +101,10 @@ presets:
         MIOPEN_DEBUG_DISABLE_FIND_DB: "1"
 
   # ---------------------------------------------------------------
-  # 2) Preset principal: dataset de fallas (formato YOLO adaptado)
+  # 2) Preset principal: SSD512
   # ---------------------------------------------------------------
   ssd512:
-    # Flag de prueba (modifica ruta de salida si es true)
     is_test: false
-
-    # Backend de dataset y rutas
     dataset_backend: yolo
     dataset_root: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
     yolo_sets:
@@ -124,40 +114,39 @@ presets:
 
     # Hiperparámetros de optimización
     opt: SGD
-    lr: 0.001                # 1e-3
+    lr: 0.005                # Aumentado para aprendizaje inicial rápido
     momentum: 0.9
-    weight_decay: 0.001      # Aumentado a 1e-3 para regularización (Overfitting fix)
-    gamma: 0.5
-    # Ajuste suave al final del entrenamiento (Ep 70 y Ep 90 de 100 épocas)
-    # 1 Epoch = 50 iters
-    lr_steps: [ 3500, 4500 ]
+    weight_decay: 0.001
+    gamma: 0.1               # Decaimiento estándar (x0.1)
+
+    # Estrategia de Learning Rate (Base: 1 Epoch = 50 iters)
+    # Total: 200 Épocas = 10,000 iters
+    # Paso 1: Época 125 (6250 iters)
+    # Paso 2: Época 150 (7500 iters)
+    lr_steps: [ 6250, 7500 ]
 
     # Configuración de entrenamiento
-    img_dim: 512             # tamaño de entrada (SSD300)
-    batch_size: 32
-    max_iter: 5000           # 100 épocas * 50 iters
-    num_workers: 6           # ajustar según CPU disponible
+    img_dim: 512
+    batch_size: 16
+    max_iter: 10000          # 200 épocas * 50 iters
+    num_workers: 6
 
-    # Dispositivo y control de runs
-    device: ""               # "" → auto (CUDA/HIP/CPU según disponible)
-    resume: null             # ruta a .pth para reanudar (opcional)
-    save_period: 50         # guardar estado cada época
+    device: ""
+    resume: null
+    save_period: 50
     seed: 0
-    exist_ok: false          # evitar sobreescritura de runs previos
+    exist_ok: false
 
-    # Parámetros de pérdida y matching
     loss:
-      overlap_thresh: 0.5    # IoU para matching positivo
-      neg_pos_ratio: 3       # relación negativos:positivos
-      neg_overlap: 0.5       # IoU para negativos
+      overlap_thresh: 0.5
+      neg_pos_ratio: 3
+      neg_overlap: 0.5
 
-    # Parámetros de inferencia (Detect/NMS)
     inference:
-      conf_thresh: 0.01      # umbral mínimo de confianza
-      nms_thresh: 0.45       # IoU para NMS
-      top_k: 200             # máx. detecciones por imagen
+      conf_thresh: 0.01
+      nms_thresh: 0.45
+      top_k: 200
 
-    # Parámetros de augmentación (SSDAugmentation)
     augmentation:
       mean: [ 104, 117, 123 ]
       brightness_delta: 32
@@ -166,20 +155,17 @@ presets:
       hue_delta: 18
       random_mirror_prob: 0.5
 
-    # Logging y métricas
     logging:
       ndjson_console: false
       ndjson_file: false
 
-    # Integración BN→GN (opcional, alineado con YOLO)
     bn2gn:
       enabled: false
-      policy: "off"          # off | auto | force
+      policy: "off"
       max_groups: 32
       min_channels_per_group: 1
       verbose: 1
 
-    # Integración MIOpen (ROCm) - valores típicos, ajustables
     miopen:
       enabled: true
       env:
@@ -188,14 +174,12 @@ presets:
         MIOPEN_DEBUG_DISABLE_FIND_DB: "1"
 
   # ---------------------------------------------------------------
-  # 3) Preset de depuración con VOC (usa ssd/data/voc0712.py)
+  # 3) Preset de depuración con VOC
   # ---------------------------------------------------------------
   ssd300_voc_debug:
     is_test: true
-
-    # Backend y rutas de VOC
     dataset_backend: voc
-    dataset_root: C:/Users/memorista/data/VOCdevkit   # ajustar según tu estructura
+    dataset_root: C:/Users/memorista/data/VOCdevkit
     voc_sets:
       train:
         - [2007, trainval]
@@ -203,7 +187,6 @@ presets:
       val:
         - [2007, test]
 
-    # Hiperparámetros (puedes reducir max_iter para debug)
     opt: SGD
     lr: 0.001
     momentum: 0.9
@@ -259,19 +242,16 @@ presets:
         MIOPEN_DEBUG_DISABLE_FIND_DB: "1"
 
   # ---------------------------------------------------------------
-  # 4) Preset de depuración con COCO (usa ssd/data/coco.py)
+  # 4) Preset de depuración con COCO
   # ---------------------------------------------------------------
   ssd300_coco_debug:
     is_test: true
-
-    # Backend y rutas de COCO
     dataset_backend: coco
-    dataset_root: C:/Users/memorista/data/coco        # ajustar según tu estructura
+    dataset_root: C:/Users/memorista/data/coco
     coco_sets:
       train: trainval35k
       val:   minival
 
-    # Hiperparámetros (idénticos a default, puedes reducir max_iter para debug)
     opt: SGD
     lr: 0.001
     momentum: 0.9
