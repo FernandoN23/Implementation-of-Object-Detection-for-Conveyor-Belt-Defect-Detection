@@ -111,7 +111,7 @@ python YOLO/train.py --preset yolov5_n
 python YOLO/valid.py --preset yolov5_s
 
 # Validación manual
-python YOLO/valid.py --weights YOLO/runs/train/belt_defects_yolov5_s/weights/best.pt --task-model detect --imgsz 640
+python YOLO/valid.py --weights YOLO/weights/detect/s/train/s_yolov5_s_best.pt --task-model detect --imgsz 640
 ```
 
 ### 3\. Inferencia Visual (Test)

@@ -65,6 +65,10 @@ training:
   # Pesos iniciales por defecto (puede ser ruta vacía para entrenamiento desde cero)
   pretrain_weights: "YOLO/weights/yolov5s.pt"
 
+  # Reanudar entrenamiento (false | true | ruta/a/last.pt)
+  # Si es true, el Trainer intentará resolver la ruta automáticamente según el run_name.
+  resume: false
+
   # Opciones de entrenamiento (se mapean 1:1 a argumentos de yolov5/train.py)
   rect: false           # entrenamiento rectangular
   single_cls: false     # forzar todo como una sola clase

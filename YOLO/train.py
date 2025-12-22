@@ -43,6 +43,8 @@ Notas de diseño (iteración actual)
   Albumentations se leen desde `training` en `train.yaml` y se
   propagan a `TrainerConfig` para estructurar la jerarquía de
   directorios y controlar el pipeline de augmentations externas.
+- Soporte para reanudar entrenamientos (`--resume`) de forma automática
+  o explícita.
 """
 
 from __future__ import annotations
@@ -265,6 +267,15 @@ def _build_trainer_config(
     exist_ok = bool(training.get("exist_ok", False))
 
     # ---------------------------
+    # Reanudación (Resume)
+    # ---------------------------
+    # Prioridad: CLI > YAML > False
+    if args.resume is not None:
+        resume = args.resume
+    else:
+        resume = training.get("resume", False)
+
+    # ---------------------------
     # Configuración BN2GN
     # ---------------------------
     bn2gn_cfg = None
@@ -296,6 +307,7 @@ def _build_trainer_config(
         save_period=save_period,
         seed=seed,
         exist_ok=exist_ok,
+        resume=resume,
         ndjson_console=ndjson_console,
         ndjson_file=ndjson_file,
         miopen=miopen_cfg,
@@ -350,6 +362,18 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=None, help="Tamaño de batch (override de train.yaml)")
     parser.add_argument("--imgsz", type=int, default=None, help="Tamaño de imagen (override de train.yaml)")
     parser.add_argument("--weights", type=str, default=None, help="Pesos iniciales (ruta .pt o alias de YOLOv5)")
+
+    # Reanudación
+    parser.add_argument(
+        "--resume",
+        nargs="?",
+        const=True,
+        default=None,
+        help=(
+            "Reanudar entrenamiento. Si se usa sin valor, intenta autodescubrir el último run "
+            "basado en el nombre del experimento. Si se pasa una ruta, usa ese archivo .pt."
+        ),
+    )
 
     # Control de bootstrap MIOpen
     parser.add_argument(

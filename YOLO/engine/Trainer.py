@@ -8,7 +8,7 @@
 # Archivo: YOLO/engine/Trainer.py
 # Descripción: Entrenador principal del modelo YOLO.
 #              Orquestador de runs, rutas y delegación a YOLOv5.
-#==============================================================
+# ==============================================================
 
 """Entrenador principal para experimentos YOLO basados en YOLOv5.
 
@@ -24,6 +24,8 @@ Iteración actual del módulo `Trainer`, responsable de:
   estructurar la jerarquía de runs, métricas y pesos.
 - Exponer un flag de alto nivel para activar/desactivar Albumentations
   en la copia local de YOLOv5 mediante una variable de entorno.
+- Gestionar la reanudación (resume) de entrenamientos interrumpidos,
+  ya sea por ruta explícita o autodescubrimiento del último run.
 
 Notas importantes
 -----------------
@@ -59,6 +61,7 @@ Cambios relevantes en esta iteración
 - Se introduce un flag de configuración de alto nivel para controlar la
   activación de Albumentations en YOLOv5 vía la variable de entorno
   `YOLO_DISABLE_ALBUMENTATIONS`.
+- Implementación de lógica de `resume` inteligente.
 """
 
 from __future__ import annotations
@@ -70,21 +73,21 @@ import shutil
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 # ---------------------------------------------------------------------------
 # Rutas base de proyecto
 # ---------------------------------------------------------------------------
 
 FILE = Path(__file__).resolve()
-YOLO_ROOT = FILE.parents[1]           # .../YOLO
-PROJECT_ROOT = YOLO_ROOT.parent       # carpeta raíz del proyecto (nivel superior a YOLO)
+YOLO_ROOT = FILE.parents[1]  # .../YOLO
+PROJECT_ROOT = YOLO_ROOT.parent  # carpeta raíz del proyecto (nivel superior a YOLO)
 CONFIGS_ROOT = YOLO_ROOT / "configs"  # YOLO/configs
 WEIGHTS_ROOT = YOLO_ROOT / "weights"  # YOLO/weights
-RUNS_ROOT = YOLO_ROOT / "runs"        # YOLO/runs
+RUNS_ROOT = YOLO_ROOT / "runs"  # YOLO/runs
 METRICS_ROOT = YOLO_ROOT / "metrics"  # YOLO/metrics
 DATASET_ROOT = PROJECT_ROOT / "Dataset"  # Proyecto/Dataset
-YOLOV5_ROOT = YOLO_ROOT / "yolov5"    # copia local de YOLOv5 oficial
+YOLOV5_ROOT = YOLO_ROOT / "yolov5"  # copia local de YOLOv5 oficial
 
 if str(YOLOV5_ROOT) not in sys.path:
     # Necesario para que imports internos de YOLOv5 (models, utils, etc.)
@@ -181,15 +184,15 @@ class TrainerConfig:
     """
 
     # Identidad del experimento
-    task: str = "detect"         # por ahora: "detect" (detección). Futuro: "classify".
-    variant: str = "s"           # n, s, m, l, x (ej. YOLOv11-s)
-    run_name: str = "exp"        # nombre lógico del experimento
-    phase: str = "train"        # fase lógica: train / val / test
+    task: str = "detect"  # por ahora: "detect" (detección). Futuro: "classify".
+    variant: str = "s"  # n, s, m, l, x (ej. YOLOv11-s)
+    run_name: str = "exp"  # nombre lógico del experimento
+    phase: str = "train"  # fase lógica: train / val / test
 
     # Datos y rutas
     data_config: Path = field(default_factory=lambda: CONFIGS_ROOT / "dataset.yaml")
-    hyp: Optional[Path] = None          # ruta a hyp.yaml (hiperparámetros YOLOv5)
-    weights: str = ""                  # pesos iniciales (yolov5s.pt, ruta a .pt, o "")
+    hyp: Optional[Path] = None  # ruta a hyp.yaml (hiperparámetros YOLOv5)
+    weights: str = ""  # pesos iniciales (yolov5s.pt, ruta a .pt, o "")
 
     # Hiperparámetros esenciales
     epochs: int = 100
@@ -198,10 +201,13 @@ class TrainerConfig:
     workers: int = max(os.cpu_count() - 1, 1) if os.cpu_count() else 2
 
     # Dispositivo y opciones de entrenamiento
-    device: str = ""                   # "" → auto, "0", "0,1", "cpu", etc.
-    save_period: int = -1               # guarda epoch-k si > 0
+    device: str = ""  # "" → auto, "0", "0,1", "cpu", etc.
+    save_period: int = -1  # guarda epoch-k si > 0
     seed: int = 0
-    exist_ok: bool = False              # reutilizar carpeta si existe
+    exist_ok: bool = False  # reutilizar carpeta si existe
+
+    # Reanudación de entrenamiento
+    resume: bool | str = False  # False, True (auto), o ruta explícita
 
     # Opciones de logging
     ndjson_console: bool = False
@@ -212,7 +218,7 @@ class TrainerConfig:
 
     # Esqueleto para integración con MIOpen/BN2GN
     miopen: Optional["MIOpenConfig"] = None  # se aplica en YOLO/train.py antes de importar torch
-    bn2gn: Optional["BN2GNConfig"] = None    # configuración BN2GN (aplicación en backend YOLOv5)
+    bn2gn: Optional["BN2GNConfig"] = None  # configuración BN2GN (aplicación en backend YOLOv5)
 
     def as_dict(self) -> Dict:
         """Retorna la configuración en formato dict estándar (útil para logs/meta)."""
@@ -327,6 +333,44 @@ class Trainer:
         self._sync_metrics()
 
     # ------------------------------------------------------------------
+    # Resolución de Resume
+    # ------------------------------------------------------------------
+
+    def _resolve_resume_path(self) -> Union[str, bool]:
+        """Resuelve la ruta de reanudación (resume) o devuelve False.
+
+        Lógica:
+        - Si self.cfg.resume es False -> retorna False.
+        - Si es str -> retorna la ruta absoluta (si existe o no, YOLOv5 lo validará).
+        - Si es True -> intenta autodescubrir el último run basado en task/variant/phase/run_name.
+          Si encuentra 'last.pt', retorna esa ruta. Si no, advierte y retorna False.
+        """
+        if not self.cfg.resume:
+            return False
+
+        # Caso 1: Ruta explícita
+        if isinstance(self.cfg.resume, str):
+            # Convertir a absoluta para evitar ambigüedades en YOLOv5
+            return str(Path(self.cfg.resume).resolve())
+
+        # Caso 2: Autodescubrimiento (resume=True)
+        if self.cfg.resume is True:
+            latest_dir = _resolve_latest_run_dir(
+                self.cfg.task, self.cfg.variant, self.cfg.phase, self.cfg.run_name
+            )
+            if latest_dir:
+                last_pt = latest_dir / "weights" / "last.pt"
+                if last_pt.is_file():
+                    print(f"[Trainer] Auto-resume: encontrado checkpoint en {last_pt}")
+                    return str(last_pt.resolve())
+
+            print(f"[Trainer] ADVERTENCIA: --resume activado pero no se encontró 'last.pt' "
+                  f"para el experimento '{self.cfg.run_name}'. Se iniciará entrenamiento desde cero.")
+            return False
+
+        return False
+
+    # ------------------------------------------------------------------
     # Construcción de opciones para YOLOv5
     # ------------------------------------------------------------------
 
@@ -341,7 +385,7 @@ class Trainer:
 
         # Rutas de proyecto/name según convención de YOLOv5
         project = RUNS_ROOT / self.cfg.task / self.cfg.variant / self.cfg.phase  # p.ej. YOLO/runs/detect/s/train
-        name = self.cfg.run_name                                                # nombre lógico del experimento
+        name = self.cfg.run_name  # nombre lógico del experimento
 
         # Configuración BN2GN para propagarla al backend YOLOv5
         if isinstance(self.cfg.bn2gn, BN2GNConfig):  # type: ignore[arg-type]
@@ -355,8 +399,15 @@ class Trainer:
             bn2gn_min_channels_per_group = 1
             bn2gn_verbose = 1
 
+        # Resolver lógica de resume
+        resume_arg = self._resolve_resume_path()
+
         # Resolver ruta de pesos a utilizar
-        if self.cfg.weights:
+        # Si estamos reanudando, YOLOv5 prioriza 'resume', pero es buena práctica
+        # alinear 'weights' con el checkpoint de reanudación si es explícito.
+        if isinstance(resume_arg, str):
+            weights_arg = resume_arg
+        elif self.cfg.weights:
             weights_arg = str(self.cfg.weights)
         else:
             # Ruta por defecto del modelo base yolov5s.pt dentro de YOLO/weights
@@ -379,7 +430,7 @@ class Trainer:
 
             # Opciones de entrenamiento (por ahora, valores razonables por defecto)
             rect=False,
-            resume=False,
+            resume=resume_arg,  # False o ruta str
             nosave=False,
             noval=False,
             noautoanchor=False,
