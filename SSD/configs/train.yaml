@@ -1,7 +1,12 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: SSD/configs/train.yaml
-# Descripción: Configuración de entrenamiento para SSD300/SSD512.
-#              Actualizado para entrenamiento extendido (200 ep).
+# Descripción: Configuración de hiperparámetros para entrenamiento y validación interna.
 # ==============================================================
 
 # -----------------------------------------------------------------

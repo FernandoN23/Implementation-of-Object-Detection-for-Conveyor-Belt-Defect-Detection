@@ -1,7 +1,13 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: SSD/configs/model_variants.yaml
-# Descripción: Especificaciones técnicas de las variantes SSD.
-# --------------------------------------------------------------
+# Descripción: Especificaciones técnicas de las variantes de SSD.
+# ==============================================================
 
 ssd300:
   image_size: 300
