@@ -175,6 +175,7 @@ class TrainerConfigSSD:
     num_workers: int
     device: str
     resume: Optional[Path]
+    auto_resume: bool  # Nuevo campo para lógica de auto-resume
     save_period: int
     seed: int
     exist_ok: bool
@@ -299,6 +300,7 @@ class TrainerConfigSSD:
             num_workers=int(p.get("num_workers", _cpu_workers_default())),
             device=str(p.get("device", "")),
             resume=resume,
+            auto_resume=False,  # Default
             save_period=int(p.get("save_period", 5000)),
             seed=int(p.get("seed", 0)),
             exist_ok=bool(p.get("exist_ok", False)),
@@ -353,6 +355,17 @@ class TrainerSSD:
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.weights_dir.mkdir(parents=True, exist_ok=True)
         self.metrics_dir.mkdir(parents=True, exist_ok=True)
+
+        # ---------------------------------------------------------------------
+        # Lógica Auto-Resume
+        # ---------------------------------------------------------------------
+        if self.cfg.auto_resume:
+            potential_last = self.weights_dir / "last.pth"
+            if potential_last.is_file():
+                print(f"[TrainerSSD] Auto-resume: Checkpoint encontrado en {potential_last}")
+                self.cfg.resume = potential_last
+            else:
+                print(f"[TrainerSSD] Auto-resume: No se encontró {potential_last}. Iniciando desde cero.")
 
         # Inicialización de dispositivo
         self.device = self._select_device(cfg.device)
