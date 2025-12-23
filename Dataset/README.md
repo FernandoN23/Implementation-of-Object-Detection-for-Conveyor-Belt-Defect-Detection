@@ -93,7 +93,7 @@ El dataset filtrado y post-procesado, contiene 5 tipos de clases: 5 fallas y con
   <tr>
     <td align="center">
       <b>Tear (Desgarro)</b><br>
-      <img src="train/images/0128.jpg" alt="Tear" width="210">
+      <img src="train/images/0128.jpg" alt="Tear" width="150">
     </td>
     <td align="center">
       <b>Wear (Abrasión)</b><br>
@@ -101,7 +101,7 @@ El dataset filtrado y post-procesado, contiene 5 tipos de clases: 5 fallas y con
     </td>
     <td align="center">
       <b>Healthy (Sin fallas)</b><br>
-      <img src="train/images/1382.jpg" alt="Sin fallas" width="160">
+      <img src="train/images/1382.jpg" alt="Sin fallas" width="150">
     </td>
   </tr>
 </table>
