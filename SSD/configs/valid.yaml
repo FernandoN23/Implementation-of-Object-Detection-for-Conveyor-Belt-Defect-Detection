@@ -12,8 +12,8 @@
 
 experiment:
   task: "detect"
-  variant: "ssd300" # Variante por defecto (se sobrescribe al elegir preset)
-  run_name: "ssd300_validation"
+  variant: "ssd300" # Default (se sobrescribe por preset)
+  run_name: "ssd300" # Default (se sobrescribe por preset)
   phase: "valid"  # Carpeta de salida: SSD/metrics/detect/{variant}/valid/{run_name}
 
 paths:
@@ -27,6 +27,10 @@ presets:
   # Preset principal para validación SSD300
   # ---------------------------------------------------------------
   ssd300:
+    # Identidad Específica
+    variant: "ssd300"
+    run_name: "ssd300"
+
     # Backend de dataset (debe coincidir con el usado en train)
     dataset_backend: "yolo"
 
@@ -70,6 +74,10 @@ presets:
   # Preset principal para validación SSD512
   # ---------------------------------------------------------------
   ssd512:
+    # Identidad Específica
+    variant: "ssd512"
+    run_name: "ssd512"
+
     dataset_backend: "yolo"
 
     # Dimensión ajustada para alta resolución

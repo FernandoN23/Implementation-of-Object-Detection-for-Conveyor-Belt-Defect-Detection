@@ -133,6 +133,18 @@ if _BN2GN_PATH.is_file():
 else:  # pragma: no cover - entorno sin parche
     apply_bn2gn_patch = None
 
+# -----------------------------------------------------------------------------
+# Carga de Utilidad de Métricas (CLI) para generación automática de gráficos
+# -----------------------------------------------------------------------------
+_METRICS_CLI_PATH = SSD_ROOT / "utility" / "metrics.py"
+if _METRICS_CLI_PATH.is_file():
+    _metrics_cli_mod = _load_module_from(_METRICS_CLI_PATH, "ssd_metrics_cli")
+    MetricsConfig = _metrics_cli_mod.MetricsConfig  # type: ignore[attr-defined]
+    run_single_mode = _metrics_cli_mod.run_single_mode  # type: ignore[attr-defined]
+else:
+    MetricsConfig = None
+    run_single_mode = None
+
 
 # ==============================================================
 # Configuración de entrenamiento (TrainerConfigSSD)
@@ -268,11 +280,12 @@ class TrainerConfigSSD:
             resume = Path(resume_path).expanduser().resolve()
 
         return cls(
-            # Identidad
+            # Identidad: Prioridad Preset > Global > Default
             task=str(exp_cfg.get("task", "detect")),
-            variant=str(exp_cfg.get("variant", "ssd300")),
-            run_name=str(exp_cfg.get("run_name", "ssd300_experiment")),
+            variant=str(p.get("variant", exp_cfg.get("variant", "ssd300"))),
+            run_name=str(p.get("run_name", exp_cfg.get("run_name", "ssd300_experiment"))),
             phase=str(exp_cfg.get("phase", "train")),
+
             is_test=bool(p.get("is_test", False)),
             preset_name=preset,  # Guardamos el nombre del preset
             dataset_backend=str(p.get("dataset_backend", "yolo")),
@@ -717,7 +730,26 @@ class TrainerSSD:
                 print("[TrainerSSD] Se alcanzó max_iter; entrenamiento finalizado.")
                 break
 
-        print("[TrainerSSD] Entrenamiento finalizado. Use utility/metrics.py para generar gráficos históricos.")
+        # ---------------------------------------------------------------------
+        # Generación Automática de Gráficos al Finalizar
+        # ---------------------------------------------------------------------
+        print("[TrainerSSD] Entrenamiento finalizado. Generando gráficos...")
+        if run_single_mode and MetricsConfig:
+            try:
+                # Configurar para metrics.py
+                # Nota: metrics.py espera 'train_run' como el nombre de la carpeta, no la ruta completa
+                metrics_cfg = MetricsConfig(
+                    task_model=self.cfg.task,
+                    variant=self.cfg.variant,
+                    train_run=self.cfg.run_name,
+                    merge_mode=False
+                )
+                run_single_mode(metrics_cfg)
+            except Exception as e:
+                print(f"[TrainerSSD] Advertencia: Error generando gráficos automáticos: {e}")
+                print("Puede generarlos manualmente ejecutando: python SSD/utility/metrics.py")
+        else:
+            print("[TrainerSSD] Advertencia: No se pudo cargar el módulo de métricas (utility/metrics.py).")
 
     def _train_one_epoch(self, max_iter: int) -> Dict[str, float]:
         """Ejecuta una época de entrenamiento y retorna pérdidas medias."""
@@ -834,7 +866,7 @@ class TrainerSSD:
             mAP_0_95 = metrics.get("mAP_0.5_0.95", 0.0)
             mAP_0_5 = metrics.get("mAP_0.5", 0.0)
             current_fitness = \
-            fitness(np.array([metrics.get("P", 0.0), metrics.get("R", 0.0), mAP_0_5, mAP_0_95]).reshape(1, -1))[0]
+                fitness(np.array([metrics.get("P", 0.0), metrics.get("R", 0.0), mAP_0_5, mAP_0_95]).reshape(1, -1))[0]
 
             metric_stats.update(metrics)
             metric_stats["fitness"] = float(current_fitness)

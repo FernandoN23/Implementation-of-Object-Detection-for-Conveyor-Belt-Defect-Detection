@@ -6,193 +6,520 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: SSD/utility/metrics.py
-# Descripción: Utilidades para visualización de historial de entrenamiento.
-#              Procesa results.csv y genera curvas organizadas en carpetas.
+# Descripción: Herramienta CLI para visualización y comparación
+#              de métricas de entrenamiento SSD.
+#              Genera curvas de pérdida detalladas (Loc, Conf, Total)
+#              y métricas de validación (P, R, F1, mAP).
 # ==============================================================
 
 from __future__ import annotations
 
-import csv
+import argparse
+import json
+import sys
+import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-# Configuración de estilo global similar a YOLOv5
-plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "seaborn-whitegrid")
+# Configuración de estilo para Matplotlib
+try:
+    import seaborn as sns
 
-# Paleta de colores estándar YOLO
-COLOR_TRAIN = '#1f77b4'  # Azul
-COLOR_VAL = '#ff7f0e'  # Naranja
-COLOR_MAP50 = '#1f77b4'
-COLOR_MAP95 = '#ff7f0e'
+    sns.set_theme(style="whitegrid", font_scale=1.1)
+    sns.set_palette("tab10")
+except ImportError:
+    plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'seaborn-whitegrid')
+
+plt.rcParams.update({
+    'font.size': 10,
+    'axes.labelsize': 11,
+    'axes.titlesize': 12,
+    'legend.fontsize': 10,
+    'lines.linewidth': 2
+})
+
+# ---------------------------------------------------------------------------
+# Definición de Rutas y Constantes
+# ---------------------------------------------------------------------------
+
+FILE = Path(__file__).resolve()
+SSD_ROOT = FILE.parents[1]  # SSD/
+METRICS_ROOT = SSD_ROOT / "metrics"
+
+# Parámetros aproximados de SSD (VGG16 Backbone) en Millones
+SSD_PARAMS_M = {
+    "ssd300": 26.3,
+    "ssd512": 27.1,
+}
+
+# Colores distintivos para las variantes (Modo Comparativo)
+VARIANT_COLORS = {
+    "ssd300": "#1f77b4",  # Azul
+    "ssd512": "#d62728",  # Rojo
+}
+
+# Colores para Train/Val (Modo Individual)
+COLOR_TRAIN = "#1f77b4"  # Azul
+COLOR_VAL = "#ff7f0e"  # Naranja
 
 
-def smooth(y: np.ndarray, f: float = 0.05) -> np.ndarray:
-    """Suaviza la curva y usando una ventana de convolución (Box filter)."""
-    if len(y) == 0:
-        return y
-    nf = round(len(y) * f * 2) // 2 * 2 + 1
-    nf = max(nf, 1)
+# ---------------------------------------------------------------------------
+# Configuración (Dataclass)
+# ---------------------------------------------------------------------------
 
-    p = np.ones(nf // 2)
-    yp = np.concatenate((p * y[0], y, p * y[-1]), 0)
-    return np.convolve(yp, np.ones(nf) / nf, mode="valid")
+@dataclass
+class MetricsConfig:
+    task_model: str = "detect"
+    variant: str = "ssd300"
+    train_run: str = ""
+    merge_mode: bool = False
+    variants_to_compare: List[str] = None  # type: ignore
+
+    @property
+    def train_metrics_dir(self) -> Path:
+        # Estructura: SSD/metrics/detect/{variant}/train/{run_name}
+        return METRICS_ROOT / self.task_model / self.variant / "train" / self.train_run
+
+    @property
+    def final_metrics_dir(self) -> Path:
+        # Salida para modo comparativo (Merge)
+        return METRICS_ROOT / self.task_model / "global_comparison"
 
 
-def plot_results(file: str | Path = "results.csv", save_dir: str | Path = "", model_name: str = "SSD300") -> None:
+# ---------------------------------------------------------------------------
+# Utilidades Generales
+# ---------------------------------------------------------------------------
+
+def _ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def list_runs(root: Path) -> List[str]:
+    if not root.exists(): return []
+    return sorted([p.name for p in root.iterdir() if p.is_dir()])
+
+
+def interactive_select(prompt: str, options: List[str]) -> str:
+    if not options: raise RuntimeError(f"No hay opciones disponibles para: {prompt}")
+    print(f"\n{prompt}")
+    for i, name in enumerate(options): print(f"  [{i}] {name}")
+    while True:
+        idx = input("Seleccione índice: ").strip()
+        if idx.isdigit() and 0 <= int(idx) < len(options): return options[int(idx)]
+        print("Índice inválido.")
+
+
+def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
     """
-    Lee results.csv y genera gráficos organizados con estilo YOLO.
+    Aplica suavizado exponencial robusto a NaNs.
+    Usa interpolación de Pandas para rellenar huecos antes de suavizar.
     """
-    file = Path(file)
-    save_dir = Path(save_dir) if save_dir else file.parent
+    series = pd.Series(scalars)
+    series = series.interpolate(limit_direction='both')
 
-    losses_dir = save_dir / "losses"
-    components_dir = losses_dir / "components"
-    metrics_dir = save_dir / "metrics_history"
+    if series.isnull().all():
+        return scalars
 
-    losses_dir.mkdir(parents=True, exist_ok=True)
-    components_dir.mkdir(parents=True, exist_ok=True)
-    metrics_dir.mkdir(parents=True, exist_ok=True)
+    clean_scalars = series.tolist()
+    last = clean_scalars[0]
+    smoothed = []
+    for point in clean_scalars:
+        smoothed_val = last * weight + (1 - weight) * point
+        smoothed.append(smoothed_val)
+        last = smoothed_val
+    return smoothed
 
-    if not file.is_file():
-        print(f"[SSD/utility] Advertencia: No se encontró {file}")
-        return
+
+# ---------------------------------------------------------------------------
+# Carga de Datos
+# ---------------------------------------------------------------------------
+
+def load_results_csv(path: Path) -> pd.DataFrame:
+    """Carga results.csv de SSD y asegura tipos numéricos."""
+    if not path.is_file():
+        raise FileNotFoundError(f"No se encontró results.csv en {path}")
 
     try:
-        df = pd.read_csv(file)
+        df = pd.read_csv(path)
         df.columns = [c.strip() for c in df.columns]
+
+        cols_to_numeric = [c for c in df.columns if c not in ['epoch', 'iteration']]
+        for col in cols_to_numeric:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        return df
     except Exception as e:
-        print(f"[SSD/utility] Error leyendo CSV: {e}")
+        print(f"[Error] Leyendo CSV {path}: {e}")
+        return pd.DataFrame()
+
+
+# ---------------------------------------------------------------------------
+# Lógica de Ploteo (Individual)
+# ---------------------------------------------------------------------------
+
+def plot_train_val_curve(
+        df: pd.DataFrame,
+        train_col: str,
+        val_col: str,
+        title: str,
+        ylabel: str,
+        out_path: Path,
+        smooth_factor: float = 0.6
+) -> None:
+    """
+    Genera un gráfico combinado de Train vs Val para una métrica específica.
+    Útil para Loss Total, Loss Loc y Loss Conf.
+    """
+    if df.empty: return
+
+    # Verificar existencia de columnas
+    has_train = train_col in df.columns
+    has_val = val_col in df.columns
+
+    if not has_train and not has_val:
         return
 
-    epochs = df["epoch"].values
+    plt.figure(figsize=(10, 6))
+    epochs = df["epoch"]
 
-    if "val_mAP_0.5_0.95" in df.columns:
-        df = df.rename(columns={"val_mAP_0.5_0.95": "val_mAP_0.95"})
+    # Plot Train
+    if has_train:
+        raw_train = df[train_col].values.astype(float)
+        smooth_train = smooth_signal(raw_train.tolist(), weight=smooth_factor)
+        plt.plot(epochs, raw_train, color=COLOR_TRAIN, alpha=0.2, linewidth=1)
+        plt.plot(epochs, smooth_train, label="Train", color=COLOR_TRAIN, alpha=1.0, linewidth=2.5)
 
-    # -------------------------------------------------------------------------
-    # 1. Gráficos de Pérdidas (Losses)
-    # -------------------------------------------------------------------------
+    # Plot Val
+    if has_val:
+        raw_val = df[val_col].values.astype(float)
+        smooth_val = smooth_signal(raw_val.tolist(), weight=smooth_factor)
+        plt.plot(epochs, raw_val, color=COLOR_VAL, alpha=0.2, linewidth=1)
+        plt.plot(epochs, smooth_val, label="Validation", color=COLOR_VAL, alpha=1.0, linewidth=2.5)
 
-    # 1.1 Total Loss (Train vs Val)
-    if "train_loss_total" in df.columns and "val_loss_total" in df.columns:
-        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend(frameon=True, framealpha=0.9)
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close()
 
-        y_train = df["train_loss_total"].values
-        y_val = df["val_loss_total"].values
 
-        ax.plot(epochs, y_train, color=COLOR_TRAIN, alpha=0.3, linewidth=1)
-        ax.plot(epochs, smooth(y_train), color=COLOR_TRAIN, linewidth=2, label="Train mean loss")
+# ---------------------------------------------------------------------------
+# Lógica de Ploteo (Comparativo)
+# ---------------------------------------------------------------------------
 
-        ax.plot(epochs, y_val, color=COLOR_VAL, alpha=0.3, linewidth=1)
-        ax.plot(epochs, smooth(y_val), color=COLOR_VAL, linewidth=2, label="Val mean loss")
+def plot_comparative_metric(
+        data_map: Dict[str, pd.DataFrame],
+        metric_col_keyword: str,
+        title: str,
+        ylabel: str,
+        out_path: Path,
+        smooth_factor: float = 0.6
+) -> None:
+    """Genera gráfico comparativo superponiendo variantes."""
+    plt.figure(figsize=(10, 6))
 
-        ax.set_title(f"Loss curves | {model_name}", fontsize=14)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Mean loss (box, obj, cls)")  # Etiqueta genérica estilo YOLO
-        ax.legend()
-        ax.grid(True, linestyle="--", alpha=0.5)
+    has_data = False
+    for var, df in data_map.items():
+        if df.empty: continue
 
-        fig.savefig(losses_dir / "total_loss.png", dpi=300)
-        plt.close(fig)
-        print(f"[SSD/utility] Guardado: {losses_dir / 'total_loss.png'}")
+        # Buscar columna exacta o que contenga la keyword
+        if metric_col_keyword in df.columns:
+            col = metric_col_keyword
+        else:
+            col = next((c for c in df.columns if metric_col_keyword in c), None)
 
-    # 1.2 Train Components (Loc vs Conf)
-    if "train_loss_loc" in df.columns and "train_loss_conf" in df.columns:
-        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
+        if not col: continue
 
-        y_loc = df["train_loss_loc"].values
-        y_conf = df["train_loss_conf"].values
+        df_clean = df.dropna(subset=['epoch', col])
+        if df_clean.empty: continue
 
-        ax.plot(epochs, smooth(y_loc), color=COLOR_TRAIN, linewidth=2, label="train loc (box)")
-        ax.plot(epochs, smooth(y_conf), color=COLOR_VAL, linewidth=2, label="train conf (cls)")
+        has_data = True
+        epochs = df_clean["epoch"]
+        values = df_clean[col].values.astype(float)
 
-        ax.set_title(f"Train loss components | {model_name}", fontsize=14)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss")
-        ax.legend()
-        ax.grid(True, linestyle="--", alpha=0.5)
+        # Color según variante o default si es modo single
+        color = VARIANT_COLORS.get(var, "#2ca02c")
+        if len(data_map) == 1: color = "#2ca02c"
 
-        fig.savefig(components_dir / "train_loss_components.png", dpi=300)
-        plt.close(fig)
-        print(f"[SSD/utility] Guardado: {components_dir / 'train_loss_components.png'}")
+        # 1. Plot datos crudos
+        plt.plot(epochs, values, color=color, alpha=0.2, linewidth=1)
 
-    # 1.3 Val Components (Loc vs Conf)
-    if "val_loss_loc" in df.columns and "val_loss_conf" in df.columns:
-        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
+        # 2. Plot datos suavizados
+        smoothed = smooth_signal(values.tolist(), weight=smooth_factor)
+        plt.plot(epochs, smoothed, label=f"{var.upper()}", color=color, alpha=1.0, linewidth=2.5)
 
-        y_loc = df["val_loss_loc"].values
-        y_conf = df["val_loss_conf"].values
+    if not has_data:
+        plt.close()
+        return
 
-        ax.plot(epochs, smooth(y_loc), color=COLOR_TRAIN, linewidth=2, label="val loc (box)")
-        ax.plot(epochs, smooth(y_conf), color=COLOR_VAL, linewidth=2, label="val conf (cls)")
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend(frameon=True, framealpha=0.9)
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close()
 
-        ax.set_title(f"Val loss components | {model_name}", fontsize=14)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss")
-        ax.legend()
-        ax.grid(True, linestyle="--", alpha=0.5)
 
-        fig.savefig(components_dir / "val_loss_components.png", dpi=300)
-        plt.close(fig)
-        print(f"[SSD/utility] Guardado: {components_dir / 'val_loss_components.png'}")
+def plot_variant_tradeoff(data_map: Dict[str, pd.DataFrame], out_path: Path) -> None:
+    """Gráfico de dispersión: mAP vs Parámetros."""
+    variants, maps, params = [], [], []
 
-    # -------------------------------------------------------------------------
-    # 2. Gráficos de Métricas Históricas (Metrics History)
-    # -------------------------------------------------------------------------
+    for var, df in data_map.items():
+        if df.empty: continue
+        col = next((c for c in df.columns if "mAP_0.5_0.95" in c), None)
+        if not col: continue
 
-    metric_cols = ["val_mAP_0.5", "val_mAP_0.95", "val_P", "val_R", "val_F1"]
-    if all(c in df.columns for c in metric_cols):
+        best_map = df[col].max()
+        if pd.isna(best_map) or best_map == 0: continue
 
-        # 2.1 mAP Curves
-        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
-        ax.plot(epochs, smooth(df["val_mAP_0.5"].values), color=COLOR_MAP50, linewidth=2, label="mAP@0.5")
-        ax.plot(epochs, smooth(df["val_mAP_0.95"].values), color=COLOR_MAP95, linewidth=2, label="mAP@0.5:0.95")
+        variants.append(var)
+        maps.append(best_map)
+        params.append(SSD_PARAMS_M.get(var, 0))
 
-        ax.set_title(f"mAP curves | {model_name}", fontsize=14)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("mAP")
-        ax.set_ylim(0, 1.05)
-        ax.legend()
-        ax.grid(True, linestyle="--", alpha=0.5)
+    if not variants: return
 
-        fig.savefig(metrics_dir / "map_curves.png", dpi=300)
-        plt.close(fig)
-        print(f"[SSD/utility] Guardado: {metrics_dir / 'map_curves.png'}")
+    plt.figure(figsize=(9, 6))
+    colors = [VARIANT_COLORS.get(v, "gray") for v in variants]
+    plt.scatter(params, maps, c=colors, s=150, zorder=3, edgecolors='black')
 
-        # 2.2 Precision, Recall, F1 (Separados para claridad o juntos)
-        # Aquí los graficamos juntos pero con colores consistentes
-        fig, ax = plt.subplots(figsize=(10, 6), tight_layout=True)
-        ax.plot(epochs, smooth(df["val_P"].values), color=COLOR_TRAIN, linewidth=2, label="Precision")
-        ax.plot(epochs, smooth(df["val_R"].values), color=COLOR_VAL, linewidth=2, label="Recall")
-        ax.plot(epochs, smooth(df["val_F1"].values), color='tab:green', linewidth=2,
-                label="F1")  # F1 en verde para distinguir
+    if len(params) > 1:
+        sorted_indices = np.argsort(params)
+        sorted_params = np.array(params)[sorted_indices]
+        sorted_maps = np.array(maps)[sorted_indices]
+        plt.plot(sorted_params, sorted_maps, linestyle='--', color='gray', alpha=0.5, zorder=1)
 
-        ax.set_title(f"Precision, Recall, F1 | {model_name}", fontsize=14)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Metric")
-        ax.set_ylim(0, 1.05)
-        ax.legend()
-        ax.grid(True, linestyle="--", alpha=0.5)
+    for i, txt in enumerate(variants):
+        plt.annotate(f"  {txt.upper()}", (params[i], maps[i]),
+                     xytext=(5, 5), textcoords='offset points',
+                     fontsize=11, fontweight='bold')
 
-        fig.savefig(metrics_dir / "prf1_curves.png", dpi=300)
-        plt.close(fig)
-        print(f"[SSD/utility] Guardado: {metrics_dir / 'prf1_curves.png'}")
+    plt.xlabel("Parámetros (Millones)")
+    plt.ylabel("Best mAP@0.5:0.95")
+    plt.title("Trade-off: Performance vs Complejidad (SSD)")
+    plt.grid(True, linestyle="--", alpha=0.4)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close()
 
+
+# ---------------------------------------------------------------------------
+# Modos de Ejecución
+# ---------------------------------------------------------------------------
+
+def discover_best_runs(task: str, variants: List[str]) -> Dict[str, Path]:
+    found_runs = {}
+    for var in variants:
+        base_path = METRICS_ROOT / task / var / "train"
+        if not base_path.exists(): continue
+        runs = [p for p in base_path.iterdir() if p.is_dir()]
+        if not runs: continue
+        latest_run = max(runs, key=lambda p: p.stat().st_mtime)
+        csv_path = latest_run / "results.csv"
+        if csv_path.is_file():
+            found_runs[var] = csv_path
+            print(f"[Merge] Variante '{var}': {latest_run.name}")
+    return found_runs
+
+
+def run_comparison_mode(cfg: MetricsConfig) -> None:
+    print("\n=== Iniciando Modo Comparativo SSD (Merge) ===")
+
+    variants = cfg.variants_to_compare or ["ssd300", "ssd512"]
+    runs_map = discover_best_runs(cfg.task_model, variants)
+
+    if not runs_map:
+        print("[Error] No se encontraron runs válidos para comparar.")
+        return
+
+    data_map = {var: load_results_csv(path) for var, path in runs_map.items()}
+
+    # Estructura de carpetas de salida (Global)
+    global_out = cfg.final_metrics_dir
+    losses_out = global_out / "losses"
+    metrics_out = global_out / "metrics"
+
+    _ensure_dir(global_out)
+    _ensure_dir(losses_out)
+    _ensure_dir(metrics_out)
+
+    print(f"Generando gráficos comparativos en: {global_out}")
+
+    # --- 1. Gráficos de Pérdidas (Comparativo) ---
+    # Ahora incluimos componentes para ver cuál variante optimiza mejor qué cosa
+    loss_types = {
+        "Total Loss (Val)": "val_loss_total",
+        "Localization Loss (Val)": "val_loss_loc",
+        "Confidence Loss (Val)": "val_loss_conf"
+    }
+
+    for title, keyword in loss_types.items():
+        plot_comparative_metric(
+            data_map, keyword,
+            title, "Loss",
+            losses_out / f"compare_{keyword}.png",
+            smooth_factor=0.8
+        )
+
+    # --- 2. Gráficos de Métricas ---
+    metric_types = {
+        "Precision": "val_P",
+        "Recall": "val_R",
+        "F1-Score": "val_F1",
+        "mAP@0.5": "val_mAP_0.5",
+        "mAP@0.5:0.95": "val_mAP_0.5_0.95"
+    }
+
+    for title, keyword in metric_types.items():
+        safe_name = keyword.replace(":", "_")
+        plot_comparative_metric(
+            data_map, keyword,
+            title, title,
+            metrics_out / f"compare_{safe_name}.png",
+            smooth_factor=0.6
+        )
+
+    # --- 3. Trade-off ---
+    plot_variant_tradeoff(data_map, global_out / "tradeoff_performance_size.png")
+
+    # --- 4. Resumen JSON ---
+    summary = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "variants": list(data_map.keys()),
+        "best_metrics": {}
+    }
+
+    for var, df in data_map.items():
+        if df.empty: continue
+        map_col = next((c for c in df.columns if "mAP_0.5_0.95" in c), None)
+        f1_col = next((c for c in df.columns if "F1" in c), None)
+
+        summary["best_metrics"][var] = {
+            "map50_95": float(df[map_col].max()) if map_col else 0,
+            "f1": float(df[f1_col].max()) if f1_col else 0,
+            "params_M": SSD_PARAMS_M.get(var, 0)
+        }
+
+    with open(global_out / "global_summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
+
+    print("=== Comparación Finalizada ===")
+
+
+def run_single_mode(cfg: MetricsConfig) -> None:
+    print(f"\n=== Iniciando Modo Individual ({cfg.variant}) ===")
+
+    if not cfg.train_run:
+        base_path = METRICS_ROOT / cfg.task_model / cfg.variant / "train"
+        if not base_path.exists():
+            print(f"[Error] No existe directorio: {base_path}")
+            return
+        options = list_runs(base_path)
+        if not options:
+            print(f"[Error] No se encontraron runs en {base_path}")
+            return
+        cfg.train_run = interactive_select("Seleccione entrenamiento:", options)
+
+    csv_path = cfg.train_metrics_dir / "results.csv"
+    df = load_results_csv(csv_path)
+
+    if df.empty:
+        print("[Error] DataFrame vacío o archivo no encontrado.")
+        return
+
+    # Directorio de salida: La misma carpeta del run
+    out_dir = cfg.train_metrics_dir
+    losses_dir = out_dir / "losses"
+    _ensure_dir(losses_dir)
+
+    # Usamos la lógica comparativa pero con un solo elemento en el mapa para métricas
+    data_map = {cfg.variant: df}
+
+    # ---------------------------------------------------------
+    # 1. Gráficos de Pérdidas (Train vs Val) en subcarpeta 'losses'
+    # ---------------------------------------------------------
+
+    # Total Loss
+    plot_train_val_curve(
+        df, "train_loss_total", "val_loss_total",
+        "Total Loss (Train vs Val)", "Loss",
+        losses_dir / "loss_total_combined.png"
+    )
+
+    # Localization Loss
+    plot_train_val_curve(
+        df, "train_loss_loc", "val_loss_loc",
+        "Localization Loss (Train vs Val)", "Loss",
+        losses_dir / "loss_loc_combined.png"
+    )
+
+    # Confidence Loss
+    plot_train_val_curve(
+        df, "train_loss_conf", "val_loss_conf",
+        "Confidence Loss (Train vs Val)", "Loss",
+        losses_dir / "loss_conf_combined.png"
+    )
+
+    # Gráfico "Resumen" en la raíz (Total Loss)
+    plot_train_val_curve(
+        df, "train_loss_total", "val_loss_total",
+        "Total Loss", "Loss",
+        out_dir / "loss_combined.png"
+    )
+
+    # ---------------------------------------------------------
+    # 2. Gráficos de Métricas en raíz
+    # ---------------------------------------------------------
+    plot_comparative_metric(data_map, "val_mAP_0.5", "mAP@0.5", "mAP", out_dir / "map_05.png")
+    plot_comparative_metric(data_map, "val_mAP_0.5_0.95", "mAP@0.5:0.95", "mAP", out_dir / "map_05_95.png")
+    plot_comparative_metric(data_map, "val_F1", "F1 Score", "F1", out_dir / "f1_score.png")
+    plot_comparative_metric(data_map, "val_P", "Precision", "Precision", out_dir / "precision.png")
+    plot_comparative_metric(data_map, "val_R", "Recall", "Recall", out_dir / "recall.png")
+
+    print(f"Métricas individuales generadas en: {out_dir}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument("--task-model", default="detect", help="Tipo de tarea (detect).")
+    parser.add_argument("--variant", default="ssd300", help="Variante para modo individual (ssd300, ssd512).")
+    parser.add_argument("--train-run", default="", help="Nombre específico del run (opcional).")
+    parser.add_argument("--merge", action="store_true", help="Activar modo comparativo entre variantes.")
+    parser.add_argument("--variants-to-compare", nargs="+", default=["ssd300", "ssd512"],
+                        help="Lista de variantes a comparar.")
+
+    return parser.parse_args(argv)
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    args = parse_args(argv)
+    cfg = MetricsConfig(
+        task_model=args.task_model,
+        variant=args.variant,
+        train_run=args.train_run,
+        merge_mode=args.merge,
+        variants_to_compare=args.variants_to_compare
+    )
+
+    if cfg.merge_mode:
+        run_comparison_mode(cfg)
     else:
-        print("[SSD/utility] Nota: No se encontraron columnas de métricas históricas completas.")
+        run_single_mode(cfg)
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--file", type=str, default="results.csv", help="Ruta al archivo results.csv")
-    parser.add_argument("--dir", type=str, default="", help="Directorio de salida (opcional)")
-    parser.add_argument("--name", type=str, default="SSD300", help="Nombre del modelo para títulos")
-    args = parser.parse_args()
-
-    plot_results(args.file, args.dir, args.name)
+    main()

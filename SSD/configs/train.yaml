@@ -10,12 +10,12 @@
 # ==============================================================
 
 # -----------------------------------------------------------------
-# Identidad del experimento
+# Identidad del experimento (Valores por defecto / Fallback)
 # -----------------------------------------------------------------
 experiment:
   task: detect
-  variant: ssd300
-  run_name: ssd300_belt_defects
+  variant: ssd300           # Default (se sobrescribe por el preset)
+  run_name: default_run     # Default (se sobrescribe por el preset)
   phase: train
 
 # -----------------------------------------------------------------
@@ -36,6 +36,10 @@ presets:
   # 1) Preset principal: SSD300
   # ---------------------------------------------------------------
   ssd300:
+    # Identidad Específica
+    variant: ssd300
+    run_name: ssd300        # Carpeta de salida: .../ssd300/train/ssd300/
+
     is_test: false
     dataset_backend: yolo
     dataset_root: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
@@ -46,25 +50,23 @@ presets:
 
     # Hiperparámetros de optimización
     opt: SGD
-    lr: 0.005
-    momentum: 0.9
-    weight_decay: 0.001
+    lr: 0.001
+    momentum: 0.937
+    weight_decay: 0.0005
     gamma: 0.1
 
-    # CORREGIDO: Basado en 100 iters/época (Batch 16)
-    # Paso 1: Época 125 * 100 = 12500
-    # Paso 2: Época 150 * 100 = 15000
-    lr_steps: [ 12500, 15000 ]
+    # Estrategia de Learning Rate (Base: 1 Epoch = 100 iters aprox)
+    lr_steps: [ 14000, 17000 ]
 
     # Configuración de entrenamiento
     img_dim: 300
     batch_size: 16
-    max_iter: 20000          # CORREGIDO: 200 épocas * 100 iters
-    num_workers: 6
+    max_iter: 20000
+    num_workers: 4
 
     device: ""
     resume: null
-    save_period: 100         # Guardar cada época (100 iters)
+    save_period: 100
     seed: 0
     exist_ok: false
 
@@ -78,6 +80,7 @@ presets:
       nms_thresh: 0.45
       top_k: 200
 
+    # Parámetros de augmentación
     augmentation:
       mean: [104, 117, 123]
       brightness_delta: 32
@@ -108,6 +111,10 @@ presets:
   # 2) Preset principal: SSD512
   # ---------------------------------------------------------------
   ssd512:
+    # Identidad Específica
+    variant: ssd512
+    run_name: ssd512        # Carpeta de salida: .../ssd512/train/ssd512/
+
     is_test: false
     dataset_backend: yolo
     dataset_root: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
@@ -118,23 +125,23 @@ presets:
 
     # Hiperparámetros de optimización
     opt: SGD
-    lr: 0.005
-    momentum: 0.9
-    weight_decay: 0.001
+    lr: 0.001
+    momentum: 0.937
+    weight_decay: 0.0005
     gamma: 0.1
 
-    # CORREGIDO: Basado en 100 iters/época (Batch 16)
-    lr_steps: [ 12500, 15000 ]
+    # Estrategia de Learning Rate
+    lr_steps: [ 14000, 17000 ]
 
     # Configuración de entrenamiento
     img_dim: 512
     batch_size: 16
-    max_iter: 20000          # CORREGIDO: 200 épocas * 100 iters
-    num_workers: 6
+    max_iter: 20000
+    num_workers: 4
 
     device: ""
     resume: null
-    save_period: 100         # Guardar cada época
+    save_period: 100
     seed: 0
     exist_ok: false
 
@@ -148,6 +155,7 @@ presets:
       nms_thresh: 0.45
       top_k: 200
 
+    # Parámetros de augmentación
     augmentation:
       mean: [ 104, 117, 123 ]
       brightness_delta: 32
@@ -173,10 +181,13 @@ presets:
         MIOPEN_ENABLE_LOGGING: "0"
         MIOPEN_FIND_MODE: "1"
         MIOPEN_DEBUG_DISABLE_FIND_DB: "1"
+
   # ---------------------------------------------------------------
   # 3) Preset de depuración con VOC
   # ---------------------------------------------------------------
   ssd300_voc_debug:
+    variant: ssd300
+    run_name: ssd300_voc_debug
     is_test: true
     dataset_backend: voc
     dataset_root: C:/Users/memorista/data/VOCdevkit
@@ -245,6 +256,8 @@ presets:
   # 4) Preset de depuración con COCO
   # ---------------------------------------------------------------
   ssd300_coco_debug:
+    variant: ssd300
+    run_name: ssd300_coco_debug
     is_test: true
     dataset_backend: coco
     dataset_root: C:/Users/memorista/data/coco
