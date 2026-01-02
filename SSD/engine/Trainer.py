@@ -369,17 +369,6 @@ class TrainerSSD:
         self.weights_dir.mkdir(parents=True, exist_ok=True)
         self.metrics_dir.mkdir(parents=True, exist_ok=True)
 
-        # ---------------------------------------------------------------------
-        # Lógica Auto-Resume
-        # ---------------------------------------------------------------------
-        if self.cfg.auto_resume:
-            potential_last = self.weights_dir / "last.pth"
-            if potential_last.is_file():
-                print(f"[TrainerSSD] Auto-resume: Checkpoint encontrado en {potential_last}")
-                self.cfg.resume = potential_last
-            else:
-                print(f"[TrainerSSD] Auto-resume: No se encontró {potential_last}. Iniciando desde cero.")
-
         # Inicialización de dispositivo
         self.device = self._select_device(cfg.device)
 
@@ -434,6 +423,20 @@ class TrainerSSD:
         # Generar hyp.yaml al inicio
         self._save_hyp_yaml()
 
+        # ---------------------------------------------------------------------
+        # Lógica Auto-Resume (Movida después de inicializar modelo/optimizador)
+        # ---------------------------------------------------------------------
+        if self.cfg.auto_resume:
+            potential_last = self.weights_dir / "last.pth"
+            if potential_last.is_file():
+                print(f"[TrainerSSD] Auto-resume: Checkpoint encontrado en {potential_last}")
+                self._load_checkpoint(potential_last)
+            else:
+                print(f"[TrainerSSD] Auto-resume: No se encontró {potential_last}. Iniciando desde cero.")
+        elif self.cfg.resume and self.cfg.resume.is_file():
+            # Resume manual
+            self._load_checkpoint(self.cfg.resume)
+
     # ----------------------------------------------------------
     # Utilidades internas
     # ----------------------------------------------------------
@@ -475,7 +478,8 @@ class TrainerSSD:
         self.model: nn.Module = build_ssd("train", self.cfg.img_dim, self.num_classes)  # type: ignore[call-arg]
 
         # 2) Cargar pesos base VGG16 preentrenados si corresponde
-        if self.cfg.resume is None and self.cfg.base_weights:
+        # Solo si NO estamos reanudando (resume se maneja en __init__ o _load_checkpoint)
+        if not self.cfg.resume and not self.cfg.auto_resume and self.cfg.base_weights:
             try:
                 vgg_state = torch.load(self.cfg.base_weights, map_location="cpu", weights_only=False)
                 if hasattr(self.model, "vgg"):
@@ -528,10 +532,6 @@ class TrainerSSD:
 
         # 7) Puntos de cambio de LR (se aplican por iteración, no por época)
         self.lr_steps = list(self.cfg.lr_steps)
-
-        # 8) Reanudar entrenamiento si corresponde
-        if self.cfg.resume and self.cfg.resume.is_file():
-            self._load_checkpoint(self.cfg.resume)
 
     def _build_dataloaders(self) -> None:
         """Construye DataLoaders de entrenamiento y validación."""
@@ -588,10 +588,21 @@ class TrainerSSD:
         self.epoch = int(ckpt.get("epoch", 0))
         self.iteration = int(ckpt.get("iteration", 0))
         self._current_lr = float(ckpt.get("current_lr", self.cfg.lr))
+
+        # FIX: Sincronizar _lr_step_index con la iteración actual
+        # Esto evita que se aplique el decay nuevamente si ya se pasó el umbral
+        self._lr_step_index = 0
+        for step in self.lr_steps:
+            if self.iteration >= step:
+                self._lr_step_index += 1
+
+        # Asegurar que el optimizador tenga el LR correcto (el del checkpoint)
         for pg in self.optimizer.param_groups:
             pg["lr"] = self._current_lr
+
         print(
-            f"[TrainerSSD] Estado restaurado: epoch={self.epoch}, iter={self.iteration}, LR={self._current_lr:.6f}."
+            f"[TrainerSSD] Estado restaurado: epoch={self.epoch}, iter={self.iteration}, "
+            f"LR={self._current_lr:.6f}, LR Step Index={self._lr_step_index}."
         )
 
     def _init_results_csv(self) -> None:
