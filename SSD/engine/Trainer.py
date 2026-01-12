@@ -133,6 +133,18 @@ if _BN2GN_PATH.is_file():
 else:  # pragma: no cover - entorno sin parche
     apply_bn2gn_patch = None
 
+# -----------------------------------------------------------------------------
+# Carga de Utilidad de Métricas (CLI) para generación automática de gráficos
+# -----------------------------------------------------------------------------
+_METRICS_CLI_PATH = SSD_ROOT / "utility" / "metrics.py"
+if _METRICS_CLI_PATH.is_file():
+    _metrics_cli_mod = _load_module_from(_METRICS_CLI_PATH, "ssd_metrics_cli")
+    MetricsConfig = _metrics_cli_mod.MetricsConfig  # type: ignore[attr-defined]
+    run_single_mode = _metrics_cli_mod.run_single_mode  # type: ignore[attr-defined]
+else:
+    MetricsConfig = None
+    run_single_mode = None
+
 
 # ==============================================================
 # Configuración de entrenamiento (TrainerConfigSSD)
@@ -175,6 +187,7 @@ class TrainerConfigSSD:
     num_workers: int
     device: str
     resume: Optional[Path]
+    auto_resume: bool  # Nuevo campo para lógica de auto-resume
     save_period: int
     seed: int
     exist_ok: bool
@@ -267,11 +280,12 @@ class TrainerConfigSSD:
             resume = Path(resume_path).expanduser().resolve()
 
         return cls(
-            # Identidad
+            # Identidad: Prioridad Preset > Global > Default
             task=str(exp_cfg.get("task", "detect")),
-            variant=str(exp_cfg.get("variant", "ssd300")),
-            run_name=str(exp_cfg.get("run_name", "ssd300_experiment")),
+            variant=str(p.get("variant", exp_cfg.get("variant", "ssd300"))),
+            run_name=str(p.get("run_name", exp_cfg.get("run_name", "ssd300_experiment"))),
             phase=str(exp_cfg.get("phase", "train")),
+
             is_test=bool(p.get("is_test", False)),
             preset_name=preset,  # Guardamos el nombre del preset
             dataset_backend=str(p.get("dataset_backend", "yolo")),
@@ -299,6 +313,7 @@ class TrainerConfigSSD:
             num_workers=int(p.get("num_workers", _cpu_workers_default())),
             device=str(p.get("device", "")),
             resume=resume,
+            auto_resume=False,  # Default
             save_period=int(p.get("save_period", 5000)),
             seed=int(p.get("seed", 0)),
             exist_ok=bool(p.get("exist_ok", False)),
@@ -408,6 +423,20 @@ class TrainerSSD:
         # Generar hyp.yaml al inicio
         self._save_hyp_yaml()
 
+        # ---------------------------------------------------------------------
+        # Lógica Auto-Resume (Movida después de inicializar modelo/optimizador)
+        # ---------------------------------------------------------------------
+        if self.cfg.auto_resume:
+            potential_last = self.weights_dir / "last.pth"
+            if potential_last.is_file():
+                print(f"[TrainerSSD] Auto-resume: Checkpoint encontrado en {potential_last}")
+                self._load_checkpoint(potential_last)
+            else:
+                print(f"[TrainerSSD] Auto-resume: No se encontró {potential_last}. Iniciando desde cero.")
+        elif self.cfg.resume and self.cfg.resume.is_file():
+            # Resume manual
+            self._load_checkpoint(self.cfg.resume)
+
     # ----------------------------------------------------------
     # Utilidades internas
     # ----------------------------------------------------------
@@ -449,7 +478,8 @@ class TrainerSSD:
         self.model: nn.Module = build_ssd("train", self.cfg.img_dim, self.num_classes)  # type: ignore[call-arg]
 
         # 2) Cargar pesos base VGG16 preentrenados si corresponde
-        if self.cfg.resume is None and self.cfg.base_weights:
+        # Solo si NO estamos reanudando (resume se maneja en __init__ o _load_checkpoint)
+        if not self.cfg.resume and not self.cfg.auto_resume and self.cfg.base_weights:
             try:
                 vgg_state = torch.load(self.cfg.base_weights, map_location="cpu", weights_only=False)
                 if hasattr(self.model, "vgg"):
@@ -502,10 +532,6 @@ class TrainerSSD:
 
         # 7) Puntos de cambio de LR (se aplican por iteración, no por época)
         self.lr_steps = list(self.cfg.lr_steps)
-
-        # 8) Reanudar entrenamiento si corresponde
-        if self.cfg.resume and self.cfg.resume.is_file():
-            self._load_checkpoint(self.cfg.resume)
 
     def _build_dataloaders(self) -> None:
         """Construye DataLoaders de entrenamiento y validación."""
@@ -562,10 +588,21 @@ class TrainerSSD:
         self.epoch = int(ckpt.get("epoch", 0))
         self.iteration = int(ckpt.get("iteration", 0))
         self._current_lr = float(ckpt.get("current_lr", self.cfg.lr))
+
+        # FIX: Sincronizar _lr_step_index con la iteración actual
+        # Esto evita que se aplique el decay nuevamente si ya se pasó el umbral
+        self._lr_step_index = 0
+        for step in self.lr_steps:
+            if self.iteration >= step:
+                self._lr_step_index += 1
+
+        # Asegurar que el optimizador tenga el LR correcto (el del checkpoint)
         for pg in self.optimizer.param_groups:
             pg["lr"] = self._current_lr
+
         print(
-            f"[TrainerSSD] Estado restaurado: epoch={self.epoch}, iter={self.iteration}, LR={self._current_lr:.6f}."
+            f"[TrainerSSD] Estado restaurado: epoch={self.epoch}, iter={self.iteration}, "
+            f"LR={self._current_lr:.6f}, LR Step Index={self._lr_step_index}."
         )
 
     def _init_results_csv(self) -> None:
@@ -704,7 +741,26 @@ class TrainerSSD:
                 print("[TrainerSSD] Se alcanzó max_iter; entrenamiento finalizado.")
                 break
 
-        print("[TrainerSSD] Entrenamiento finalizado. Use utility/metrics.py para generar gráficos históricos.")
+        # ---------------------------------------------------------------------
+        # Generación Automática de Gráficos al Finalizar
+        # ---------------------------------------------------------------------
+        print("[TrainerSSD] Entrenamiento finalizado. Generando gráficos...")
+        if run_single_mode and MetricsConfig:
+            try:
+                # Configurar para metrics.py
+                # Nota: metrics.py espera 'train_run' como el nombre de la carpeta, no la ruta completa
+                metrics_cfg = MetricsConfig(
+                    task_model=self.cfg.task,
+                    variant=self.cfg.variant,
+                    train_run=self.cfg.run_name,
+                    merge_mode=False
+                )
+                run_single_mode(metrics_cfg)
+            except Exception as e:
+                print(f"[TrainerSSD] Advertencia: Error generando gráficos automáticos: {e}")
+                print("Puede generarlos manualmente ejecutando: python SSD/utility/metrics.py")
+        else:
+            print("[TrainerSSD] Advertencia: No se pudo cargar el módulo de métricas (utility/metrics.py).")
 
     def _train_one_epoch(self, max_iter: int) -> Dict[str, float]:
         """Ejecuta una época de entrenamiento y retorna pérdidas medias."""
@@ -821,7 +877,7 @@ class TrainerSSD:
             mAP_0_95 = metrics.get("mAP_0.5_0.95", 0.0)
             mAP_0_5 = metrics.get("mAP_0.5", 0.0)
             current_fitness = \
-            fitness(np.array([metrics.get("P", 0.0), metrics.get("R", 0.0), mAP_0_5, mAP_0_95]).reshape(1, -1))[0]
+                fitness(np.array([metrics.get("P", 0.0), metrics.get("R", 0.0), mAP_0_5, mAP_0_95]).reshape(1, -1))[0]
 
             metric_stats.update(metrics)
             metric_stats["fitness"] = float(current_fitness)

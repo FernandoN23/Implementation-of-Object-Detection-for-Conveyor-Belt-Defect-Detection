@@ -623,11 +623,19 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         ),
     )
 
+    # MODIFICADO: Argumento --preset para auto-detección
+    parser.add_argument(
+        "--preset",
+        type=str,
+        default="ssd300",
+        help="Nombre del preset (ej. ssd300, ssd512) para auto-detectar pesos.",
+    )
+
     parser.add_argument(
         "--weights",
         type=str,
-        default=str(SSD_ROOT / "weights" / "detect" / "ssd300" / "train" / "best.pth"),
-        help="Ruta al archivo de pesos .pth del modelo SSD a testear.",
+        default=None,  # Default None para permitir auto-detección
+        help="Ruta al archivo de pesos .pth. Si no se indica, se busca según --preset.",
     )
 
     parser.add_argument(
@@ -640,8 +648,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--img-dim",
         type=int,
-        default=300,
-        help="Dimensión de imagen para inferencia (lado mayor).",
+        default=None,  # Default None para inferir del preset
+        help="Dimensión de imagen para inferencia. Si es None, se infiere del preset.",
     )
 
     parser.add_argument(
@@ -671,8 +679,65 @@ def main(argv: Optional[List[str]] = None) -> None:
     args = parse_args(argv)
     _mock_legacy_coco_dependency()
 
-    # Nota: Se omite el bootstrap MIOpen aquí, ya que el Trainer.py lo maneja
-    # y no es estrictamente necesario para la inferencia si el modelo ya está cargado.
+    # -------------------------------------------------------------------------
+    # Lógica de Auto-Detección de Pesos y Configuración
+    # -------------------------------------------------------------------------
+
+    # Cargar valid.yaml para obtener configuraciones por defecto del preset
+    valid_yaml_path = CONFIGS_ROOT / "valid.yaml"
+    if valid_yaml_path.exists():
+        with open(valid_yaml_path, "r", encoding="utf-8") as f:
+            valid_cfg = yaml.safe_load(f)
+    else:
+        valid_cfg = {"presets": {}}
+
+    # Determinar img_dim si no se especificó
+    if args.img_dim is None:
+        if args.preset in valid_cfg.get("presets", {}):
+            args.img_dim = valid_cfg["presets"][args.preset].get("img_dim", 300)
+        elif "ssd512" in args.preset:
+            args.img_dim = 512
+        else:
+            args.img_dim = 300  # Default fallback
+        print(f"[SSD/test] Usando img_dim={args.img_dim} (inferido del preset '{args.preset}')")
+
+    # Determinar Weights si no se especificaron
+    if args.weights is None:
+        # Ruta base de entrenamientos: SSD/weights/detect/{preset}/train/
+        # Asumimos que el nombre del preset coincide con la variante (ssd300, ssd512)
+        # y que el run_name también es el preset (según nuestra estandarización reciente)
+
+        # 1. Intentar ruta directa estandarizada
+        weights_root = SSD_ROOT / "weights" / "detect" / args.preset / "train" / args.preset
+        candidate = weights_root / "best.pth"
+
+        if candidate.exists():
+            args.weights = str(candidate)
+        else:
+            # 2. Búsqueda heurística en la carpeta de la variante
+            variant_root = SSD_ROOT / "weights" / "detect" / args.preset / "train"
+            if variant_root.exists():
+                # Buscar subcarpetas que empiecen con el preset
+                subdirs = [d for d in variant_root.iterdir() if d.is_dir() and d.name.startswith(args.preset)]
+                if subdirs:
+                    # Elegir la más reciente
+                    latest_run = max(subdirs, key=lambda p: p.stat().st_mtime)
+                    candidate = latest_run / "best.pth"
+                    if candidate.exists():
+                        args.weights = str(candidate)
+                    else:
+                        # Probar last.pth
+                        candidate = latest_run / "last.pth"
+                        if candidate.exists():
+                            args.weights = str(candidate)
+
+    if not args.weights or not Path(args.weights).exists():
+        print(f"[Error] No se encontraron pesos para el preset '{args.preset}'.")
+        print(f"Ruta intentada: {args.weights if args.weights else 'Auto-detección fallida'}")
+        print("Por favor especifique --weights manualmente.")
+        return
+
+    print(f"[SSD/test] Usando pesos: {args.weights}")
 
     run_viewer(args)
 

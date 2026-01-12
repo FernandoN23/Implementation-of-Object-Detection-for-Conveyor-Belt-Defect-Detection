@@ -76,6 +76,7 @@ def _load_module_from(path: Path, name: str):
 # Variable global para guardar la clase MuteStderr si se carga
 _MuteStderr = None
 
+
 def _maybe_bootstrap_miopen(enable: bool = True) -> None:
     """Ejecuta bootstrap MIOpen si el módulo está disponible."""
     global _MuteStderr
@@ -89,7 +90,7 @@ def _maybe_bootstrap_miopen(enable: bool = True) -> None:
         mod = _load_module_from(MIOPEN_BOOTSTRAP_PATH, "ssd_bootstrap_miopen")
         MIOpenConfig = mod.MIOpenConfig  # type: ignore[attr-defined]
         bootstrap = mod.bootstrap  # type: ignore[attr-defined]
-        _MuteStderr = getattr(mod, "MuteStderr", None) # Guardar referencia
+        _MuteStderr = getattr(mod, "MuteStderr", None)  # Guardar referencia
 
         cfg = MIOpenConfig()
         exported = bootstrap(cfg)
@@ -108,6 +109,7 @@ def _maybe_bootstrap_miopen(enable: bool = True) -> None:
 
 def _mock_legacy_coco_dependency():
     """Crea un módulo 'fake' para data.coco y ssd.data.coco."""
+
     class DummyDataset:
         def __init__(self, *args, **kwargs): pass
 
@@ -165,11 +167,13 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         default="",
         help="Sobrescribe experiment.phase.",
     )
+    # MODIFICADO: Soporte para flag booleano o string
     parser.add_argument(
         "--resume",
-        type=str,
-        default="",
-        help="Ruta a checkpoint .pth para reanudar.",
+        nargs="?",
+        const=True,
+        default=False,
+        help="Ruta a checkpoint .pth o flag para reanudar desde el último guardado (auto-resume).",
     )
     parser.add_argument(
         "--no-bootstrap-miopen",
@@ -201,12 +205,27 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.device: overrides["device"] = args.device
     if args.run_name: overrides["run_name"] = args.run_name
     if args.phase: overrides["phase"] = args.phase
-    if args.resume: overrides["resume"] = Path(args.resume).expanduser().resolve()
+
+    # Lógica de Resume (Auto vs Path)
+    if args.resume is True:
+        # Flag activado sin ruta -> Auto Resume
+        overrides["auto_resume"] = True
+        overrides["resume"] = None
+    elif args.resume:
+        # Ruta especificada
+        overrides["auto_resume"] = False
+        overrides["resume"] = Path(args.resume).expanduser().resolve()
+    else:
+        # No resume
+        overrides["auto_resume"] = False
+        overrides["resume"] = None
 
     if overrides:
         cfg = replace(cfg, **overrides)
 
-    if not cfg.exist_ok and not cfg.resume:
+    # Lógica de creación de carpetas (evitar duplicados si no es resume)
+    # Si auto_resume es True, queremos usar la carpeta existente, así que saltamos esto.
+    if not cfg.exist_ok and not cfg.resume and not cfg.auto_resume:
         variant_name = cfg.preset_name if cfg.is_test else cfg.variant
         subdir = Path(cfg.task) / variant_name / cfg.phase / cfg.run_name
         run_dir = cfg.runs_root / subdir
@@ -223,7 +242,6 @@ def main(argv: Optional[list[str]] = None) -> int:
                 i += 1
 
     # FIX: Usar MuteStderr para silenciar advertencias de MIOpen durante la inicialización
-    # del modelo y el inicio del entrenamiento.
     if _MuteStderr:
         print("[SSD/train] Silenciando stderr (MIOpen warnings) durante inicialización...")
         with _MuteStderr():

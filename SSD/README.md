@@ -55,9 +55,7 @@ SSD/
 │   ├── clean_runs.py         ← Limpieza de experimentos (logs/checkpoints)
 │   ├── clean_weights.py      ← Gestión de espacio (eliminación de pesos redundantes)
 │   ├── data_loader.py        ← Adaptador de formato: Convierte Dataset YOLO -> Formato SSD
-│   ├── metrics.py            ← Utilidades de cálculo numérico y post-procesado
-│   └── ssd_check_params.py   ← Verificación de integridad de parámetros del modelo (pesos/sesgos)
-│
+│   └── metrics.py            ← Utilidades de cálculo numérico y post-procesado│
 ├── weights/                  # Almacenamiento de Pesos (Base y Entrenados)
 │
 ├── train.py                  # CLI: Orquestador de Entrenamiento
@@ -107,7 +105,7 @@ Todos los comandos deben ejecutarse desde la raíz del proyecto (nivel superior 
 python SSD/train.py --preset ssd300
 
 # Ejecutar entrenamiento de alta resolución (SSD512) con nombre personalizado
-python SSD/train.py --preset ssd512 --run-name ssd512_run_production
+python SSD/train.py --preset ssd512
 
 # Forzar uso de CPU (para depuración sin GPU)
 python SSD/train.py --preset ssd300 --device cpu
@@ -120,14 +118,14 @@ python SSD/train.py --preset ssd300 --device cpu
 python SSD/valid.py --preset ssd300
 
 # Validar un archivo de pesos específico
-python SSD/valid.py --preset ssd300 --weights SSD/runs/detect/ssd300/train/run_01/best.pth
+python SSD/valid.py --preset ssd512
 ```
 
 ### 3\. Inferencia Visual (Test)
 
 ```bash
 # Abrir visor interactivo con umbral de confianza ajustado
-python SSD/test.py --weights SSD/runs/detect/ssd300/train/best.pth --conf-thres 0.3 --img-dim 300
+python SSD/test.py --preset ssd300 --conf-thres 0.3 --img-dim 300
 ```
 
 **Controles del Visor:**

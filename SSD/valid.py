@@ -125,7 +125,7 @@ def _parse_args():
     parser.add_argument(
         "--preset",
         type=str,
-        default="ssd300_default",
+        default="ssd300",  # Default alineado con el yaml
         help="Nombre del preset en valid.yaml"
     )
     parser.add_argument(
@@ -152,11 +152,15 @@ def main():
     with config_path.open("r", encoding="utf-8") as f:
         full_cfg = yaml.safe_load(f)
 
+    # Manejo de error si el preset no existe
+    if args.preset not in full_cfg["presets"]:
+        print(f"[Error] Preset '{args.preset}' no encontrado en valid.yaml")
+        return 1
+
     preset_cfg = full_cfg["presets"][args.preset]
     exp_cfg = full_cfg["experiment"]
 
-    # Construir objeto de configuración simple para pasar al Validator/DataLoader
-    # Combinamos experiment + preset
+    # Construir objeto de configuración simple
     class Config:
         def __init__(self, d):
             for k, v in d.items():
@@ -165,8 +169,14 @@ def main():
                 else:
                     setattr(self, k, v)
 
-    # Aplanar configuración para facilitar acceso
+    # Aplanar configuración
     combined_cfg = {**exp_cfg, **preset_cfg}
+
+    # FORZAR PRIORIDAD: Los valores del preset sobrescriben a los globales
+    # Esto es crucial para que 'variant' y 'run_name' sean los correctos
+    combined_cfg["variant"] = preset_cfg.get("variant", exp_cfg.get("variant"))
+    combined_cfg["run_name"] = preset_cfg.get("run_name", exp_cfg.get("run_name"))
+
     # Rutas absolutas
     combined_cfg["data_config"] = (PROJECT_ROOT / full_cfg["paths"]["dataset_config"]).resolve()
     combined_cfg["weights_root"] = (PROJECT_ROOT / full_cfg["paths"]["weights_root"]).resolve()
@@ -175,36 +185,49 @@ def main():
 
     cfg = Config(combined_cfg)
 
-    # 3. Determinar Pesos
+    # 3. Determinar Pesos (Lógica Inteligente)
     if args.weights:
         weights_path = Path(args.weights).resolve()
     else:
-        # Intentar inferir ruta: weights_root / task / variant / phase / run_name / best.pth
-        # Nota: Buscamos en la carpeta de entrenamiento ('train') para validar
-        train_run_dir = cfg.weights_root / cfg.task / cfg.variant / "train" / cfg.run_name.replace("_validation", "")
-        weights_path = train_run_dir / "best.pth"
+        # Ruta base de entrenamientos para esta variante
+        # Ej: SSD/weights/detect/ssd300/train/
+        base_train_dir = cfg.weights_root / cfg.task / cfg.variant / "train"
 
+        # A. Intento directo: Buscar carpeta con el mismo nombre que el run_name actual
+        # (Ya que unificamos nombres en train.yaml y valid.yaml)
+        train_run_dir = base_train_dir / cfg.run_name
+
+        # B. Si no existe, buscar carpetas que empiecen con la variante (fallback)
+        if not train_run_dir.exists():
+            if base_train_dir.exists():
+                # Listar carpetas candidatas
+                candidates = [d for d in base_train_dir.iterdir() if d.is_dir() and d.name.startswith(cfg.variant)]
+                if candidates:
+                    # Seleccionar la más reciente modificada
+                    train_run_dir = max(candidates, key=lambda p: p.stat().st_mtime)
+                    print(f"[SSD/valid] Auto-detectado run de entrenamiento: {train_run_dir.name}")
+
+        # Buscar best.pth o last.pth
+        weights_path = train_run_dir / "best.pth"
         if not weights_path.exists():
             weights_path = train_run_dir / "last.pth"
 
     if not weights_path.exists():
         print(f"[Error] No se encontraron pesos en: {weights_path}")
-        print("Por favor especifique --weights explícitamente.")
+        print(f"Buscado en base: {base_train_dir}")
+        print("Por favor especifique --weights explícitamente o verifique que el entrenamiento generó 'best.pth'.")
         return 1
 
     print(f"[SSD/valid] Usando pesos: {weights_path}")
 
     # 4. Cargar Módulos Dinámicos
-    # Modelo SSD (sigue siendo dinámico)
     ssd_mod = _load_module_from(SSD_MODEL_PATH, "ssd_model")
     build_ssd = ssd_mod.build_ssd
 
-    # Validator (sigue siendo dinámico)
     val_mod = _load_module_from(VALIDATOR_PATH, "ssd_validator")
     ValidatorSSD = val_mod.ValidatorSSD
 
     # 5. Construir DataLoader
-    # build_dataloaders ahora se importa de forma estándar
     _, val_loader = build_dataloaders(cfg)
 
     # Obtener nombres de clases del dataset config
@@ -213,18 +236,21 @@ def main():
     num_classes = len(class_names) + 1
 
     # 6. Construir Modelo
-    print(f"[SSD/valid] Construyendo SSD300 (clases={num_classes})...")
+    print(f"[SSD/valid] Construyendo {cfg.variant} (clases={num_classes})...")
     model = build_ssd("test", cfg.img_dim, num_classes)
 
     # Cargar estado
     device = torch.device(args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu"))
-    state_dict = torch.load(weights_path, map_location=device, weights_only=False)
 
-    # Manejo de DataParallel o claves 'model_state_dict'
+    try:
+        state_dict = torch.load(weights_path, map_location=device, weights_only=False)
+    except Exception as e:
+        print(f"[Error] Fallo al cargar el archivo de pesos: {e}")
+        return 1
+
     if "model_state_dict" in state_dict:
         state_dict = state_dict["model_state_dict"]
 
-    # Limpiar prefijo 'module.' si existe
     new_state_dict = {}
     for k, v in state_dict.items():
         if k.startswith("module."):
@@ -237,10 +263,11 @@ def main():
     model.eval()
 
     # 7. Ejecutar Validación
-    run_name = getattr(cfg, "run_name", "ssd300_validation")
-    # Usamos 'val' o 'valid' según lo definido en valid.yaml (phase)
+    # Usamos cfg.run_name que ahora viene correctamente del preset
     phase = getattr(cfg, "phase", "val")
-    save_dir = cfg.metrics_root / cfg.task / cfg.variant / phase / run_name
+
+    # Ruta de salida: SSD/metrics/detect/{variant}/val/{run_name}
+    save_dir = cfg.metrics_root / cfg.task / cfg.variant / phase / cfg.run_name
     print(f"[SSD/valid] Guardando resultados en: {save_dir}")
 
     validator = ValidatorSSD(
@@ -251,10 +278,8 @@ def main():
         save_dir=save_dir
     )
 
-    # FIX: Usar run_full_report para generar gráficos y métricas completas
     metrics = validator.run_full_report()
 
-    # Guardar métricas numéricas en YAML simple
     metrics_file = save_dir / "metrics.yaml"
     with metrics_file.open("w") as f:
         yaml.dump(metrics, f)

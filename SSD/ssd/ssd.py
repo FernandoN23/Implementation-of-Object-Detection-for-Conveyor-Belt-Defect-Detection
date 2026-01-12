@@ -3,15 +3,88 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from layers import *
-from data import voc
-
-try:
-    from data import coco
-except Exception as e:
-    print(f"[SSD] Advertencia: Configuración COCO no disponible ({e}). Se continuará sin ella.")
-    coco = None
-
 import os
+import sys
+import yaml
+from pathlib import Path
+
+
+# ===========================================================================
+# CARGA DE CONFIGURACIÓN (YAML -> DICT)
+# ===========================================================================
+
+def load_model_config():
+    """
+    Intenta cargar la configuración desde SSD/configs/model_variants.yaml.
+    Si falla, retorna configuraciones por defecto (Hardcoded fallback).
+    """
+    # Ruta relativa: SSD/ssd/ssd.py -> parents[1] = SSD/ -> configs/model_variants.yaml
+    current_file = Path(__file__).resolve()
+    config_path = current_file.parents[1] / "configs" / "model_variants.yaml"
+
+    configs = {}
+
+    # 1. Intentar cargar desde YAML
+    if config_path.exists():
+        try:
+            with open(config_path, 'r') as f:
+                yaml_data = yaml.safe_load(f)
+
+            # Procesar SSD300
+            if 'ssd300' in yaml_data:
+                cfg = yaml_data['ssd300']
+                cfg['min_dim'] = cfg.pop('image_size', 300)  # Renombrar clave para compatibilidad
+                cfg['name'] = 'SSD300'
+                configs['300'] = cfg
+
+            # Procesar SSD512
+            if 'ssd512' in yaml_data:
+                cfg = yaml_data['ssd512']
+                cfg['min_dim'] = cfg.pop('image_size', 512)  # Renombrar clave para compatibilidad
+                cfg['name'] = 'SSD512'
+                configs['512'] = cfg
+
+            print(f"[SSD] Configuración cargada exitosamente desde {config_path}")
+            return configs
+
+        except Exception as e:
+            print(f"[SSD] Advertencia: Error leyendo {config_path}: {e}")
+            print("[SSD] Se usarán valores por defecto (Hardcoded).")
+
+    else:
+        print(f"[SSD] Advertencia: No se encontró {config_path}")
+        print("[SSD] Se usarán valores por defecto (Hardcoded).")
+
+    # 2. Fallback (Valores por defecto si falla el YAML)
+    configs['300'] = {
+        'feature_maps': [38, 19, 10, 5, 3, 1],
+        'min_dim': 300,
+        'steps': [8, 16, 32, 64, 100, 300],
+        'min_sizes': [30, 60, 111, 162, 213, 264],
+        'max_sizes': [60, 111, 162, 213, 264, 315],
+        'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+        'variance': [0.1, 0.2],
+        'clip': True,
+        'name': 'SSD300'
+    }
+
+    configs['512'] = {
+        'feature_maps': [64, 32, 16, 8, 4, 2, 1],
+        'min_dim': 512,
+        'steps': [8, 16, 32, 64, 128, 256, 512],
+        'min_sizes': [35.84, 76.8, 153.6, 230.4, 307.2, 384.0, 460.8],
+        'max_sizes': [76.8, 153.6, 230.4, 307.2, 384.0, 460.8, 537.6],
+        'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2], [2]],
+        'variance': [0.1, 0.2],
+        'clip': True,
+        'name': 'SSD512'
+    }
+
+    return configs
+
+
+# Cargar configuraciones al importar el módulo
+MODEL_CONFIGS = load_model_config()
 
 
 class SSD(nn.Module):
@@ -21,7 +94,14 @@ class SSD(nn.Module):
         super(SSD, self).__init__()
         self.phase = phase
         self.num_classes = num_classes
-        self.cfg = (coco, voc)[num_classes == 21]
+
+        # Selección de configuración basada en el tamaño de entrada
+        size_str = str(size)
+        if size_str in MODEL_CONFIGS:
+            self.cfg = MODEL_CONFIGS[size_str]
+        else:
+            raise ValueError(f"SSD size {size} not supported. Available: {list(MODEL_CONFIGS.keys())}")
+
         self.priorbox = PriorBox(self.cfg)
 
         with torch.no_grad():
@@ -34,7 +114,6 @@ class SSD(nn.Module):
         self.loc = nn.ModuleList(head[0])
         self.conf = nn.ModuleList(head[1])
 
-        # Inicializar siempre para permitir validación dinámica
         self.softmax = nn.Softmax(dim=-1)
         self.detect = Detect(num_classes, 0, 200, 0.01, 0.45)
 
@@ -74,8 +153,6 @@ class SSD(nn.Module):
             self.priors = self.priors.to(x.device)
 
         if self.phase == "test":
-            # FIX: Pasar self.priors directamente. Ya está en el dispositivo correcto.
-            # Eliminar .type(type(x.data)) que causaba conflicto de dispositivos/tipos.
             output = self.detect(
                 loc.view(loc.size(0), -1, 4),
                 self.softmax(conf.view(conf.size(0), -1, self.num_classes)),
@@ -120,24 +197,50 @@ def vgg(cfg, i, batch_norm=False):
     return layers
 
 
-def add_extras(cfg, i, batch_norm=False):
-    # Construcción explícita y robusta de capas extra para SSD300
+def add_extras(cfg, i, batch_norm=False, size=300):
+    # Extra layers added to VGG for feature scaling
     layers = []
     in_channels = i
 
-    # Block 1: 10x10 output
+    # Lógica explícita para SSD512
+    if size == 512:
+        # 1. Conv8_2 (1024 -> 512, stride 2) Output: 32x32 -> 16x16
+        layers += [nn.Conv2d(in_channels, 256, kernel_size=1)]
+        layers += [nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1)]
+
+        # 2. Conv9_2 (512 -> 256, stride 2) Output: 16x16 -> 8x8
+        layers += [nn.Conv2d(512, 128, kernel_size=1)]
+        layers += [nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)]
+
+        # 3. Conv10_2 (256 -> 256, stride 2) Output: 8x8 -> 4x4
+        layers += [nn.Conv2d(256, 128, kernel_size=1)]
+        layers += [nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)]
+
+        # 4. Conv11_2 (256 -> 256, stride 2) Output: 4x4 -> 2x2
+        layers += [nn.Conv2d(256, 128, kernel_size=1)]
+        layers += [nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)]
+
+        # 5. Conv12_2 (256 -> 256, stride 1, valid) Output: 2x2 -> 1x1
+        # Nota: Usamos kernel=2, stride=1, padding=0 para reducir 2x2 a 1x1
+        layers += [nn.Conv2d(256, 128, kernel_size=1)]
+        layers += [nn.Conv2d(128, 256, kernel_size=2, stride=1, padding=0)]
+
+        return layers
+
+    # Lógica estándar para SSD300 (o fallback)
+    # Block 1
     layers += [nn.Conv2d(in_channels, 256, kernel_size=1)]
     layers += [nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1)]
 
-    # Block 2: 5x5 output
+    # Block 2
     layers += [nn.Conv2d(512, 128, kernel_size=1)]
     layers += [nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)]
 
-    # Block 3: 3x3 output
+    # Block 3
     layers += [nn.Conv2d(256, 128, kernel_size=1)]
     layers += [nn.Conv2d(128, 256, kernel_size=3)]
 
-    # Block 4: 1x1 output
+    # Block 4
     layers += [nn.Conv2d(256, 128, kernel_size=1)]
     layers += [nn.Conv2d(128, 256, kernel_size=3)]
 
@@ -147,31 +250,40 @@ def add_extras(cfg, i, batch_norm=False):
 def multibox(vgg, extra_layers, cfg, num_classes):
     loc_layers = []
     conf_layers = []
+
+    # VGG Sources: Conv4_3 y FC7
     vgg_source = [21, -2]
     for k, v in enumerate(vgg_source):
         loc_layers += [nn.Conv2d(vgg[v].out_channels, cfg[k] * 4, kernel_size=3, padding=1)]
         conf_layers += [nn.Conv2d(vgg[v].out_channels, cfg[k] * num_classes, kernel_size=3, padding=1)]
 
+    # Extra Sources
+    # SSD300: 4 capas extra. SSD512: 5 capas extra.
+    # El loop original 'extra_layers[1::2]' asume estructura (1x1, 3x3) y toma la segunda.
     for k, v in enumerate(extra_layers[1::2], 2):
         loc_layers += [nn.Conv2d(v.out_channels, cfg[k] * 4, kernel_size=3, padding=1)]
         conf_layers += [nn.Conv2d(v.out_channels, cfg[k] * num_classes, kernel_size=3, padding=1)]
+
     return vgg, extra_layers, (loc_layers, conf_layers)
 
 
 base = {
     '300': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'C', 512, 512, 512, 'M',
             512, 512, 512],
-    '512': [],
+    '512': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'C', 512, 512, 512, 'M',
+            512, 512, 512],
 }
 
+# Nota: 'extras' se usa solo como referencia de canales en el código original,
+# pero la lógica real de construcción está en add_extras.
 extras = {
-    '300': [],
-    '512': [],
+    '300': [256, 'S', 512, 128, 'S', 256, 128, 256, 128, 256],
+    '512': [256, 'S', 512, 128, 'S', 256, 128, 'S', 256, 128, 'S', 256, 128, 'S', 256],
 }
 
 mbox = {
-    '300': [4, 6, 6, 6, 4, 4],  # number of boxes per feature map location
-    '512': [],
+    '300': [4, 6, 6, 6, 4, 4],
+    '512': [4, 6, 6, 6, 6, 4, 4],  # 7 capas para 512
 }
 
 
@@ -179,11 +291,17 @@ def build_ssd(phase, size=300, num_classes=21):
     if phase != "test" and phase != "train":
         print("ERROR: Phase: " + phase + " not recognized")
         return
-    if size != 300:
-        print("ERROR: You specified size " + repr(size) + ". However, " +
-              "currently only SSD300 (size=300) is supported!")
+
+    # Validar soporte usando las claves cargadas
+    size_str = str(size)
+    if size_str not in MODEL_CONFIGS:
+        print(f"ERROR: You specified size {size}. Supported: {list(MODEL_CONFIGS.keys())}")
         return
-    base_, extras_, head_ = multibox(vgg(base[str(size)], 3),
-                                     add_extras(extras[str(size)], 1024),
-                                     mbox[str(size)], num_classes)
+
+    # Obtener configuración para pasarla a multibox si fuera necesario (aunque multibox usa mbox global)
+    # cfg = MODEL_CONFIGS[size_str]
+
+    base_, extras_, head_ = multibox(vgg(base[size_str], 3),
+                                     add_extras(extras[size_str], 1024, size=size),
+                                     mbox[size_str], num_classes)
     return SSD(phase, size, base_, extras_, head_, num_classes)
