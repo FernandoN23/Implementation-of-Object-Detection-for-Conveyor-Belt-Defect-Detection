@@ -55,9 +55,7 @@ SSD/
 │   ├── clean_runs.py         ← Limpieza de experimentos (logs/checkpoints)
 │   ├── clean_weights.py      ← Gestión de espacio (eliminación de pesos redundantes)
 │   ├── data_loader.py        ← Adaptador de formato: Convierte Dataset YOLO -> Formato SSD
-│   ├── metrics.py            ← Utilidades de cálculo numérico y post-procesado
-│   └── ssd_check_params.py   ← Verificación de integridad de parámetros del modelo (pesos/sesgos)
-│
+│   └── metrics.py            ← Utilidades de cálculo numérico y post-procesado│
 ├── weights/                  # Almacenamiento de Pesos (Base y Entrenados)
 │
 ├── train.py                  # CLI: Orquestador de Entrenamiento
