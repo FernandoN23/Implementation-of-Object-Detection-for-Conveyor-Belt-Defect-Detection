@@ -1,6 +1,6 @@
 # Implementación de Algoritmos de Reconocimiento de Objetos para la Identificación de Fallas en Correas Transportadoras
 
-Este repositorio contiene el desarrollo y los resultados de la investigación enfocada en desarrollar un sistema de detección de fallas mediante técnicas de visión computacional y aprendizaje profundo. [cite_start]El proyecto aborda la problemática de la inspección visual tradicional, proponiendo soluciones automatizadas y escalables basadas en Redes Neuronales Convolucionales (CNN) y arquitecturas Transformer[cite: 6701, 6702].
+Este repositorio contiene el desarrollo y los resultados de la investigación enfocada en desarrollar un sistema de detección de fallas mediante técnicas de visión computacional y aprendizaje profundo. El proyecto aborda la problemática de la inspección visual tradicional, proponiendo soluciones automatizadas y escalables basadas en Redes Neuronales Convolucionales (CNN) y arquitecturas Transformer.
 
 ## Objetivo General
 
@@ -41,71 +41,87 @@ Esta sección detalla la implementación de arquitecturas *one-stage*, caracteri
 Consulte la documentación técnica específica y guías de reproducción en: [YOLO/README.md](YOLO/README.md).
 
 #### 1.1 Antecedentes y Arquitectura
-El modelo implementado corresponde a **YOLOv5** en su variante **Small (s)**. Esta arquitectura opera como un detector de una sola etapa que integra la extracción de características y la predicción en un flujo unificado.
+El modelo implementado corresponde a **YOLOv5**. Esta arquitectura opera como un detector de una sola etapa que integra la extracción de características y la predicción en un flujo unificado.
 
 * **Arquitectura:**
-    * **Backbone:** Variante de **CSPDarknet53** que incorpora bloques **C3** (Cross Stage Partial simplificado) y una capa **SPPF** (Spatial Pyramid Pooling Fast) al final para ampliar el campo receptivo. Utiliza funciones de activación **SiLU**.
-    * **Neck:** Estructura **CSP-PAN** (Path Aggregation Network) para la fusión de características multiescala, mejorando la propagación de información semántica y espacial.
-    * **Head:** Cabeza de detección convolucional multiescala acoplada, que predice simultáneamente coordenadas, *objectness* y probabilidades de clase en tres niveles de resolución.
+    * **Backbone:** Variante de **CSPDarknet53** con bloques **C3** y capa **SPPF**.
+    * **Neck:** Estructura **CSP-PAN** para fusión de características multiescala.
+    * **Head:** Cabeza de detección convolucional multiescala (3 niveles).
 
-* **Hiperparámetros (Entrenamiento):**
-    * **Optimizador:** SGD (Stochastic Gradient Descent) con momentum de 0.937.
-    * **Learning Rate (lr0):** 0.01 con decaimiento cíclico.
-    * **Tamaño de imagen:** 640x640 píxeles.
-    * **Batch size:** 8.
-    * **Épocas:** 100.
-    * **Aumentación:** Mosaic (probabilidad 1.0), HSV augmentations, Escalamiento y Traslación.
+#### 1.2 Configuración del Entrenamiento
+Los experimentos se estandarizaron para todas las variantes (n, s, m, l, x) utilizando la siguiente configuración de hiperparámetros:
 
-#### 1.2 Entrenamiento y Validación
-El entrenamiento mostró una convergencia asintótica estable hacia la época 100. Se observó una rápida disminución de la pérdida de clasificación, indicando una fácil discriminación de las clases de fallas. No se detectaron signos de *overfitting* severo, manteniendo una correlación consistente entre las pérdidas de entrenamiento y validación.
+| Parámetro | Valor | Descripción |
+| :--- | :--- | :--- |
+| **Optimizador** | SGD | Momentum: 0.937, Weight Decay: 0.0005 |
+| **Épocas** | 200 | Convergencia completa sin Early Stopping agresivo |
+| **Batch Size** | 16 | Ajustado para estabilidad de gradiente y memoria VRAM |
+| **Imagen** | 640x640 | Resolución de entrada estándar |
+| **LR Inicial** | 0.01 | Decaimiento cíclico (Linear/Cosine) |
 
-#### 1.3 Resultados Experimentales
-Desempeño del modelo **YOLOv5s** sobre el conjunto de prueba (230 imágenes).
+El entrenamiento mostró una convergencia asintótica estable. La pérdida de clasificación disminuyó rápidamente, indicando una alta separabilidad de las clases de fallas, sin signos severos de *overfitting*.
 
-| Modelo | Tamaño Img | Parámetros | mAP@0.5 | mAP@0.5:0.95 | F1-Score Max |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **YOLOv5-s** | 640 | 7.2M | **0.99** | **0.52** | **0.87** |
+#### 1.3 Resultados obtenidos
+Desempeño de las variantes del modelo **YOLOv5** en el conjunto de validación/test.
 
-> **Nota:** El modelo demostró un desempeño sobresaliente en fallas volumétricas (*Hole*, *Impact Damage*), pero presentó desafíos en la recuperación (*Recall*) de fallas pequeñas como *Puncture*.
+| Variante | Tamaño entrada | Parámetros | mAP@0.5  | mAP@0.5:0.95 | F1-Score Max |
+|:---------|:--------------:|:----------:|:--------:|:------------:|:------------:|
+| **n** |      640       |    1.9M    | **0.86** |   **0.50** |   **0.86** |
+| **s** |      640       |    7.2M    | **0.89** |   **0.54** |   **0.88** |
+| **m** |      640       |   21.2M    | **0.88** |   **0.55** |   **0.89** |
+| **l** |      640       |   46.5M    | **0.88** |   **0.54** |   **0.89** |
+| **x** |      640       |   86.7M    | **0.87** |   **0.54** |   **0.89** |
+
+**Conclusión sobre YOLOv5**
+
+La variante **YOLOv5s (Small)** se establece como la solución óptima de despliegue, descartando las arquitecturas de mayor complejidad (**m, l, x**) debido a un estricto criterio de eficiencia algorítmica. El análisis experimental demostró que el escalamiento del modelo hacia variantes más densas —incluyendo la **Medium**, que pese a ser más ligera que las versiones **Large** y **Extra-Large** sigue triplicando la carga computacional frente a la **Small**— incurre en un claro fenómeno de **rendimientos decrecientes**. 
+
+---
+
 ### 2. SSD (Single Shot MultiBox Detector)
 
 Consulte la documentación técnica específica y guías de reproducción en: [SSD/README.md](SSD/README.md).
 
 #### 2.1 Antecedentes y Arquitectura
-Se implementó la variante **SSD300**, un detector que discretiza el espacio de salida de cajas delimitadoras utilizando un conjunto de cajas por defecto (*default boxes*) con diferentes relaciones de aspecto.
+Se implementó **SSD** sobre un backbone **VGG-16** truncado, añadiendo capas convolucionales auxiliares para formar la pirámide de características y permitir la detección en múltiples escalas.
 
-* **Arquitectura:**
-    * **Backbone:** **VGG-16** pre-entrenado (truncado en la capa `pool5`). Se eliminan las capas densas finales y se convierten `fc6` y `fc7` en capas convolucionales.
-    * **Capas Adicionales:** Se incorporan capas convolucionales extra (`conv8_2`, `conv9_2`, `conv10_2`, `conv11_2`) para generar una pirámide de características que permite la detección en múltiples escalas.
-    * **Cabezas de Predicción:** Filtros convolucionales de 3x3 aplicados densamente sobre los mapas de características para predecir puntuaciones de clase y offsets de localización.
+#### 2.2 Configuración del Entrenamiento
+A diferencia de YOLO, SSD es más sensible al tamaño de entrada. Se evaluaron dos configuraciones principales (SSD300 y SSD512) bajo los siguientes parámetros comunes:
 
-* **Hiperparámetros (Entrenamiento):**
-    * **Optimizador:** SGD con momentum de 0.9.
-    * **Learning Rate (lr):** 0.001 con esquema de decaimiento *MultiStep*.
-    * **Tamaño de entrada:** 300x300 píxeles.
-    * **Batch size:** 32.
-    * **Iteraciones/Épocas:** 100 épocas (aprox. 5000 iteraciones).
-    * **Hard Negative Mining:** Ratio 3:1 (Negativos:Positivos).
+| Parámetro | Valor | Descripción |
+| :--- | :--- | :--- |
+| **Optimizador** | SGD | Momentum: 0.937, Weight Decay: 0.0005 |
+| **Épocas** | 200 | Aprox. 20,000 iteraciones (dependiendo del split) |
+| **Batch Size** | 16 | Unificado para comparativa justa |
+| **LR Inicial** | 0.001 | Esquema MultiStep (decaimiento en iteraciones 14k y 17k) |
+| **Ratio Neg/Pos**| 3:1 | Hard Negative Mining para balance de clases |
 
-#### 2.2 Entrenamiento y Validación
-El modelo SSD300 requirió un mayor número de iteraciones para estabilizar sus pérdidas en comparación con YOLO. Aunque logró converger, se observó una brecha de generalización más pronunciada en la componente de clasificación. La baja resolución de entrada (300x300) limitó la capacidad del modelo para caracterizar geométricamente defectos pequeños.
+Aunque el modelo logró converger, SSD presentó una curva de aprendizaje más lenta que YOLO y una mayor dificultad para generalizar en la clasificación de defectos morfológicamente similares.
 
-#### 2.3 Resultados Experimentales
-Evaluación del modelo SSD300 sobre el conjunto de prueba.
+#### 2.3 Resultados obtenidos
+Comparativa de desempeño según la resolución de entrada.
 
-| Modelo | Backbone | Tamaño Entrada | mAP@0.5 | mAP@0.5:0.95 | F1-Score Max |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **SSD300** | VGG16 | 300x300 | **~0.85** | **0.45** | **0.44** |
+| Variante   | Tamaño entrada | Parámetros | mAP@0.5  | mAP@0.5:0.95 | F1-Score Max |
+|:-----------|:--------------:|------------|:--------:|:------------:|:------------:|
+| **SSD300** |    300x300     | 26.3M      | **0.67** |   **0.39** |   **0.69** |
+| **SSD512** |    512x512     | 27.1M      | **0.72** |   **0.42** |   **0.74** |
 
-> **Nota:** SSD presentó dificultades significativas en la detección de la clase *Puncture* y una mayor tasa de falsos positivos en la clase *Tear* (desgarro) debido a la redundancia de cajas no suprimidas correctamente.
-## Comparativa Global
+**Conclusión sobre SSD**
 
-Resumen comparativo entre las mejores variantes de cada arquitectura.
+La variante **SSD512** demostró un desempeño superior (+5% mAP@0.5) frente a SSD300. Si bien ambas configuraciones comparten la misma topología base (diferenciándose estrictamente en la dimensionalidad de entrada y la consecuente adaptación de las anclas), este escalamiento a 512x512 resultó determinante. El aumento de resolución permitió mitigar la pérdida de información espacial en los mapas de características, facilitando la detección de defectos de baja magnitud (como perforaciones o grietas finas) que, debido a su tamaño, quedaban suprimidos o indetectables bajo la resolución limitada de la variante SSD300.
 
-| Arquitectura | Mejor Modelo | mAP@0.5:0.95 | Latencia (ms) | Observaciones |
-| :--- | :--- | :---: | :---: | :--- |
-| **YOLO** | *[Modelo]* | - | - | *[Comentario breve]* |
-| **SSD** | *[Modelo]* | - | - | *[Comentario breve]* |
+---
 
+### Comparativa Global
 
+Resumen comparativo seleccionando la mejor configuración de cada arquitectura para el despliegue final.
+
+| Arquitectura | Mejor Modelo | Tamaño entrada | Parámetros | mAP@0.5:0.95 |
+| :--- | :--- |----------------|:----------:| :---: |
+| **YOLO** | **YOLOv5s** | 640x640        |    7.2M    | **0.54** |
+| **SSD** | **SSD512** | 512x512        |   27.1M    | 0.42 |
+
+### Conclusiones modelos de una sola etapa
+
+El análisis experimental concluye que la arquitectura YOLOv5s es la solución más robusta y eficiente para el sistema de detección de fallas en correas transportadoras. En la comparativa entre arquitecturas, YOLOv5s supera a SSD512 con una ventaja significativa de precisión (+12% en mAP@0.5:0.95) utilizando casi 4 veces menos parámetros. Esta brecha de rendimiento evidencia que el backbone CSPDarknet de YOLO es superior a la arquitectura basada en VGG de SSD para la extracción de características finas y complejas en entornos industriales. Esto era un resultado esperado debido a la evolución de la familia de modelos YOLO con respecto a SSD, considerando que este último modelo mencionado fue comparado y puesto a prueba principalmente con las primeras versiones de YOLO.
 
