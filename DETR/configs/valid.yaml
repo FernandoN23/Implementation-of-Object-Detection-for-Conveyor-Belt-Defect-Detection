@@ -1,0 +1,35 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: DETR/configs/valid.yaml
+# Descripción: Configuración maestra para validación DETR.
+# ==============================================================
+
+paths:
+  dataset_cfg: "DETR/configs/dataset.yaml"
+  variants_cfg: "DETR/configs/model_variants.yaml"
+
+validation:
+  phase: "val"
+  variant: "r50"
+  run_name: "val_default"
+  weights: ""
+  batch_size: 2
+  workers: 4
+  device: "cuda"
+  conf_thres: 0.5
+  plots: true
+
+miopen:
+  find_mode: "FAST"
+  user_db_path: "C:/Users/memorista/.miopen_db"
+  disable_cache: true
+  verbose: 1
+
+bn2gn:
+  policy: "on"
+  verbose: 1
