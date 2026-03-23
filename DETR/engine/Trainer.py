@@ -6,9 +6,9 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: DETR/engine/Trainer.py
-# Descripción: Motor de entrenamiento para DETR. Gestiona la
-#              optimización AdamW, el ciclo de épocas y la
-#              generación de logs compatibles con metrics.py.
+# Descripción: Orquestador de entrenamiento con auto-descarga de
+#              pesos oficiales, parches ROCm y adaptación dinámica
+#              del cabezal de salida (Transfer Learning).
 # ==============================================================
 
 import os
@@ -22,9 +22,8 @@ from typing import Optional, Any, Dict
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 
-# --- CONFIGURACIÓN DE RUTAS ---
+# --- INTEGRACIÓN DE SUBMÓDULO DETR ---
 FILE = Path(__file__).resolve()
 ENGINE_ROOT = FILE.parent
 DETR_ROOT = ENGINE_ROOT.parent
@@ -35,13 +34,21 @@ if str(DETR_SUBMODULE) not in sys.path:
 
 try:
     from models import build_model
-    from util.misc import save_on_master, reduce_dict
+    from util.misc import save_on_master
     from engine.bn2gn_patch import replace_bn_with_gn, BN2GNConfig
     from utility.data_loader import build_dataloader
     from engine.Validator import Validator
 except ImportError as e:
-    print(f"[Trainer] ERROR: Fallo en imports de dependencias: {e}")
+    print(f"[Trainer] ERROR: Fallo al importar componentes esenciales: {e}")
     sys.exit(1)
+
+# Mapeo de pesos oficiales de Facebook Research (Transformer + Heads)
+DETR_URLS = {
+    "r50": "https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth",
+    "r50_dc5": "https://dl.fbaipublicfiles.com/detr/detr-r50-dc5-f0fb7ef5.pth",
+    "r101": "https://dl.fbaipublicfiles.com/detr/detr-r101-2c7b67e5.pth",
+    "r101_dc5": "https://dl.fbaipublicfiles.com/detr/detr-r101-dc5-a2e86def.pth"
+}
 
 
 @dataclass
@@ -57,7 +64,7 @@ class TrainerConfig:
     lr_drop: int = 200
     clip_max_norm: float = 0.1
     device: str = "cuda"
-    pretrain_weights: str = ""
+    pretrain_weights: str = ""  # Ruta local en weights/base/
     nc: int = 5
     model_args: Any = None
     bn2gn_policy: str = "on"
@@ -68,42 +75,64 @@ class Trainer:
         self.cfg = cfg
         self.device = torch.device(self.cfg.device)
 
-        # Rutas de salida
+        # Rutas canónicas
         self.save_dir = DETR_ROOT / "runs" / self.cfg.variant / self.cfg.phase / self.cfg.run_name
         self.weights_dir = self.save_dir / "weights"
         self.weights_dir.mkdir(parents=True, exist_ok=True)
 
-        # Inicializar componentes
+        # 1. Preparar pesos y modelo
         self.model, self.criterion, self.postprocessors = self._setup_model()
+
+        # 2. Preparar optimización
         self.optimizer, self.lr_scheduler = self._setup_optimizer()
 
-        # Inicializar Validador
+        # 3. Preparar validador
         self.validator = Validator(self.model, self.criterion, self.postprocessors, self.device)
-
-        # Mejor mAP registrado
         self.best_map = 0.0
 
+    def _maybe_download_weights(self):
+        """Descarga automática de pesos si no existen localmente (estilo YOLO)."""
+        w_path = Path(self.cfg.pretrain_weights)
+        if not w_path.exists():
+            variant = self.cfg.variant
+            if variant in DETR_URLS:
+                print(f"[Trainer] Pesos base no encontrados en: {w_path}")
+                print(f"[Trainer] Descargando pesos oficiales de Facebook para variante '{variant}'...")
+                w_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Descarga vía torch.hub
+                torch.hub.download_url_to_file(DETR_URLS[variant], str(w_path))
+                print(f"✓ Descarga completada: {w_path.name}")
+            else:
+                print(f"[Trainer] AVISO: No hay URL de descarga definida para '{variant}'.")
+
     def _setup_model(self):
-        """Instancia, parcha y adapta el modelo DETR."""
+        """Instancia, descarga, carga y adapta el modelo."""
+        # --- NUEVO: Descarga Automática ---
+        self._maybe_download_weights()
+
         model, criterion, postprocessors = build_model(self.cfg.model_args)
 
-        # 1. Cargar pesos base (Fine-tuning)
-        if self.cfg.pretrain_weights and os.path.exists(self.cfg.pretrain_weights):
-            print(f"[Trainer] Cargando pesos: {self.cfg.pretrain_weights}")
-            checkpoint = torch.load(self.cfg.pretrain_weights, map_location='cpu')
+        # Carga de pesos base (COCO)
+        w_path = Path(self.cfg.pretrain_weights)
+        if w_path.exists():
+            print(f"[Trainer] Cargando pesos pre-entrenados: {w_path}")
+            checkpoint = torch.load(w_path, map_location='cpu')
+            # strict=False es clave para permitir que el cabezal de clases se adapte luego
             model.load_state_dict(checkpoint['model'], strict=False)
 
-        # 2. Adaptar última capa para N clases + fondo
+        # Adaptación dinámica: 91 clases (COCO) -> N clases (Proyecto)
         hidden_dim = model.transformer.d_model
+        print(f"[Trainer] Adaptando cabezal para {self.cfg.nc} clases + fondo.")
         model.class_embed = nn.Linear(hidden_dim, self.cfg.nc + 1)
 
-        # 3. Adaptar criterio de pérdida
+        # Adaptación del criterio de pérdida
         criterion.num_classes = self.cfg.nc
         empty_weight = torch.ones(self.cfg.nc + 1)
         empty_weight[-1] = self.cfg.model_args.eos_coef
         criterion.register_buffer('empty_weight', empty_weight)
 
-        # 4. Aplicar Parche BN2GN para ROCm
+        # Parche BN2GN para estabilidad en ROCm
         if self.cfg.bn2gn_policy != "off":
             replace_bn_with_gn(model, BN2GNConfig(policy=self.cfg.bn2gn_policy))
 
@@ -112,6 +141,7 @@ class Trainer:
         return model, criterion, postprocessors
 
     def _setup_optimizer(self):
+        """Configuración AdamW con LR reducido para el Backbone."""
         param_dicts = [
             {"params": [p for n, p in self.model.named_parameters() if "backbone" not in n and p.requires_grad]},
             {"params": [p for n, p in self.model.named_parameters() if "backbone" in n and p.requires_grad],
@@ -122,23 +152,22 @@ class Trainer:
         return optimizer, scheduler
 
     def fit(self):
-        """Bucle principal de entrenamiento y validación."""
+        """Ciclo principal de entrenamiento y validación."""
         print(f"\n--- Iniciando Entrenamiento DETR: {self.cfg.run_name} ---")
 
-        # Cargar Datos
         train_loader = build_dataloader("train", self.cfg.batch_size)
         val_loader = build_dataloader("valid", self.cfg.batch_size)
 
         start_time = time.time()
         for epoch in range(self.cfg.epochs):
-            # 1. Fase de Entrenamiento
+            # 1. Entrenamiento
             train_stats = self._train_one_epoch(train_loader, epoch)
             self.lr_scheduler.step()
 
-            # 2. Fase de Validación
+            # 2. Validación
             val_stats = self.validator.validate(val_loader, self.save_dir)
 
-            # 3. Registro de Logs (formato JSON Lines para metrics.py)
+            # 3. Logs JSON Lines (para utility/metrics.py)
             log_stats = {
                 "epoch": epoch,
                 "train_loss": train_stats["loss"],
@@ -147,21 +176,18 @@ class Trainer:
                 "train_class_error": train_stats["class_error"],
                 **{f"test_{k}": v for k, v in val_stats.items()}
             }
-
             with open(self.save_dir / "log.txt", "a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
-            # 4. Guardar Checkpoints
+            # 4. Checkpoints (last y best)
             self._save_checkpoints(epoch, val_stats)
 
-        print(f"\n[Trainer] Entrenamiento finalizado en {(time.time() - start_time) / 60:.2f} min.")
+        print(f"\n[Trainer] Finalizado en {(time.time() - start_time) / 60:.2f} min.")
 
     def _train_one_epoch(self, loader, epoch):
         self.model.train()
         self.criterion.train()
-
-        total_loss = 0.0
-        stats = {"loss": 0, "loss_ce": 0, "loss_bbox": 0, "class_error": 0}
+        stats = {"loss": 0.0, "loss_ce": 0.0, "loss_bbox": 0.0, "class_error": 0.0}
 
         for i, (samples, targets) in enumerate(loader):
             samples = samples.to(self.device)
@@ -170,31 +196,28 @@ class Trainer:
             outputs = self.model(samples)
             loss_dict = self.criterion(outputs, targets)
             weight_dict = self.criterion.weight_dict
-
             losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
             if not math.isfinite(losses.item()):
-                print(f"ERROR: Pérdida infinita detectada en batch {i}. Abortando.")
+                print(f"Pérdida infinita en batch {i}. Abortando.")
                 sys.exit(1)
 
             self.optimizer.zero_grad()
             losses.backward()
 
-            # Recorte de gradiente: Imprescindible en Transformers para estabilidad
+            # Gradient Clipping: Vital para evitar explosión de gradientes en Transformers
             if self.cfg.clip_max_norm > 0:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.clip_max_norm)
 
             self.optimizer.step()
 
-            # Acumular estadísticas reducidas
-            total_loss += losses.item()
+            stats["loss"] += losses.item()
             stats["loss_ce"] += loss_dict["loss_labels"].item()
             stats["loss_bbox"] += loss_dict["loss_boxes"].item()
 
             if i % 20 == 0:
                 print(f"Epoch [{epoch}] Batch [{i}/{len(loader)}] Loss: {losses.item():.4f}")
 
-        # Promediar
         num_batches = len(loader)
         return {k: v / num_batches for k, v in stats.items()}
 
@@ -206,13 +229,11 @@ class Trainer:
             'epoch': epoch,
             'cfg': self.cfg
         }
-
-        # Guardar último
         save_on_master(checkpoint, self.weights_dir / "last.pt")
 
-        # Guardar mejor según mAP@0.5 (índice 1 de COCO stats)
+        # Mejor mAP@0.5 (índice 1 de stats COCO)
         current_map = val_stats.get("coco_eval_bbox", [0, 0])[1]
         if current_map > self.best_map:
             self.best_map = current_map
             save_on_master(checkpoint, self.weights_dir / "best.pt")
-            print(f"  --> Nuevo mejor modelo guardado (mAP@0.5: {current_map:.4f})")
+            print(f"  --> Nuevo Mejor mAP@0.5: {current_map:.4f} (Guardado en best.pt)")
