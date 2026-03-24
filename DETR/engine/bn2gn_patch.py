@@ -48,16 +48,22 @@ def replace_bn_with_gn(model: nn.Module, cfg: BN2GNConfig) -> int:
                 # Crear la nueva capa GroupNorm
                 gn = nn.GroupNorm(groups, channels, eps=getattr(child, 'eps', 1e-5), affine=True)
 
-                # Preservar dispositivo y precisión (importante en ROCm)
-                device = next(child.parameters()).device
-                dtype = next(child.parameters()).dtype
+                # [CORRECCIÓN]: Extracción segura de device y dtype (Soporta Buffers y Parameters)
+                if hasattr(child, 'weight') and child.weight is not None:
+                    device = child.weight.device
+                    dtype = child.weight.dtype
+                else:
+                    # Fallback genérico si no tiene pesos
+                    device = torch.device('cpu')
+                    dtype = torch.float32
+
                 gn.to(device=device, dtype=dtype)
 
-                # Copiar parámetros aprendidos si existen
+                # Copiar parámetros o buffers aprendidos si existen
                 with torch.no_grad():
-                    if child.weight is not None:
+                    if hasattr(child, 'weight') and child.weight is not None:
                         gn.weight.copy_(child.weight)
-                    if child.bias is not None:
+                    if hasattr(child, 'bias') and child.bias is not None:
                         gn.bias.copy_(child.bias)
 
                 # Realizar la sustitución en el padre

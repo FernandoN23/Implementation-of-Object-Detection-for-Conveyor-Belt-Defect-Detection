@@ -7,7 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: DETR/engine/bootstrap_miopen.py
 # Descripción: Inicialización de variables de entorno MIOpen/ROCm.
-#              Debe ejecutarse estrictamente ANTES de 'import torch'.
+#              Incluye utilidad MuteStderr para silenciar ruido C++.
 # ==============================================================
 
 import os
@@ -23,6 +23,22 @@ class MIOpenConfig:
     user_db_path: Optional[str] = "C:/Users/memorista/.miopen_db"
     disable_cache: bool = True  # Política de proyecto: Siempre True
     verbose: int = 1
+
+
+class MuteStderr:
+    """Context manager para silenciar stderr a nivel de descriptor de archivo (C++ noise)."""
+    def __enter__(self):
+        self._original_stderr_fd = sys.stderr.fileno()
+        self._saved_stderr_fd = os.dup(self._original_stderr_fd)
+        self._devnull = os.open(os.devnull, os.O_WRONLY)
+        # Reemplazar stderr con devnull
+        os.dup2(self._devnull, self._original_stderr_fd)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Restaurar stderr
+        os.dup2(self._saved_stderr_fd, self._original_stderr_fd)
+        os.close(self._saved_stderr_fd)
+        os.close(self._devnull)
 
 
 def bootstrap(cfg: MIOpenConfig):
@@ -45,6 +61,13 @@ def bootstrap(cfg: MIOpenConfig):
 
     # 3. Desactivar caché (Crucial para estabilidad en Windows Preview)
     os.environ["MIOPEN_DISABLE_CACHE"] = "1" if cfg.disable_cache else "0"
+
+    # 4. Silenciar logs de bajo nivel del driver AMD/MIOpen
+    os.environ["AMD_LOG_LEVEL"] = "0"
+    os.environ["MIOPEN_LOG_LEVEL"] = "0"
+    os.environ["MIOPEN_ENABLE_LOGGING"] = "0"
+    os.environ["MIOPEN_ENABLE_LOGGING_CMD"] = "0"
+    os.environ["MIOPEN_DEBUG_DISABLE_FIND_DB"] = "1"
 
     if cfg.verbose > 0:
         print(f"[bootstrap_miopen] MIOpen configurado: FIND_MODE={cfg.find_mode}, "

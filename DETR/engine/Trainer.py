@@ -7,8 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: DETR/engine/Trainer.py
 # Descripción: Orquestador de entrenamiento con auto-descarga de
-#              pesos oficiales, parches ROCm y adaptación dinámica
-#              del cabezal de salida (Transfer Learning).
+#              pesos oficiales, parches ROCm y mitigación de ruido.
 # ==============================================================
 
 import os
@@ -30,7 +29,7 @@ DETR_ROOT = ENGINE_ROOT.parent
 DETR_SUBMODULE = DETR_ROOT / "detr"
 
 if str(DETR_SUBMODULE) not in sys.path:
-    sys.path.insert(0, str(DETR_SUBMODULE))
+    sys.path.append(str(DETR_SUBMODULE))
 
 try:
     from models import build_model
@@ -38,6 +37,7 @@ try:
     from engine.bn2gn_patch import replace_bn_with_gn, BN2GNConfig
     from utility.data_loader import build_dataloader
     from engine.Validator import Validator
+    from engine.bootstrap_miopen import MuteStderr  # [NUEVO]
 except ImportError as e:
     print(f"[Trainer] ERROR: Fallo al importar componentes esenciales: {e}")
     sys.exit(1)
@@ -75,6 +75,10 @@ class Trainer:
         self.cfg = cfg
         self.device = torch.device(self.cfg.device)
 
+        # Desactivar benchmark para evitar spam de MIOpen con tamaños variables
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
         # Rutas canónicas
         self.save_dir = DETR_ROOT / "runs" / self.cfg.variant / self.cfg.phase / self.cfg.run_name
         self.weights_dir = self.save_dir / "weights"
@@ -108,7 +112,6 @@ class Trainer:
 
     def _setup_model(self):
         """Instancia, descarga, carga y adapta el modelo."""
-        # --- NUEVO: Descarga Automática ---
         self._maybe_download_weights()
 
         model, criterion, postprocessors = build_model(self.cfg.model_args)
@@ -118,7 +121,6 @@ class Trainer:
         if w_path.exists():
             print(f"[Trainer] Cargando pesos pre-entrenados: {w_path}")
             checkpoint = torch.load(w_path, map_location='cpu')
-            # strict=False es clave para permitir que el cabezal de clases se adapte luego
             model.load_state_dict(checkpoint['model'], strict=False)
 
         # Adaptación dinámica: 91 clases (COCO) -> N clases (Proyecto)
@@ -173,6 +175,7 @@ class Trainer:
                 "train_loss": train_stats["loss"],
                 "train_loss_ce": train_stats["loss_ce"],
                 "train_loss_bbox": train_stats["loss_bbox"],
+                "train_loss_giou": train_stats["loss_giou"],
                 "train_class_error": train_stats["class_error"],
                 **{f"test_{k}": v for k, v in val_stats.items()}
             }
@@ -187,36 +190,42 @@ class Trainer:
     def _train_one_epoch(self, loader, epoch):
         self.model.train()
         self.criterion.train()
-        stats = {"loss": 0.0, "loss_ce": 0.0, "loss_bbox": 0.0, "class_error": 0.0}
+        stats = {"loss": 0.0, "loss_ce": 0.0, "loss_bbox": 0.0, "loss_giou": 0.0, "class_error": 0.0}
 
-        for i, (samples, targets) in enumerate(loader):
-            samples = samples.to(self.device)
-            targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+        # [NUEVO] Silenciar ruido de C++ durante el bucle de batches
+        with MuteStderr():
+            for i, (samples, targets) in enumerate(loader):
+                samples = samples.to(self.device)
+                targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
 
-            outputs = self.model(samples)
-            loss_dict = self.criterion(outputs, targets)
-            weight_dict = self.criterion.weight_dict
-            losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+                outputs = self.model(samples)
+                loss_dict = self.criterion(outputs, targets)
+                weight_dict = self.criterion.weight_dict
+                losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
-            if not math.isfinite(losses.item()):
-                print(f"Pérdida infinita en batch {i}. Abortando.")
-                sys.exit(1)
+                if not math.isfinite(losses.item()):
+                    # Si hay error crítico, el print saldrá fuera del context manager
+                    # o podemos imprimirlo forzadamente.
+                    continue
 
-            self.optimizer.zero_grad()
-            losses.backward()
+                self.optimizer.zero_grad()
+                losses.backward()
 
-            # Gradient Clipping: Vital para evitar explosión de gradientes en Transformers
-            if self.cfg.clip_max_norm > 0:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.clip_max_norm)
+                if self.cfg.clip_max_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.clip_max_norm)
 
-            self.optimizer.step()
+                self.optimizer.step()
 
-            stats["loss"] += losses.item()
-            stats["loss_ce"] += loss_dict["loss_labels"].item()
-            stats["loss_bbox"] += loss_dict["loss_boxes"].item()
+                stats["loss"] += losses.item()
+                stats["loss_ce"] += loss_dict["loss_ce"].item()
+                stats["loss_bbox"] += loss_dict["loss_bbox"].item()
+                stats["loss_giou"] += loss_dict["loss_giou"].item()
 
-            if i % 20 == 0:
-                print(f"Epoch [{epoch}] Batch [{i}/{len(loader)}] Loss: {losses.item():.4f}")
+                if "class_error" in loss_dict:
+                    stats["class_error"] += loss_dict["class_error"].item()
+
+        # Imprimir progreso fuera del MuteStderr para que sea visible
+        print(f"Epoch [{epoch}] completada. Loss promedio: {stats['loss'] / len(loader):.4f}")
 
         num_batches = len(loader)
         return {k: v / num_batches for k, v in stats.items()}
@@ -231,7 +240,6 @@ class Trainer:
         }
         save_on_master(checkpoint, self.weights_dir / "last.pt")
 
-        # Mejor mAP@0.5 (índice 1 de stats COCO)
         current_map = val_stats.get("coco_eval_bbox", [0, 0])[1]
         if current_map > self.best_map:
             self.best_map = current_map

@@ -69,13 +69,18 @@ def main():
     v_params = variants_cfg['variants'][v_name]
 
     model_args = argparse.Namespace(**v_params)
+
     # Atributos de entrenamiento necesarios para el build de detr/models
-    for k in ['bbox_loss_coef', 'giou_loss_coef', 'eos_coef', 'aux_loss']:
+    # [CORRECCIÓN]: Se añadió 'lr_backbone' a la lista de inyección
+    for k in ['bbox_loss_coef', 'giou_loss_coef', 'eos_coef', 'aux_loss', 'lr_backbone']:
         setattr(model_args, k, train_cfg['training'][k])
 
     model_args.set_cost_class = train_cfg['training'].get('set_cost_class', 1.0)
     model_args.set_cost_bbox = train_cfg['training'].get('set_cost_bbox', 5.0)
     model_args.set_cost_giou = train_cfg['training'].get('set_cost_giou', 2.0)
+
+    # [CORRECCIÓN]: Se añadió frozen_weights por seguridad para evitar futuros AttributeErrors
+    model_args.frozen_weights = None
     model_args.masks = False
     model_args.dataset_file = 'coco'
     model_args.device = train_cfg['training']['device']
