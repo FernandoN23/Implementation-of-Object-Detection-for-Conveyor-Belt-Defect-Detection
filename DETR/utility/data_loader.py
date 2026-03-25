@@ -7,18 +7,20 @@
 # --------------------------------------------------------------
 # Archivo: DETR/utility/data_loader.py
 # Descripción: Adaptador de Dataset YOLOv11 a formato DETR.
-#              Gestiona la carga de imágenes, conversión de
-#              coordenadas y empaquetado en NestedTensors.
+#              Incluye generación de API COCO virtual en memoria
+#              para compatibilidad con CocoEvaluator.
 # ==============================================================
 
 import os
 import sys
 import yaml
+import contextlib
 from pathlib import Path
 from PIL import Image
 
 import torch
 from torch.utils.data import DataLoader, Dataset
+from pycocotools.coco import COCO
 
 # --- CONFIGURACIÓN DE RUTAS ---
 FILE = Path(__file__).resolve()
@@ -28,7 +30,7 @@ PROJECT_ROOT = DETR_ROOT.parent
 DATASET_ROOT = PROJECT_ROOT / "Dataset"
 DETR_SUBMODULE = DETR_ROOT / "detr"
 
-# [CORRECCIÓN]: Usamos append para evitar colisiones con el paquete engine/ local
+# [CORRECCIÓN]: Usamos append para dar prioridad a nuestras carpetas locales (engine/)
 if str(DETR_SUBMODULE) not in sys.path:
     sys.path.append(str(DETR_SUBMODULE))
 
@@ -58,6 +60,58 @@ class YoloToDetrDataset(Dataset):
             if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".bmp"]
         ])
 
+        # [NUEVO]: Crear API COCO virtual para el set de validación
+        if image_set in ["valid", "val"]:
+            self.coco = self._build_coco_api()
+
+    def _build_coco_api(self):
+        """Construye un objeto COCO en memoria a partir de los .txt de YOLO."""
+        print(f"[data_loader] Generando API COCO virtual para '{self.image_set}'...")
+        coco_data = {"images": [], "annotations": [], "categories": []}
+
+        # Definir categorías (5 fallas)
+        categories = ['Hole', 'Impact Damage', 'Puncture', 'Tear', 'Wear']
+        for i, cat in enumerate(categories):
+            coco_data["categories"].append({"id": i, "name": cat})
+
+        ann_id = 0
+        for idx, img_path in enumerate(self.img_files):
+            # Obtener dimensiones sin cargar toda la imagen en memoria
+            with Image.open(img_path) as img:
+                w, h = img.size
+
+            coco_data["images"].append({"id": idx, "file_name": img_path.name, "width": w, "height": h})
+
+            label_path = self.labels_dir / f"{img_path.stem}.txt"
+            if label_path.exists():
+                with open(label_path, "r") as f:
+                    for line in f:
+                        parts = line.split()
+                        if len(parts) != 5: continue
+                        cls, cx, cy, bw, bh = map(float, parts)
+
+                        # YOLO (norm) -> COCO [xmin, ymin, w, h] (abs)
+                        abs_w, abs_h = bw * w, bh * h
+                        xmin = (cx * w) - (abs_w / 2)
+                        ymin = (cy * h) - (abs_h / 2)
+
+                        coco_data["annotations"].append({
+                            "id": ann_id,
+                            "image_id": idx,
+                            "category_id": int(cls),
+                            "bbox": [xmin, ymin, abs_w, abs_h],
+                            "area": abs_w * abs_h,
+                            "iscrowd": 0
+                        })
+                        ann_id += 1
+
+        # Instanciar objeto COCO silenciando el "creating index..."
+        res = COCO()
+        res.dataset = coco_data
+        with contextlib.redirect_stdout(open(os.devnull, 'w')):
+            res.createIndex()
+        return res
+
     def __len__(self):
         return len(self.img_files)
 
@@ -74,7 +128,9 @@ class YoloToDetrDataset(Dataset):
         if label_path.exists():
             with open(label_path, "r") as f:
                 for line in f:
-                    cls, cx, cy, bw, bh = map(float, line.split())
+                    parts = line.split()
+                    if len(parts) != 5: continue
+                    cls, cx, cy, bw, bh = map(float, parts)
                     xmin = (cx - bw / 2) * w
                     ymin = (cy - bh / 2) * h
                     xmax = (cx + bw / 2) * w
@@ -89,7 +145,8 @@ class YoloToDetrDataset(Dataset):
             "boxes": boxes,
             "labels": labels,
             "image_id": torch.tensor([idx]),
-            "area": (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]) if len(boxes) > 0 else torch.tensor([0.0]),
+            "area": (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]) if len(boxes) > 0 else torch.tensor(
+                [0.0]),
             "iscrowd": torch.zeros((len(labels),), dtype=torch.int64),
             "orig_size": torch.as_tensor([int(h), int(w)]),
             "size": torch.as_tensor([int(h), int(w)])
