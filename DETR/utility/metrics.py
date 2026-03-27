@@ -6,55 +6,41 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: DETR/utility/metrics.py
-# Descripción: Herramienta CLI para visualización y comparación
-#              de métricas de entrenamiento DETR.
-#              Procesa logs nativos (log.txt) y genera curvas de
-#              pérdida, error de clase y mAP (COCO).
+# Descripción: Motor gráfico para reportes de validación y
+#              herramienta CLI para comparación global de
+#              variantes DETR (r50, r101, dc5).
 # ==============================================================
 
-from __future__ import annotations
-
-import argparse
-import json
 import os
-import sys
+import json
 import time
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-
-import matplotlib.pyplot as plt
+import argparse
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pathlib import Path
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
-# Configuración de estilo
-try:
-    import seaborn as sns
-
-    sns.set_theme(style="whitegrid", font_scale=1.1)
-    sns.set_palette("tab10")
-except ImportError:
-    plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'seaborn-whitegrid')
-
+# --- CONFIGURACIÓN DE ESTILO Y CONSTANTES ---
+plt.style.use('seaborn-v0_8-whitegrid')
 plt.rcParams.update({
     'font.size': 10,
+    'axes.facecolor': '#f0f0f0',
+    'grid.color': 'white',
     'axes.labelsize': 11,
     'axes.titlesize': 12,
     'legend.fontsize': 10,
     'lines.linewidth': 2
 })
 
-# ---------------------------------------------------------------------------
-# Definición de Rutas y Constantes
-# ---------------------------------------------------------------------------
-
 FILE = Path(__file__).resolve()
 UTILITY_ROOT = FILE.parent
 DETR_ROOT = UTILITY_ROOT.parent
-RUNS_ROOT = DETR_ROOT / "runs"
 METRICS_ROOT = DETR_ROOT / "metrics"
 
-# Parámetros aproximados de DETR (ResNet Backbones) en Millones
+# Parámetros aproximados de DETR (Millones)
 DETR_PARAMS_M = {
     "r50": 41.3,
     "r50_dc5": 41.3,
@@ -62,6 +48,7 @@ DETR_PARAMS_M = {
     "r101_dc5": 60.1,
 }
 
+# Paleta de colores estricta para comparativas
 VARIANT_COLORS = {
     "r50": "#1f77b4",  # Azul
     "r50_dc5": "#2ca02c",  # Verde
@@ -69,13 +56,6 @@ VARIANT_COLORS = {
     "r101_dc5": "#9467bd",  # Púrpura
 }
 
-COLOR_TRAIN = "#1f77b4"
-COLOR_VAL = "#ff7f0e"
-
-
-# ---------------------------------------------------------------------------
-# Configuración (Dataclass)
-# ---------------------------------------------------------------------------
 
 @dataclass
 class MetricsConfig:
@@ -86,47 +66,18 @@ class MetricsConfig:
     variants_to_compare: List[str] = None  # type: ignore
 
     @property
-    def train_metrics_dir(self) -> Path:
-        return METRICS_ROOT / self.task_model / self.variant / "train" / self.train_run
-
-    @property
     def final_metrics_dir(self) -> Path:
         return METRICS_ROOT / self.task_model / "global_comparison"
 
 
 # ---------------------------------------------------------------------------
-# Lógica de Carga de Datos (Parser JSON Lines)
+# Utilidades Generales y Suavizado
 # ---------------------------------------------------------------------------
 
-def load_detr_log(path: Path) -> pd.DataFrame:
-    """Lee log.txt y lo convierte en un DataFrame estructurado."""
-    if not path.is_file():
-        return pd.DataFrame()
-
-    data = []
-    with open(path, 'r') as f:
-        for line in f:
-            try:
-                data.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-
-    df = pd.DataFrame(data)
-    if df.empty:
-        return df
-
-    # Mapeo de métricas COCO (índices estándar de pycocotools)
-    # [0]: mAP@0.5:0.95, [1]: mAP@0.5
-    if 'test_coco_eval_bbox' in df.columns:
-        df['val_map_50_95'] = df['test_coco_eval_bbox'].apply(lambda x: x[0] if isinstance(x, list) else np.nan)
-        df['val_map_50'] = df['test_coco_eval_bbox'].apply(lambda x: x[1] if isinstance(x, list) else np.nan)
-
-    return df
-
-
 def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
-    if not scalars: return []
+    """Aplica suavizado exponencial robusto a NaNs."""
     series = pd.Series(scalars).interpolate(limit_direction='both')
+    if series.isnull().all(): return scalars
     clean_scalars = series.tolist()
     last = clean_scalars[0]
     smoothed = []
@@ -137,158 +88,292 @@ def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
     return smoothed
 
 
+def load_results_csv(path: Path) -> pd.DataFrame:
+    """Carga results.csv y asegura tipos numéricos."""
+    if not path.is_file(): return pd.DataFrame()
+    df = pd.read_csv(path)
+    df.columns = [c.strip() for c in df.columns]
+    # Calcular F1 si no existe explícitamente
+    if 'metrics/mAP_0.5' in df.columns and 'metrics/recall' in df.columns:
+        p = df['metrics/mAP_0.5']
+        r = df['metrics/recall']
+        df['metrics/F1'] = 2 * (p * r) / (p + r + 1e-16)
+    return df
+
+
 # ---------------------------------------------------------------------------
-# Lógica de Ploteo
+# Lógica de Comparación Global (Merge Mode)
 # ---------------------------------------------------------------------------
 
-def plot_train_val_curve(df: pd.DataFrame, train_col: str, val_col: str, title: str, ylabel: str, out_path: Path):
-    if df.empty: return
+def discover_best_runs(task: str, variants: List[str]) -> Dict[str, Path]:
+    """Busca el run más reciente para cada variante solicitada."""
+    found_runs = {}
+    for var in variants:
+        base_path = METRICS_ROOT / task / var / "train"
+        if not base_path.exists(): continue
+        runs = [p for p in base_path.iterdir() if p.is_dir()]
+        if not runs: continue
+        latest_run = max(runs, key=lambda p: p.stat().st_mtime)
+        csv_path = latest_run / "results.csv"
+        if csv_path.is_file():
+            found_runs[var] = csv_path
+            print(f"[Merge] Variante '{var}': {latest_run.name}")
+    return found_runs
+
+
+def plot_comparative_metric(data_map: Dict[str, pd.DataFrame], metric_col: str, title: str, ylabel: str, out_path: Path,
+                            smooth_factor: float = 0.6):
+    """Genera gráfico comparativo superponiendo variantes con colores fijos."""
     plt.figure(figsize=(10, 6))
+    has_data = False
 
-    for col, label, color in [(train_col, "Train", COLOR_TRAIN), (val_col, "Validation", COLOR_VAL)]:
-        if col in df.columns:
-            raw = df[col].values
-            smoothed = smooth_signal(raw.tolist())
-            plt.plot(df['epoch'], raw, color=color, alpha=0.2)
-            plt.plot(df['epoch'], smoothed, label=label, color=color, linewidth=2.5)
-
-    plt.xlabel("Epoch")
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=200)
-    plt.close()
-
-
-def plot_comparative(data_map: Dict[str, pd.DataFrame], col_name: str, title: str, ylabel: str, out_path: Path):
-    plt.figure(figsize=(10, 6))
     for var, df in data_map.items():
-        if col_name in df.columns:
-            color = VARIANT_COLORS.get(var, "#808080")
-            smoothed = smooth_signal(df[col_name].tolist(), weight=0.8)
-            plt.plot(df['epoch'], smoothed, label=var.upper(), color=color, linewidth=2.5)
+        if metric_col not in df.columns: continue
+        df_clean = df.dropna(subset=['epoch', metric_col])
+        if df_clean.empty: continue
 
-    plt.xlabel("Epoch")
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=200)
-    plt.close()
+        has_data = True
+        epochs = df_clean["epoch"]
+        values = df_clean[metric_col].values.astype(float)
+        color = VARIANT_COLORS.get(var, "gray")
 
+        # Plot crudo (transparente) y suavizado (sólido)
+        plt.plot(epochs, values, color=color, alpha=0.2, linewidth=1)
+        smoothed = smooth_signal(values.tolist(), weight=smooth_factor)
+        plt.plot(epochs, smoothed, label=f"DETR-{var.upper()}", color=color, alpha=1.0, linewidth=2.5)
 
-# ---------------------------------------------------------------------------
-# Modos de Ejecución
-# ---------------------------------------------------------------------------
-
-def run_single_mode(cfg: MetricsConfig):
-    print(f"\n--- Procesando métricas DETR: {cfg.variant} / {cfg.train_run} ---")
-    run_dir = RUNS_ROOT / cfg.variant / "train" / cfg.train_run
-    log_path = run_dir / "log.txt"
-
-    df = load_detr_log(log_path)
-    if df.empty:
-        print(f"[Error] No se encontró log válido en {log_path}")
+    if not has_data:
+        plt.close()
         return
 
-    out_dir = cfg.train_metrics_dir
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "losses").mkdir(exist_ok=True)
-
-    # 1. Gráficos de Pérdida
-    plot_train_val_curve(df, 'train_loss', 'test_loss', 'Total Loss', 'Loss', out_dir / "losses/loss_total.png")
-    plot_train_val_curve(df, 'train_loss_ce', 'test_loss_ce', 'Classification Loss (CE)', 'Loss',
-                         out_dir / "losses/loss_ce.png")
-    plot_train_val_curve(df, 'train_loss_bbox', 'test_loss_bbox', 'BBox Loss (L1)', 'Loss',
-                         out_dir / "losses/loss_bbox.png")
-
-    # 2. Gráficos de Performance
-    plot_train_val_curve(df, 'train_class_error', 'test_class_error', 'Classification Error', 'Error %',
-                         out_dir / "class_error.png")
-
-    if 'val_map_50' in df.columns:
-        plt.figure(figsize=(10, 6))
-        plt.plot(df['epoch'], df['val_map_50'], label="mAP@0.5", linewidth=2)
-        plt.plot(df['epoch'], df['val_map_50_95'], label="mAP@0.5:0.95", linewidth=2)
-        plt.title("mAP Evolution (COCO)")
-        plt.xlabel("Epoch")
-        plt.ylabel("mAP")
-        plt.legend()
-        plt.savefig(out_dir / "map_curves.png", dpi=200)
-        plt.close()
-
-    print(f"✓ Reporte generado en: {out_dir}")
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend(frameon=True, framealpha=0.9)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close()
 
 
-def run_comparison_mode(cfg: MetricsConfig):
-    print("\n--- Iniciando Comparación Global DETR ---")
-    variants = cfg.variants_to_compare or list(DETR_PARAMS_M.keys())
-    data_map = {}
-
-    for var in variants:
-        base = RUNS_ROOT / var / "train"
-        if not base.exists(): continue
-        # Tomar el run más reciente de esa variante
-        runs = sorted([d for d in base.iterdir() if d.is_dir()], key=os.path.getmtime)
-        if not runs: continue
-        df = load_detr_log(runs[-1] / "log.txt")
-        if not df.empty:
-            data_map[var] = df
-            print(f"[Merge] Incluida variante '{var}': {runs[-1].name}")
-
-    if not data_map: return
-
-    out = cfg.final_metrics_dir
-    out.mkdir(parents=True, exist_ok=True)
-
-    plot_comparative(data_map, 'test_loss', 'Comparative: Validation Loss', 'Loss', out / "compare_loss.png")
-    plot_comparative(data_map, 'val_map_50_95', 'Comparative: mAP@0.5:0.95', 'mAP', out / "compare_map.png")
-
-    # Trade-off Plot
-    plt.figure(figsize=(9, 6))
+def plot_variant_tradeoff(data_map: Dict[str, pd.DataFrame], out_path: Path):
+    """Gráfico de dispersión: mAP vs Parámetros."""
+    variants, maps, params = [], [], []
     for var, df in data_map.items():
-        best_map = df['val_map_50_95'].max()
-        params = DETR_PARAMS_M.get(var, 0)
-        plt.scatter(params, best_map, s=200, label=var.upper(), color=VARIANT_COLORS.get(var))
-        plt.annotate(var.upper(), (params, best_map), xytext=(5, 5), textcoords='offset points', fontweight='bold')
+        if 'metrics/mAP_0.5:0.95' not in df.columns: continue
+        best_map = df['metrics/mAP_0.5:0.95'].max()
+        if pd.isna(best_map) or best_map == 0: continue
+        variants.append(var)
+        maps.append(best_map)
+        params.append(DETR_PARAMS_M.get(var, 0))
+
+    if not variants: return
+
+    plt.figure(figsize=(9, 6))
+    colors = [VARIANT_COLORS.get(v, "gray") for v in variants]
+    plt.scatter(params, maps, c=colors, s=150, zorder=3, edgecolors='black')
+
+    # Línea conectora
+    if len(params) > 1:
+        sorted_indices = np.argsort(params)
+        plt.plot(np.array(params)[sorted_indices], np.array(maps)[sorted_indices], linestyle='--', color='gray',
+                 alpha=0.5, zorder=1)
+
+    for i, txt in enumerate(variants):
+        plt.annotate(f"  {txt.upper()}", (params[i], maps[i]), xytext=(5, 5), textcoords='offset points', fontsize=11,
+                     fontweight='bold')
 
     plt.xlabel("Parámetros (Millones)")
     plt.ylabel("Best mAP@0.5:0.95")
     plt.title("Trade-off: Performance vs Complejidad (DETR)")
-    plt.grid(True, linestyle="--", alpha=0.5)
-    plt.savefig(out / "tradeoff_detr.png", dpi=200)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
     plt.close()
 
-    print(f"✓ Comparación global finalizada en: {out}")
+
+def run_comparison_mode(cfg: MetricsConfig):
+    print("\n=== Iniciando Modo Comparativo DETR (Merge) ===")
+    variants = cfg.variants_to_compare or list(DETR_PARAMS_M.keys())
+    runs_map = discover_best_runs(cfg.task_model, variants)
+
+    if not runs_map:
+        print("[Error] No se encontraron runs válidos para comparar.")
+        return
+
+    data_map = {var: load_results_csv(path) for var, path in runs_map.items()}
+    global_out = cfg.final_metrics_dir
+    losses_out = global_out / "losses"
+    metrics_out = global_out / "metrics"
+
+    global_out.mkdir(parents=True, exist_ok=True)
+    losses_out.mkdir(exist_ok=True)
+    metrics_out.mkdir(exist_ok=True)
+
+    # 1. Gráficos de Pérdidas
+    loss_types = {"Total Loss (Val)": "val/loss", "Classification Loss (Val)": "val/loss_ce",
+                  "BBox Loss (Val)": "val/loss_bbox"}
+    for title, keyword in loss_types.items():
+        plot_comparative_metric(data_map, keyword, title, "Loss",
+                                losses_out / f"compare_{keyword.replace('/', '_')}.png", smooth_factor=0.7)
+
+    # 2. Gráficos de Métricas
+    metric_types = {"Precision (mAP@0.5)": "metrics/mAP_0.5", "mAP@0.5:0.95": "metrics/mAP_0.5:0.95",
+                    "Recall": "metrics/recall", "F1-Score": "metrics/F1"}
+    for title, keyword in metric_types.items():
+        safe_name = keyword.replace("metrics/", "").replace(":", "_")
+        plot_comparative_metric(data_map, keyword, f"Comparativa {title}", title,
+                                metrics_out / f"compare_{safe_name}.png", smooth_factor=0.5)
+
+    # 3. Trade-off
+    plot_variant_tradeoff(data_map, global_out / "tradeoff_performance_size.png")
+
+    # 4. Resumen JSON
+    summary = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "variants": list(data_map.keys()), "best_metrics": {}}
+    for var, df in data_map.items():
+        summary["best_metrics"][var] = {
+            "map50_95": float(df['metrics/mAP_0.5:0.95'].max()) if 'metrics/mAP_0.5:0.95' in df.columns else 0,
+            "f1": float(df['metrics/F1'].max()) if 'metrics/F1' in df.columns else 0,
+            "params_M": DETR_PARAMS_M.get(var, 0)
+        }
+    with open(global_out / "global_summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"=== Comparación Finalizada en {global_out} ===")
 
 
 # ---------------------------------------------------------------------------
-# Main / CLI
+# Lógica de Validación (Reporte Completo)
+# ---------------------------------------------------------------------------
+
+def calculate_iou(box1, box2):
+    x1, y1 = max(box1[0], box2[0]), max(box1[1], box2[1])
+    x2, y2 = min(box1[2], box2[2]), min(box1[3], box2[3])
+    inter = max(0, x2 - x1) * max(0, y2 - y1)
+    area1 = (box1[2] - box1[0]) * (box1[3] - box1[1])
+    area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
+    return inter / (area1 + area2 - inter + 1e-6)
+
+
+def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5):
+    nc = len(class_names)
+    conf_levels = np.linspace(0, 1, 100)
+    curve_data = {c: {'p': [], 'r': [], 'f1': []} for c in range(nc)}
+    all_ious = []
+    confusion_matrix = np.zeros((nc + 1, nc + 1))
+
+    for p, g in zip(preds, gts):
+        p_boxes, p_scores, p_labels = p['boxes'], p['scores'], p['labels']
+        g_boxes, g_labels = g['boxes'], g['labels']
+        matched_gts = [False] * len(g_labels)
+
+        for i in range(len(p_labels)):
+            if p_scores[i] < 0.25: continue
+            best_iou, best_gt_idx = 0, -1
+            for j in range(len(g_labels)):
+                iou = calculate_iou(p_boxes[i], g_boxes[j])
+                if iou > best_iou: best_iou, best_gt_idx = iou, j
+            if best_iou > iou_threshold:
+                confusion_matrix[p_labels[i], g_labels[best_gt_idx]] += 1
+                matched_gts[best_gt_idx] = True
+                all_ious.append(best_iou)
+            else:
+                confusion_matrix[p_labels[i], nc] += 1
+        for j, matched in enumerate(matched_gts):
+            if not matched: confusion_matrix[nc, g_labels[j]] += 1
+
+    for c in range(nc):
+        for conf in conf_levels:
+            tp, fp, fn = 0, 0, 0
+            for p, g in zip(preds, gts):
+                p_mask = (p['labels'] == c) & (p['scores'] >= conf)
+                g_mask = (g['labels'] == c)
+                curr_p_boxes, curr_g_boxes = p['boxes'][p_mask], g['boxes'][g_mask]
+                matched = [False] * len(curr_g_boxes)
+                for pb in curr_p_boxes:
+                    found = False
+                    for idx, gb in enumerate(curr_g_boxes):
+                        if not matched[idx] and calculate_iou(pb, gb) > iou_threshold:
+                            tp += 1;
+                            matched[idx] = True;
+                            found = True;
+                            break
+                    if not found: fp += 1
+                fn += len(curr_g_boxes) - sum(matched)
+            prec = tp / (tp + fp + 1e-6)
+            rec = tp / (tp + fn + 1e-6)
+            curve_data[c]['p'].append(prec)
+            curve_data[c]['r'].append(rec)
+            curve_data[c]['f1'].append(2 * prec * rec / (prec + rec + 1e-6))
+
+    # F1 Curve
+    plt.figure(figsize=(10, 7))
+    f1_all = []
+    for c in range(nc):
+        plt.plot(conf_levels, curve_data[c]['f1'], label=class_names[c], linewidth=1)
+        f1_all.append(curve_data[c]['f1'])
+    mean_f1 = np.mean(f1_all, axis=0)
+    best_idx = np.argmax(mean_f1)
+    plt.plot(conf_levels, mean_f1, label=f'all classes {mean_f1[best_idx]:.2f} at {conf_levels[best_idx]:.3f}',
+             color='blue', linewidth=3)
+    plt.title('F1-Confidence Curve');
+    plt.xlabel('Confidence');
+    plt.ylabel('F1');
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout();
+    plt.savefig(save_dir / "F1_curve.png", dpi=200);
+    plt.close()
+
+    # PR Curve
+    plt.figure(figsize=(10, 7))
+    for c in range(nc): plt.plot(curve_data[c]['r'], curve_data[c]['p'], label=class_names[c], linewidth=1)
+    plt.title('Precision-Recall Curve');
+    plt.xlabel('Recall');
+    plt.ylabel('Precision');
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout();
+    plt.savefig(save_dir / "PR_curve.png", dpi=200);
+    plt.close()
+
+    # Confusion Matrix
+    plt.figure(figsize=(12, 9))
+    cm_norm = confusion_matrix / (confusion_matrix.sum(axis=0) + 1e-6)
+    sns.heatmap(cm_norm, annot=True, fmt='.2f', cmap='Blues', xticklabels=class_names + ['background'],
+                yticklabels=class_names + ['background'])
+    plt.title('Confusion Matrix');
+    plt.xlabel('True');
+    plt.ylabel('Predicted')
+    plt.tight_layout();
+    plt.savefig(save_dir / "confusion_matrix.png", dpi=200);
+    plt.close()
+
+    # IoU Distribution
+    plt.figure(figsize=(10, 6))
+    plt.hist(all_ious, bins=20, color='cornflowerblue', edgecolor='black')
+    plt.title('IoU Distribution');
+    plt.xlabel('IoU');
+    plt.ylabel('Frequency')
+    plt.tight_layout();
+    plt.savefig(save_dir / "iou_distribution.png", dpi=200);
+    plt.close()
+
+    return {'F1': float(mean_f1[best_idx]),
+            'mAP_0.5': float(np.mean([np.trapz(curve_data[c]['p'], curve_data[c]['r']) for c in range(nc)]))}
+
+
+# ---------------------------------------------------------------------------
+# CLI
 # ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--task-model", default="detect")
     parser.add_argument("--variant", default="r50")
-    parser.add_argument("--run", default="")
+    parser.add_argument("--train-run", default="")
     parser.add_argument("--merge", action="store_true")
+    parser.add_argument("--variants-to-compare", nargs="+", default=["r50", "r50_dc5", "r101", "r101_dc5"])
     args = parser.parse_args()
 
-    cfg = MetricsConfig(variant=args.variant, train_run=args.run, merge_mode=args.merge)
-
-    if cfg.merge_mode:
-        run_comparison_mode(cfg)
-    else:
-        if not cfg.train_run:
-            base = RUNS_ROOT / cfg.variant / "train"
-            if base.exists():
-                options = sorted([d.name for d in base.iterdir() if d.is_dir()])
-                if options:
-                    print(f"\nRuns disponibles para {cfg.variant}:")
-                    for i, o in enumerate(options): print(f" [{i}] {o}")
-                    idx = int(input("Seleccione índice: "))
-                    cfg.train_run = options[idx]
-        run_single_mode(cfg)
+    cfg = MetricsConfig(task_model=args.task_model, variant=args.variant, train_run=args.train_run,
+                        merge_mode=args.merge, variants_to_compare=args.variants_to_compare)
+    if cfg.merge_mode: run_comparison_mode(cfg)
 
 
 if __name__ == "__main__":

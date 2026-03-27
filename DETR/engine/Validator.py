@@ -6,15 +6,19 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: DETR/engine/Validator.py
-# Descripción: Motor de validación para DETR. Realiza inferencia
-#              sobre el conjunto de validación y estandariza las
-#              métricas de COCO (mAP, Recall) para su posterior
-#              registro y visualización.
+# Descripción: Motor de validación para DETR. Evalúa el modelo
+#              usando la API COCO virtual generada en el loader.
+#              Incluye generación de reportes completos (P/R/F1)
+#              y visualización de inferencias (Bounding Boxes).
 # ==============================================================
 
 import torch
+import numpy as np
+import cv2
 import sys
+import random
 from pathlib import Path
+from tqdm import tqdm
 
 # --- INTEGRACIÓN DE SUBMÓDULO DETR ---
 FILE = Path(__file__).resolve()
@@ -28,6 +32,7 @@ if str(DETR_SUBMODULE) not in sys.path:
 try:
     from datasets.coco_eval import CocoEvaluator
     from engine.bootstrap_miopen import MuteStderr
+    from utility.metrics import plot_validation_report
 except ImportError as e:
     print(f"[Validator] ERROR: No se pudo importar dependencias: {e}")
 
@@ -41,7 +46,7 @@ class Validator:
 
     @torch.no_grad()
     def validate(self, loader, output_dir):
-        """Ejecuta inferencia y retorna diccionario de métricas estandarizadas."""
+        """Validación rápida para el ciclo de entrenamiento (mAP COCO)."""
         self.model.eval()
         self.criterion.eval()
 
@@ -81,11 +86,116 @@ class Validator:
         evaluator.accumulate()
         evaluator.summarize()
 
-        # Mapeo de índices COCO a nombres legibles para el CSV
         if 'bbox' in evaluator.coco_eval:
             coco_stats = evaluator.coco_eval['bbox'].stats.tolist()
             final_stats["mAP_0.5:0.95"] = coco_stats[0]
             final_stats["mAP_0.5"] = coco_stats[1]
-            final_stats["recall"] = coco_stats[8]  # AR@100
+            final_stats["recall"] = coco_stats[8]
 
         return final_stats
+
+    @torch.no_grad()
+    def run_full_report(self, loader, save_dir, class_names, num_images_to_plot=32):
+        """Genera el reporte completo de validación (Curvas, Matriz, IoU e Imágenes)."""
+        self.model.eval()
+        all_preds = []
+        all_gts = []
+
+        # Preparar directorio para imágenes
+        img_dir = save_dir / "images"
+        img_dir.mkdir(parents=True, exist_ok=True)
+
+        # Seleccionar índices aleatorios para visualización
+        total_images = len(loader.dataset)
+        indices_to_plot = set(random.sample(range(total_images), min(num_images_to_plot, total_images)))
+
+        print("[Validator] Recolectando predicciones para reporte completo...")
+        with MuteStderr():
+            for batch_idx, (samples, targets) in enumerate(tqdm(loader)):
+                samples = samples.to(self.device)
+                outputs = self.model(samples)
+
+                orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
+                results = self.postprocessors['bbox'](outputs, orig_target_sizes)
+
+                for i, (target, res) in enumerate(zip(targets, results)):
+                    global_idx = batch_idx * loader.batch_size + i
+
+                    # Ground Truths
+                    gt_boxes = target['boxes'].cpu()  # [N, 4] en cxcywh norm
+                    h, w = target['orig_size'].cpu()
+
+                    # Convertir GT a xyxy absoluto
+                    gt_xyxy = gt_boxes.clone()
+                    if len(gt_boxes) > 0:
+                        gt_xyxy[:, 0] = (gt_boxes[:, 0] - gt_boxes[:, 2] / 2) * w
+                        gt_xyxy[:, 1] = (gt_boxes[:, 1] - gt_boxes[:, 3] / 2) * h
+                        gt_xyxy[:, 2] = (gt_boxes[:, 0] + gt_boxes[:, 2] / 2) * w
+                        gt_xyxy[:, 3] = (gt_boxes[:, 1] + gt_boxes[:, 3] / 2) * h
+
+                    all_gts.append({
+                        'boxes': gt_xyxy,
+                        'labels': target['labels'].cpu()
+                    })
+
+                    # Predicciones
+                    pred_boxes = res['boxes'].cpu()
+                    pred_scores = res['scores'].cpu()
+                    pred_labels = res['labels'].cpu()
+
+                    all_preds.append({
+                        'boxes': pred_boxes,
+                        'scores': pred_scores,
+                        'labels': pred_labels
+                    })
+
+                    # Visualización de Inferencias
+                    if global_idx in indices_to_plot:
+                        # Extraer la imagen original del tensor (des-normalizar)
+                        img_tensor = samples.tensors[i].cpu()
+                        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+                        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+                        img_tensor = img_tensor * std + mean
+
+                        # Recortar el padding (usando el tamaño original)
+                        img_tensor = img_tensor[:, :int(h), :int(w)]
+
+                        self._plot_single_overlay(
+                            img_tensor, pred_boxes, pred_scores, pred_labels,
+                            gt_xyxy, target['labels'].cpu(), class_names,
+                            img_dir / f"val_img_{global_idx}.jpg"
+                        )
+
+        # Llamar al motor gráfico de utility/metrics.py
+        metrics = plot_validation_report(all_preds, all_gts, class_names, save_dir)
+        return metrics
+
+    def _plot_single_overlay(self, img_tensor, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, class_names,
+                             save_path):
+        """Dibuja Ground Truth (Verde) y Predicciones (Naranja) sobre la imagen."""
+        # Convertir tensor a numpy BGR para OpenCV
+        img_np = img_tensor.permute(1, 2, 0).numpy()
+        img_np = np.clip(img_np * 255, 0, 255).astype(np.uint8)
+        img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
+        color_gt = (0, 255, 0)  # Verde
+        color_pred = (0, 165, 255)  # Naranja
+        VIS_CONF_THRESH = 0.25  # Umbral visual
+
+        # Dibujar Ground Truths
+        for box, label_idx in zip(gt_boxes.numpy(), gt_labels.numpy()):
+            x1, y1, x2, y2 = map(int, box)
+            label = class_names[int(label_idx)]
+            cv2.rectangle(img_bgr, (x1, y1), (x2, y2), color_gt, 2)
+            cv2.putText(img_bgr, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_gt, 2)
+
+        # Dibujar Predicciones
+        for box, score, label_idx in zip(pred_boxes.numpy(), pred_scores.numpy(), pred_labels.numpy()):
+            if score < VIS_CONF_THRESH: continue
+            x1, y1, x2, y2 = map(int, box)
+            label = class_names[int(label_idx)]
+            cv2.rectangle(img_bgr, (x1, y1), (x2, y2), color_pred, 2)
+            text = f"{label} {score:.2f}"
+            cv2.putText(img_bgr, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_pred, 2)
+
+        cv2.imwrite(str(save_path), img_bgr)

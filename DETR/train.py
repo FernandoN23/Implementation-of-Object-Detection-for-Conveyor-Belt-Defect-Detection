@@ -37,15 +37,18 @@ def main():
     parser.add_argument("--preset", type=str, default=None)
     args = parser.parse_args()
 
+    # 1. Cargar configuraciones
     train_cfg = load_yaml(args.cfg_train)
     dataset_cfg = load_yaml(train_cfg['paths']['dataset_cfg'])
     variants_cfg = load_yaml(train_cfg['paths']['variants_cfg'])
 
+    # 2. Aplicar Overrides de Preset
     if args.preset and args.preset in train_cfg.get('presets', {}):
         overrides = train_cfg['presets'][args.preset].get('overrides', {})
         for section, values in overrides.items():
             train_cfg[section].update(values)
 
+    # 3. Bootstrap MIOpen
     mi_cfg = train_cfg['miopen']
     bootstrap(MIOpenConfig(
         find_mode=mi_cfg['find_mode'],
@@ -54,12 +57,14 @@ def main():
         verbose=mi_cfg['verbose']
     ))
 
+    # --- INICIALIZACIÓN DE MOTOR (DESPUÉS DEL BOOTSTRAP) ---
     import torch
     from engine.warnings import install_global_warning_filters
     from engine.Trainer import Trainer, TrainerConfig
 
     install_global_warning_filters()
 
+    # 4. Preparar argumentos del modelo
     v_name = train_cfg['training']['variant']
     v_params = variants_cfg['variants'][v_name]
 
@@ -75,6 +80,7 @@ def main():
     model_args.dataset_file = 'coco'
     model_args.device = train_cfg['training']['device']
 
+    # 5. Instanciar TrainerConfig con rutas absolutas
     cfg = TrainerConfig(
         variant=v_name,
         run_name=train_cfg['training']['run_name'],
@@ -85,15 +91,16 @@ def main():
         weight_decay=train_cfg['training']['weight_decay'],
         lr_drop=train_cfg['training']['lr_drop'],
         clip_max_norm=train_cfg['training']['clip_max_norm'],
-        pretrain_weights=train_cfg['training']['pretrain_weights'],
+        pretrain_weights=str(Path(train_cfg['training']['pretrain_weights']).resolve()),
         nc=dataset_cfg['nc'],
         device=model_args.device,
         model_args=model_args,
         bn2gn_policy=train_cfg['bn2gn']['policy'],
         exist_ok=train_cfg['training'].get('exist_ok', False),
-        metrics_root=Path(train_cfg['paths']['metrics_dir'])
+        metrics_root=Path(train_cfg['paths']['metrics_dir']).resolve()
     )
 
+    # 6. Ejecutar Entrenamiento
     trainer = Trainer(cfg)
     trainer.fit()
 

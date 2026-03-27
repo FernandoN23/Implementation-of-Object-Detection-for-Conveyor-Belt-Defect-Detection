@@ -8,8 +8,8 @@
 # Archivo: DETR/engine/Trainer.py
 # Descripción: Orquestador de entrenamiento para DETR. Gestiona el
 #              ciclo de vida del experimento, incluyendo auto-incremento
-#              de carpetas, registro de métricas en CSV y generación
-#              de gráficas de rendimiento en tiempo real.
+#              de carpetas, registro de métricas detalladas en CSV y
+#              generación de gráficas de rendimiento (Loss/mAP) en vivo.
 # ==============================================================
 
 import os
@@ -18,6 +18,7 @@ import time
 import json
 import math
 import csv
+import yaml
 import matplotlib.pyplot as plt
 from pathlib import Path
 from dataclasses import dataclass
@@ -99,24 +100,44 @@ class Trainer:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
-        # 1. Gestión de Rutas con Auto-incremento (Estilo YOLOv5)
+        # 1. Gestión de Rutas con Auto-incremento
         base_subdir = Path(self.cfg.variant) / self.cfg.phase / self.cfg.run_name
         self.save_dir = increment_path(DETR_ROOT / "runs" / base_subdir, exist_ok=self.cfg.exist_ok)
         self.weights_dir = self.save_dir / "weights"
         self.weights_dir.mkdir(parents=True, exist_ok=True)
 
-        # Ruta de métricas espejo de runs para visualización
+        # Ruta de métricas espejo de runs
         rel_path = self.save_dir.relative_to(DETR_ROOT / "runs")
         self.metrics_dir = self.cfg.metrics_root / "detect" / rel_path
         self.metrics_dir.mkdir(parents=True, exist_ok=True)
+        (self.metrics_dir / "losses").mkdir(parents=True, exist_ok=True)
 
         self.csv_path = self.metrics_dir / "results.csv"
 
-        # 2. Inicializar componentes
+        # 2. Guardar Hiperparámetros (hyp.yaml)
+        self._save_hyp_yaml()
+
+        # 3. Inicializar componentes
         self.model, self.criterion, self.postprocessors = self._setup_model()
         self.optimizer, self.lr_scheduler = self._setup_optimizer()
         self.validator = Validator(self.model, self.criterion, self.postprocessors, self.device)
+
+        # Seguimiento de mejores métricas
         self.best_map = 0.0
+        self.best_metrics = {"mAP_0.5": 0.0, "mAP_0.5:0.95": 0.0, "recall": 0.0, "F1": 0.0}
+
+    def _save_hyp_yaml(self):
+        """Consolida y guarda la configuración completa en hyp.yaml."""
+        hyp = {
+            "experiment": {"variant": self.cfg.variant, "run_name": self.cfg.run_name, "save_dir": str(self.save_dir),
+                           "device": self.cfg.device},
+            "training": {"epochs": self.cfg.epochs, "batch_size": self.cfg.batch_size, "lr": self.cfg.lr,
+                         "lr_backbone": self.cfg.lr_backbone},
+            "architecture": vars(self.cfg.model_args) if self.cfg.model_args else {},
+            "hardware_policy": {"bn2gn_policy": self.cfg.bn2gn_policy}
+        }
+        with open(self.save_dir / "hyp.yaml", "w", encoding="utf-8") as f:
+            yaml.dump(hyp, f, default_flow_style=False, sort_keys=False)
 
     def _maybe_download_weights(self):
         """Descarga automática de pesos si no existen localmente."""
@@ -161,50 +182,85 @@ class Trainer:
         return optimizer, scheduler
 
     def _log_to_csv(self, epoch, train_stats, val_stats):
-        """Escribe métricas en results.csv para compatibilidad con utilidades de reporte."""
-        header = ['epoch', 'train/loss', 'train/loss_ce', 'train/loss_bbox', 'val/loss', 'metrics/mAP_0.5',
-                  'metrics/mAP_0.5:0.95']
+        """Escribe métricas detalladas en results.csv."""
+        header = [
+            'epoch', 'train/loss', 'train/loss_ce', 'train/loss_bbox', 'train/loss_giou',
+            'val/loss', 'val/loss_ce', 'val/loss_bbox', 'val/loss_giou',
+            'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95', 'metrics/recall'
+        ]
         row = [
             epoch,
-            train_stats['loss'], train_stats['loss_ce'], train_stats['loss_bbox'],
-            val_stats['loss'], val_stats['mAP_0.5'], val_stats['mAP_0.5:0.95']
+            train_stats['loss'], train_stats['loss_ce'], train_stats['loss_bbox'], train_stats['loss_giou'],
+            val_stats['loss'], val_stats['loss_ce'], val_stats['loss_bbox'], val_stats['loss_giou'],
+            val_stats['mAP_0.5'], val_stats['mAP_0.5:0.95'], val_stats['recall']
         ]
-
         file_exists = os.path.isfile(self.csv_path)
         with open(self.csv_path, 'a', newline='') as f:
             writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(header)
+            if not file_exists: writer.writerow(header)
             writer.writerow(row)
 
-    def _plot_results(self):
-        """Genera results.png a partir del CSV para monitoreo visual en vivo."""
+    def _plot_live_results(self):
+        """Genera gráficas comparativas Train vs Val actualizadas en cada época."""
         try:
             import pandas as pd
             df = pd.read_csv(self.csv_path)
-            fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+            # Loss Total
+            plt.figure(figsize=(10, 6))
+            plt.plot(df['epoch'], df['train/loss'], label='Train', linewidth=2)
+            plt.plot(df['epoch'], df['val/loss'], label='Validation', linewidth=2)
+            plt.title('Total Loss Evolution');
+            plt.xlabel('Epoch');
+            plt.ylabel('Loss');
+            plt.legend();
+            plt.grid(True, alpha=0.3)
+            plt.savefig(self.metrics_dir / "loss_combined.png", dpi=200);
+            plt.close()
+            # Losses Específicas
+            for key in ['loss_ce', 'loss_bbox', 'loss_giou']:
+                plt.figure(figsize=(10, 6))
+                plt.plot(df['epoch'], df[f'train/{key}'], label='Train', linewidth=2)
+                plt.plot(df['epoch'], df[f'val/{key}'], label='Validation', linewidth=2)
+                plt.title(key.replace('_', ' ').upper());
+                plt.xlabel('Epoch');
+                plt.ylabel('Loss');
+                plt.legend();
+                plt.grid(True, alpha=0.3)
+                plt.savefig(self.metrics_dir / f"losses/{key}_combined.png", dpi=200);
+                plt.close()
+        except Exception as e:
+            print(f"[Trainer] Error en live plotting: {e}")
 
-            # Curvas de Pérdida
-            ax[0].plot(df['epoch'], df['train/loss'], label='Train Loss', color='blue')
-            ax[0].plot(df['epoch'], df['val/loss'], label='Val Loss', color='orange')
-            ax[0].set_title('Loss Evolution')
-            ax[0].set_xlabel('Epoch')
-            ax[0].set_ylabel('Loss')
-            ax[0].legend()
-
-            # Curvas de mAP
-            ax[1].plot(df['epoch'], df['metrics/mAP_0.5'], label='mAP@0.5', color='green')
-            ax[1].plot(df['epoch'], df['metrics/mAP_0.5:0.95'], label='mAP@0.5:0.95', color='red')
-            ax[1].set_title('mAP Performance')
-            ax[1].set_xlabel('Epoch')
-            ax[1].set_ylabel('mAP')
-            ax[1].legend()
-
-            plt.tight_layout()
-            plt.savefig(self.metrics_dir / "results.png")
+    def _plot_final_metrics(self):
+        """Genera gráficas individuales de precisión al finalizar el entrenamiento."""
+        try:
+            import pandas as pd
+            df = pd.read_csv(self.csv_path)
+            metrics = [('metrics/mAP_0.5', 'map_05.png', 'mAP @ 50%'),
+                       ('metrics/mAP_0.5:0.95', 'map_05_95.png', 'mAP @ 50-95%'),
+                       ('metrics/recall', 'recall.png', 'Average Recall')]
+            for col, fname, title in metrics:
+                plt.figure(figsize=(10, 6))
+                plt.plot(df['epoch'], df[col], color='blue', linewidth=2.5)
+                plt.title(title);
+                plt.xlabel('Epoch');
+                plt.ylabel('Value');
+                plt.grid(True, alpha=0.3)
+                plt.savefig(self.metrics_dir / fname, dpi=200);
+                plt.close()
+            # F1 Score
+            plt.figure(figsize=(10, 6))
+            f1 = 2 * (df['metrics/mAP_0.5'] * df['metrics/recall']) / (
+                        df['metrics/mAP_0.5'] + df['metrics/recall'] + 1e-16)
+            plt.plot(df['epoch'], f1, color='purple', linewidth=2.5)
+            plt.title('F1-Score Evolution');
+            plt.xlabel('Epoch');
+            plt.ylabel('F1');
+            plt.grid(True, alpha=0.3)
+            plt.savefig(self.metrics_dir / "f1_score.png", dpi=200);
             plt.close()
         except Exception as e:
-            print(f"[Trainer] Error al generar gráfica: {e}")
+            print(f"[Trainer] Error en final plotting: {e}")
 
     def fit(self):
         print(f"\n--- Iniciando Entrenamiento DETR: {self.save_dir.name} ---")
@@ -225,11 +281,16 @@ class Trainer:
             with open(self.save_dir / "log.txt", "a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
-            # 2. Log CSV y Gráficos (Estilo YOLO)
+            # 2. Estandarización de Métricas (CSV y Live PNG)
             self._log_to_csv(epoch, train_stats, val_stats)
-            self._plot_results()
+            self._plot_live_results()
 
             self._save_checkpoints(epoch, val_stats)
+
+        # 3. Generación de métricas finales
+        self._plot_final_metrics()
+        with open(self.metrics_dir / "metrics.yaml", "w") as f:
+            yaml.dump(self.best_metrics, f)
 
         print(f"\n[Trainer] Finalizado en {(time.time() - start_time) / 60:.2f} min.")
 
@@ -281,5 +342,12 @@ class Trainer:
         current_map = val_stats.get("mAP_0.5", 0.0)
         if current_map > self.best_map:
             self.best_map = current_map
+            self.best_metrics = {
+                "mAP_0.5": float(val_stats["mAP_0.5"]),
+                "mAP_0.5:0.95": float(val_stats["mAP_0.5:0.95"]),
+                "recall": float(val_stats["recall"]),
+                "F1": float(2 * (val_stats["mAP_0.5"] * val_stats["recall"]) / (
+                            val_stats["mAP_0.5"] + val_stats["recall"] + 1e-16))
+            }
             save_on_master(checkpoint, self.weights_dir / "best.pt")
             print(f"  --> Nuevo Mejor mAP@0.5: {current_map:.4f}")
