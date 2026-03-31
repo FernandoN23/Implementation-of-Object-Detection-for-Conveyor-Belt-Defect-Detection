@@ -7,6 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: DETR/configs/valid.yaml
 # Descripción: Configuración maestra para validación DETR.
+#              Incluye presets para auto-descubrimiento de pesos.
 # ==============================================================
 
 paths:
@@ -33,3 +34,25 @@ miopen:
 bn2gn:
   policy: "on"
   verbose: 1
+
+presets:
+  # ----------------------------------------------------------
+  # Presets de Validación (Auto-descubrimiento de pesos)
+  # ----------------------------------------------------------
+  val_detr_r50_belt:
+    description: "Validación del modelo R50 entrenado en correas."
+    overrides:
+      validation:
+        variant: "r50"
+        run_name: "detr_r50_belt" # Debe coincidir con el run_name de train.yaml
+        weights: "" # Vacío para que valid.py busque best.pt automáticamente
+        batch_size: 2
+
+  val_coco_r50_std:
+    description: "Validación del modelo R50 estándar."
+    overrides:
+      validation:
+        variant: "r50"
+        run_name: "coco_r50_standard"
+        weights: ""
+        batch_size: 2
