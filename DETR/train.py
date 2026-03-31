@@ -9,6 +9,7 @@
 # Descripción: Punto de entrada CLI para el entrenamiento de DETR.
 #              Maneja la carga de configuraciones YAML, inicialización
 #              de hardware ROCm/MIOpen y la instanciación del motor Trainer.
+#              Soporta reanudación de entrenamientos (--resume).
 # ==============================================================
 
 import argparse
@@ -35,6 +36,9 @@ def main():
     parser = argparse.ArgumentParser(description="DETR Training CLI - Belt Defects")
     parser.add_argument("--cfg-train", type=str, default="DETR/configs/train.yaml")
     parser.add_argument("--preset", type=str, default=None)
+    # [NUEVO]: Argumento resume (booleano o ruta)
+    parser.add_argument("--resume", nargs="?", const=True, default=None,
+                        help="Reanudar entrenamiento. Si se usa sin valor, intenta autodescubrir el último run.")
     args = parser.parse_args()
 
     # 1. Cargar configuraciones
@@ -80,7 +84,10 @@ def main():
     model_args.dataset_file = 'coco'
     model_args.device = train_cfg['training']['device']
 
-    # 5. Instanciar TrainerConfig con rutas absolutas
+    # [NUEVO]: Lógica de prioridad para Resume (CLI > YAML > False)
+    resume_val = args.resume if args.resume is not None else train_cfg['training'].get('resume', False)
+
+    # 5. Instanciar TrainerConfig
     cfg = TrainerConfig(
         variant=v_name,
         run_name=train_cfg['training']['run_name'],
@@ -97,7 +104,8 @@ def main():
         model_args=model_args,
         bn2gn_policy=train_cfg['bn2gn']['policy'],
         exist_ok=train_cfg['training'].get('exist_ok', False),
-        metrics_root=Path(train_cfg['paths']['metrics_dir']).resolve()
+        metrics_root=Path(train_cfg['paths']['metrics_dir']).resolve(),
+        resume=resume_val # Pasamos el valor resuelto
     )
 
     # 6. Ejecutar Entrenamiento

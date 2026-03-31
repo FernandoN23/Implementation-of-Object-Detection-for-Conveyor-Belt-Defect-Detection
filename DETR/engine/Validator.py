@@ -87,10 +87,24 @@ class Validator:
         evaluator.summarize()
 
         if 'bbox' in evaluator.coco_eval:
-            coco_stats = evaluator.coco_eval['bbox'].stats.tolist()
+            coco_eval = evaluator.coco_eval['bbox']
+            coco_stats = coco_eval.stats.tolist()
+
             final_stats["mAP_0.5:0.95"] = coco_stats[0]
             final_stats["mAP_0.5"] = coco_stats[1]
-            final_stats["recall"] = coco_stats[8]
+            final_stats["recall"] = coco_stats[8]  # AR@100
+
+            # [NUEVO]: Extracción de Precisión y cálculo de F1
+            # La matriz eval['precision'] tiene forma [T, R, K, A, M]
+            # Promediamos sobre todos los Recalls (R) y Clases (K) para el umbral IoU=0.5 (T=0) y maxDets=100 (M=2)
+            precisions = coco_eval.eval['precision'][0, :, :, 0, 2]
+            # Ignorar valores -1 (clases sin GT)
+            valid_precisions = precisions[precisions > -1]
+            p = valid_precisions.mean() if len(valid_precisions) > 0 else 0.0
+            r = final_stats["recall"]
+
+            final_stats["precision"] = float(p)
+            final_stats["F1"] = float(2 * (p * r) / (p + r + 1e-16))
 
         return final_stats
 
@@ -101,11 +115,9 @@ class Validator:
         all_preds = []
         all_gts = []
 
-        # Preparar directorio para imágenes
         img_dir = save_dir / "images"
         img_dir.mkdir(parents=True, exist_ok=True)
 
-        # Seleccionar índices aleatorios para visualización
         total_images = len(loader.dataset)
         indices_to_plot = set(random.sample(range(total_images), min(num_images_to_plot, total_images)))
 
@@ -121,11 +133,9 @@ class Validator:
                 for i, (target, res) in enumerate(zip(targets, results)):
                     global_idx = batch_idx * loader.batch_size + i
 
-                    # Ground Truths
-                    gt_boxes = target['boxes'].cpu()  # [N, 4] en cxcywh norm
+                    gt_boxes = target['boxes'].cpu()
                     h, w = target['orig_size'].cpu()
 
-                    # Convertir GT a xyxy absoluto
                     gt_xyxy = gt_boxes.clone()
                     if len(gt_boxes) > 0:
                         gt_xyxy[:, 0] = (gt_boxes[:, 0] - gt_boxes[:, 2] / 2) * w
@@ -133,31 +143,19 @@ class Validator:
                         gt_xyxy[:, 2] = (gt_boxes[:, 0] + gt_boxes[:, 2] / 2) * w
                         gt_xyxy[:, 3] = (gt_boxes[:, 1] + gt_boxes[:, 3] / 2) * h
 
-                    all_gts.append({
-                        'boxes': gt_xyxy,
-                        'labels': target['labels'].cpu()
-                    })
+                    all_gts.append({'boxes': gt_xyxy, 'labels': target['labels'].cpu()})
 
-                    # Predicciones
                     pred_boxes = res['boxes'].cpu()
                     pred_scores = res['scores'].cpu()
                     pred_labels = res['labels'].cpu()
 
-                    all_preds.append({
-                        'boxes': pred_boxes,
-                        'scores': pred_scores,
-                        'labels': pred_labels
-                    })
+                    all_preds.append({'boxes': pred_boxes, 'scores': pred_scores, 'labels': pred_labels})
 
-                    # Visualización de Inferencias
                     if global_idx in indices_to_plot:
-                        # Extraer la imagen original del tensor (des-normalizar)
                         img_tensor = samples.tensors[i].cpu()
                         mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
                         std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
                         img_tensor = img_tensor * std + mean
-
-                        # Recortar el padding (usando el tamaño original)
                         img_tensor = img_tensor[:, :int(h), :int(w)]
 
                         self._plot_single_overlay(
@@ -166,30 +164,25 @@ class Validator:
                             img_dir / f"val_img_{global_idx}.jpg"
                         )
 
-        # Llamar al motor gráfico de utility/metrics.py
         metrics = plot_validation_report(all_preds, all_gts, class_names, save_dir)
         return metrics
 
     def _plot_single_overlay(self, img_tensor, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, class_names,
                              save_path):
-        """Dibuja Ground Truth (Verde) y Predicciones (Naranja) sobre la imagen."""
-        # Convertir tensor a numpy BGR para OpenCV
         img_np = img_tensor.permute(1, 2, 0).numpy()
         img_np = np.clip(img_np * 255, 0, 255).astype(np.uint8)
         img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
 
-        color_gt = (0, 255, 0)  # Verde
-        color_pred = (0, 165, 255)  # Naranja
-        VIS_CONF_THRESH = 0.25  # Umbral visual
+        color_gt = (0, 255, 0)
+        color_pred = (0, 165, 255)
+        VIS_CONF_THRESH = 0.25
 
-        # Dibujar Ground Truths
         for box, label_idx in zip(gt_boxes.numpy(), gt_labels.numpy()):
             x1, y1, x2, y2 = map(int, box)
             label = class_names[int(label_idx)]
             cv2.rectangle(img_bgr, (x1, y1), (x2, y2), color_gt, 2)
             cv2.putText(img_bgr, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_gt, 2)
 
-        # Dibujar Predicciones
         for box, score, label_idx in zip(pred_boxes.numpy(), pred_scores.numpy(), pred_labels.numpy()):
             if score < VIS_CONF_THRESH: continue
             x1, y1, x2, y2 = map(int, box)

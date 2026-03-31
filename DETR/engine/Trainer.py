@@ -8,8 +8,9 @@
 # Archivo: DETR/engine/Trainer.py
 # Descripción: Orquestador de entrenamiento para DETR. Gestiona el
 #              ciclo de vida del experimento, incluyendo auto-incremento
-#              de carpetas, registro de métricas detalladas en CSV y
-#              generación de gráficas de rendimiento (Loss/mAP) en vivo.
+#              de carpetas, registro de métricas detalladas en CSV,
+#              generación de gráficas de rendimiento (Loss/mAP) en vivo
+#              y reanudación inteligente de entrenamientos (Resume).
 # ==============================================================
 
 import os
@@ -22,7 +23,7 @@ import yaml
 import matplotlib.pyplot as plt
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Union
 
 import torch
 import torch.nn as nn
@@ -91,6 +92,8 @@ class TrainerConfig:
     bn2gn_policy: str = "on"
     exist_ok: bool = False
     metrics_root: Path = DETR_ROOT / "metrics"
+    resume: Union[bool, str] = False  # [NUEVO]
+    start_epoch: int = 0  # [NUEVO]
 
 
 class Trainer:
@@ -102,6 +105,11 @@ class Trainer:
 
         # 1. Gestión de Rutas con Auto-incremento
         base_subdir = Path(self.cfg.variant) / self.cfg.phase / self.cfg.run_name
+
+        # [NUEVO]: Si es resume, forzamos exist_ok=True para no crear una carpeta nueva
+        if self.cfg.resume:
+            self.cfg.exist_ok = True
+
         self.save_dir = increment_path(DETR_ROOT / "runs" / base_subdir, exist_ok=self.cfg.exist_ok)
         self.weights_dir = self.save_dir / "weights"
         self.weights_dir.mkdir(parents=True, exist_ok=True)
@@ -115,7 +123,8 @@ class Trainer:
         self.csv_path = self.metrics_dir / "results.csv"
 
         # 2. Guardar Hiperparámetros (hyp.yaml)
-        self._save_hyp_yaml()
+        if not self.cfg.resume:
+            self._save_hyp_yaml()
 
         # 3. Inicializar componentes
         self.model, self.criterion, self.postprocessors = self._setup_model()
@@ -124,7 +133,10 @@ class Trainer:
 
         # Seguimiento de mejores métricas
         self.best_map = 0.0
-        self.best_metrics = {"mAP_0.5": 0.0, "mAP_0.5:0.95": 0.0, "recall": 0.0, "F1": 0.0}
+        self.best_metrics = {"mAP_0.5": 0.0, "mAP_0.5:0.95": 0.0, "precision": 0.0, "recall": 0.0, "F1": 0.0}
+
+        # 4. [NUEVO]: Lógica de Reanudación (Resume)
+        self._resume_training()
 
     def _save_hyp_yaml(self):
         """Consolida y guarda la configuración completa en hyp.yaml."""
@@ -152,10 +164,13 @@ class Trainer:
     def _setup_model(self):
         self._maybe_download_weights()
         model, criterion, postprocessors = build_model(self.cfg.model_args)
-        w_path = Path(self.cfg.pretrain_weights)
-        if w_path.exists():
-            checkpoint = torch.load(w_path, map_location='cpu')
-            model.load_state_dict(checkpoint['model'], strict=False)
+
+        # Solo cargamos pesos base si NO estamos reanudando
+        if not self.cfg.resume:
+            w_path = Path(self.cfg.pretrain_weights)
+            if w_path.exists():
+                checkpoint = torch.load(w_path, map_location='cpu')
+                model.load_state_dict(checkpoint['model'], strict=False)
 
         hidden_dim = model.transformer.d_model
         model.class_embed = nn.Linear(hidden_dim, self.cfg.nc + 1)
@@ -181,18 +196,46 @@ class Trainer:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, self.cfg.lr_drop)
         return optimizer, scheduler
 
+    def _resume_training(self):
+        """[NUEVO]: Restaura el estado completo del entrenamiento si resume es True o una ruta."""
+        if not self.cfg.resume:
+            return
+
+        resume_path = None
+        if isinstance(self.cfg.resume, str):
+            resume_path = Path(self.cfg.resume)
+        elif self.cfg.resume is True:
+            # Auto-descubrimiento: Buscar last.pt en la carpeta actual
+            resume_path = self.weights_dir / "last.pt"
+
+        if resume_path and resume_path.exists():
+            print(f"[Trainer] Reanudando entrenamiento desde: {resume_path}")
+            checkpoint = torch.load(resume_path, map_location='cpu')
+
+            self.model.load_state_dict(checkpoint['model'])
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+            self.cfg.start_epoch = checkpoint['epoch'] + 1
+
+            print(f"[Trainer] Estado restaurado. Continuando desde la época {self.cfg.start_epoch}.")
+        else:
+            print(
+                f"[Trainer] ADVERTENCIA: No se encontró archivo para reanudar en {resume_path}. Iniciando desde cero.")
+            self.cfg.start_epoch = 0
+
     def _log_to_csv(self, epoch, train_stats, val_stats):
         """Escribe métricas detalladas en results.csv."""
         header = [
             'epoch', 'train/loss', 'train/loss_ce', 'train/loss_bbox', 'train/loss_giou',
             'val/loss', 'val/loss_ce', 'val/loss_bbox', 'val/loss_giou',
-            'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95', 'metrics/recall'
+            'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95', 'metrics/F1'
         ]
         row = [
             epoch,
             train_stats['loss'], train_stats['loss_ce'], train_stats['loss_bbox'], train_stats['loss_giou'],
             val_stats['loss'], val_stats['loss_ce'], val_stats['loss_bbox'], val_stats['loss_giou'],
-            val_stats['mAP_0.5'], val_stats['mAP_0.5:0.95'], val_stats['recall']
+            val_stats.get('precision', 0.0), val_stats.get('recall', 0.0),
+            val_stats.get('mAP_0.5', 0.0), val_stats.get('mAP_0.5:0.95', 0.0), val_stats.get('F1', 0.0)
         ]
         file_exists = os.path.isfile(self.csv_path)
         with open(self.csv_path, 'a', newline='') as f:
@@ -205,27 +248,37 @@ class Trainer:
         try:
             import pandas as pd
             df = pd.read_csv(self.csv_path)
+
+            # Estilo SSD (Fondo blanco, grid sutil)
+            plt.style.use(
+                'seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'seaborn-whitegrid')
+
             # Loss Total
             plt.figure(figsize=(10, 6))
-            plt.plot(df['epoch'], df['train/loss'], label='Train', linewidth=2)
-            plt.plot(df['epoch'], df['val/loss'], label='Validation', linewidth=2)
-            plt.title('Total Loss Evolution');
+            plt.plot(df['epoch'], df['train/loss'], label='Train', linewidth=2.5, color='#1f77b4')
+            plt.plot(df['epoch'], df['val/loss'], label='Validation', linewidth=2.5, color='#ff7f0e')
+            plt.title('Total Loss');
             plt.xlabel('Epoch');
             plt.ylabel('Loss');
             plt.legend();
-            plt.grid(True, alpha=0.3)
+            plt.grid(True, linestyle='--', alpha=0.5)
+            plt.tight_layout();
             plt.savefig(self.metrics_dir / "loss_combined.png", dpi=200);
             plt.close()
+
             # Losses Específicas
-            for key in ['loss_ce', 'loss_bbox', 'loss_giou']:
+            loss_pairs = [('loss_ce', 'Classification Loss (CE)'), ('loss_bbox', 'BBox L1 Loss'),
+                          ('loss_giou', 'GIoU Loss')]
+            for key, title in loss_pairs:
                 plt.figure(figsize=(10, 6))
-                plt.plot(df['epoch'], df[f'train/{key}'], label='Train', linewidth=2)
-                plt.plot(df['epoch'], df[f'val/{key}'], label='Validation', linewidth=2)
-                plt.title(key.replace('_', ' ').upper());
+                plt.plot(df['epoch'], df[f'train/{key}'], label='Train', linewidth=2.5, color='#1f77b4')
+                plt.plot(df['epoch'], df[f'val/{key}'], label='Validation', linewidth=2.5, color='#ff7f0e')
+                plt.title(title);
                 plt.xlabel('Epoch');
                 plt.ylabel('Loss');
                 plt.legend();
-                plt.grid(True, alpha=0.3)
+                plt.grid(True, linestyle='--', alpha=0.5)
+                plt.tight_layout();
                 plt.savefig(self.metrics_dir / f"losses/{key}_combined.png", dpi=200);
                 plt.close()
         except Exception as e:
@@ -236,29 +289,26 @@ class Trainer:
         try:
             import pandas as pd
             df = pd.read_csv(self.csv_path)
-            metrics = [('metrics/mAP_0.5', 'map_05.png', 'mAP @ 50%'),
-                       ('metrics/mAP_0.5:0.95', 'map_05_95.png', 'mAP @ 50-95%'),
-                       ('metrics/recall', 'recall.png', 'Average Recall')]
-            for col, fname, title in metrics:
+            plt.style.use(
+                'seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'seaborn-whitegrid')
+
+            metrics = [
+                ('metrics/mAP_0.5', 'map_05.png', 'mAP @ 50%', 'green'),
+                ('metrics/mAP_0.5:0.95', 'map_05_95.png', 'mAP @ 50-95%', 'red'),
+                ('metrics/precision', 'precision.png', 'Precision', 'blue'),
+                ('metrics/recall', 'recall.png', 'Recall', 'orange'),
+                ('metrics/F1', 'f1_score.png', 'F1-Score', 'purple')
+            ]
+            for col, fname, title, color in metrics:
                 plt.figure(figsize=(10, 6))
-                plt.plot(df['epoch'], df[col], color='blue', linewidth=2.5)
+                plt.plot(df['epoch'], df[col], color=color, linewidth=2.5)
                 plt.title(title);
                 plt.xlabel('Epoch');
                 plt.ylabel('Value');
-                plt.grid(True, alpha=0.3)
+                plt.grid(True, linestyle='--', alpha=0.5)
+                plt.tight_layout();
                 plt.savefig(self.metrics_dir / fname, dpi=200);
                 plt.close()
-            # F1 Score
-            plt.figure(figsize=(10, 6))
-            f1 = 2 * (df['metrics/mAP_0.5'] * df['metrics/recall']) / (
-                        df['metrics/mAP_0.5'] + df['metrics/recall'] + 1e-16)
-            plt.plot(df['epoch'], f1, color='purple', linewidth=2.5)
-            plt.title('F1-Score Evolution');
-            plt.xlabel('Epoch');
-            plt.ylabel('F1');
-            plt.grid(True, alpha=0.3)
-            plt.savefig(self.metrics_dir / "f1_score.png", dpi=200);
-            plt.close()
         except Exception as e:
             print(f"[Trainer] Error en final plotting: {e}")
 
@@ -268,7 +318,9 @@ class Trainer:
         val_loader = build_dataloader("valid", self.cfg.batch_size)
 
         start_time = time.time()
-        for epoch in range(self.cfg.epochs):
+
+        # [CORRECCIÓN]: El bucle inicia en start_epoch para soportar Resume
+        for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
             train_stats = self._train_one_epoch(train_loader, epoch)
             self.lr_scheduler.step()
             val_stats = self.validator.validate(val_loader, self.save_dir)
@@ -343,11 +395,11 @@ class Trainer:
         if current_map > self.best_map:
             self.best_map = current_map
             self.best_metrics = {
-                "mAP_0.5": float(val_stats["mAP_0.5"]),
-                "mAP_0.5:0.95": float(val_stats["mAP_0.5:0.95"]),
-                "recall": float(val_stats["recall"]),
-                "F1": float(2 * (val_stats["mAP_0.5"] * val_stats["recall"]) / (
-                            val_stats["mAP_0.5"] + val_stats["recall"] + 1e-16))
+                "mAP_0.5": float(val_stats.get("mAP_0.5", 0.0)),
+                "mAP_0.5:0.95": float(val_stats.get("mAP_0.5:0.95", 0.0)),
+                "precision": float(val_stats.get("precision", 0.0)),
+                "recall": float(val_stats.get("recall", 0.0)),
+                "F1": float(val_stats.get("F1", 0.0))
             }
             save_on_master(checkpoint, self.weights_dir / "best.pt")
             print(f"  --> Nuevo Mejor mAP@0.5: {current_map:.4f}")

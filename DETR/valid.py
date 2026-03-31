@@ -7,8 +7,8 @@
 # --------------------------------------------------------------
 # Archivo: DETR/valid.py
 # Descripción: Script de entrada (CLI) para validación de DETR.
-#              Carga modelo, pesos y ejecuta el reporte completo
-#              de métricas (Curvas P/R/F1, Matriz de Confusión).
+#              Carga modelo, pesos (con auto-descubrimiento) y
+#              ejecuta el reporte completo de métricas.
 # ==============================================================
 
 import argparse
@@ -62,7 +62,6 @@ def main():
     # --- INICIALIZACIÓN (DESPUÉS DEL BOOTSTRAP) ---
     import torch
     from engine.warnings import install_global_warning_filters
-    from engine.Trainer import TrainerConfig  # Reutilizamos la estructura de config
     from engine.Validator import Validator
     from utility.data_loader import build_dataloader
 
@@ -70,6 +69,7 @@ def main():
 
     # 4. Preparar argumentos del modelo
     v_name = valid_cfg['validation']['variant']
+    run_name = valid_cfg['validation']['run_name']
     v_params = variants_cfg['variants'][v_name]
     model_args = argparse.Namespace(**v_params)
 
@@ -82,10 +82,20 @@ def main():
     model_args.dataset_file = 'coco'
     model_args.device = args.device or valid_cfg['validation']['device']
 
-    # 5. Determinar Pesos
+    # 5. [NUEVO]: Auto-descubrimiento de Pesos
     weights_path = args.weights or valid_cfg['validation']['weights']
-    if not weights_path or not os.path.exists(weights_path):
-        print(f"[Error] No se encontraron pesos en: {weights_path}")
+    if not weights_path:
+        # Buscar dinámicamente en runs/detect/<variant>/train/<run_name>/weights/best.pt
+        auto_path = DETR_ROOT / "runs" / v_name / "train" / run_name / "weights" / "best.pt"
+        if auto_path.exists():
+            weights_path = str(auto_path)
+            print(f"[valid.py] Auto-descubierto peso: {weights_path}")
+        else:
+            print(f"[Error] No se encontraron pesos en: {auto_path}")
+            return
+
+    if not os.path.exists(weights_path):
+        print(f"[Error] La ruta de pesos no existe: {weights_path}")
         return
 
     # 6. Construir Modelo y Cargar Pesos
@@ -114,7 +124,6 @@ def main():
     val_loader = build_dataloader(valid_cfg['validation']['phase'], valid_cfg['validation']['batch_size'])
 
     # Definir ruta de salida de métricas
-    run_name = valid_cfg['validation']['run_name']
     save_dir = DETR_ROOT / "metrics" / "detect" / v_name / valid_cfg['validation']['phase'] / run_name
     save_dir.mkdir(parents=True, exist_ok=True)
 
