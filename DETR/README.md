@@ -29,6 +29,7 @@ DETR/
 │
 ├── configs/                  # Centro de Control de Configuraciones
 │   ├── dataset.yaml          ← Rutas y definición de clases (Proyecto/Dataset)
+│   ├── model_variants.yaml   ← Definición técnica de las variantes de DETR
 │   ├── train.yaml            ← Maestro de entrenamiento (hiperparámetros, presets, hardware)
 │   └── valid.yaml            ← Maestro de validación (métricas, NMS/Thresholds, presets)
 │
@@ -71,17 +72,17 @@ El sistema utiliza *presets* en los archivos YAML para reproducir experimentos c
 
 ### Presets de Entrenamiento (`configs/train.yaml`)
 
-| Preset | Descripción |
-| :--- | :--- |
-| `smoke_coco_detr` | **Prueba de Humo**: Valida el pipeline completo (MIOpen, BN2GN, logging) usando un dataset reducido. |
-| `detr_______` | **Producción**: Entrenamiento completo sobre el dataset de correas. *(Parámetros a definir)* |
+| Preset          | Descripción                                                                                      |
+|:----------------|:-------------------------------------------------------------------------------------------------|
+| `coco_r50_std`  | **Prueba standard**: Valida el pipeline completo con el dataset COCO y la variante ResNet-50.    |
+| `detr_r50_belt` | **Implementación**: Entrenamiento completo sobre el dataset de correas. *(Parámetros a definir)* |
 
 ### Presets de Validación (`configs/valid.yaml`)
 
-| Preset | Descripción |
-| :--- | :--- |
-| `smoke_coco_val` | **Prueba de Humo**: Valida el motor de inferencia/métricas. |
-| `detr_______` | **Producción**: Generación de métricas (mAP, Matriz de Confusión) para el modelo entrenado correspondiente. *(Parámetros a definir)* |
+| Preset          | Descripción                                                                                                                              |
+|:----------------|:-----------------------------------------------------------------------------------------------------------------------------------------|
+| `coco_r50_std`  | **Prueba standard**: Valida el motor de inferencia/métricas.                                                                             |
+| `detr_r50_belt` | **Implementación**: Generación de métricas (mAP, Matriz de Confusión) para el modelo entrenado correspondiente. *(Parámetros a definir)* |
 
 ---
 
@@ -92,18 +93,18 @@ Todos los comandos deben ejecutarse desde la raíz del proyecto (nivel superior 
 ### 1. Entrenamiento
 
 ```bash
-# Ejecutar prueba rápida de integración
-python DETR/train.py --preset smoke_coco_detr
+# Ejecutar prueba con dataset COCO
+python DETR/train.py --preset coco_r50_std
 
-# Ejecutar entrenamiento final (Variante a definir)
-python DETR/train.py --preset detr_______
+# Ejecutar entrenamiento con dataset de correas (Variante a definir)
+python DETR/train.py --preset detr_r50_belt
 ```
 
 ### 2. Validación
 
 ```bash
 # Validar usando el preset del proyecto (requiere haber ejecutado el entrenamiento respectivo)
-python DETR/valid.py --preset detr_______
+python DETR/valid.py --preset detr_r50_belt
 
 # Validación manual
 python DETR/valid.py --weights DETR/weights/______/______.pt --task-model detect --imgsz ______

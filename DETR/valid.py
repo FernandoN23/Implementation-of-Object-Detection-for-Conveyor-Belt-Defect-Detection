@@ -73,7 +73,6 @@ def main():
     v_params = variants_cfg['variants'][v_name]
     model_args = argparse.Namespace(**v_params)
 
-    # Valores por defecto para validación
     model_args.bbox_loss_coef = 5.0
     model_args.giou_loss_coef = 2.0
     model_args.eos_coef = 0.1
@@ -82,10 +81,9 @@ def main():
     model_args.dataset_file = 'coco'
     model_args.device = args.device or valid_cfg['validation']['device']
 
-    # 5. [NUEVO]: Auto-descubrimiento de Pesos
+    # 5. Auto-descubrimiento de Pesos
     weights_path = args.weights or valid_cfg['validation']['weights']
     if not weights_path:
-        # Buscar dinámicamente en runs/detect/<variant>/train/<run_name>/weights/best.pt
         auto_path = DETR_ROOT / "runs" / v_name / "train" / run_name / "weights" / "best.pt"
         if auto_path.exists():
             weights_path = str(auto_path)
@@ -105,15 +103,13 @@ def main():
     print(f"[valid.py] Cargando modelo {v_name}...")
     model, criterion, postprocessors = build_model(model_args)
 
-    # Adaptar cabezal (5 clases + fondo)
     hidden_dim = model.transformer.d_model
     model.class_embed = torch.nn.Linear(hidden_dim, dataset_cfg['nc'] + 1)
 
-    # Cargar pesos entrenados
-    checkpoint = torch.load(weights_path, map_location='cpu')
+    # [CORRECCIÓN]: weights_only=False para permitir carga de clases personalizadas
+    checkpoint = torch.load(weights_path, map_location='cpu', weights_only=False)
     model.load_state_dict(checkpoint['model'])
 
-    # Parche ROCm
     if valid_cfg['bn2gn']['policy'] == 'on':
         replace_bn_with_gn(model, BN2GNConfig(policy='on'))
 
@@ -122,18 +118,14 @@ def main():
 
     # 7. Ejecutar Reporte de Validación
     val_loader = build_dataloader(valid_cfg['validation']['phase'], valid_cfg['validation']['batch_size'])
-
-    # Definir ruta de salida de métricas
     save_dir = DETR_ROOT / "metrics" / "detect" / v_name / valid_cfg['validation']['phase'] / run_name
     save_dir.mkdir(parents=True, exist_ok=True)
 
     validator = Validator(model, criterion, postprocessors, device)
-
     print(f"--- Iniciando Reporte de Validación: {run_name} ---")
     class_names = list(dataset_cfg['names'].values())
     metrics = validator.run_full_report(val_loader, save_dir, class_names)
 
-    # Guardar metrics.yaml
     with open(save_dir / "metrics.yaml", "w") as f:
         yaml.dump(metrics, f)
 
