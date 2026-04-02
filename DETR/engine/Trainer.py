@@ -19,6 +19,7 @@ import json
 import math
 import csv
 import yaml
+import shutil
 import matplotlib.pyplot as plt
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -120,9 +121,8 @@ class Trainer:
 
         self.csv_path = self.metrics_dir / "results.csv"
 
-        # 2. Guardar Hiperparámetros (hyp.yaml)
-        if not self.cfg.resume:
-            self._save_hyp_yaml()
+        # 2. Comprobar cambios y guardar Hiperparámetros (hyp.yaml)
+        self._check_and_save_hyp()
 
         # 3. Inicializar componentes
         self.model, self.criterion, self.postprocessors = self._setup_model()
@@ -135,12 +135,12 @@ class Trainer:
         # 4. Lógica de Reanudación (Resume)
         self._resume_training()
 
-    def _save_hyp_yaml(self):
-        """Consolida y guarda la configuración completa en hyp.yaml."""
-        # Normalizar lr_drop a lista para el YAML
+    def _check_and_save_hyp(self):
+        """Compara la configuración actual con la guardada y actualiza hyp.yaml."""
+        hyp_path = self.save_dir / "hyp.yaml"
         drop_epochs = [self.cfg.lr_drop] if isinstance(self.cfg.lr_drop, int) else self.cfg.lr_drop
 
-        hyp = {
+        new_hyp = {
             "experiment": {
                 "variant": self.cfg.variant,
                 "run_name": self.cfg.run_name,
@@ -160,8 +160,22 @@ class Trainer:
             "architecture": vars(self.cfg.model_args) if self.cfg.model_args else {},
             "hardware_policy": {"bn2gn_policy": self.cfg.bn2gn_policy}
         }
-        with open(self.save_dir / "hyp.yaml", "w", encoding="utf-8") as f:
-            yaml.dump(hyp, f, default_flow_style=False, sort_keys=False)
+
+        if self.cfg.resume and hyp_path.exists():
+            with open(hyp_path, "r", encoding="utf-8") as f:
+                old_hyp = yaml.safe_load(f)
+
+            # Comparamos las secciones críticas
+            if old_hyp.get("training") != new_hyp["training"] or old_hyp.get("architecture") != new_hyp["architecture"]:
+                print("[Trainer] Cambio detectado en la configuración de hiperparámetros.")
+            else:
+                print("[Trainer] Hiperparámetros cargados desde train.yaml sin modificaciones.")
+        elif self.cfg.resume:
+            print("[Trainer] Cambio detectado en la configuración de hiperparámetros.")
+
+        # Guardar/Sobrescribir siempre con la versión más reciente
+        with open(hyp_path, "w", encoding="utf-8") as f:
+            yaml.dump(new_hyp, f, default_flow_style=False, sort_keys=False)
 
     def _maybe_download_weights(self):
         """Descarga automática de pesos si no existen localmente."""
@@ -205,14 +219,13 @@ class Trainer:
         ]
         optimizer = torch.optim.AdamW(param_dicts, lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
 
-        # Usamos MultiStepLR para soportar hitos únicos o múltiples
         milestones = [self.cfg.lr_drop] if isinstance(self.cfg.lr_drop, int) else self.cfg.lr_drop
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=self.cfg.lr_gamma)
 
         return optimizer, scheduler
 
     def _resume_training(self):
-        """Restaura el estado completo del entrenamiento."""
+        """Restaura el estado completo del entrenamiento con reconstrucción dinámica de LR."""
         if not self.cfg.resume:
             return
 
@@ -227,17 +240,33 @@ class Trainer:
             checkpoint = torch.load(resume_path, map_location='cpu', weights_only=False)
 
             self.model.load_state_dict(checkpoint['model'])
+
+            # Cargar estado del optimizador (momentos de AdamW), pero ignoraremos su LR guardado
             self.optimizer.load_state_dict(checkpoint['optimizer'])
-            self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             self.cfg.start_epoch = checkpoint['epoch'] + 1
 
-            print(f"[Trainer] Estado restaurado. Continuando desde la época {self.cfg.start_epoch}.")
+            # --- RECONSTRUCCIÓN DINÁMICA DEL SCHEDULER (FAST-FORWARD) ---
+            # 1. Forzar los LRs base en el optimizador cargado para borrar el historial
+            self.optimizer.param_groups[0]['lr'] = self.cfg.lr
+            self.optimizer.param_groups[0]['initial_lr'] = self.cfg.lr
+            self.optimizer.param_groups[1]['lr'] = self.cfg.lr_backbone
+            self.optimizer.param_groups[1]['initial_lr'] = self.cfg.lr_backbone
 
-            # Verificación retroactiva de LR Drop
+            # 2. Recrear el scheduler limpio con la configuración actual
+            milestones = [self.cfg.lr_drop] if isinstance(self.cfg.lr_drop, int) else self.cfg.lr_drop
+            self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=milestones,
+                                                                     gamma=self.cfg.lr_gamma)
+
+            # 3. Fast-forward (Avance rápido) hasta la época actual
+            for _ in range(self.cfg.start_epoch):
+                self.lr_scheduler.step()
+
             current_lr = self.optimizer.param_groups[0]['lr']
-            if current_lr < self.cfg.lr:
-                print(
-                    f"[Trainer] Info: Learning Rate Drop detectado en checkpoint. Época actual: {self.cfg.start_epoch}. Valor: {current_lr:.2e}")
+            print(
+                f"[Trainer] Estado restaurado. Continuando desde la época {self.cfg.start_epoch}. LR actual: {current_lr:.2e}")
+
+            if current_lr < (self.cfg.lr - 1e-8):
+                print(f"[Trainer] Info: Learning Rate Drop previo detectado (LR inicial era {self.cfg.lr:.2e}).")
         else:
             print(
                 f"[Trainer] ADVERTENCIA: No se encontró archivo para reanudar en {resume_path}. Iniciando desde cero.")
@@ -326,6 +355,19 @@ class Trainer:
         except Exception as e:
             print(f"[Trainer] Error en final plotting: {e}")
 
+    def _consolidate_final_weights(self):
+        """Copia el mejor modelo a la carpeta global de pesos al finalizar."""
+        best_local = self.weights_dir / "best.pt"
+        if best_local.exists():
+            global_weights_dir = DETR_ROOT / "weights" / self.cfg.variant
+            global_weights_dir.mkdir(parents=True, exist_ok=True)
+
+            final_name = f"{self.cfg.run_name}_best.pt"
+            global_path = global_weights_dir / final_name
+
+            shutil.copy(best_local, global_path)
+            print(f"[Trainer] Pesos finales consolidados en: {global_path.relative_to(DETR_ROOT)}")
+
     def fit(self):
         print(f"\n[Trainer] --- Iniciando Entrenamiento DETR: {self.save_dir.name} ---")
         train_loader = build_dataloader("train", self.cfg.batch_size)
@@ -343,7 +385,7 @@ class Trainer:
             new_lr = self.optimizer.param_groups[0]['lr']
 
             # Notificación formal de Drop
-            if new_lr < old_lr:
+            if new_lr < (old_lr - 1e-8):
                 print(f"[Trainer] Info: Learning Rate Drop. Época: {epoch}. Valor: {new_lr:.2e}")
 
             val_stats = self.validator.validate(val_loader, self.save_dir)
@@ -355,6 +397,9 @@ class Trainer:
         self._plot_final_metrics()
         with open(self.metrics_dir / "metrics.yaml", "w") as f:
             yaml.dump(self.best_metrics, f)
+
+        # Consolidación de pesos al finalizar
+        self._consolidate_final_weights()
 
         print(f"\n[Trainer] Finalizado en {(time.time() - start_time) / 60:.2f} min.")
 
