@@ -22,7 +22,7 @@ import yaml
 import matplotlib.pyplot as plt
 from pathlib import Path
 from dataclasses import dataclass, asdict
-from typing import Optional, Any, Dict, Union
+from typing import Optional, Any, Dict, Union, List
 
 import torch
 import torch.nn as nn
@@ -82,7 +82,8 @@ class TrainerConfig:
     lr: float = 1e-4
     lr_backbone: float = 1e-5
     weight_decay: float = 1e-4
-    lr_drop: int = 200
+    lr_drop: Union[int, List[int]] = 200
+    lr_gamma: float = 0.1
     clip_max_norm: float = 0.1
     device: str = "cuda"
     pretrain_weights: str = ""
@@ -136,11 +137,26 @@ class Trainer:
 
     def _save_hyp_yaml(self):
         """Consolida y guarda la configuración completa en hyp.yaml."""
+        # Normalizar lr_drop a lista para el YAML
+        drop_epochs = [self.cfg.lr_drop] if isinstance(self.cfg.lr_drop, int) else self.cfg.lr_drop
+
         hyp = {
-            "experiment": {"variant": self.cfg.variant, "run_name": self.cfg.run_name, "save_dir": str(self.save_dir),
-                           "device": self.cfg.device},
-            "training": {"epochs": self.cfg.epochs, "batch_size": self.cfg.batch_size, "lr": self.cfg.lr,
-                         "lr_backbone": self.cfg.lr_backbone},
+            "experiment": {
+                "variant": self.cfg.variant,
+                "run_name": self.cfg.run_name,
+                "save_dir": str(self.save_dir),
+                "device": self.cfg.device
+            },
+            "training": {
+                "epochs": self.cfg.epochs,
+                "batch_size": self.cfg.batch_size,
+                "lr": self.cfg.lr,
+                "lr_backbone": self.cfg.lr_backbone,
+                "lr_drop_epochs": drop_epochs,
+                "lr_gamma": self.cfg.lr_gamma,
+                "weight_decay": self.cfg.weight_decay,
+                "clip_max_norm": self.cfg.clip_max_norm
+            },
             "architecture": vars(self.cfg.model_args) if self.cfg.model_args else {},
             "hardware_policy": {"bn2gn_policy": self.cfg.bn2gn_policy}
         }
@@ -164,7 +180,6 @@ class Trainer:
         if not self.cfg.resume:
             w_path = Path(self.cfg.pretrain_weights)
             if w_path.exists():
-                # [CORRECCIÓN]: weights_only=False para permitir carga de clases personalizadas
                 checkpoint = torch.load(w_path, map_location='cpu', weights_only=False)
                 model.load_state_dict(checkpoint['model'], strict=False)
 
@@ -189,7 +204,11 @@ class Trainer:
              "lr": self.cfg.lr_backbone}
         ]
         optimizer = torch.optim.AdamW(param_dicts, lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, self.cfg.lr_drop)
+
+        # Usamos MultiStepLR para soportar hitos únicos o múltiples
+        milestones = [self.cfg.lr_drop] if isinstance(self.cfg.lr_drop, int) else self.cfg.lr_drop
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=self.cfg.lr_gamma)
+
         return optimizer, scheduler
 
     def _resume_training(self):
@@ -205,7 +224,6 @@ class Trainer:
 
         if resume_path and resume_path.exists():
             print(f"[Trainer] Reanudando entrenamiento desde: {resume_path}")
-            # [CORRECCIÓN]: weights_only=False para evitar error de Unpickling en PyTorch 2.6+
             checkpoint = torch.load(resume_path, map_location='cpu', weights_only=False)
 
             self.model.load_state_dict(checkpoint['model'])
@@ -214,6 +232,12 @@ class Trainer:
             self.cfg.start_epoch = checkpoint['epoch'] + 1
 
             print(f"[Trainer] Estado restaurado. Continuando desde la época {self.cfg.start_epoch}.")
+
+            # Verificación retroactiva de LR Drop
+            current_lr = self.optimizer.param_groups[0]['lr']
+            if current_lr < self.cfg.lr:
+                print(
+                    f"[Trainer] Info: Learning Rate Drop detectado en checkpoint. Época actual: {self.cfg.start_epoch}. Valor: {current_lr:.2e}")
         else:
             print(
                 f"[Trainer] ADVERTENCIA: No se encontró archivo para reanudar en {resume_path}. Iniciando desde cero.")
@@ -303,14 +327,25 @@ class Trainer:
             print(f"[Trainer] Error en final plotting: {e}")
 
     def fit(self):
-        print(f"\n--- Iniciando Entrenamiento DETR: {self.save_dir.name} ---")
+        print(f"\n[Trainer] --- Iniciando Entrenamiento DETR: {self.save_dir.name} ---")
         train_loader = build_dataloader("train", self.cfg.batch_size)
         val_loader = build_dataloader("valid", self.cfg.batch_size)
 
         start_time = time.time()
         for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
+            # Monitor de Learning Rate previo al step
+            old_lr = self.optimizer.param_groups[0]['lr']
+
             train_stats = self._train_one_epoch(train_loader, epoch)
+
+            # Actualizar Scheduler
             self.lr_scheduler.step()
+            new_lr = self.optimizer.param_groups[0]['lr']
+
+            # Notificación formal de Drop
+            if new_lr < old_lr:
+                print(f"[Trainer] Info: Learning Rate Drop. Época: {epoch}. Valor: {new_lr:.2e}")
+
             val_stats = self.validator.validate(val_loader, self.save_dir)
 
             self._log_to_csv(epoch, train_stats, val_stats)
@@ -346,19 +381,28 @@ class Trainer:
                 stats["loss_bbox"] += loss_dict["loss_bbox"].item();
                 stats["loss_giou"] += loss_dict["loss_giou"].item()
                 if "class_error" in loss_dict: stats["class_error"] += loss_dict["class_error"].item()
-            if i % 10 == 0: print(f"Epoch [{epoch}] Batch [{i}/{len(loader)}] - Loss: {losses.item():.4f}", flush=True)
+            if i % 10 == 0: print(f"[Trainer] Epoch [{epoch}] Batch [{i}/{len(loader)}] - Loss: {losses.item():.4f}",
+                                  flush=True)
         return {k: v / len(loader) for k, v in stats.items()}
 
     def _save_checkpoints(self, epoch, val_stats):
-        checkpoint = {'model': self.model.state_dict(), 'optimizer': self.optimizer.state_dict(),
-                      'lr_scheduler': self.lr_scheduler.state_dict(), 'epoch': epoch, 'cfg': self.cfg}
+        checkpoint = {
+            'model': self.model.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'lr_scheduler': self.lr_scheduler.state_dict(),
+            'epoch': epoch,
+            'cfg': self.cfg
+        }
         save_on_master(checkpoint, self.weights_dir / "last.pt")
         current_map = val_stats.get("mAP_0.5", 0.0)
         if current_map > self.best_map:
             self.best_map = current_map
-            self.best_metrics = {"mAP_0.5": float(val_stats.get("mAP_0.5", 0.0)),
-                                 "mAP_0.5:0.95": float(val_stats.get("mAP_0.5:0.95", 0.0)),
-                                 "precision": float(val_stats.get("precision", 0.0)),
-                                 "recall": float(val_stats.get("recall", 0.0)), "F1": float(val_stats.get("F1", 0.0))}
+            self.best_metrics = {
+                "mAP_0.5": float(val_stats.get("mAP_0.5", 0.0)),
+                "mAP_0.5:0.95": float(val_stats.get("mAP_0.5:0.95", 0.0)),
+                "precision": float(val_stats.get("precision", 0.0)),
+                "recall": float(val_stats.get("recall", 0.0)),
+                "F1": float(val_stats.get("F1", 0.0))
+            }
             save_on_master(checkpoint, self.weights_dir / "best.pt")
-            print(f"  --> Nuevo Mejor mAP@0.5: {current_map:.4f}")
+            print(f"[Trainer] --> Nuevo Mejor mAP@0.5: {current_map:.4f}")

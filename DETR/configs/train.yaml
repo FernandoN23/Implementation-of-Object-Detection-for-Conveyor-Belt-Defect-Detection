@@ -85,8 +85,8 @@ presets:
       training:
         variant: "r50"
         run_name: "coco_r50_standard"
-        epochs: 100
-        lr_drop: 200
+        epochs: 200
+        lr_drop: 100
         pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
 
   coco_r50_dc5:

@@ -32,6 +32,7 @@ def load_yaml(path):
 
 
 def main():
+    print(f"[valid.py] Iniciando script de validación...")
     parser = argparse.ArgumentParser(description="DETR Validation CLI")
     parser.add_argument("--cfg-valid", type=str, default="DETR/configs/valid.yaml")
     parser.add_argument("--preset", type=str, default=None)
@@ -89,11 +90,11 @@ def main():
             weights_path = str(auto_path)
             print(f"[valid.py] Auto-descubierto peso: {weights_path}")
         else:
-            print(f"[Error] No se encontraron pesos en: {auto_path}")
+            print(f"[valid.py] ERROR: No se encontraron pesos en: {auto_path}")
             return
 
     if not os.path.exists(weights_path):
-        print(f"[Error] La ruta de pesos no existe: {weights_path}")
+        print(f"[valid.py] ERROR: La ruta de pesos no existe: {weights_path}")
         return
 
     # 6. Construir Modelo y Cargar Pesos
@@ -106,7 +107,6 @@ def main():
     hidden_dim = model.transformer.d_model
     model.class_embed = torch.nn.Linear(hidden_dim, dataset_cfg['nc'] + 1)
 
-    # [CORRECCIÓN]: weights_only=False para permitir carga de clases personalizadas
     checkpoint = torch.load(weights_path, map_location='cpu', weights_only=False)
     model.load_state_dict(checkpoint['model'])
 
@@ -122,7 +122,7 @@ def main():
     save_dir.mkdir(parents=True, exist_ok=True)
 
     validator = Validator(model, criterion, postprocessors, device)
-    print(f"--- Iniciando Reporte de Validación: {run_name} ---")
+    print(f"[valid.py] --- Iniciando Reporte de Validación: {run_name} ---")
     class_names = list(dataset_cfg['names'].values())
     metrics = validator.run_full_report(val_loader, save_dir, class_names)
 

@@ -7,9 +7,6 @@
 # --------------------------------------------------------------
 # Archivo: DETR/train.py
 # Descripción: Punto de entrada CLI para el entrenamiento de DETR.
-#              Maneja la carga de configuraciones YAML, inicialización
-#              de hardware ROCm/MIOpen y la instanciación del motor Trainer.
-#              Soporta reanudación de entrenamientos (--resume).
 # ==============================================================
 
 import argparse
@@ -33,10 +30,10 @@ def load_yaml(path):
 
 
 def main():
+    print(f"[train.py] Iniciando script de entrenamiento...")
     parser = argparse.ArgumentParser(description="DETR Training CLI - Belt Defects")
     parser.add_argument("--cfg-train", type=str, default="DETR/configs/train.yaml")
     parser.add_argument("--preset", type=str, default=None)
-    # [NUEVO]: Argumento resume (booleano o ruta)
     parser.add_argument("--resume", nargs="?", const=True, default=None,
                         help="Reanudar entrenamiento. Si se usa sin valor, intenta autodescubrir el último run.")
     args = parser.parse_args()
@@ -61,7 +58,7 @@ def main():
         verbose=mi_cfg['verbose']
     ))
 
-    # --- INICIALIZACIÓN DE MOTOR (DESPUÉS DEL BOOTSTRAP) ---
+    # --- INICIALIZACIÓN DE MOTOR ---
     import torch
     from engine.warnings import install_global_warning_filters
     from engine.Trainer import Trainer, TrainerConfig
@@ -84,7 +81,6 @@ def main():
     model_args.dataset_file = 'coco'
     model_args.device = train_cfg['training']['device']
 
-    # [NUEVO]: Lógica de prioridad para Resume (CLI > YAML > False)
     resume_val = args.resume if args.resume is not None else train_cfg['training'].get('resume', False)
 
     # 5. Instanciar TrainerConfig
@@ -97,6 +93,7 @@ def main():
         lr_backbone=train_cfg['training']['lr_backbone'],
         weight_decay=train_cfg['training']['weight_decay'],
         lr_drop=train_cfg['training']['lr_drop'],
+        lr_gamma=train_cfg['training'].get('lr_gamma', 0.1),
         clip_max_norm=train_cfg['training']['clip_max_norm'],
         pretrain_weights=str(Path(train_cfg['training']['pretrain_weights']).resolve()),
         nc=dataset_cfg['nc'],
@@ -105,7 +102,7 @@ def main():
         bn2gn_policy=train_cfg['bn2gn']['policy'],
         exist_ok=train_cfg['training'].get('exist_ok', False),
         metrics_root=Path(train_cfg['paths']['metrics_dir']).resolve(),
-        resume=resume_val # Pasamos el valor resuelto
+        resume=resume_val
     )
 
     # 6. Ejecutar Entrenamiento

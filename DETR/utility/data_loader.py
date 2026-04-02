@@ -30,7 +30,6 @@ PROJECT_ROOT = DETR_ROOT.parent
 DATASET_ROOT = PROJECT_ROOT / "Dataset"
 DETR_SUBMODULE = DETR_ROOT / "detr"
 
-# [CORRECCIÓN]: Usamos append para dar prioridad a nuestras carpetas locales (engine/)
 if str(DETR_SUBMODULE) not in sys.path:
     sys.path.append(str(DETR_SUBMODULE))
 
@@ -60,7 +59,6 @@ class YoloToDetrDataset(Dataset):
             if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".bmp"]
         ])
 
-        # [NUEVO]: Crear API COCO virtual para el set de validación
         if image_set in ["valid", "val"]:
             self.coco = self._build_coco_api()
 
@@ -69,14 +67,12 @@ class YoloToDetrDataset(Dataset):
         print(f"[data_loader] Generando API COCO virtual para '{self.image_set}'...")
         coco_data = {"images": [], "annotations": [], "categories": []}
 
-        # Definir categorías (5 fallas)
         categories = ['Hole', 'Impact Damage', 'Puncture', 'Tear', 'Wear']
         for i, cat in enumerate(categories):
             coco_data["categories"].append({"id": i, "name": cat})
 
         ann_id = 0
         for idx, img_path in enumerate(self.img_files):
-            # Obtener dimensiones sin cargar toda la imagen en memoria
             with Image.open(img_path) as img:
                 w, h = img.size
 
@@ -90,7 +86,6 @@ class YoloToDetrDataset(Dataset):
                         if len(parts) != 5: continue
                         cls, cx, cy, bw, bh = map(float, parts)
 
-                        # YOLO (norm) -> COCO [xmin, ymin, w, h] (abs)
                         abs_w, abs_h = bw * w, bh * h
                         xmin = (cx * w) - (abs_w / 2)
                         ymin = (cy * h) - (abs_h / 2)
@@ -105,7 +100,6 @@ class YoloToDetrDataset(Dataset):
                         })
                         ann_id += 1
 
-        # Instanciar objeto COCO silenciando el "creating index..."
         res = COCO()
         res.dataset = coco_data
         with contextlib.redirect_stdout(open(os.devnull, 'w')):

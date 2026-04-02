@@ -94,11 +94,7 @@ class Validator:
             final_stats["mAP_0.5"] = coco_stats[1]
             final_stats["recall"] = coco_stats[8]  # AR@100
 
-            # [NUEVO]: Extracción de Precisión y cálculo de F1
-            # La matriz eval['precision'] tiene forma [T, R, K, A, M]
-            # Promediamos sobre todos los Recalls (R) y Clases (K) para el umbral IoU=0.5 (T=0) y maxDets=100 (M=2)
             precisions = coco_eval.eval['precision'][0, :, :, 0, 2]
-            # Ignorar valores -1 (clases sin GT)
             valid_precisions = precisions[precisions > -1]
             p = valid_precisions.mean() if len(valid_precisions) > 0 else 0.0
             r = final_stats["recall"]

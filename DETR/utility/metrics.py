@@ -24,11 +24,9 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 # --- CONFIGURACIÓN DE ESTILO Y CONSTANTES ---
-plt.style.use('seaborn-v0_8-whitegrid')
+plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'seaborn-whitegrid')
 plt.rcParams.update({
     'font.size': 10,
-    'axes.facecolor': '#f0f0f0',
-    'grid.color': 'white',
     'axes.labelsize': 11,
     'axes.titlesize': 12,
     'legend.fontsize': 10,
@@ -40,7 +38,6 @@ UTILITY_ROOT = FILE.parent
 DETR_ROOT = UTILITY_ROOT.parent
 METRICS_ROOT = DETR_ROOT / "metrics"
 
-# Parámetros aproximados de DETR (Millones)
 DETR_PARAMS_M = {
     "r50": 41.3,
     "r50_dc5": 41.3,
@@ -48,12 +45,11 @@ DETR_PARAMS_M = {
     "r101_dc5": 60.1,
 }
 
-# Paleta de colores estricta para comparativas
 VARIANT_COLORS = {
-    "r50": "#1f77b4",  # Azul
-    "r50_dc5": "#2ca02c",  # Verde
-    "r101": "#d62728",  # Rojo
-    "r101_dc5": "#9467bd",  # Púrpura
+    "r50": "#1f77b4",
+    "r50_dc5": "#2ca02c",
+    "r101": "#d62728",
+    "r101_dc5": "#9467bd",
 }
 
 
@@ -70,12 +66,7 @@ class MetricsConfig:
         return METRICS_ROOT / self.task_model / "global_comparison"
 
 
-# ---------------------------------------------------------------------------
-# Utilidades Generales y Suavizado
-# ---------------------------------------------------------------------------
-
 def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
-    """Aplica suavizado exponencial robusto a NaNs."""
     series = pd.Series(scalars).interpolate(limit_direction='both')
     if series.isnull().all(): return scalars
     clean_scalars = series.tolist()
@@ -89,24 +80,13 @@ def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
 
 
 def load_results_csv(path: Path) -> pd.DataFrame:
-    """Carga results.csv y asegura tipos numéricos."""
     if not path.is_file(): return pd.DataFrame()
     df = pd.read_csv(path)
     df.columns = [c.strip() for c in df.columns]
-    # Calcular F1 si no existe explícitamente
-    if 'metrics/mAP_0.5' in df.columns and 'metrics/recall' in df.columns:
-        p = df['metrics/mAP_0.5']
-        r = df['metrics/recall']
-        df['metrics/F1'] = 2 * (p * r) / (p + r + 1e-16)
     return df
 
 
-# ---------------------------------------------------------------------------
-# Lógica de Comparación Global (Merge Mode)
-# ---------------------------------------------------------------------------
-
 def discover_best_runs(task: str, variants: List[str]) -> Dict[str, Path]:
-    """Busca el run más reciente para cada variante solicitada."""
     found_runs = {}
     for var in variants:
         base_path = METRICS_ROOT / task / var / "train"
@@ -117,13 +97,12 @@ def discover_best_runs(task: str, variants: List[str]) -> Dict[str, Path]:
         csv_path = latest_run / "results.csv"
         if csv_path.is_file():
             found_runs[var] = csv_path
-            print(f"[Merge] Variante '{var}': {latest_run.name}")
+            print(f"[metrics.py] Variante '{var}': {latest_run.name}")
     return found_runs
 
 
 def plot_comparative_metric(data_map: Dict[str, pd.DataFrame], metric_col: str, title: str, ylabel: str, out_path: Path,
                             smooth_factor: float = 0.6):
-    """Genera gráfico comparativo superponiendo variantes con colores fijos."""
     plt.figure(figsize=(10, 6))
     has_data = False
 
@@ -137,7 +116,6 @@ def plot_comparative_metric(data_map: Dict[str, pd.DataFrame], metric_col: str, 
         values = df_clean[metric_col].values.astype(float)
         color = VARIANT_COLORS.get(var, "gray")
 
-        # Plot crudo (transparente) y suavizado (sólido)
         plt.plot(epochs, values, color=color, alpha=0.2, linewidth=1)
         smoothed = smooth_signal(values.tolist(), weight=smooth_factor)
         plt.plot(epochs, smoothed, label=f"DETR-{var.upper()}", color=color, alpha=1.0, linewidth=2.5)
@@ -150,13 +128,13 @@ def plot_comparative_metric(data_map: Dict[str, pd.DataFrame], metric_col: str, 
     plt.ylabel(ylabel)
     plt.title(title)
     plt.legend(frameon=True, framealpha=0.9)
+    plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
     plt.close()
 
 
 def plot_variant_tradeoff(data_map: Dict[str, pd.DataFrame], out_path: Path):
-    """Gráfico de dispersión: mAP vs Parámetros."""
     variants, maps, params = [], [], []
     for var, df in data_map.items():
         if 'metrics/mAP_0.5:0.95' not in df.columns: continue
@@ -172,7 +150,6 @@ def plot_variant_tradeoff(data_map: Dict[str, pd.DataFrame], out_path: Path):
     colors = [VARIANT_COLORS.get(v, "gray") for v in variants]
     plt.scatter(params, maps, c=colors, s=150, zorder=3, edgecolors='black')
 
-    # Línea conectora
     if len(params) > 1:
         sorted_indices = np.argsort(params)
         plt.plot(np.array(params)[sorted_indices], np.array(maps)[sorted_indices], linestyle='--', color='gray',
@@ -185,18 +162,19 @@ def plot_variant_tradeoff(data_map: Dict[str, pd.DataFrame], out_path: Path):
     plt.xlabel("Parámetros (Millones)")
     plt.ylabel("Best mAP@0.5:0.95")
     plt.title("Trade-off: Performance vs Complejidad (DETR)")
+    plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
     plt.close()
 
 
 def run_comparison_mode(cfg: MetricsConfig):
-    print("\n=== Iniciando Modo Comparativo DETR (Merge) ===")
+    print("\n[metrics.py] === Iniciando Modo Comparativo DETR (Merge) ===")
     variants = cfg.variants_to_compare or list(DETR_PARAMS_M.keys())
     runs_map = discover_best_runs(cfg.task_model, variants)
 
     if not runs_map:
-        print("[Error] No se encontraron runs válidos para comparar.")
+        print("[metrics.py] ERROR: No se encontraron runs válidos para comparar.")
         return
 
     data_map = {var: load_results_csv(path) for var, path in runs_map.items()}
@@ -208,25 +186,21 @@ def run_comparison_mode(cfg: MetricsConfig):
     losses_out.mkdir(exist_ok=True)
     metrics_out.mkdir(exist_ok=True)
 
-    # 1. Gráficos de Pérdidas
     loss_types = {"Total Loss (Val)": "val/loss", "Classification Loss (Val)": "val/loss_ce",
                   "BBox Loss (Val)": "val/loss_bbox"}
     for title, keyword in loss_types.items():
         plot_comparative_metric(data_map, keyword, title, "Loss",
                                 losses_out / f"compare_{keyword.replace('/', '_')}.png", smooth_factor=0.7)
 
-    # 2. Gráficos de Métricas
-    metric_types = {"Precision (mAP@0.5)": "metrics/mAP_0.5", "mAP@0.5:0.95": "metrics/mAP_0.5:0.95",
-                    "Recall": "metrics/recall", "F1-Score": "metrics/F1"}
+    metric_types = {"Precision": "metrics/precision", "Recall": "metrics/recall", "F1-Score": "metrics/F1",
+                    "mAP@0.5": "metrics/mAP_0.5", "mAP@0.5:0.95": "metrics/mAP_0.5:0.95"}
     for title, keyword in metric_types.items():
         safe_name = keyword.replace("metrics/", "").replace(":", "_")
         plot_comparative_metric(data_map, keyword, f"Comparativa {title}", title,
                                 metrics_out / f"compare_{safe_name}.png", smooth_factor=0.5)
 
-    # 3. Trade-off
     plot_variant_tradeoff(data_map, global_out / "tradeoff_performance_size.png")
 
-    # 4. Resumen JSON
     summary = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "variants": list(data_map.keys()), "best_metrics": {}}
     for var, df in data_map.items():
         summary["best_metrics"][var] = {
@@ -236,12 +210,8 @@ def run_comparison_mode(cfg: MetricsConfig):
         }
     with open(global_out / "global_summary.json", "w") as f:
         json.dump(summary, f, indent=2)
-    print(f"=== Comparación Finalizada en {global_out} ===")
+    print(f"[metrics.py] === Comparación Finalizada en {global_out} ===")
 
-
-# ---------------------------------------------------------------------------
-# Lógica de Validación (Reporte Completo)
-# ---------------------------------------------------------------------------
 
 def calculate_iou(box1, box2):
     x1, y1 = max(box1[0], box2[0]), max(box1[1], box2[1])
@@ -303,7 +273,6 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
             curve_data[c]['r'].append(rec)
             curve_data[c]['f1'].append(2 * prec * rec / (prec + rec + 1e-6))
 
-    # F1 Curve
     plt.figure(figsize=(10, 7))
     f1_all = []
     for c in range(nc):
@@ -317,22 +286,22 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
     plt.xlabel('Confidence');
     plt.ylabel('F1');
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout();
     plt.savefig(save_dir / "F1_curve.png", dpi=200);
     plt.close()
 
-    # PR Curve
     plt.figure(figsize=(10, 7))
     for c in range(nc): plt.plot(curve_data[c]['r'], curve_data[c]['p'], label=class_names[c], linewidth=1)
     plt.title('Precision-Recall Curve');
     plt.xlabel('Recall');
     plt.ylabel('Precision');
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout();
     plt.savefig(save_dir / "PR_curve.png", dpi=200);
     plt.close()
 
-    # Confusion Matrix
     plt.figure(figsize=(12, 9))
     cm_norm = confusion_matrix / (confusion_matrix.sum(axis=0) + 1e-6)
     sns.heatmap(cm_norm, annot=True, fmt='.2f', cmap='Blues', xticklabels=class_names + ['background'],
@@ -344,12 +313,12 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
     plt.savefig(save_dir / "confusion_matrix.png", dpi=200);
     plt.close()
 
-    # IoU Distribution
     plt.figure(figsize=(10, 6))
     plt.hist(all_ious, bins=20, color='cornflowerblue', edgecolor='black')
     plt.title('IoU Distribution');
     plt.xlabel('IoU');
     plt.ylabel('Frequency')
+    plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout();
     plt.savefig(save_dir / "iou_distribution.png", dpi=200);
     plt.close()
@@ -357,10 +326,6 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
     return {'F1': float(mean_f1[best_idx]),
             'mAP_0.5': float(np.mean([np.trapz(curve_data[c]['p'], curve_data[c]['r']) for c in range(nc)]))}
 
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser()
