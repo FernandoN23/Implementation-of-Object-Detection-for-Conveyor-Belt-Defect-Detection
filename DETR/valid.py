@@ -124,7 +124,15 @@ def main():
     validator = Validator(model, criterion, postprocessors, device)
     print(f"[valid.py] --- Iniciando Reporte de Validación: {run_name} ---")
     class_names = list(dataset_cfg['names'].values())
-    metrics = validator.run_full_report(val_loader, save_dir, class_names)
+
+    # Ejecutar reporte leyendo parámetros del YAML
+    metrics = validator.run_full_report(
+        val_loader,
+        save_dir,
+        class_names,
+        plot_ratio=valid_cfg['validation'].get('plot_ratio', 0.20),
+        max_images=valid_cfg['validation'].get('max_images', 50)
+    )
 
     with open(save_dir / "metrics.yaml", "w") as f:
         yaml.dump(metrics, f)

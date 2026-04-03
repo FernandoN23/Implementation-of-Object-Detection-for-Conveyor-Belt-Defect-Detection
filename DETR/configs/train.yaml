@@ -6,10 +6,14 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: DETR/configs/train.yaml
-# Descripción: Configuración maestra para el entrenamiento.
-#              Incluye presets para COCO y datasets masivos.
+# Descripción: Configuración maestra de entrenamiento para el
+#              orquestador DETR/train.py y el motor engine/Trainer.
+#              Define rutas, política MIOpen/BN2GN y presets.
 # ==============================================================
 
+# --------------------------------------------------------------
+# Rutas base del proyecto
+# --------------------------------------------------------------
 paths:
   project_root: "."
   dataset_cfg: "DETR/configs/dataset.yaml"
@@ -18,9 +22,12 @@ paths:
   runs_dir: "DETR/runs"
   metrics_dir: "DETR/metrics"
 
+# --------------------------------------------------------------
+# Parámetros generales de entrenamiento
+# --------------------------------------------------------------
 training:
   variant: "r50"
-  run_name: "detr_belt_baseline"
+  run_name: "detr_baseline"
   phase: "train"
   device: "cuda"
 
@@ -31,7 +38,8 @@ training:
   lr: 0.0001
   lr_backbone: 0.00001
   weight_decay: 0.0001
-  lr_drop: 200
+  lr_drop: [150, 250]
+  lr_gamma: 0.1
   clip_max_norm: 0.1
 
   # Coeficientes de pérdida
@@ -48,6 +56,9 @@ training:
   exist_ok: false
   seed: 42
 
+# --------------------------------------------------------------
+# Política MIOpen (Windows ROCm Preview)
+# --------------------------------------------------------------
 miopen:
   find_mode: "FAST"
   user_db_path: "C:/Users/memorista/.miopen_db"
@@ -56,81 +67,102 @@ miopen:
   strict_before_torch: true
   verbose: 1
 
+# --------------------------------------------------------------
+# Política BatchNorm2d → GroupNorm (BN2GN)
+# --------------------------------------------------------------
 bn2gn:
   policy: "on"
   max_groups: 32
   min_channels_per_group: 1
   verbose: 1
 
+# --------------------------------------------------------------
+# Presets de Entrenamiento Final y Pruebas
+# --------------------------------------------------------------
 presets:
-  # ----------------------------------------------------------
-  # Presets específicos para el Proyecto (Cintas Transportadoras)
-  # ----------------------------------------------------------
-  detr_r50_belt:
-    description: "Fine-tuning estándar ResNet-50 para fallas en correas."
+  # ==========================================================
+  # Presets de Entrenamiento Final
+  # Configuración base: 300 épocas, 2 LR Drops (150, 250)
+  # ==========================================================
+
+  # Variante R50 (Base)
+  detr_r50:
+    description: "Entrenamiento DETR ResNet-50 (300 ep, batch 16)."
     overrides:
       training:
         variant: "r50"
         run_name: "detr_r50_belt"
         epochs: 300
-        batch_size: 2
-        lr_drop: 100
-
-  # ----------------------------------------------------------
-  # Presets Oficiales COCO (Replicación de Paper)
-  # ----------------------------------------------------------
-  coco_r50_std:
-    description: "Configuración original DETR R50 (100 épocas)."
-    overrides:
-      training:
-        variant: "r50"
-        run_name: "coco_r50_standard"
-        epochs: 200
-        lr_drop: 100
+        batch_size: 16
+        lr: 0.0001
+        lr_backbone: 0.00001
+        lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
 
-  coco_r50_dc5:
-    description: "Configuración DETR R50 con Dilated C5 (Alta resolución)."
+  # Variante R50 DC5 (Alta Resolución)
+  detr_r50_dc5:
+    description: "Entrenamiento DETR ResNet-50 Dilated C5 (300 ep, batch 8)."
     overrides:
       training:
         variant: "r50_dc5"
-        run_name: "coco_r50_dc5"
-        epochs: 100
-        batch_size: 1  # DC5 es intensivo en VRAM
-        lr_drop: 200
+        run_name: "detr_r50_dc5_belt"
+        epochs: 300
+        batch_size: 8  # Reducido por alto consumo VRAM del DC5
+        lr: 0.0001
+        lr_backbone: 0.00001
+        lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r50-dc5-f0fb7ef5.pth"
 
-  coco_r101_std:
-    description: "Configuración DETR R101 (Máxima precisión base)."
+  # Variante R101 (Profunda)
+  detr_r101:
+    description: "Entrenamiento DETR ResNet-101 (300 ep, batch 16)."
     overrides:
       training:
         variant: "r101"
-        run_name: "coco_r101_standard"
-        epochs: 100
-        lr_drop: 200
+        run_name: "detr_r101_belt"
+        epochs: 300
+        batch_size: 16
+        lr: 0.0001
+        lr_backbone: 0.00001
+        lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r101-2c7b67e5.pth"
 
-  # ----------------------------------------------------------
-  # Presets para Datasets Masivos (Long Schedules)
-  # ----------------------------------------------------------
-  massive_r50_long:
-    description: "Entrenamiento extendido (300 épocas) para datasets masivos."
-    overrides:
-      training:
-        variant: "r50"
-        run_name: "massive_r50_500ep"
-        epochs: 300
-        lr_drop: 400
-        batch_size: 2
-        weight_decay: 0.0001
-
-  massive_r101_dc5_ultra:
-    description: "Configuración Ultra: R101 + DC5 + 300 épocas."
+  # Variante R101 DC5 (Ultra)
+  detr_r101_dc5:
+    description: "Entrenamiento DETR ResNet-101 Dilated C5 (300 ep, batch 8)."
     overrides:
       training:
         variant: "r101_dc5"
-        run_name: "massive_r101_dc5_ultra"
+        run_name: "detr_r101_dc5_belt"
         epochs: 300
-        batch_size: 1
-        lr_drop: 400
+        batch_size: 8  # Reducido por alto consumo VRAM del DC5
+        lr: 0.0001
+        lr_backbone: 0.00001
+        lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r101-dc5-a2e86def.pth"
+
+  # ==========================================================
+  # Presets de Prueba (Smoke Tests con COCO)
+  # ==========================================================
+
+  coco_r50_test:
+    description: "Prueba rápida DETR R50 en COCO (100 épocas)."
+    overrides:
+      training:
+        variant: "r50"
+        run_name: "coco_r50_test"
+        epochs: 200
+        batch_size: 4
+        lr_drop: [100]
+        pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
+
+  coco_r50_dc5_test:
+    description: "Prueba rápida DETR R50 DC5 en COCO (100 épocas)."
+    overrides:
+      training:
+        variant: "r50_dc5"
+        run_name: "coco_r50_dc5_test"
+        epochs: 200
+        batch_size: 2
+        lr_drop: [100]
+        pretrain_weights: "DETR/weights/base/detr-r50-dc5-f0fb7ef5.pth"

@@ -6,8 +6,8 @@
 # Autor: Fernando N.
 # --------------------------------------------------------------
 # Archivo: DETR/configs/valid.yaml
-# Descripción: Configuración maestra para validación DETR.
-#              Incluye presets para auto-descubrimiento de pesos.
+# Descripción: Configuración maestra para validación y pruebas
+#              (inferencia) del modelo DETR.
 # ==============================================================
 
 paths:
@@ -15,15 +15,19 @@ paths:
   variants_cfg: "DETR/configs/model_variants.yaml"
 
 validation:
-  phase: "val"
+  phase: "valid"
   variant: "r50"
   run_name: "val_default"
   weights: ""
-  batch_size: 2
+  batch_size: 4
   workers: 4
   device: "cuda"
   conf_thres: 0.5
+
+  # Configuración de Reportes Visuales
   plots: true
+  plot_ratio: 0.20  # Proporción del dataset a dibujar (20%)
+  max_images: 50    # Límite máximo de imágenes a guardar
 
 miopen:
   find_mode: "FAST"
@@ -36,23 +40,64 @@ bn2gn:
   verbose: 1
 
 presets:
-  # ----------------------------------------------------------
-  # Presets de Validación (Auto-descubrimiento de pesos)
-  # ----------------------------------------------------------
-  val_detr_r50_belt:
-    description: "Validación del modelo R50 entrenado en correas."
-    overrides:
-      validation:
-        variant: "r50"
-        run_name: "detr_r50_belt" # Debe coincidir con el run_name de train.yaml
-        weights: "" # Vacío para que valid.py busque best.pt automáticamente
-        batch_size: 2
+  # ==========================================================
+  # Presets de Validación Final
+  # ==========================================================
 
-  val_coco_r50_std:
-    description: "Validación del modelo R50 estándar."
+  val_detr_r50:
+    description: "Validación del modelo R50 entrenado del proyecto."
     overrides:
       validation:
         variant: "r50"
-        run_name: "coco_r50_standard"
+        run_name: "detr_r50_belt"
         weights: ""
-        batch_size: 2
+        batch_size: 16
+
+  val_detr_r50_dc5:
+    description: "Validación del modelo R50 DC5 entrenado del proyecto."
+    overrides:
+      validation:
+        variant: "r50_dc5"
+        run_name: "detr_r50_dc5_belt"
+        weights: ""
+        batch_size: 16
+
+  val_detr_r101:
+    description: "Validación del modelo R101 entrenado del proyecto."
+    overrides:
+      validation:
+        variant: "r101"
+        run_name: "detr_r101_belt"
+        weights: ""
+        batch_size: 16
+
+  val_detr_r101_dc5:
+    description: "Validación del modelo R101 DC5 entrenado del proyecto."
+    overrides:
+      validation:
+        variant: "r101_dc5"
+        run_name: "detr_r101_dc5_belt"
+        weights: ""
+        batch_size: 16
+
+  # ==========================================================
+  # Presets de Validación de Pruebas (COCO)
+  # ==========================================================
+
+  val_coco_r50_test:
+    description: "Validación de la prueba R50 en COCO."
+    overrides:
+      validation:
+        variant: "r50"
+        run_name: "coco_r50_test"
+        weights: ""
+        batch_size: 4
+
+  val_coco_r50_dc5_test:
+    description: "Validación de la prueba R50 DC5 en COCO."
+    overrides:
+      validation:
+        variant: "r50_dc5"
+        run_name: "coco_r50_dc5_test"
+        weights: ""
+        batch_size: 4

@@ -55,7 +55,7 @@ class Validator:
 
         stats = {"loss": 0.0, "loss_ce": 0.0, "loss_bbox": 0.0, "loss_giou": 0.0, "class_error": 0.0}
 
-        print("[Validator] Iniciando validación...", flush=True)
+        print("[Validator] Iniciando validación rápida...", flush=True)
 
         with MuteStderr():
             for samples, targets in loader:
@@ -105,7 +105,7 @@ class Validator:
         return final_stats
 
     @torch.no_grad()
-    def run_full_report(self, loader, save_dir, class_names, num_images_to_plot=32):
+    def run_full_report(self, loader, save_dir, class_names, plot_ratio=0.20, max_images=50):
         """Genera el reporte completo de validación (Curvas, Matriz, IoU e Imágenes)."""
         self.model.eval()
         all_preds = []
@@ -115,11 +115,13 @@ class Validator:
         img_dir.mkdir(parents=True, exist_ok=True)
 
         total_images = len(loader.dataset)
-        indices_to_plot = set(random.sample(range(total_images), min(num_images_to_plot, total_images)))
+        # Calcular cantidad de imágenes a dibujar basado en la proporción, con un límite máximo
+        num_images_to_plot = min(int(total_images * plot_ratio), max_images)
+        indices_to_plot = set(random.sample(range(total_images), num_images_to_plot))
 
-        print("[Validator] Recolectando predicciones para reporte completo...")
+        print(f"[Validator] Recolectando predicciones para reporte completo ({num_images_to_plot} imágenes de muestra)...")
         with MuteStderr():
-            for batch_idx, (samples, targets) in enumerate(tqdm(loader)):
+            for batch_idx, (samples, targets) in enumerate(tqdm(loader, desc="[Validator] Evaluando")):
                 samples = samples.to(self.device)
                 outputs = self.model(samples)
 
@@ -160,6 +162,7 @@ class Validator:
                             img_dir / f"val_img_{global_idx}.jpg"
                         )
 
+        print("[Validator] Generando gráficos y métricas finales...")
         metrics = plot_validation_report(all_preds, all_gts, class_names, save_dir)
         return metrics
 

@@ -273,6 +273,7 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
             curve_data[c]['r'].append(rec)
             curve_data[c]['f1'].append(2 * prec * rec / (prec + rec + 1e-6))
 
+    # --- F1 Curve ---
     plt.figure(figsize=(10, 7))
     f1_all = []
     for c in range(nc):
@@ -282,46 +283,61 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
     best_idx = np.argmax(mean_f1)
     plt.plot(conf_levels, mean_f1, label=f'all classes {mean_f1[best_idx]:.2f} at {conf_levels[best_idx]:.3f}',
              color='blue', linewidth=3)
-    plt.title('F1-Confidence Curve');
-    plt.xlabel('Confidence');
-    plt.ylabel('F1');
+    plt.title('F1-Confidence Curve'); plt.xlabel('Confidence'); plt.ylabel('F1');
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.tight_layout();
-    plt.savefig(save_dir / "F1_curve.png", dpi=200);
-    plt.close()
+    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
+    plt.savefig(save_dir / "F1_curve.png", dpi=200); plt.close()
 
+    # --- PR Curve ---
     plt.figure(figsize=(10, 7))
     for c in range(nc): plt.plot(curve_data[c]['r'], curve_data[c]['p'], label=class_names[c], linewidth=1)
-    plt.title('Precision-Recall Curve');
-    plt.xlabel('Recall');
-    plt.ylabel('Precision');
+    plt.title('Precision-Recall Curve'); plt.xlabel('Recall'); plt.ylabel('Precision');
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.tight_layout();
-    plt.savefig(save_dir / "PR_curve.png", dpi=200);
-    plt.close()
+    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
+    plt.savefig(save_dir / "PR_curve.png", dpi=200); plt.close()
 
+    # --- P Curve (Precision vs Confidence) ---
+    plt.figure(figsize=(10, 7))
+    p_all = []
+    for c in range(nc):
+        plt.plot(conf_levels, curve_data[c]['p'], label=class_names[c], linewidth=1)
+        p_all.append(curve_data[c]['p'])
+    mean_p = np.mean(p_all, axis=0)
+    plt.plot(conf_levels, mean_p, label=f'all classes {mean_p[best_idx]:.2f} at {conf_levels[best_idx]:.3f}',
+             color='blue', linewidth=3)
+    plt.title('Precision-Confidence Curve'); plt.xlabel('Confidence'); plt.ylabel('Precision');
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
+    plt.savefig(save_dir / "P_curve.png", dpi=200); plt.close()
+
+    # --- R Curve (Recall vs Confidence) ---
+    plt.figure(figsize=(10, 7))
+    r_all = []
+    for c in range(nc):
+        plt.plot(conf_levels, curve_data[c]['r'], label=class_names[c], linewidth=1)
+        r_all.append(curve_data[c]['r'])
+    mean_r = np.mean(r_all, axis=0)
+    plt.plot(conf_levels, mean_r, label=f'all classes {mean_r[best_idx]:.2f} at {conf_levels[best_idx]:.3f}',
+             color='blue', linewidth=3)
+    plt.title('Recall-Confidence Curve'); plt.xlabel('Confidence'); plt.ylabel('Recall');
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
+    plt.savefig(save_dir / "R_curve.png", dpi=200); plt.close()
+
+    # --- Confusion Matrix ---
     plt.figure(figsize=(12, 9))
     cm_norm = confusion_matrix / (confusion_matrix.sum(axis=0) + 1e-6)
     sns.heatmap(cm_norm, annot=True, fmt='.2f', cmap='Blues', xticklabels=class_names + ['background'],
                 yticklabels=class_names + ['background'])
-    plt.title('Confusion Matrix');
-    plt.xlabel('True');
-    plt.ylabel('Predicted')
-    plt.tight_layout();
-    plt.savefig(save_dir / "confusion_matrix.png", dpi=200);
-    plt.close()
+    plt.title('Confusion Matrix'); plt.xlabel('True'); plt.ylabel('Predicted')
+    plt.tight_layout(); plt.savefig(save_dir / "confusion_matrix.png", dpi=200); plt.close()
 
+    # --- IoU Distribution ---
     plt.figure(figsize=(10, 6))
     plt.hist(all_ious, bins=20, color='cornflowerblue', edgecolor='black')
-    plt.title('IoU Distribution');
-    plt.xlabel('IoU');
-    plt.ylabel('Frequency')
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.tight_layout();
-    plt.savefig(save_dir / "iou_distribution.png", dpi=200);
-    plt.close()
+    plt.title('IoU Distribution'); plt.xlabel('IoU'); plt.ylabel('Frequency')
+    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
+    plt.savefig(save_dir / "iou_distribution.png", dpi=200); plt.close()
 
     return {'F1': float(mean_f1[best_idx]),
             'mAP_0.5': float(np.mean([np.trapz(curve_data[c]['p'], curve_data[c]['r']) for c in range(nc)]))}
