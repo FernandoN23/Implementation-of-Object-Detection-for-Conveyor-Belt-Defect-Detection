@@ -7,7 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: DETR/valid.py
 # Descripción: Script de entrada (CLI) para validación de DETR.
-#              Carga modelo, pesos (con auto-descubrimiento) y
+#              Carga modelo, pesos (con búsqueda automática) y
 #              ejecuta el reporte completo de métricas.
 # ==============================================================
 
@@ -46,10 +46,15 @@ def main():
     variants_cfg = load_yaml(valid_cfg['paths']['variants_cfg'])
 
     # 2. Aplicar Preset
-    if args.preset and args.preset in valid_cfg.get('presets', {}):
-        overrides = valid_cfg['presets'][args.preset].get('overrides', {})
-        for section, values in overrides.items():
-            valid_cfg[section].update(values)
+    if args.preset:
+        if args.preset in valid_cfg.get('presets', {}):
+            overrides = valid_cfg['presets'][args.preset].get('overrides', {})
+            for section, values in overrides.items():
+                valid_cfg[section].update(values)
+            print(f"[valid.py] Preset '{args.preset}' aplicado correctamente.")
+        else:
+            print(f"[valid.py] ERROR FATAL: El preset '{args.preset}' no existe en el archivo YAML.")
+            sys.exit(1)
 
     # 3. Bootstrap MIOpen
     mi_cfg = valid_cfg['miopen']
@@ -68,19 +73,32 @@ def main():
 
     install_global_warning_filters()
 
-    # 4. Preparar argumentos del modelo
+    # 4. Preparar argumentos del modelo (Namespace Dummy para evitar AttributeErrors)
     v_name = valid_cfg['validation']['variant']
     run_name = valid_cfg['validation']['run_name']
     v_params = variants_cfg['variants'][v_name]
-    model_args = argparse.Namespace(**v_params)
 
-    model_args.bbox_loss_coef = 5.0
-    model_args.giou_loss_coef = 2.0
-    model_args.eos_coef = 0.1
-    model_args.aux_loss = False
-    model_args.masks = False
-    model_args.dataset_file = 'coco'
-    model_args.device = args.device or valid_cfg['validation']['device']
+    # Diccionario base con todos los atributos que DETR podría pedir internamente
+    base_args = {
+        'lr_backbone': 0,  # No importa en validación, pero debe existir
+        'masks': False,
+        'frozen_weights': None,
+        'aux_loss': False,
+        'set_cost_class': 1.0,
+        'set_cost_bbox': 5.0,
+        'set_cost_giou': 2.0,
+        'bbox_loss_coef': 5.0,
+        'giou_loss_coef': 2.0,
+        'eos_coef': 0.1,
+        'dataset_file': 'coco',
+        'device': args.device or valid_cfg['validation']['device']
+    }
+
+    # Actualizar con los parámetros específicos de la variante (Transformer, Backbone, etc.)
+    base_args.update(v_params)
+
+    # Convertir a Namespace
+    model_args = argparse.Namespace(**base_args)
 
     # 5. Auto-descubrimiento de Pesos
     weights_path = args.weights or valid_cfg['validation']['weights']
@@ -88,7 +106,7 @@ def main():
         auto_path = DETR_ROOT / "runs" / v_name / "train" / run_name / "weights" / "best.pt"
         if auto_path.exists():
             weights_path = str(auto_path)
-            print(f"[valid.py] Auto-descubierto peso: {weights_path}")
+            print(f"[valid.py] Pesos cargados: {weights_path}")
         else:
             print(f"[valid.py] ERROR: No se encontraron pesos en: {auto_path}")
             return
@@ -107,11 +125,13 @@ def main():
     hidden_dim = model.transformer.d_model
     model.class_embed = torch.nn.Linear(hidden_dim, dataset_cfg['nc'] + 1)
 
-    checkpoint = torch.load(weights_path, map_location='cpu', weights_only=False)
-    model.load_state_dict(checkpoint['model'])
-
+    # [CORRECCIÓN]: Aplicar el parche BN2GN ANTES de cargar los pesos
     if valid_cfg['bn2gn']['policy'] == 'on':
         replace_bn_with_gn(model, BN2GNConfig(policy='on'))
+
+    # Cargar pesos en la arquitectura ya parcheada
+    checkpoint = torch.load(weights_path, map_location='cpu', weights_only=False)
+    model.load_state_dict(checkpoint['model'])
 
     device = torch.device(model_args.device)
     model.to(device)

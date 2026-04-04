@@ -339,8 +339,12 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
     plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
     plt.savefig(save_dir / "iou_distribution.png", dpi=200); plt.close()
 
-    return {'F1': float(mean_f1[best_idx]),
-            'mAP_0.5': float(np.mean([np.trapz(curve_data[c]['p'], curve_data[c]['r']) for c in range(nc)]))}
+    # [NUEVO]: Retornar P, R y F1 exactos en el punto óptimo de confianza
+    return {
+        'F1': float(mean_f1[best_idx]),
+        'precision': float(mean_p[best_idx]),
+        'recall': float(mean_r[best_idx])
+    }
 
 
 def main():

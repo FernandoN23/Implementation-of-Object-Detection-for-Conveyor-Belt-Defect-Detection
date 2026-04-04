@@ -18,7 +18,6 @@ import cv2
 import sys
 import random
 from pathlib import Path
-from tqdm import tqdm
 
 # --- INTEGRACIÓN DE SUBMÓDULO DETR ---
 FILE = Path(__file__).resolve()
@@ -115,18 +114,31 @@ class Validator:
         img_dir.mkdir(parents=True, exist_ok=True)
 
         total_images = len(loader.dataset)
-        # Calcular cantidad de imágenes a dibujar basado en la proporción, con un límite máximo
         num_images_to_plot = min(int(total_images * plot_ratio), max_images)
         indices_to_plot = set(random.sample(range(total_images), num_images_to_plot))
 
-        print(f"[Validator] Recolectando predicciones para reporte completo ({num_images_to_plot} imágenes de muestra)...")
-        with MuteStderr():
-            for batch_idx, (samples, targets) in enumerate(tqdm(loader, desc="[Validator] Evaluando")):
+        # [NUEVO]: Integrar CocoEvaluator para obtener mAP oficial
+        base_ds = loader.dataset
+        evaluator = CocoEvaluator(base_ds.coco, iou_types=['bbox'])
+
+        print(
+            f"[Validator] Recolectando predicciones para reporte completo ({num_images_to_plot} imágenes de muestra)...")
+
+        for batch_idx, (samples, targets) in enumerate(loader):
+            if batch_idx % 10 == 0:
+                print(f"[Validator] Evaluando Batch [{batch_idx}/{len(loader)}]", flush=True)
+
+            with MuteStderr():
                 samples = samples.to(self.device)
+                targets_gpu = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
                 outputs = self.model(samples)
 
-                orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
+                orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0).to(self.device)
                 results = self.postprocessors['bbox'](outputs, orig_target_sizes)
+
+                # Actualizar CocoEvaluator
+                res_coco = {target['image_id'].item(): output for target, output in zip(targets_gpu, results)}
+                evaluator.update(res_coco)
 
                 for i, (target, res) in enumerate(zip(targets, results)):
                     global_idx = batch_idx * loader.batch_size + i
@@ -163,8 +175,37 @@ class Validator:
                         )
 
         print("[Validator] Generando gráficos y métricas finales...")
-        metrics = plot_validation_report(all_preds, all_gts, class_names, save_dir)
-        return metrics
+
+        # 1. Obtener métricas de curvas (P, R, F1)
+        curve_metrics = plot_validation_report(all_preds, all_gts, class_names, save_dir)
+
+        # 2. Obtener mAP oficial de COCO
+        evaluator.synchronize_between_processes()
+        evaluator.accumulate()
+        evaluator.summarize()
+
+        map_50 = 0.0
+        map_50_95 = 0.0
+
+        if 'bbox' in evaluator.coco_eval:
+            coco_stats = evaluator.coco_eval['bbox'].stats.tolist()
+            map_50_95 = coco_stats[0]
+            map_50 = coco_stats[1]
+
+        # 3. Calcular Fitness (Estándar YOLO: 0.1 * mAP@0.5 + 0.9 * mAP@0.5:0.95)
+        fitness = (0.1 * map_50) + (0.9 * map_50_95)
+
+        # 4. Ensamblar diccionario final
+        final_metrics = {
+            'F1': curve_metrics['F1'],
+            'fitness': float(fitness),
+            'mAP_0.5': float(map_50),
+            'mAP_0.5_0.95': float(map_50_95),
+            'precision': curve_metrics['precision'],
+            'recall': curve_metrics['recall']
+        }
+
+        return final_metrics
 
     def _plot_single_overlay(self, img_tensor, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, class_names,
                              save_path):
