@@ -10,6 +10,7 @@
 #              ciclo de vida del experimento, incluyendo auto-incremento,
 #              registro de métricas en CSV, gráficas en vivo,
 #              generación de hyp.yaml y reanudación segura (Resume).
+#              Optimizado con backend 'Agg' para estabilidad en Windows.
 # ==============================================================
 
 import os
@@ -20,7 +21,13 @@ import math
 import csv
 import yaml
 import shutil
+
+# --- CONFIGURACIÓN DE MATPLOTLIB (DEBE IR ANTES DE PYPLOT) ---
+import matplotlib
+
+matplotlib.use('Agg')  # Forzar backend no interactivo para evitar errores de hilos
 import matplotlib.pyplot as plt
+
 from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import Optional, Any, Dict, Union, List
@@ -293,6 +300,8 @@ class Trainer:
         try:
             import pandas as pd
             df = pd.read_csv(self.csv_path)
+
+            # Estilo sutil
             plt.style.use(
                 'seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'seaborn-whitegrid')
 
@@ -303,10 +312,10 @@ class Trainer:
             plt.xlabel('Epoch');
             plt.ylabel('Loss');
             plt.legend();
-            plt.grid(True, linestyle='--', alpha=0.5)
+            plt.grid(True, linestyle='--', alpha=0.5);
             plt.tight_layout();
             plt.savefig(self.metrics_dir / "loss_combined.png", dpi=200);
-            plt.close()
+            plt.close('all')  # [CORRECCIÓN]: Cerrar todas las figuras para liberar memoria
 
             for key in ['loss_ce', 'loss_bbox', 'loss_giou']:
                 plt.figure(figsize=(10, 6))
@@ -316,10 +325,10 @@ class Trainer:
                 plt.xlabel('Epoch');
                 plt.ylabel('Loss');
                 plt.legend();
-                plt.grid(True, linestyle='--', alpha=0.5)
+                plt.grid(True, linestyle='--', alpha=0.5);
                 plt.tight_layout();
                 plt.savefig(self.metrics_dir / f"losses/{key}_combined.png", dpi=200);
-                plt.close()
+                plt.close('all')
         except Exception as e:
             print(f"[Trainer] Error en live plotting: {e}")
 
@@ -344,10 +353,10 @@ class Trainer:
                 plt.title(title);
                 plt.xlabel('Epoch');
                 plt.ylabel('Value');
-                plt.grid(True, linestyle='--', alpha=0.5)
+                plt.grid(True, linestyle='--', alpha=0.5);
                 plt.tight_layout();
                 plt.savefig(self.metrics_dir / fname, dpi=200);
-                plt.close()
+                plt.close('all')
         except Exception as e:
             print(f"[Trainer] Error en final plotting: {e}")
 
@@ -367,7 +376,6 @@ class Trainer:
     def fit(self):
         print(f"\n[Trainer] --- Iniciando Entrenamiento DETR: {self.save_dir.name} ---")
 
-        # Pasar bandera use_coco128 y class_names al loader
         train_loader = build_dataloader("train", self.cfg.batch_size, use_coco128=self.cfg.use_coco128,
                                         class_names=self.cfg.class_names)
         val_loader = build_dataloader("valid", self.cfg.batch_size, use_coco128=self.cfg.use_coco128,
