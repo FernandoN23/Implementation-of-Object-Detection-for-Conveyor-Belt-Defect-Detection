@@ -8,13 +8,16 @@
 # Archivo: DETR/utility/data_loader.py
 # Descripción: Adaptador de Dataset YOLOv11 a formato DETR.
 #              Incluye generación de API COCO virtual en memoria
-#              para compatibilidad con CocoEvaluator.
+#              y auto-descarga de COCO128 para pruebas.
 # ==============================================================
 
 import os
 import sys
 import yaml
+import zipfile
+import urllib.request
 import contextlib
+import shutil
 from pathlib import Path
 from PIL import Image
 
@@ -41,18 +44,51 @@ except ImportError as e:
     sys.exit(1)
 
 
+def download_coco128(target_dir: Path):
+    """Descarga y extrae COCO128 si no existe."""
+    if (target_dir / "images").exists() and (target_dir / "labels").exists():
+        return
+
+    print(f"[data_loader] Descargando COCO128 en {target_dir}...")
+
+    # Asegurar que el directorio padre (runs/data) exista
+    parent_dir = target_dir.parent
+    parent_dir.mkdir(parents=True, exist_ok=True)
+
+    url = "https://github.com/ultralytics/assets/releases/download/v0.0.0/coco128.zip"
+    zip_path = parent_dir / "coco128.zip"
+
+    urllib.request.urlretrieve(url, zip_path)
+
+    print(f"[data_loader] Extrayendo COCO128...")
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        # Extraer directamente en runs/data. El ZIP ya contiene la carpeta 'coco128'
+        zip_ref.extractall(parent_dir)
+
+    zip_path.unlink(missing_ok=True)
+    print(f"[data_loader] COCO128 listo.")
+
+
 class YoloToDetrDataset(Dataset):
-    def __init__(self, dataset_path, image_set="train", transforms=None):
+    def __init__(self, dataset_path, image_set="train", transforms=None, use_coco128=False, class_names=None):
         self.dataset_path = Path(dataset_path)
         self.image_set = image_set
         self.transforms = transforms
+        self.use_coco128 = use_coco128
+        self.class_names = class_names or []
 
-        split_dir = self.dataset_path / image_set
-        self.images_dir = split_dir / "images"
-        self.labels_dir = split_dir / "labels"
+        # Enrutamiento dinámico para COCO128
+        if self.use_coco128:
+            # COCO128 no tiene partición 'valid' separada, usa la misma carpeta para todo
+            split_dir = self.dataset_path
+        else:
+            split_dir = self.dataset_path / image_set
+
+        self.images_dir = split_dir / "images" / ("train2017" if self.use_coco128 else "")
+        self.labels_dir = split_dir / "labels" / ("train2017" if self.use_coco128 else "")
 
         if not self.images_dir.exists():
-            raise FileNotFoundError(f"No se encontró la carpeta de imágenes: {self.images_dir}")
+            raise FileNotFoundError(f"[data_loader] No se encontró la carpeta de imágenes: {self.images_dir}")
 
         self.img_files = sorted([
             f for f in self.images_dir.iterdir()
@@ -67,8 +103,7 @@ class YoloToDetrDataset(Dataset):
         print(f"[data_loader] Generando API COCO virtual para '{self.image_set}'...")
         coco_data = {"images": [], "annotations": [], "categories": []}
 
-        categories = ['Hole', 'Impact Damage', 'Puncture', 'Tear', 'Wear']
-        for i, cat in enumerate(categories):
+        for i, cat in enumerate(self.class_names):
             coco_data["categories"].append({"id": i, "name": cat})
 
         ann_id = 0
@@ -158,14 +193,23 @@ def detr_collate_fn(batch):
     return tuple(batch)
 
 
-def build_dataloader(image_set, batch_size, num_workers=4):
+def build_dataloader(image_set, batch_size, num_workers=4, use_coco128=False, class_names=None):
     transform_set = "val" if image_set == "valid" else image_set
     transforms = make_coco_transforms(transform_set)
 
+    if use_coco128:
+        # [CORRECCIÓN]: Usar minúsculas para coincidir con la carpeta extraída del ZIP
+        dataset_path = DETR_ROOT / "runs" / "data" / "coco128"
+        download_coco128(dataset_path)
+    else:
+        dataset_path = DATASET_ROOT
+
     dataset = YoloToDetrDataset(
-        dataset_path=DATASET_ROOT,
+        dataset_path=dataset_path,
         image_set=image_set,
-        transforms=transforms
+        transforms=transforms,
+        use_coco128=use_coco128,
+        class_names=class_names
     )
 
     loader = DataLoader(

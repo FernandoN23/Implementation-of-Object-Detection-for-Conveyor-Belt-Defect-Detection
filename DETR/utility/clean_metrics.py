@@ -7,6 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: DETR/utility/clean_metrics.py
 # Descripción: Limpia carpetas de métricas procesadas en metrics/.
+#              Adaptado a la estructura metrics/detect/<variante>.
 # ==============================================================
 
 import shutil
@@ -14,44 +15,45 @@ from pathlib import Path
 
 FILE = Path(__file__).resolve()
 DETR_ROOT = FILE.parents[1]
-METRICS_ROOT = DETR_ROOT / "metrics"
+METRICS_ROOT = DETR_ROOT / "metrics" / "detect"
 
 
 def main():
-    print(f"\n--- Limpieza de Métricas DETR ---")
+    print(f"\n[clean_metrics.py] --- Limpieza de Métricas DETR ---")
     if not METRICS_ROOT.exists():
-        print("No existe la carpeta metrics/.")
+        print("[clean_metrics.py] No existe la carpeta metrics/detect/.")
         return
 
-    # Estructura: metrics/<task>/<variant>/<phase>/<run>
-    # Simplificamos para buscar variantes directamente
-    variants = set()
-    for p in METRICS_ROOT.rglob("*"):
-        if p.is_dir() and p.name in ["r50", "r101", "dc5"]:
-            variants.add(p.name)
+    # Detectar variantes disponibles en metrics/detect/
+    variants = sorted([d.name for d in METRICS_ROOT.iterdir() if d.is_dir() and d.name != "global_comparison"])
 
-    v_list = sorted(list(variants))
-    if not v_list:
-        print("No se detectaron carpetas de variantes estándar.")
-        v_list = ["all"]
+    if not variants:
+        print("[clean_metrics.py] No se detectaron carpetas de variantes estándar.")
+        variants = ["all"]
 
-    v_sel = input(f"Seleccione variante [{'/'.join(v_list)}/all]: ").strip().lower()
+    v_sel = input(f"Seleccione variante a eliminar [{' / '.join(variants)} / all]: ").strip().lower()
 
     if v_sel == "all":
-        confirm = input("¿Desea vaciar TODA la carpeta metrics/? (s/n): ").lower()
+        confirm = input("¿Desea vaciar TODA la carpeta metrics/detect/? (s/n): ").lower()
         if confirm == "s":
             for item in METRICS_ROOT.iterdir():
                 if item.is_dir():
                     shutil.rmtree(item)
                 else:
                     item.unlink()
-            print("✓ Carpeta metrics/ vaciada.")
+            print("[clean_metrics.py] ✓ Carpeta metrics/detect/ vaciada.")
+        else:
+            print("[clean_metrics.py] Operación cancelada.")
+    elif v_sel in variants:
+        target_dir = METRICS_ROOT / v_sel
+        confirm = input(f"¿Desea eliminar todas las métricas de la variante '{v_sel}'? (s/n): ").lower()
+        if confirm == "s":
+            shutil.rmtree(target_dir)
+            print(f"[clean_metrics.py] ✓ Eliminada carpeta de métricas: {target_dir.relative_to(DETR_ROOT)}")
+        else:
+            print("[clean_metrics.py] Operación cancelada.")
     else:
-        # Buscar carpetas que contengan el nombre de la variante
-        for d in METRICS_ROOT.rglob(v_sel):
-            if d.is_dir():
-                shutil.rmtree(d)
-                print(f"✓ Eliminada carpeta de métricas: {d.name}")
+        print("[clean_metrics.py] Variante no válida.")
 
 
 if __name__ == "__main__":

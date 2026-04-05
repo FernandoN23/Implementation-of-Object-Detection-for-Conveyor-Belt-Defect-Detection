@@ -89,12 +89,14 @@ class TrainerConfig:
     device: str = "cuda"
     pretrain_weights: str = ""
     nc: int = 5
+    class_names: List[str] = None  # type: ignore
     model_args: Any = None
     bn2gn_policy: str = "on"
     exist_ok: bool = False
     metrics_root: Path = DETR_ROOT / "metrics"
     resume: Union[bool, str] = False
     start_epoch: int = 0
+    use_coco128: bool = False
 
 
 class Trainer:
@@ -145,7 +147,8 @@ class Trainer:
                 "variant": self.cfg.variant,
                 "run_name": self.cfg.run_name,
                 "save_dir": str(self.save_dir),
-                "device": self.cfg.device
+                "device": self.cfg.device,
+                "use_coco128": self.cfg.use_coco128
             },
             "training": {
                 "epochs": self.cfg.epochs,
@@ -165,7 +168,6 @@ class Trainer:
             with open(hyp_path, "r", encoding="utf-8") as f:
                 old_hyp = yaml.safe_load(f)
 
-            # Comparamos las secciones críticas
             if old_hyp.get("training") != new_hyp["training"] or old_hyp.get("architecture") != new_hyp["architecture"]:
                 print("[Trainer] Cambio detectado en la configuración de hiperparámetros.")
             else:
@@ -173,7 +175,6 @@ class Trainer:
         elif self.cfg.resume:
             print("[Trainer] Cambio detectado en la configuración de hiperparámetros.")
 
-        # Guardar/Sobrescribir siempre con la versión más reciente
         with open(hyp_path, "w", encoding="utf-8") as f:
             yaml.dump(new_hyp, f, default_flow_style=False, sort_keys=False)
 
@@ -240,24 +241,19 @@ class Trainer:
             checkpoint = torch.load(resume_path, map_location='cpu', weights_only=False)
 
             self.model.load_state_dict(checkpoint['model'])
-
-            # Cargar estado del optimizador (momentos de AdamW), pero ignoraremos su LR guardado
             self.optimizer.load_state_dict(checkpoint['optimizer'])
             self.cfg.start_epoch = checkpoint['epoch'] + 1
 
             # --- RECONSTRUCCIÓN DINÁMICA DEL SCHEDULER (FAST-FORWARD) ---
-            # 1. Forzar los LRs base en el optimizador cargado para borrar el historial
             self.optimizer.param_groups[0]['lr'] = self.cfg.lr
             self.optimizer.param_groups[0]['initial_lr'] = self.cfg.lr
             self.optimizer.param_groups[1]['lr'] = self.cfg.lr_backbone
             self.optimizer.param_groups[1]['initial_lr'] = self.cfg.lr_backbone
 
-            # 2. Recrear el scheduler limpio con la configuración actual
             milestones = [self.cfg.lr_drop] if isinstance(self.cfg.lr_drop, int) else self.cfg.lr_drop
             self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=milestones,
                                                                      gamma=self.cfg.lr_gamma)
 
-            # 3. Fast-forward (Avance rápido) hasta la época actual
             for _ in range(self.cfg.start_epoch):
                 self.lr_scheduler.step()
 
@@ -370,21 +366,22 @@ class Trainer:
 
     def fit(self):
         print(f"\n[Trainer] --- Iniciando Entrenamiento DETR: {self.save_dir.name} ---")
-        train_loader = build_dataloader("train", self.cfg.batch_size)
-        val_loader = build_dataloader("valid", self.cfg.batch_size)
+
+        # Pasar bandera use_coco128 y class_names al loader
+        train_loader = build_dataloader("train", self.cfg.batch_size, use_coco128=self.cfg.use_coco128,
+                                        class_names=self.cfg.class_names)
+        val_loader = build_dataloader("valid", self.cfg.batch_size, use_coco128=self.cfg.use_coco128,
+                                      class_names=self.cfg.class_names)
 
         start_time = time.time()
         for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
-            # Monitor de Learning Rate previo al step
             old_lr = self.optimizer.param_groups[0]['lr']
 
             train_stats = self._train_one_epoch(train_loader, epoch)
 
-            # Actualizar Scheduler
             self.lr_scheduler.step()
             new_lr = self.optimizer.param_groups[0]['lr']
 
-            # Notificación formal de Drop
             if new_lr < (old_lr - 1e-8):
                 print(f"[Trainer] Info: Learning Rate Drop. Época: {epoch}. Valor: {new_lr:.2e}")
 
@@ -398,7 +395,6 @@ class Trainer:
         with open(self.metrics_dir / "metrics.yaml", "w") as f:
             yaml.dump(self.best_metrics, f)
 
-        # Consolidación de pesos al finalizar
         self._consolidate_final_weights()
 
         print(f"\n[Trainer] Finalizado en {(time.time() - start_time) / 60:.2f} min.")

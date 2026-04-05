@@ -23,6 +23,19 @@ if str(DETR_ROOT) not in sys.path:
 
 from engine.bootstrap_miopen import bootstrap, MIOpenConfig
 
+# Clases estándar de COCO (80 clases)
+COCO_CLASSES = [
+    'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+    'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+    'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+    'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+    'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+    'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+    'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+    'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
+    'hair drier', 'toothbrush'
+]
+
 
 def load_yaml(path):
     with open(path, 'r', encoding='utf-8') as f:
@@ -44,10 +57,22 @@ def main():
     variants_cfg = load_yaml(train_cfg['paths']['variants_cfg'])
 
     # 2. Aplicar Overrides de Preset
-    if args.preset and args.preset in train_cfg.get('presets', {}):
-        overrides = train_cfg['presets'][args.preset].get('overrides', {})
-        for section, values in overrides.items():
-            train_cfg[section].update(values)
+    if args.preset:
+        if args.preset in train_cfg.get('presets', {}):
+            overrides = train_cfg['presets'][args.preset].get('overrides', {})
+            for section, values in overrides.items():
+                train_cfg[section].update(values)
+            print(f"[train.py] Preset '{args.preset}' aplicado correctamente.")
+        else:
+            print(f"[train.py] ERROR FATAL: El preset '{args.preset}' no existe en el archivo YAML.")
+            sys.exit(1)
+
+    # [NUEVO]: Interceptar bandera use_coco128 y sobrescribir clases en memoria
+    use_coco128 = train_cfg['training'].get('use_coco128', False)
+    if use_coco128:
+        print(f"[train.py] Bandera 'use_coco128' detectada. Sobrescribiendo dataset a 80 clases COCO.")
+        dataset_cfg['nc'] = 80
+        dataset_cfg['names'] = {i: name for i, name in enumerate(COCO_CLASSES)}
 
     # 3. Bootstrap MIOpen
     mi_cfg = train_cfg['miopen']
@@ -97,12 +122,14 @@ def main():
         clip_max_norm=train_cfg['training']['clip_max_norm'],
         pretrain_weights=str(Path(train_cfg['training']['pretrain_weights']).resolve()),
         nc=dataset_cfg['nc'],
+        class_names=list(dataset_cfg['names'].values()),
         device=model_args.device,
         model_args=model_args,
         bn2gn_policy=train_cfg['bn2gn']['policy'],
         exist_ok=train_cfg['training'].get('exist_ok', False),
         metrics_root=Path(train_cfg['paths']['metrics_dir']).resolve(),
-        resume=resume_val
+        resume=resume_val,
+        use_coco128=use_coco128
     )
 
     # 6. Ejecutar Entrenamiento

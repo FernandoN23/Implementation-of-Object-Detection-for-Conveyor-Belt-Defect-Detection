@@ -56,6 +56,9 @@ training:
   exist_ok: false
   seed: 42
 
+  # Bandera para usar dataset de prueba COCO128
+  use_coco128: false
+
 # --------------------------------------------------------------
 # Política MIOpen (Windows ROCm Preview)
 # --------------------------------------------------------------
@@ -155,6 +158,7 @@ presets:
         batch_size: 4
         lr_drop: [100]
         pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
+        use_coco128: true
 
   coco_r50_dc5_test:
     description: "Prueba rápida DETR R50 DC5 en COCO (200 épocas)."
@@ -166,3 +170,4 @@ presets:
         batch_size: 2
         lr_drop: [100]
         pretrain_weights: "DETR/weights/base/detr-r50-dc5-f0fb7ef5.pth"
+        use_coco128: true

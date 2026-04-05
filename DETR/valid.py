@@ -25,6 +25,19 @@ if str(DETR_ROOT) not in sys.path:
 
 from engine.bootstrap_miopen import bootstrap, MIOpenConfig
 
+# Clases estándar de COCO (80 clases)
+COCO_CLASSES = [
+    'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+    'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+    'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+    'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+    'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+    'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+    'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+    'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
+    'hair drier', 'toothbrush'
+]
+
 
 def load_yaml(path):
     with open(path, 'r', encoding='utf-8') as f:
@@ -56,6 +69,13 @@ def main():
             print(f"[valid.py] ERROR FATAL: El preset '{args.preset}' no existe en el archivo YAML.")
             sys.exit(1)
 
+    # [NUEVO]: Interceptar bandera use_coco128 y sobrescribir clases en memoria
+    use_coco128 = valid_cfg['validation'].get('use_coco128', False)
+    if use_coco128:
+        print(f"[valid.py] Bandera 'use_coco128' detectada. Sobrescribiendo dataset a 80 clases COCO.")
+        dataset_cfg['nc'] = 80
+        dataset_cfg['names'] = {i: name for i, name in enumerate(COCO_CLASSES)}
+
     # 3. Bootstrap MIOpen
     mi_cfg = valid_cfg['miopen']
     bootstrap(MIOpenConfig(
@@ -73,31 +93,18 @@ def main():
 
     install_global_warning_filters()
 
-    # 4. Preparar argumentos del modelo (Namespace Dummy para evitar AttributeErrors)
+    # 4. Preparar argumentos del modelo
     v_name = valid_cfg['validation']['variant']
     run_name = valid_cfg['validation']['run_name']
     v_params = variants_cfg['variants'][v_name]
 
-    # Diccionario base con todos los atributos que DETR podría pedir internamente
     base_args = {
-        'lr_backbone': 0,  # No importa en validación, pero debe existir
-        'masks': False,
-        'frozen_weights': None,
-        'aux_loss': False,
-        'set_cost_class': 1.0,
-        'set_cost_bbox': 5.0,
-        'set_cost_giou': 2.0,
-        'bbox_loss_coef': 5.0,
-        'giou_loss_coef': 2.0,
-        'eos_coef': 0.1,
-        'dataset_file': 'coco',
-        'device': args.device or valid_cfg['validation']['device']
+        'lr_backbone': 0, 'masks': False, 'frozen_weights': None,
+        'aux_loss': False, 'set_cost_class': 1.0, 'set_cost_bbox': 5.0,
+        'set_cost_giou': 2.0, 'bbox_loss_coef': 5.0, 'giou_loss_coef': 2.0,
+        'eos_coef': 0.1, 'dataset_file': 'coco', 'device': args.device or valid_cfg['validation']['device']
     }
-
-    # Actualizar con los parámetros específicos de la variante (Transformer, Backbone, etc.)
     base_args.update(v_params)
-
-    # Convertir a Namespace
     model_args = argparse.Namespace(**base_args)
 
     # 5. Auto-descubrimiento de Pesos
@@ -125,11 +132,9 @@ def main():
     hidden_dim = model.transformer.d_model
     model.class_embed = torch.nn.Linear(hidden_dim, dataset_cfg['nc'] + 1)
 
-    # [CORRECCIÓN]: Aplicar el parche BN2GN ANTES de cargar los pesos
     if valid_cfg['bn2gn']['policy'] == 'on':
         replace_bn_with_gn(model, BN2GNConfig(policy='on'))
 
-    # Cargar pesos en la arquitectura ya parcheada
     checkpoint = torch.load(weights_path, map_location='cpu', weights_only=False)
     model.load_state_dict(checkpoint['model'])
 
@@ -137,15 +142,22 @@ def main():
     model.to(device)
 
     # 7. Ejecutar Reporte de Validación
-    val_loader = build_dataloader(valid_cfg['validation']['phase'], valid_cfg['validation']['batch_size'])
+    class_names = list(dataset_cfg['names'].values())
+
+    # Pasar bandera use_coco128 y class_names al loader
+    val_loader = build_dataloader(
+        valid_cfg['validation']['phase'],
+        valid_cfg['validation']['batch_size'],
+        use_coco128=use_coco128,
+        class_names=class_names
+    )
+
     save_dir = DETR_ROOT / "metrics" / "detect" / v_name / valid_cfg['validation']['phase'] / run_name
     save_dir.mkdir(parents=True, exist_ok=True)
 
     validator = Validator(model, criterion, postprocessors, device)
     print(f"[valid.py] --- Iniciando Reporte de Validación: {run_name} ---")
-    class_names = list(dataset_cfg['names'].values())
 
-    # Ejecutar reporte leyendo parámetros del YAML
     metrics = validator.run_full_report(
         val_loader,
         save_dir,

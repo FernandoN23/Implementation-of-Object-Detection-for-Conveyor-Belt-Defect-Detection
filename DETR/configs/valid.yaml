@@ -29,6 +29,9 @@ validation:
   plot_ratio: 0.20  # Proporción del dataset a dibujar (20%)
   max_images: 50    # Límite máximo de imágenes a guardar
 
+  # Bandera para usar dataset de prueba COCO128
+  use_coco128: false
+
 miopen:
   find_mode: "FAST"
   user_db_path: "C:/Users/memorista/.miopen_db"
@@ -92,6 +95,7 @@ presets:
         run_name: "coco_r50_test"
         weights: ""
         batch_size: 4
+        use_coco128: true
 
   val_coco_r50_dc5_test:
     description: "Validación de la prueba R50 DC5 en COCO."
@@ -101,3 +105,4 @@ presets:
         run_name: "coco_r50_dc5_test"
         weights: ""
         batch_size: 4
+        use_coco128: true
