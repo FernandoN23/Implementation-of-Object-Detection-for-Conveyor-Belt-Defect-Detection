@@ -7,8 +7,8 @@
 # --------------------------------------------------------------
 # Archivo: DETR/utility/metrics.py
 # Descripción: Motor gráfico para reportes de validación y
-#              herramienta CLI para comparación global de
-#              variantes DETR (r50, r101, dc5).
+#              herramienta CLI interactiva para comparación
+#              global de experimentos (Modo Merge).
 # ==============================================================
 
 import os
@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 # --- CONFIGURACIÓN DE ESTILO Y CONSTANTES ---
 plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'seaborn-whitegrid')
@@ -36,7 +36,7 @@ plt.rcParams.update({
 FILE = Path(__file__).resolve()
 UTILITY_ROOT = FILE.parent
 DETR_ROOT = UTILITY_ROOT.parent
-METRICS_ROOT = DETR_ROOT / "metrics"
+METRICS_ROOT = DETR_ROOT / "metrics" / "detect"
 
 DETR_PARAMS_M = {
     "r50": 41.3,
@@ -53,18 +53,9 @@ VARIANT_COLORS = {
 }
 
 
-@dataclass
-class MetricsConfig:
-    task_model: str = "detect"
-    variant: str = "r50"
-    train_run: str = ""
-    merge_mode: bool = False
-    variants_to_compare: List[str] = None  # type: ignore
-
-    @property
-    def final_metrics_dir(self) -> Path:
-        return METRICS_ROOT / self.task_model / "global_comparison"
-
+# ---------------------------------------------------------------------------
+# Utilidades de Procesamiento
+# ---------------------------------------------------------------------------
 
 def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
     series = pd.Series(scalars).interpolate(limit_direction='both')
@@ -86,132 +77,216 @@ def load_results_csv(path: Path) -> pd.DataFrame:
     return df
 
 
-def discover_best_runs(task: str, variants: List[str]) -> Dict[str, Path]:
-    found_runs = {}
-    for var in variants:
-        base_path = METRICS_ROOT / task / var / "train"
-        if not base_path.exists(): continue
-        runs = [p for p in base_path.iterdir() if p.is_dir()]
-        if not runs: continue
-        latest_run = max(runs, key=lambda p: p.stat().st_mtime)
-        csv_path = latest_run / "results.csv"
-        if csv_path.is_file():
-            found_runs[var] = csv_path
-            print(f"[metrics.py] Variante '{var}': {latest_run.name}")
-    return found_runs
+# ---------------------------------------------------------------------------
+# Clase MergeManager: Gestión Interactiva de Comparativas
+# ---------------------------------------------------------------------------
 
+class MergeManager:
+    def __init__(self):
+        self.selected_runs: Dict[str, Tuple[str, pd.DataFrame]] = {}  # run_name -> (variant, df)
+        self.comparison_name = ""
+        self.base_output_dir = METRICS_ROOT / "global_comparison"
 
-def plot_comparative_metric(data_map: Dict[str, pd.DataFrame], metric_col: str, title: str, ylabel: str, out_path: Path,
-                            smooth_factor: float = 0.6):
-    plt.figure(figsize=(10, 6))
-    has_data = False
+    def get_available_variants(self) -> List[str]:
+        if not METRICS_ROOT.exists(): return []
+        return sorted([d.name for d in METRICS_ROOT.iterdir() if d.is_dir() and d.name != "global_comparison"])
 
-    for var, df in data_map.items():
-        if metric_col not in df.columns: continue
-        df_clean = df.dropna(subset=['epoch', metric_col])
-        if df_clean.empty: continue
+    def get_available_runs(self, variant: str) -> List[str]:
+        train_path = METRICS_ROOT / variant / "train"
+        if not train_path.exists(): return []
+        return sorted([d.name for d in train_path.iterdir() if d.is_dir()])
 
-        has_data = True
-        epochs = df_clean["epoch"]
-        values = df_clean[metric_col].values.astype(float)
-        color = VARIANT_COLORS.get(var, "gray")
+    def interactive_selection(self):
+        print(f"\n[metrics.py] --- Configuración de Comparativa Global ---")
 
-        plt.plot(epochs, values, color=color, alpha=0.2, linewidth=1)
-        smoothed = smooth_signal(values.tolist(), weight=smooth_factor)
-        plt.plot(epochs, smoothed, label=f"DETR-{var.upper()}", color=color, alpha=1.0, linewidth=2.5)
+        while True:
+            variants = self.get_available_variants()
+            if not variants:
+                print("[metrics.py] ERROR: No se detectaron métricas en metrics/detect/")
+                return False
 
-    if not has_data:
+            print(f"\n[metrics.py] Variantes disponibles:")
+            for i, v in enumerate(variants): print(f"  [{i}] {v}")
+
+            v_idx = input("[metrics.py] Seleccione índice de variante (o 'q' para finalizar selección): ").strip()
+            if v_idx.lower() == 'q': break
+
+            if not v_idx.isdigit() or int(v_idx) >= len(variants):
+                print("[metrics.py] Selección inválida.")
+                continue
+
+            variant = variants[int(v_idx)]
+            runs = self.get_available_runs(variant)
+
+            if not runs:
+                print(f"[metrics.py] No hay entrenamientos registrados para {variant}.")
+                continue
+
+            print(f"\n[metrics.py] Experimentos (runs) para {variant}:")
+            for i, r in enumerate(runs): print(f"  [{i}] {r}")
+
+            r_idx = input(f"[metrics.py] Seleccione índice de experimento para {variant}: ").strip()
+            if not r_idx.isdigit() or int(r_idx) >= len(runs):
+                print("[metrics.py] Selección inválida.")
+                continue
+
+            run_name = runs[int(r_idx)]
+            csv_path = METRICS_ROOT / variant / "train" / run_name / "results.csv"
+
+            if csv_path.exists():
+                df = load_results_csv(csv_path)
+                unique_key = f"{run_name} ({variant})"
+                self.selected_runs[unique_key] = (variant, df)
+                print(f"[metrics.py] ✓ Añadido: {unique_key}")
+            else:
+                print(f"[metrics.py] ERROR: No se encontró results.csv en {run_name}")
+
+            cont = input("\n[metrics.py] ¿Desea añadir otro experimento a la comparación? (s/n): ").strip().lower()
+            if cont != 's': break
+
+        if not self.selected_runs:
+            print("[metrics.py] No se seleccionó ningún modelo. Abortando.")
+            return False
+
+        print(f"\n[metrics.py] --- RESUMEN DE COMPARACIÓN ---")
+        print(f"Se generarán gráficos comparativos para {len(self.selected_runs)} modelos:")
+        for key in self.selected_runs.keys():
+            print(f"  • {key}")
+
+        confirm = input("\n[metrics.py] ¿Confirmar inicio de procesamiento? (s/n): ").strip().lower()
+        if confirm == 's':
+            print(f"\n[metrics.py] Configuración de salida:")
+            folder_name = input("[metrics.py] Ingrese nombre para la carpeta de comparación: ").strip()
+            self.comparison_name = folder_name if folder_name else "unnamed_comparison"
+            return True
+
+        return False
+
+    def run_comparison(self):
+        output_dir = self.base_output_dir / self.comparison_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        losses_out = output_dir / "losses"
+        metrics_out = output_dir / "metrics"
+        losses_out.mkdir(exist_ok=True)
+        metrics_out.mkdir(exist_ok=True)
+
+        print(f"[metrics.py] Generando gráficos en {output_dir}...")
+
+        loss_types = {"Total Loss (Val)": "val/loss", "Classification Loss (Val)": "val/loss_ce",
+                      "BBox Loss (Val)": "val/loss_bbox"}
+        for title, keyword in loss_types.items():
+            self._plot_comparative(keyword, title, "Loss", losses_out / f"compare_{keyword.replace('/', '_')}.png", 0.7)
+
+        metric_types = {"Precision": "metrics/precision", "Recall": "metrics/recall", "F1-Score": "metrics/F1",
+                        "mAP@0.5": "metrics/mAP_0.5", "mAP@0.5:0.95": "metrics/mAP_0.5:0.95"}
+        for title, keyword in metric_types.items():
+            safe_name = keyword.replace("metrics/", "").replace(":", "_")
+            self._plot_comparative(keyword, f"Comparativa {title}", title, metrics_out / f"compare_{safe_name}.png",
+                                   0.5)
+
+        self._plot_tradeoff(output_dir)
+        self._save_summary_json(output_dir)
+
+        print(f"[metrics.py] === Comparación Finalizada con Éxito en: {self.comparison_name} ===")
+
+    def _plot_comparative(self, metric_col: str, title: str, ylabel: str, out_path: Path, smooth_factor: float):
+        plt.figure(figsize=(10, 6))
+        has_data = False
+
+        for label, (variant, df) in self.selected_runs.items():
+            if metric_col not in df.columns: continue
+            df_clean = df.dropna(subset=['epoch', metric_col])
+            if df_clean.empty: continue
+
+            has_data = True
+            color = VARIANT_COLORS.get(variant, "gray")
+            epochs = df_clean["epoch"]
+            values = df_clean[metric_col].values.astype(float)
+
+            plt.plot(epochs, values, color=color, alpha=0.15, linewidth=1)
+            smoothed = smooth_signal(values.tolist(), weight=smooth_factor)
+            plt.plot(epochs, smoothed, label=label, color=color, alpha=1.0, linewidth=2.5)
+
+        if not has_data:
+            plt.close()
+            return
+
+        plt.xlabel("Epoch");
+        plt.ylabel(ylabel);
+        plt.title(title)
+        plt.legend(frameon=True, framealpha=0.9);
+        plt.grid(True, linestyle='--', alpha=0.5)
+        plt.tight_layout();
+        plt.savefig(out_path, dpi=200);
         plt.close()
-        return
 
-    plt.xlabel("Epoch")
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend(frameon=True, framealpha=0.9)
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=200)
-    plt.close()
+    def _plot_tradeoff(self, output_dir: Path):
+        data_points = []
+        for label, (variant, df) in self.selected_runs.items():
+            if 'metrics/mAP_0.5:0.95' not in df.columns: continue
+            best_map = df['metrics/mAP_0.5:0.95'].max()
+            if pd.isna(best_map) or best_map == 0: continue
+
+            data_points.append({
+                'label': label,
+                'variant': variant,
+                'params': DETR_PARAMS_M.get(variant, 0),
+                'map': best_map,
+                'color': VARIANT_COLORS.get(variant, "gray")
+            })
+
+        if not data_points: return
+
+        # Ordenar por parámetros para la línea continua
+        data_points.sort(key=lambda x: x['params'])
+
+        params = [d['params'] for d in data_points]
+        maps = [d['map'] for d in data_points]
+        colors = [d['color'] for d in data_points]
+        labels = [d['label'] for d in data_points]
+
+        plt.figure(figsize=(10, 6))
+
+        # Dibujar línea de tendencia (solo si hay más de un punto)
+        if len(params) > 1:
+            plt.plot(params, maps, linestyle='--', color='#7f8c8d', alpha=0.6, zorder=1, linewidth=1.5)
+
+        # Dibujar puntos
+        for i in range(len(params)):
+            plt.scatter(params[i], maps[i], color=colors[i], s=200, zorder=3, edgecolors='black', linewidth=1.2)
+            plt.annotate(f"  {labels[i]}", (params[i], maps[i]), xytext=(5, 5),
+                         textcoords='offset points', fontsize=9, fontweight='bold')
+
+        plt.xlabel("Parámetros (Millones)");
+        plt.ylabel("Best mAP@0.5:0.95");
+        plt.title("Trade-off: Performance vs Complejidad")
+
+        # Ajustar márgenes para que no se corten las etiquetas
+        plt.margins(0.15)
+        plt.grid(True, linestyle='--', alpha=0.5);
+        plt.tight_layout()
+        plt.savefig(output_dir / "tradeoff_performance_size.png", dpi=200);
+        plt.close()
+
+    def _save_summary_json(self, output_dir: Path):
+        summary = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "models": {}}
+        for label, (variant, df) in self.selected_runs.items():
+            summary["models"][label] = {
+                "variant": variant,
+                "best_mAP_0.5": float(df['metrics/mAP_0.5'].max()) if 'metrics/mAP_0.5' in df.columns else 0,
+                "best_mAP_0.5_0.95": float(
+                    df['metrics/mAP_0.5:0.95'].max()) if 'metrics/mAP_0.5:0.95' in df.columns else 0,
+                "best_F1": float(df['metrics/F1'].max()) if 'metrics/F1' in df.columns else 0,
+                "params_M": DETR_PARAMS_M.get(variant, 0)
+            }
+        with open(output_dir / "global_summary.json", "w") as f:
+            json.dump(summary, f, indent=2)
 
 
-def plot_variant_tradeoff(data_map: Dict[str, pd.DataFrame], out_path: Path):
-    variants, maps, params = [], [], []
-    for var, df in data_map.items():
-        if 'metrics/mAP_0.5:0.95' not in df.columns: continue
-        best_map = df['metrics/mAP_0.5:0.95'].max()
-        if pd.isna(best_map) or best_map == 0: continue
-        variants.append(var)
-        maps.append(best_map)
-        params.append(DETR_PARAMS_M.get(var, 0))
-
-    if not variants: return
-
-    plt.figure(figsize=(9, 6))
-    colors = [VARIANT_COLORS.get(v, "gray") for v in variants]
-    plt.scatter(params, maps, c=colors, s=150, zorder=3, edgecolors='black')
-
-    if len(params) > 1:
-        sorted_indices = np.argsort(params)
-        plt.plot(np.array(params)[sorted_indices], np.array(maps)[sorted_indices], linestyle='--', color='gray',
-                 alpha=0.5, zorder=1)
-
-    for i, txt in enumerate(variants):
-        plt.annotate(f"  {txt.upper()}", (params[i], maps[i]), xytext=(5, 5), textcoords='offset points', fontsize=11,
-                     fontweight='bold')
-
-    plt.xlabel("Parámetros (Millones)")
-    plt.ylabel("Best mAP@0.5:0.95")
-    plt.title("Trade-off: Performance vs Complejidad (DETR)")
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=200)
-    plt.close()
-
-
-def run_comparison_mode(cfg: MetricsConfig):
-    print("\n[metrics.py] === Iniciando Modo Comparativo DETR (Merge) ===")
-    variants = cfg.variants_to_compare or list(DETR_PARAMS_M.keys())
-    runs_map = discover_best_runs(cfg.task_model, variants)
-
-    if not runs_map:
-        print("[metrics.py] ERROR: No se encontraron runs válidos para comparar.")
-        return
-
-    data_map = {var: load_results_csv(path) for var, path in runs_map.items()}
-    global_out = cfg.final_metrics_dir
-    losses_out = global_out / "losses"
-    metrics_out = global_out / "metrics"
-
-    global_out.mkdir(parents=True, exist_ok=True)
-    losses_out.mkdir(exist_ok=True)
-    metrics_out.mkdir(exist_ok=True)
-
-    loss_types = {"Total Loss (Val)": "val/loss", "Classification Loss (Val)": "val/loss_ce",
-                  "BBox Loss (Val)": "val/loss_bbox"}
-    for title, keyword in loss_types.items():
-        plot_comparative_metric(data_map, keyword, title, "Loss",
-                                losses_out / f"compare_{keyword.replace('/', '_')}.png", smooth_factor=0.7)
-
-    metric_types = {"Precision": "metrics/precision", "Recall": "metrics/recall", "F1-Score": "metrics/F1",
-                    "mAP@0.5": "metrics/mAP_0.5", "mAP@0.5:0.95": "metrics/mAP_0.5:0.95"}
-    for title, keyword in metric_types.items():
-        safe_name = keyword.replace("metrics/", "").replace(":", "_")
-        plot_comparative_metric(data_map, keyword, f"Comparativa {title}", title,
-                                metrics_out / f"compare_{safe_name}.png", smooth_factor=0.5)
-
-    plot_variant_tradeoff(data_map, global_out / "tradeoff_performance_size.png")
-
-    summary = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "variants": list(data_map.keys()), "best_metrics": {}}
-    for var, df in data_map.items():
-        summary["best_metrics"][var] = {
-            "map50_95": float(df['metrics/mAP_0.5:0.95'].max()) if 'metrics/mAP_0.5:0.95' in df.columns else 0,
-            "f1": float(df['metrics/F1'].max()) if 'metrics/F1' in df.columns else 0,
-            "params_M": DETR_PARAMS_M.get(var, 0)
-        }
-    with open(global_out / "global_summary.json", "w") as f:
-        json.dump(summary, f, indent=2)
-    print(f"[metrics.py] === Comparación Finalizada en {global_out} ===")
-
+# ---------------------------------------------------------------------------
+# Lógica de Validación (Reporte Individual)
+# ---------------------------------------------------------------------------
 
 def calculate_iou(box1, box2):
     x1, y1 = max(box1[0], box2[0]), max(box1[1], box2[1])
@@ -267,98 +342,103 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
                             break
                     if not found: fp += 1
                 fn += len(curr_g_boxes) - sum(matched)
-            prec = tp / (tp + fp + 1e-6)
+            prec = tp / (tp + fp + 1e-6);
             rec = tp / (tp + fn + 1e-6)
-            curve_data[c]['p'].append(prec)
-            curve_data[c]['r'].append(rec)
+            curve_data[c]['p'].append(prec);
+            curve_data[c]['r'].append(rec);
             curve_data[c]['f1'].append(2 * prec * rec / (prec + rec + 1e-6))
 
-    # --- F1 Curve ---
+    # --- Generación de Gráficos ---
     plt.figure(figsize=(10, 7))
     f1_all = []
     for c in range(nc):
         plt.plot(conf_levels, curve_data[c]['f1'], label=class_names[c], linewidth=1)
         f1_all.append(curve_data[c]['f1'])
-    mean_f1 = np.mean(f1_all, axis=0)
+    mean_f1 = np.mean(f1_all, axis=0);
     best_idx = np.argmax(mean_f1)
     plt.plot(conf_levels, mean_f1, label=f'all classes {mean_f1[best_idx]:.2f} at {conf_levels[best_idx]:.3f}',
              color='blue', linewidth=3)
-    plt.title('F1-Confidence Curve'); plt.xlabel('Confidence'); plt.ylabel('F1');
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
-    plt.savefig(save_dir / "F1_curve.png", dpi=200); plt.close()
+    plt.title('F1-Confidence Curve');
+    plt.xlabel('Confidence');
+    plt.ylabel('F1');
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left');
+    plt.grid(True, linestyle='--', alpha=0.5);
+    plt.tight_layout();
+    plt.savefig(save_dir / "F1_curve.png", dpi=200);
+    plt.close()
 
-    # --- PR Curve ---
     plt.figure(figsize=(10, 7))
     for c in range(nc): plt.plot(curve_data[c]['r'], curve_data[c]['p'], label=class_names[c], linewidth=1)
-    plt.title('Precision-Recall Curve'); plt.xlabel('Recall'); plt.ylabel('Precision');
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
-    plt.savefig(save_dir / "PR_curve.png", dpi=200); plt.close()
+    plt.title('Precision-Recall Curve');
+    plt.xlabel('Recall');
+    plt.ylabel('Precision');
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left');
+    plt.grid(True, linestyle='--', alpha=0.5);
+    plt.tight_layout();
+    plt.savefig(save_dir / "PR_curve.png", dpi=200);
+    plt.close()
 
-    # --- P Curve (Precision vs Confidence) ---
     plt.figure(figsize=(10, 7))
-    p_all = []
-    for c in range(nc):
-        plt.plot(conf_levels, curve_data[c]['p'], label=class_names[c], linewidth=1)
-        p_all.append(curve_data[c]['p'])
-    mean_p = np.mean(p_all, axis=0)
-    plt.plot(conf_levels, mean_p, label=f'all classes {mean_p[best_idx]:.2f} at {conf_levels[best_idx]:.3f}',
-             color='blue', linewidth=3)
-    plt.title('Precision-Confidence Curve'); plt.xlabel('Confidence'); plt.ylabel('Precision');
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
-    plt.savefig(save_dir / "P_curve.png", dpi=200); plt.close()
+    p_all = [curve_data[c]['p'] for c in range(nc)]
+    plt.plot(conf_levels, np.mean(p_all, axis=0), color='blue', linewidth=3, label='all classes')
+    plt.title('Precision-Confidence Curve');
+    plt.xlabel('Confidence');
+    plt.ylabel('Precision');
+    plt.grid(True, linestyle='--', alpha=0.5);
+    plt.tight_layout();
+    plt.savefig(save_dir / "P_curve.png", dpi=200);
+    plt.close()
 
-    # --- R Curve (Recall vs Confidence) ---
     plt.figure(figsize=(10, 7))
-    r_all = []
-    for c in range(nc):
-        plt.plot(conf_levels, curve_data[c]['r'], label=class_names[c], linewidth=1)
-        r_all.append(curve_data[c]['r'])
-    mean_r = np.mean(r_all, axis=0)
-    plt.plot(conf_levels, mean_r, label=f'all classes {mean_r[best_idx]:.2f} at {conf_levels[best_idx]:.3f}',
-             color='blue', linewidth=3)
-    plt.title('Recall-Confidence Curve'); plt.xlabel('Confidence'); plt.ylabel('Recall');
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
-    plt.savefig(save_dir / "R_curve.png", dpi=200); plt.close()
+    r_all = [curve_data[c]['r'] for c in range(nc)]
+    plt.plot(conf_levels, np.mean(r_all, axis=0), color='blue', linewidth=3, label='all classes')
+    plt.title('Recall-Confidence Curve');
+    plt.xlabel('Confidence');
+    plt.ylabel('Recall');
+    plt.grid(True, linestyle='--', alpha=0.5);
+    plt.tight_layout();
+    plt.savefig(save_dir / "R_curve.png", dpi=200);
+    plt.close()
 
-    # --- Confusion Matrix ---
     plt.figure(figsize=(12, 9))
-    cm_norm = confusion_matrix / (confusion_matrix.sum(axis=0) + 1e-6)
-    sns.heatmap(cm_norm, annot=True, fmt='.2f', cmap='Blues', xticklabels=class_names + ['background'],
-                yticklabels=class_names + ['background'])
-    plt.title('Confusion Matrix'); plt.xlabel('True'); plt.ylabel('Predicted')
-    plt.tight_layout(); plt.savefig(save_dir / "confusion_matrix.png", dpi=200); plt.close()
+    sns.heatmap(confusion_matrix / (confusion_matrix.sum(axis=0) + 1e-6), annot=True, fmt='.2f', cmap='Blues',
+                xticklabels=class_names + ['background'], yticklabels=class_names + ['background'])
+    plt.title('Confusion Matrix');
+    plt.xlabel('True');
+    plt.ylabel('Predicted');
+    plt.tight_layout();
+    plt.savefig(save_dir / "confusion_matrix.png", dpi=200);
+    plt.close()
 
-    # --- IoU Distribution ---
     plt.figure(figsize=(10, 6))
     plt.hist(all_ious, bins=20, color='cornflowerblue', edgecolor='black')
-    plt.title('IoU Distribution'); plt.xlabel('IoU'); plt.ylabel('Frequency')
-    plt.grid(True, linestyle='--', alpha=0.5); plt.tight_layout();
-    plt.savefig(save_dir / "iou_distribution.png", dpi=200); plt.close()
+    plt.title('IoU Distribution');
+    plt.xlabel('IoU');
+    plt.ylabel('Frequency');
+    plt.grid(True, linestyle='--', alpha=0.5);
+    plt.tight_layout();
+    plt.savefig(save_dir / "iou_distribution.png", dpi=200);
+    plt.close()
 
-    # [NUEVO]: Retornar P, R y F1 exactos en el punto óptimo de confianza
-    return {
-        'F1': float(mean_f1[best_idx]),
-        'precision': float(mean_p[best_idx]),
-        'recall': float(mean_r[best_idx])
-    }
+    return {'F1': float(mean_f1[best_idx]), 'precision': float(np.mean(p_all, axis=0)[best_idx]),
+            'recall': float(np.mean(r_all, axis=0)[best_idx])}
 
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task-model", default="detect")
-    parser.add_argument("--variant", default="r50")
-    parser.add_argument("--train-run", default="")
-    parser.add_argument("--merge", action="store_true")
-    parser.add_argument("--variants-to-compare", nargs="+", default=["r50", "r50_dc5", "r101", "r101_dc5"])
+    parser.add_argument("--merge", action="store_true", help="Activar modo comparativo interactivo.")
     args = parser.parse_args()
 
-    cfg = MetricsConfig(task_model=args.task_model, variant=args.variant, train_run=args.train_run,
-                        merge_mode=args.merge, variants_to_compare=args.variants_to_compare)
-    if cfg.merge_mode: run_comparison_mode(cfg)
+    if args.merge:
+        manager = MergeManager()
+        if manager.interactive_selection():
+            manager.run_comparison()
+    else:
+        print("[metrics.py] Use --merge para iniciar la comparativa interactiva.")
 
 
 if __name__ == "__main__":
