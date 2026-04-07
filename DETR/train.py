@@ -23,7 +23,6 @@ if str(DETR_ROOT) not in sys.path:
 
 from engine.bootstrap_miopen import bootstrap, MIOpenConfig
 
-# Clases estándar de COCO (80 clases)
 COCO_CLASSES = [
     'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
     'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
@@ -48,7 +47,7 @@ def main():
     parser.add_argument("--cfg-train", type=str, default="DETR/configs/train.yaml")
     parser.add_argument("--preset", type=str, default=None)
     parser.add_argument("--resume", nargs="?", const=True, default=None,
-                        help="Reanudar entrenamiento. Si se usa sin valor, intenta autodescubrir el último run.")
+                        help="Reanudar entrenamiento.")
     args = parser.parse_args()
 
     # 1. Cargar configuraciones
@@ -64,22 +63,23 @@ def main():
                 train_cfg[section].update(values)
             print(f"[train.py] Preset '{args.preset}' aplicado correctamente.")
         else:
-            print(f"[train.py] ERROR FATAL: El preset '{args.preset}' no existe en el archivo YAML.")
+            print(f"[train.py] ERROR FATAL: El preset '{args.preset}' no existe.")
             sys.exit(1)
 
-    # [NUEVO]: Interceptar bandera use_coco128 y sobrescribir clases en memoria
     use_coco128 = train_cfg['training'].get('use_coco128', False)
     if use_coco128:
         print(f"[train.py] Bandera 'use_coco128' detectada. Sobrescribiendo dataset a 80 clases COCO.")
         dataset_cfg['nc'] = 80
         dataset_cfg['names'] = {i: name for i, name in enumerate(COCO_CLASSES)}
 
-    # 3. Bootstrap MIOpen
+    # 3. Bootstrap MIOpen y Hardware
     mi_cfg = train_cfg['miopen']
+    hw_cfg = train_cfg['hardware']
     bootstrap(MIOpenConfig(
         find_mode=mi_cfg['find_mode'],
         user_db_path=mi_cfg['user_db_path'],
         disable_cache=True,
+        expandable_segments=hw_cfg['expandable_segments'],
         verbose=mi_cfg['verbose']
     ))
 
@@ -129,7 +129,8 @@ def main():
         exist_ok=train_cfg['training'].get('exist_ok', False),
         metrics_root=Path(train_cfg['paths']['metrics_dir']).resolve(),
         resume=resume_val,
-        use_coco128=use_coco128
+        use_coco128=use_coco128,
+        empty_cache_freq=hw_cfg['empty_cache_freq'] # Nuevo parámetro
     )
 
     # 6. Ejecutar Entrenamiento

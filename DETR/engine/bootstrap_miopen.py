@@ -7,7 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: DETR/engine/bootstrap_miopen.py
 # Descripción: Inicialización de variables de entorno MIOpen/ROCm.
-#              Incluye utilidad MuteStderr para silenciar ruido C++.
+#              Incluye optimización de memoria para evitar OOM.
 # ==============================================================
 
 import os
@@ -21,7 +21,8 @@ from typing import Optional
 class MIOpenConfig:
     find_mode: str = "FAST"
     user_db_path: Optional[str] = "C:/Users/memorista/.miopen_db"
-    disable_cache: bool = True  # Política de proyecto: Siempre True
+    disable_cache: bool = True
+    expandable_segments: bool = True
     verbose: int = 1
 
 
@@ -31,18 +32,16 @@ class MuteStderr:
         self._original_stderr_fd = sys.stderr.fileno()
         self._saved_stderr_fd = os.dup(self._original_stderr_fd)
         self._devnull = os.open(os.devnull, os.O_WRONLY)
-        # Reemplazar stderr con devnull
         os.dup2(self._devnull, self._original_stderr_fd)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Restaurar stderr
         os.dup2(self._saved_stderr_fd, self._original_stderr_fd)
         os.close(self._saved_stderr_fd)
         os.close(self._devnull)
 
 
 def bootstrap(cfg: MIOpenConfig):
-    """Configura el entorno MIOpen para evitar fallos de kernel en ROCm."""
+    """Configura el entorno MIOpen y PyTorch Allocator para estabilidad en ROCm."""
 
     if "torch" in sys.modules:
         raise RuntimeError(
@@ -53,22 +52,26 @@ def bootstrap(cfg: MIOpenConfig):
     # 1. Modo de búsqueda de kernels
     os.environ["MIOPEN_FIND_MODE"] = cfg.find_mode
 
-    # 2. Base de datos de usuario (asegurar existencia)
+    # 2. Base de datos de usuario
     if cfg.user_db_path:
         db_path = Path(cfg.user_db_path).expanduser().resolve()
         db_path.mkdir(parents=True, exist_ok=True)
         os.environ["MIOPEN_USER_DB_PATH"] = str(db_path)
 
-    # 3. Desactivar caché (Crucial para estabilidad en Windows Preview)
+    # 3. Desactivar caché
     os.environ["MIOPEN_DISABLE_CACHE"] = "1" if cfg.disable_cache else "0"
 
-    # 4. Silenciar logs de bajo nivel del driver AMD/MIOpen
+    # 4. Optimización de Memoria (Unificado para PyTorch 2.x)
+    if cfg.expandable_segments:
+        # Usamos la variable unificada para evitar el warning de 'deprecated'
+        os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+
+    # 5. Silenciar logs de bajo nivel del driver AMD
     os.environ["AMD_LOG_LEVEL"] = "0"
     os.environ["MIOPEN_LOG_LEVEL"] = "0"
     os.environ["MIOPEN_ENABLE_LOGGING"] = "0"
-    os.environ["MIOPEN_ENABLE_LOGGING_CMD"] = "0"
     os.environ["MIOPEN_DEBUG_DISABLE_FIND_DB"] = "1"
 
     if cfg.verbose > 0:
         print(f"[bootstrap_miopen] MIOpen configurado: FIND_MODE={cfg.find_mode}, "
-              f"DISABLE_CACHE={cfg.disable_cache}")
+              f"EXPANDABLE_SEGMENTS={cfg.expandable_segments}")
