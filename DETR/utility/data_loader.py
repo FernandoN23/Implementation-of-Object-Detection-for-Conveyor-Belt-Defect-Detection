@@ -100,7 +100,7 @@ class YoloToDetrDataset(Dataset):
 
     def _build_coco_api(self):
         """Construye un objeto COCO en memoria a partir de los .txt de YOLO."""
-        print(f"[data_loader] Generando API COCO virtual para '{self.image_set}'...")
+        print(f"[data_loader] Aplicando adaptador de etiquetas DETR (.json)")
         coco_data = {"images": [], "annotations": [], "categories": []}
 
         for i, cat in enumerate(self.class_names):
