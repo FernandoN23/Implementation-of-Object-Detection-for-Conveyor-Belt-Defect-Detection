@@ -47,7 +47,7 @@ presets:
   # Presets de Validación Final
   # ==========================================================
 
-  val_detr_r50:
+  detr_r50:
     description: "Validación del modelo R50 entrenado del proyecto."
     overrides:
       validation:
@@ -56,7 +56,7 @@ presets:
         weights: ""
         batch_size: 16
 
-  val_detr_r50_dc5:
+  detr_r50_dc5:
     description: "Validación del modelo R50 DC5 entrenado del proyecto."
     overrides:
       validation:
@@ -65,7 +65,7 @@ presets:
         weights: ""
         batch_size: 16
 
-  val_detr_r101:
+  detr_r101:
     description: "Validación del modelo R101 entrenado del proyecto."
     overrides:
       validation:
@@ -74,7 +74,7 @@ presets:
         weights: ""
         batch_size: 16
 
-  val_detr_r101_dc5:
+  detr_r101_dc5:
     description: "Validación del modelo R101 DC5 entrenado del proyecto."
     overrides:
       validation:
@@ -87,7 +87,7 @@ presets:
   # Presets de Validación de Pruebas (COCO)
   # ==========================================================
 
-  val_coco_r50_test:
+  coco_r50_test:
     description: "Validación de la prueba R50 en COCO."
     overrides:
       validation:
@@ -97,7 +97,7 @@ presets:
         batch_size: 4
         use_coco128: true
 
-  val_coco_r50_dc5_test:
+  coco_r50_dc5_test:
     description: "Validación de la prueba R50 DC5 en COCO."
     overrides:
       validation:

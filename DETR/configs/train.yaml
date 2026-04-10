@@ -83,6 +83,7 @@ presets:
         epochs: 300
         batch_size: 16
         lr_drop: [150, 250]
+        pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
 
   detr_r50_dc5:
     description: "Entrenamiento DETR ResNet-50 Dilated C5 (300 ep, batch 8)."
@@ -91,7 +92,8 @@ presets:
         variant: "r50_dc5"
         run_name: "detr_r50_dc5_belt"
         epochs: 300
-        batch_size: 8
+        batch_size: 16
+        lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r50-dc5-f0fb7ef5.pth"
 
   detr_r101:
@@ -102,6 +104,7 @@ presets:
         run_name: "detr_r101_belt"
         epochs: 300
         batch_size: 16
+        lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r101-2c7b67e5.pth"
 
   detr_r101_dc5:
@@ -111,7 +114,8 @@ presets:
         variant: "r101_dc5"
         run_name: "detr_r101_dc5_belt"
         epochs: 300
-        batch_size: 8
+        batch_size: 16
+        lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r101-dc5-a2e86def.pth"
 
   coco_r50_test:
