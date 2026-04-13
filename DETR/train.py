@@ -23,7 +23,7 @@ if str(DETR_ROOT) not in sys.path:
 
 from engine.bootstrap_miopen import bootstrap, MIOpenConfig
 
-COCO_CLASSES = [
+COCO_CLASSES =[
     'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
     'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
     'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
@@ -95,7 +95,7 @@ def main():
     v_params = variants_cfg['variants'][v_name]
 
     model_args = argparse.Namespace(**v_params)
-    for k in ['bbox_loss_coef', 'giou_loss_coef', 'eos_coef', 'aux_loss', 'lr_backbone']:
+    for k in['bbox_loss_coef', 'giou_loss_coef', 'eos_coef', 'aux_loss', 'lr_backbone']:
         setattr(model_args, k, train_cfg['training'][k])
 
     model_args.set_cost_class = train_cfg['training'].get('set_cost_class', 1.0)
@@ -130,7 +130,8 @@ def main():
         metrics_root=Path(train_cfg['paths']['metrics_dir']).resolve(),
         resume=resume_val,
         use_coco128=use_coco128,
-        empty_cache_freq=hw_cfg['empty_cache_freq'] # Nuevo parámetro
+        empty_cache_freq=hw_cfg['empty_cache_freq'],
+        use_amp=hw_cfg.get('use_amp', True) # [NUEVO] Pasamos la bandera AMP
     )
 
     # 6. Ejecutar Entrenamiento

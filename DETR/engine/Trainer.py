@@ -7,7 +7,8 @@
 # --------------------------------------------------------------
 # Archivo: DETR/engine/Trainer.py
 # Descripción: Orquestador de entrenamiento para DETR.
-#              Optimizado con backend 'Agg' y limpieza de caché.
+#              Optimizado con backend 'Agg', limpieza de caché
+#              y Automatic Mixed Precision (AMP).
 # ==============================================================
 
 import os
@@ -99,7 +100,8 @@ class TrainerConfig:
     resume: Union[bool, str] = False
     start_epoch: int = 0
     use_coco128: bool = False
-    empty_cache_freq: int = 1  # Nueva config
+    empty_cache_freq: int = 1
+    use_amp: bool = True  # [NUEVO] Configuración AMP
 
 
 class Trainer:
@@ -129,6 +131,9 @@ class Trainer:
         self.optimizer, self.lr_scheduler = self._setup_optimizer()
         self.validator = Validator(self.model, self.criterion, self.postprocessors, self.device)
 
+        # [NUEVO] Inicializar el GradScaler para AMP
+        self.scaler = torch.amp.GradScaler("cuda", enabled=self.cfg.use_amp)
+
         self.best_map = 0.0
         self.best_metrics = {"mAP_0.5": 0.0, "mAP_0.5:0.95": 0.0, "precision": 0.0, "recall": 0.0, "F1": 0.0}
 
@@ -146,7 +151,8 @@ class Trainer:
                          "lr_gamma": self.cfg.lr_gamma, "weight_decay": self.cfg.weight_decay,
                          "clip_max_norm": self.cfg.clip_max_norm},
             "architecture": vars(self.cfg.model_args) if self.cfg.model_args else {},
-            "hardware_policy": {"bn2gn_policy": self.cfg.bn2gn_policy, "empty_cache_freq": self.cfg.empty_cache_freq}
+            "hardware_policy": {"bn2gn_policy": self.cfg.bn2gn_policy, "empty_cache_freq": self.cfg.empty_cache_freq,
+                                "use_amp": self.cfg.use_amp}
         }
 
         if self.cfg.resume and hyp_path.exists():
@@ -208,6 +214,11 @@ class Trainer:
             checkpoint = torch.load(resume_path, map_location='cpu', weights_only=False)
             self.model.load_state_dict(checkpoint['model'])
             self.optimizer.load_state_dict(checkpoint['optimizer'])
+
+            # Restaurar el estado del scaler si existe
+            if 'scaler' in checkpoint and self.cfg.use_amp:
+                self.scaler.load_state_dict(checkpoint['scaler'])
+
             self.cfg.start_epoch = checkpoint['epoch'] + 1
             self.optimizer.param_groups[0]['lr'] = self.cfg.lr
             self.optimizer.param_groups[0]['initial_lr'] = self.cfg.lr
@@ -305,6 +316,9 @@ class Trainer:
 
     def fit(self):
         print(f"\n[Trainer] --- Iniciando Entrenamiento DETR: {self.save_dir.name} ---")
+        if self.cfg.use_amp:
+            print(f"[Trainer] Automatic Mixed Precision (AMP) activado.")
+
         train_loader = build_dataloader("train", self.cfg.batch_size, use_coco128=self.cfg.use_coco128,
                                         class_names=self.cfg.class_names)
         val_loader = build_dataloader("valid", self.cfg.batch_size, use_coco128=self.cfg.use_coco128,
@@ -322,7 +336,6 @@ class Trainer:
             self._plot_live_results()
             self._save_checkpoints(epoch, val_stats)
 
-            # [NUEVO]: Limpieza periódica de caché de GPU
             if self.cfg.empty_cache_freq > 0 and (epoch + 1) % self.cfg.empty_cache_freq == 0:
                 torch.cuda.empty_cache()
 
@@ -336,32 +349,52 @@ class Trainer:
         self.model.train();
         self.criterion.train()
         stats = {"loss": 0.0, "loss_ce": 0.0, "loss_bbox": 0.0, "loss_giou": 0.0, "class_error": 0.0}
+
         for i, (samples, targets) in enumerate(loader):
             with MuteStderr():
                 samples = samples.to(self.device);
                 targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
-                outputs = self.model(samples);
-                loss_dict = self.criterion(outputs, targets);
-                weight_dict = self.criterion.weight_dict
-                losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+
+                self.optimizer.zero_grad()
+
+                # [NUEVO] Forward Pass con AMP
+                with torch.autocast(device_type=self.device.type, enabled=self.cfg.use_amp):
+                    outputs = self.model(samples)
+                    loss_dict = self.criterion(outputs, targets)
+                    weight_dict = self.criterion.weight_dict
+                    losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+
                 if not math.isfinite(losses.item()): continue
-                self.optimizer.zero_grad();
-                losses.backward()
-                if self.cfg.clip_max_norm > 0: torch.nn.utils.clip_grad_norm_(self.model.parameters(),
-                                                                              self.cfg.clip_max_norm)
-                self.optimizer.step()
+
+                # [NUEVO] Backward Pass y Step con GradScaler
+                self.scaler.scale(losses).backward()
+
+                if self.cfg.clip_max_norm > 0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.clip_max_norm)
+
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+
                 stats["loss"] += losses.item();
                 stats["loss_ce"] += loss_dict["loss_ce"].item();
                 stats["loss_bbox"] += loss_dict["loss_bbox"].item();
                 stats["loss_giou"] += loss_dict["loss_giou"].item()
                 if "class_error" in loss_dict: stats["class_error"] += loss_dict["class_error"].item()
-            if i % 10 == 0: print(f"[Trainer] Epoch [{epoch}] Batch [{i}/{len(loader)}] - Loss: {losses.item():.4f}",
+
+            if i % 10 == 0: print(f"[Trainer] Epoch [{epoch}] Batch[{i}/{len(loader)}] - Loss: {losses.item():.4f}",
                                   flush=True)
         return {k: v / len(loader) for k, v in stats.items()}
 
     def _save_checkpoints(self, epoch, val_stats):
-        checkpoint = {'model': self.model.state_dict(), 'optimizer': self.optimizer.state_dict(),
-                      'lr_scheduler': self.lr_scheduler.state_dict(), 'epoch': epoch, 'cfg': self.cfg}
+        checkpoint = {
+            'model': self.model.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'lr_scheduler': self.lr_scheduler.state_dict(),
+            'scaler': self.scaler.state_dict() if self.cfg.use_amp else None,  # Guardar estado del scaler
+            'epoch': epoch,
+            'cfg': self.cfg
+        }
         save_on_master(checkpoint, self.weights_dir / "last.pt")
         current_map = val_stats.get("mAP_0.5", 0.0)
         if current_map > self.best_map:
