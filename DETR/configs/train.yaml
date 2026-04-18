@@ -87,6 +87,17 @@ presets:
         lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
 
+  detr_r50_b4:
+    description: "Entrenamiento DETR ResNet-50 (300 ep, batch 4)."
+    overrides:
+      training:
+        variant: "r50"
+        run_name: "detr_r50_belt_batch_4"
+        epochs: 300
+        batch_size: 4
+        lr_drop: [ 150, 250 ]
+        pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
+
   detr_r50_dc5:
     description: "Entrenamiento DETR ResNet-50 Dilated C5 (300 ep, batch 4)."
     overrides:

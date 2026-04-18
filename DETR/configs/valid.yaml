@@ -55,6 +55,14 @@ presets:
         run_name: "detr_r50_belt"
         weights: ""
         batch_size: 16
+  detr_r50_b4:
+    description: "Validación del modelo R50 batch 4 entrenado del proyecto."
+    overrides:
+      validation:
+        variant: "r50"
+        run_name: "detr_r50_belt_batch_4"
+        weights: ""
+        batch_size: 16
 
   detr_r50_dc5:
     description: "Validación del modelo R50 DC5 entrenado del proyecto."
