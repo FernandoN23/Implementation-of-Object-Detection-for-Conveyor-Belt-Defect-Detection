@@ -10,6 +10,7 @@
 #              usando la API COCO virtual generada en el loader.
 #              Incluye generación de reportes completos (P/R/F1)
 #              y visualización de inferencias (Bounding Boxes).
+#              *Actualizado con corrección de padding para BBoxes*
 # ==============================================================
 
 import torch
@@ -117,7 +118,7 @@ class Validator:
         num_images_to_plot = min(int(total_images * plot_ratio), max_images)
         indices_to_plot = set(random.sample(range(total_images), num_images_to_plot))
 
-        # [NUEVO]: Integrar CocoEvaluator para obtener mAP oficial
+        # Integrar CocoEvaluator para obtener mAP oficial
         base_ds = loader.dataset
         evaluator = CocoEvaluator(base_ds.coco, iou_types=['bbox'])
 
@@ -162,14 +163,28 @@ class Validator:
                     all_preds.append({'boxes': pred_boxes, 'scores': pred_scores, 'labels': pred_labels})
 
                     if global_idx in indices_to_plot:
+                        # Obtener dimensiones reales para reconstruir la imagen sin padding
+                        orig_h, orig_w = target['orig_size'].cpu().numpy()
+                        resized_h, resized_w = target['size'].cpu().numpy()
+
                         img_tensor = samples.tensors[i].cpu()
                         mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
                         std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
                         img_tensor = img_tensor * std + mean
-                        img_tensor = img_tensor[:, :int(h), :int(w)]
+
+                        # 1. Recortar el padding del batch usando el tamaño redimensionado real
+                        img_tensor = img_tensor[:, :int(resized_h), :int(resized_w)]
+
+                        # 2. Convertir a numpy y BGR
+                        img_np = img_tensor.permute(1, 2, 0).numpy()
+                        img_np = np.clip(img_np * 255, 0, 255).astype(np.uint8)
+                        img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
+                        # 3. Redimensionar a la resolución original para que calcen los bboxes
+                        img_bgr = cv2.resize(img_bgr, (int(orig_w), int(orig_h)))
 
                         self._plot_single_overlay(
-                            img_tensor, pred_boxes, pred_scores, pred_labels,
+                            img_bgr, pred_boxes, pred_scores, pred_labels,
                             gt_xyxy, target['labels'].cpu(), class_names,
                             img_dir / f"val_img_{global_idx}.jpg"
                         )
@@ -207,21 +222,17 @@ class Validator:
 
         return final_metrics
 
-    def _plot_single_overlay(self, img_tensor, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, class_names,
+    def _plot_single_overlay(self, img_bgr, pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, class_names,
                              save_path):
-        img_np = img_tensor.permute(1, 2, 0).numpy()
-        img_np = np.clip(img_np * 255, 0, 255).astype(np.uint8)
-        img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-
-        color_gt = (0, 255, 0)
-        color_pred = (0, 165, 255)
+        color_gt = (0, 255, 0)  # Verde (Real)
+        color_pred = (0, 165, 255)  # Naranja (Predicción)
         VIS_CONF_THRESH = 0.25
 
+        # 1. Dibujar las cajas
         for box, label_idx in zip(gt_boxes.numpy(), gt_labels.numpy()):
             x1, y1, x2, y2 = map(int, box)
-            label = class_names[int(label_idx)]
             cv2.rectangle(img_bgr, (x1, y1), (x2, y2), color_gt, 2)
-            cv2.putText(img_bgr, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_gt, 2)
+            # Omitimos el texto en el GT para no saturar la imagen, la caja verde basta.
 
         for box, score, label_idx in zip(pred_boxes.numpy(), pred_scores.numpy(), pred_labels.numpy()):
             if score < VIS_CONF_THRESH: continue
@@ -229,6 +240,63 @@ class Validator:
             label = class_names[int(label_idx)]
             cv2.rectangle(img_bgr, (x1, y1), (x2, y2), color_pred, 2)
             text = f"{label} {score:.2f}"
-            cv2.putText(img_bgr, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_pred, 2)
+            cv2.putText(img_bgr, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_pred, 2, cv2.LINE_AA)
+
+        # 2. Lógica de Leyenda Dinámica (Buscar la esquina más despejada)
+        h, w = img_bgr.shape[:2]
+        lw, lh = 160, 65  # Ancho y alto de la leyenda
+
+        # Posibles esquinas: Top-Left, Top-Right, Bottom-Left, Bottom-Right
+        corners = [
+            (10, 10),
+            (w - lw - 10, 10),
+            (10, h - lh - 10),
+            (w - lw - 10, h - lh - 10)
+        ]
+
+        # Recopilar todas las cajas válidas para calcular solapamiento
+        all_boxes = list(gt_boxes.numpy()) + [b for b, s in zip(pred_boxes.numpy(), pred_scores.numpy()) if
+                                              s >= VIS_CONF_THRESH]
+
+        best_corner = corners[0]
+        min_overlap = float('inf')
+
+        for cx, cy in corners:
+            overlap_area = 0
+            lx1, ly1, lx2, ly2 = cx, cy, cx + lw, cy + lh  # Rectángulo de la leyenda
+
+            for box in all_boxes:
+                bx1, by1, bx2, by2 = box
+                # Calcular área de intersección
+                ix1 = max(lx1, bx1)
+                iy1 = max(ly1, by1)
+                ix2 = min(lx2, bx2)
+                iy2 = min(ly2, by2)
+                if ix1 < ix2 and iy1 < iy2:
+                    overlap_area += (ix2 - ix1) * (iy2 - iy1)
+
+            if overlap_area < min_overlap:
+                min_overlap = overlap_area
+                best_corner = (cx, cy)
+            if min_overlap == 0:
+                break  # Esquina perfecta sin solapamiento encontrada
+
+        # 3. Dibujar la leyenda en la mejor esquina
+        lx, ly = best_corner
+        overlay = img_bgr.copy()
+
+        # Fondo semi-transparente oscuro
+        cv2.rectangle(overlay, (lx, ly), (lx + lw, ly + lh), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.6, img_bgr, 0.4, 0, img_bgr)
+
+        # Cuadro de color y texto para GT (Real)
+        cv2.rectangle(img_bgr, (lx + 10, ly + 15), (lx + 25, ly + 30), color_gt, -1)
+        cv2.putText(img_bgr, "Real (GT)", (lx + 35, ly + 27), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+                    cv2.LINE_AA)
+
+        # Cuadro de color y texto para Predicción
+        cv2.rectangle(img_bgr, (lx + 10, ly + 40), (lx + 25, ly + 55), color_pred, -1)
+        cv2.putText(img_bgr, "Prediccion", (lx + 35, ly + 52), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+                    cv2.LINE_AA)
 
         cv2.imwrite(str(save_path), img_bgr)

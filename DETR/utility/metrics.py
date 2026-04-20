@@ -9,6 +9,7 @@
 # Descripción: Motor gráfico para reportes de validación y
 #              herramienta CLI interactiva para comparación
 #              global de experimentos (Modo Merge).
+#              *Actualizado con paleta de colores dinámica*
 # ==============================================================
 
 import os
@@ -45,13 +46,11 @@ DETR_PARAMS_M = {
     "r101_dc5": 60.1,
 }
 
-VARIANT_COLORS = {
-    "r50": "#1f77b4",
-    "r50_dc5": "#2ca02c",
-    "r101": "#d62728",
-    "r101_dc5": "#9467bd",
-}
-
+# Paleta estándar para asignar colores únicos por experimento (run)
+STANDARD_PALETTE =[
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+]
 
 # ---------------------------------------------------------------------------
 # Utilidades de Procesamiento
@@ -62,7 +61,7 @@ def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
     if series.isnull().all(): return scalars
     clean_scalars = series.tolist()
     last = clean_scalars[0]
-    smoothed = []
+    smoothed =[]
     for point in clean_scalars:
         smoothed_val = last * weight + (1 - weight) * point
         smoothed.append(smoothed_val)
@@ -73,7 +72,7 @@ def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
 def load_results_csv(path: Path) -> pd.DataFrame:
     if not path.is_file(): return pd.DataFrame()
     df = pd.read_csv(path)
-    df.columns = [c.strip() for c in df.columns]
+    df.columns =[c.strip() for c in df.columns]
     return df
 
 
@@ -84,6 +83,7 @@ def load_results_csv(path: Path) -> pd.DataFrame:
 class MergeManager:
     def __init__(self):
         self.selected_runs: Dict[str, Tuple[str, pd.DataFrame]] = {}  # run_name -> (variant, df)
+        self.run_colors: Dict[str, str] = {} # run_name -> color hex
         self.comparison_name = ""
         self.base_output_dir = METRICS_ROOT / "global_comparison"
 
@@ -171,6 +171,10 @@ class MergeManager:
         losses_out.mkdir(exist_ok=True)
         metrics_out.mkdir(exist_ok=True)
 
+        # Asignar colores únicos a cada experimento seleccionado
+        for i, label in enumerate(self.selected_runs.keys()):
+            self.run_colors[label] = STANDARD_PALETTE[i % len(STANDARD_PALETTE)]
+
         print(f"[metrics.py] Generando gráficos en {output_dir}...")
 
         loss_types = {"Total Loss (Val)": "val/loss", "Classification Loss (Val)": "val/loss_ce",
@@ -200,7 +204,7 @@ class MergeManager:
             if df_clean.empty: continue
 
             has_data = True
-            color = VARIANT_COLORS.get(variant, "gray")
+            color = self.run_colors[label]
             epochs = df_clean["epoch"]
             values = df_clean[metric_col].values.astype(float)
 
@@ -222,7 +226,7 @@ class MergeManager:
         plt.close()
 
     def _plot_tradeoff(self, output_dir: Path):
-        data_points = []
+        data_points =[]
         for label, (variant, df) in self.selected_runs.items():
             if 'metrics/mAP_0.5:0.95' not in df.columns: continue
             best_map = df['metrics/mAP_0.5:0.95'].max()
@@ -233,7 +237,7 @@ class MergeManager:
                 'variant': variant,
                 'params': DETR_PARAMS_M.get(variant, 0),
                 'map': best_map,
-                'color': VARIANT_COLORS.get(variant, "gray")
+                'color': self.run_colors[label]
             })
 
         if not data_points: return
@@ -300,8 +304,8 @@ def calculate_iou(box1, box2):
 def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5):
     nc = len(class_names)
     conf_levels = np.linspace(0, 1, 100)
-    curve_data = {c: {'p': [], 'r': [], 'f1': []} for c in range(nc)}
-    all_ious = []
+    curve_data = {c: {'p': [], 'r': [], 'f1':[]} for c in range(nc)}
+    all_ious =[]
     confusion_matrix = np.zeros((nc + 1, nc + 1))
 
     for p, g in zip(preds, gts):
@@ -350,7 +354,7 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
 
     # --- Generación de Gráficos ---
     plt.figure(figsize=(10, 7))
-    f1_all = []
+    f1_all =[]
     for c in range(nc):
         plt.plot(conf_levels, curve_data[c]['f1'], label=class_names[c], linewidth=1)
         f1_all.append(curve_data[c]['f1'])
