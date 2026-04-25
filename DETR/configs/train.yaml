@@ -116,7 +116,7 @@ presets:
         variant: "r101"
         run_name: "detr_r101_belt"
         epochs: 300
-        batch_size: 16
+        batch_size: 4
         lr_drop: [150, 250]
         pretrain_weights: "DETR/weights/base/detr-r101-2c7b67e5.pth"
 
