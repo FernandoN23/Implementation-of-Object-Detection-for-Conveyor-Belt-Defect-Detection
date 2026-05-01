@@ -43,7 +43,7 @@ import cv2
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Rutas base de proyecto
+# Rutas base de proyecto y Resolución de Colisiones
 # ---------------------------------------------------------------------------
 
 FILE = Path(__file__).resolve()
@@ -51,10 +51,16 @@ DETR_ROOT = FILE.parent  # .../DETR
 PROJECT_ROOT = DETR_ROOT.parent  # raíz del repositorio
 CONFIGS_ROOT = DETR_ROOT / "configs"  # DETR/configs
 
-# Submódulo oficial de DETR
+# 1. Agregar DETR_ROOT como PRIORIDAD 1.
+# Esto evita que el archivo 'engine.py' del repo de Facebook colisione
+# con nuestra carpeta personalizada 'engine/'.
+if str(DETR_ROOT) not in sys.path:
+    sys.path.insert(0, str(DETR_ROOT))
+
+# 2. Submódulo oficial de DETR como PRIORIDAD 2.
 DETR_SUBMODULE = DETR_ROOT / "detr"
 if DETR_SUBMODULE.is_dir() and str(DETR_SUBMODULE) not in sys.path:
-    sys.path.insert(0, str(DETR_SUBMODULE))
+    sys.path.insert(1, str(DETR_SUBMODULE))
 
 # Dataset principal
 DATASET_ROOT = PROJECT_ROOT / "Dataset"
@@ -142,7 +148,7 @@ def load_test_images(image_exts: Tuple[str, ...] = (".jpg", ".jpeg", ".png")) ->
     if not images_dir.is_dir():
         raise FileNotFoundError(f"[test.py] No se encontró el directorio de imágenes de test: {images_dir}")
 
-    image_paths: List[Path] = []
+    image_paths: List[Path] =[]
     for ext in image_exts:
         image_paths.extend(sorted(images_dir.glob(f"*{ext}")))
 
@@ -156,10 +162,10 @@ def load_test_images(image_exts: Tuple[str, ...] = (".jpg", ".jpeg", ".png")) ->
 
 
 def build_color_palettes(num_classes: int) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
-    gt_color = (0, 0, 160)  # Rojo oscuro para GT
-    pred_color = (0, 160, 0)  # Verde oscuro para Predicciones
+    gt_color = (0, 255, 0)      # Verde para GT (Real)
+    pred_color = (0, 165, 255)  # Naranja para Predicciones
 
-    colors_gt = [gt_color for _ in range(num_classes)]
+    colors_gt =[gt_color for _ in range(num_classes)]
     colors_pred = [pred_color for _ in range(num_classes)]
 
     return colors_gt, colors_pred
@@ -172,9 +178,9 @@ def build_color_palettes(num_classes: int) -> Tuple[List[Tuple[int, int, int]], 
 def load_gt_boxes(label_file: Path, img_shape: Tuple[int, int, int]) -> List[Box]:
     h, w = img_shape[:2]
     if not label_file.is_file():
-        return []
+        return[]
 
-    boxes: List[Box] = []
+    boxes: List[Box] =[]
     with label_file.open("r", encoding="utf-8") as f:
         for line in f:
             parts = line.strip().split()
@@ -276,7 +282,7 @@ def infer_image(ctx: ModelContext, img_bgr: np.ndarray, conf_thres: float) -> Li
     labels = results['labels'].cpu().numpy()
     boxes = results['boxes'].cpu().numpy()
 
-    boxes_out: List[Box] = []
+    boxes_out: List[Box] =[]
 
     # 5) Filtrar por confianza
     for score, label, box in zip(scores, labels, boxes):
@@ -336,7 +342,7 @@ def evaluate_image(
             stats[box.cls_id].n_pred += 1
 
     for cls in range(num_classes):
-        gt_c = [b for b in gt_boxes if b.cls_id == cls]
+        gt_c =[b for b in gt_boxes if b.cls_id == cls]
         pred_c = sorted([b for b in pred_boxes if b.cls_id == cls], key=lambda b: b.conf, reverse=True)
 
         used_gt = [False] * len(gt_c)
@@ -363,7 +369,7 @@ def evaluate_image(
         stats[cls].fn += fn_count
 
     global_metrics: Dict[str, float] = {"P_macro": 0.0, "R_macro": 0.0, "IoU_macro": 0.0}
-    p_list, r_list, iou_list = [], [], []
+    p_list, r_list, iou_list = [], [],[]
 
     for cls in range(num_classes):
         s = stats[cls]
@@ -481,11 +487,11 @@ def draw_legend(
     put("", (255, 255, 255))
 
     put("Leyenda bboxes:", (0, 255, 255))
-    cv2.rectangle(canvas, (10, y - 12), (30, y + 2), colors_gt[0] if colors_gt else (0, 0, 160), -1)
+    cv2.rectangle(canvas, (10, y - 12), (30, y + 2), colors_gt[0] if colors_gt else (0, 255, 0), -1)
     cv2.putText(canvas, "GT (etiqueta real)", (40, y), font, fs, (255, 255, 255), t, cv2.LINE_AA)
     y += lh
 
-    cv2.rectangle(canvas, (10, y - 12), (30, y + 2), colors_pred[0] if colors_pred else (0, 160, 0), -1)
+    cv2.rectangle(canvas, (10, y - 12), (30, y + 2), colors_pred[0] if colors_pred else (0, 165, 255), -1)
     cv2.putText(canvas, "Prediccion modelo", (40, y), font, fs, (255, 255, 255), t, cv2.LINE_AA)
     y += lh
 
@@ -679,7 +685,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         find_mode="FAST",
         user_db_path=None,
         disable_cache=True,
-        log_level=0,
+        expandable_segments=True,
         verbose=1,
     )
     bootstrap(cfg)
