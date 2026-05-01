@@ -19,10 +19,10 @@ Ejecute los siguientes comandos en la terminal integrada de PyCharm  o en una se
 
 ```powershell
 # 1. Clonar el repositorio
-git clone [https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git](https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git)
+git clone [https://github.com/FernandoN23/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection.git](https://github.com/FernandoN23/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection.git)
 
 # 2. Acceder al directorio
-cd Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection
+cd Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection
 
 # 3. Crear entorno virtual
 python -m venv .venv

@@ -1,4 +1,4 @@
-# Implementación de Algoritmos de Reconocimiento de Objetos para la Identificación de Fallas en Correas Transportadoras
+# Implementación de Detección de Objetos para la Identificación de Fallas en Correas Transportadoras
 
 Este repositorio contiene el desarrollo y los resultados de la investigación enfocada en desarrollar un sistema de detección de fallas mediante técnicas de visión computacional y aprendizaje profundo. El proyecto aborda la problemática de la inspección visual tradicional, proponiendo soluciones automatizadas y escalables basadas en Redes Neuronales Convolucionales (CNN) y arquitecturas Transformer.
 
