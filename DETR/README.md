@@ -29,7 +29,7 @@ DETR/
 │
 ├── configs/                  # Centro de Control de Configuraciones
 │   ├── dataset.yaml          ← Rutas y definición de clases (Proyecto/Dataset)
-│   ├── model_variants.yaml   ← Definición técnica de las variantes de DETR
+│   ├── model_variants.yaml   ← Definición técnica de las variantes de DETR (r50, r101, dc5)
 │   ├── train.yaml            ← Maestro de entrenamiento (hiperparámetros, presets, hardware)
 │   └── valid.yaml            ← Maestro de validación (métricas, NMS/Thresholds, presets)
 │
@@ -46,12 +46,11 @@ DETR/
 ├── runs/                     # Salida de experimentos (Logs, Gráficos, Checkpoints intermedios)
 │
 ├── utility/                  # Scripts de Mantenimiento y Procesamiento
-│   ├── clean_metrics.py      ← Limpieza de métricas generadas
-│   ├── clean_runs.py         ← Limpieza de experimentos antiguos
-│   ├── clean_weights.py      ← Gestión de espacio (eliminación de pesos redundantes) 
-│   └── metrics.py            ← Script de procesamiento de datos y generación de reportes
+│   ├── data_loader.py        ← Adaptador Dataset YOLOv11 a DETR y auto-descarga COCO128
+│   └── metrics.py            ← Motor gráfico para reportes y CLI interactiva (Modo Merge)
 │
 ├── weights/                  # Almacenamiento de Pesos Consolidados (.pt)
+│   └── base/                 ← Directorio para pesos base descargados automáticamente
 │
 ├── train.py                  # CLI: Orquestador de Entrenamiento
 ├── valid.py                  # CLI: Orquestador de Validación
@@ -61,8 +60,8 @@ DETR/
 ### Descripción de Scripts Principales
 
   * **`train.py`**: Punto de entrada para el entrenamiento. Gestiona la inicialización segura del entorno MIOpen, aplica parches de normalización (si se requiere) e instancia el `engine.Trainer`. Permite el uso de *presets* definidos en `train.yaml`.
-  * **`valid.py`**: Ejecuta la validación del modelo (cálculo de mAP, Precisión, Recall) sobre un conjunto de datos específico. Utiliza `engine.Validator` para asegurar consistencia en la carga del modelo.
-  * **`test.py`**: Herramienta de visualización interactiva (basada en OpenCV). Permite inspeccionar cualitativamente el desempeño del modelo en el conjunto de prueba, dibujando las cajas de verdad (Ground Truth) frente a las predicciones generadas por el Transformer.
+  * **`valid.py`**: Ejecuta la validación del modelo (cálculo de mAP, Precisión, Recall, F1) sobre un conjunto de datos específico. Utiliza `engine.Validator` para asegurar consistencia en la carga del modelo y generar reportes visuales.
+  * **`test.py`**: Herramienta de visualización interactiva (basada en OpenCV). Permite inspeccionar cualitativamente el desempeño del modelo en el conjunto de prueba, dibujando las cajas de verdad (Ground Truth) frente a las predicciones generadas por el Transformer, e incluye una leyenda dinámica de métricas por imagen.
 
 ---
 
@@ -72,17 +71,19 @@ El sistema utiliza *presets* en los archivos YAML para reproducir experimentos c
 
 ### Presets de Entrenamiento (`configs/train.yaml`)
 
-| Preset          | Descripción                                                                                      |
-|:----------------|:-------------------------------------------------------------------------------------------------|
-| `coco_r50_std`  | **Prueba standard**: Valida el pipeline completo con el dataset COCO y la variante ResNet-50.    |
-| `detr_r50_belt` | **Implementación**: Entrenamiento completo sobre el dataset de correas. *(Parámetros a definir)* |
+| Preset | Descripción |
+| :--- | :--- |
+| `coco_r50_test` / `coco_r50_dc5_test` | **Pruebas de Humo**: Valida el pipeline completo usando el dataset mini COCO128 (200 épocas). |
+| `detr_r50` / `detr_r101` | **Producción Base**: Entrenamiento completo (300 épocas, Batch 16 o 4) sobre el dataset de correas con arquitecturas estándar. |
+| `detr_r50_dc5` / `detr_r101_dc5` | **Producción Alta Resolución**: Entrenamiento con convoluciones dilatadas (DC5) para detección fina (300 épocas, Batch 4). |
+| `detr_r50_b4` | **Producción Comparativa**: Entrenamiento R50 forzado a Batch 4 para comparativas justas de hardware contra variantes DC5. |
 
 ### Presets de Validación (`configs/valid.yaml`)
 
-| Preset          | Descripción                                                                                                                              |
-|:----------------|:-----------------------------------------------------------------------------------------------------------------------------------------|
-| `coco_r50_std`  | **Prueba standard**: Valida el motor de inferencia/métricas.                                                                             |
-| `detr_r50_belt` | **Implementación**: Generación de métricas (mAP, Matriz de Confusión) para el modelo entrenado correspondiente. *(Parámetros a definir)* |
+| Preset | Descripción |
+| :--- | :--- |
+| `coco_r50_test` / `coco_r50_dc5_test` | **Pruebas de Humo**: Valida el motor de inferencia/métricas con COCO128. |
+| `detr_{variante}` | **Producción**: Generación de métricas (mAP, Matriz de Confusión, Curvas PR) para el modelo entrenado correspondiente (ej. `detr_r50`, `detr_r50_dc5`). |
 
 ---
 
@@ -93,35 +94,38 @@ Todos los comandos deben ejecutarse desde la raíz del proyecto (nivel superior 
 ### 1. Entrenamiento
 
 ```bash
-# Ejecutar prueba con dataset COCO
-python DETR/train.py --preset coco_r50_std
+# Ejecutar prueba rápida de integración con COCO128
+python DETR/train.py --preset coco_r50_test
 
-# Ejecutar entrenamiento con dataset de correas (Variante a definir)
-python DETR/train.py --preset detr_r50_belt
+# Ejecutar entrenamiento final (Variante ResNet-50)
+python DETR/train.py --preset detr_r50
+
+# Ejecutar entrenamiento final (Variante ResNet-50 con Convoluciones Dilatadas)
+python DETR/train.py --preset detr_r50_dc5
 ```
 
 ### 2. Validación
 
 ```bash
 # Validar usando el preset del proyecto (requiere haber ejecutado el entrenamiento respectivo)
-python DETR/valid.py --preset detr_r50_belt
+python DETR/valid.py --preset detr_r50
 
-# Validación manual
-python DETR/valid.py --weights DETR/weights/______/______.pt --task-model detect --imgsz ______
+# Validación manual especificando pesos
+python DETR/valid.py --weights DETR/weights/r50/detr_r50_belt_best.pt
 ```
 
 ### 3. Inferencia Visual (Test)
 
 ```bash
-# Abrir visor interactivo (Ajustar ruta según variante entrenada)
-python DETR/test.py --weights DETR/runs/train/______/weights/best.pt --conf-thres ______
+# Abrir visor interactivo (Ajustar ruta y variante según el modelo entrenado)
+python DETR/test.py --weights DETR/weights/r50/detr_r50_belt_best.pt --variant r50 --conf-thres 0.5
 ```
 
 **Controles del Visor:**
 
   * `d` / `->`: Siguiente imagen
   * `a` / `<-`: Imagen anterior
-  * `h`: Ocultar/Mostrar predicciones
+  * `h` / `p`: Ocultar/Mostrar predicciones
   * `ESC`: Salir
 
 ---
@@ -134,4 +138,4 @@ Esta implementación incluye mitigaciones automáticas para GPUs AMD en Windows:
 2.  **Caché Deshabilitada**: `MIOPEN_DISABLE_CACHE=1` por defecto.
 3.  **Patch BN2GN**: Sustitución dinámica de `BatchNorm2d` por `GroupNorm` si se detecta inestabilidad.
 4.  **Parches menores dentro del modelo aislado DETR**: Esto es para que el modelo sea compatible con versiones modernas de PyTorch.
----
+5.  **Gestión de Memoria**: Uso de `expandable_segments` y Automatic Mixed Precision (AMP) para evitar errores OOM (Out Of Memory) debido a la complejidad cuadrática del Transformer.
