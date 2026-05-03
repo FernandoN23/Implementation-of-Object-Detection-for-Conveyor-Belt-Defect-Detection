@@ -19,7 +19,7 @@ La investigación se estructura en torno al cumplimiento de las siguientes metas
 
 El conjunto de datos empleado para el entrenamiento de los algoritmos corresponde a una recopilación estructurada de registros visuales de fallas.
 
-Para detalles técnicos sobre la distribución de clases, pre-procesamiento y aumentación de datos, consulte: [Dataset/README.md](Dataset/README.md).
+Para detalles técnicos sobre la distribución de clases, pre-procesamiento y aumentación de datos, consulte:[Dataset/README.md](Dataset/README.md).
 
 ### Particionamiento de Datos
 El conjunto de datos sigue una estrategia de división estándar para garantizar la robustez de los resultados:
@@ -38,7 +38,7 @@ Esta sección detalla la implementación de arquitecturas *one-stage*, caracteri
 
 ### 1. YOLO (You Only Look Once)
 
-Consulte la documentación técnica específica y guías de reproducción en: [YOLO/README.md](YOLO/README.md).
+Consulte la documentación técnica específica y guías de reproducción en:[YOLO/README.md](YOLO/README.md).
 
 #### 1.1 Antecedentes y Arquitectura
 El modelo implementado corresponde a **YOLOv5**. Esta arquitectura opera como un detector de una sola etapa que integra la extracción de características y la predicción en un flujo unificado.
@@ -112,16 +112,65 @@ La variante **SSD512** demostró un desempeño superior (+5% mAP@0.5) frente a S
 
 ---
 
+## Modelos de Detección de Objetos basados en Transformers
+
+Esta sección detalla la implementación de arquitecturas que prescinden de anclas (anchors) y algoritmos de supresión de no máximos (NMS), tratando la detección como un problema de predicción directa de conjuntos mediante mecanismos de atención.
+
+### 3. DETR (DEtection TRansformer)
+
+Consulte la documentación técnica específica y guías de reproducción en:[DETR/README.md](DETR/README.md).
+
+#### 3.1 Antecedentes y Arquitectura
+El modelo **DETR** revoluciona el paradigma clásico al utilizar una arquitectura Encoder-Decoder basada en Transformers. 
+
+* **Arquitectura:**
+    * **Backbone:** Red convolucional (ResNet-50 o ResNet-101) para la extracción de características 2D.
+    * **Transformer:** Un Encoder que modela el contexto global de la imagen mediante auto-atención, y un Decoder que utiliza *Object Queries* aprendidos para predecir las cajas en paralelo.
+    * **Loss:** Función de pérdida global basada en emparejamiento bipartito (Hungarian Algorithm) que fuerza predicciones únicas.
+
+#### 3.2 Configuración del Entrenamiento
+Debido a la complejidad cuadrática de memoria inherente al mecanismo de atención del Transformer, los hiperparámetros debieron ajustarse a las restricciones de hardware (VRAM), estandarizando el tamaño de lote para permitir una comparativa justa entre variantes.
+
+| Parámetro | Valor | Descripción |
+| :--- | :--- | :--- |
+| **Optimizador** | AdamW | Weight Decay: 0.0001 |
+| **Épocas** | 300 | Requiere mayor tiempo de convergencia que las CNNs |
+| **Batch Size** | 4 | Reducido para evitar OOM, especialmente en variantes DC5 |
+| **LR Inicial** | 1e-4 / 1e-5 | LR diferenciado: 1e-4 (Transformer) / 1e-5 (Backbone) |
+| **LR Drop** | 150 y 250 | Caída del LR (gamma 0.1) en épocas clave |
+
+#### 3.3 Resultados obtenidos
+Desempeño de las variantes del modelo **DETR** en el conjunto de validación/test.
+
+| Variante | Tamaño entrada | Parámetros | mAP@0.5  | mAP@0.5:0.95 | F1-Score Max |
+|:---------|:--------------:|:----------:|:--------:|:------------:|:------------:|
+| **R50** |    Dinámico    |   41.3M    | **0.81** |   **0.50** |   **0.70** |
+| **R50_DC5** |    Dinámico    |   41.3M    | **0.78** |   **0.47** |   **0.68** |
+| **R101** |    Dinámico    |   60.1M    | **0.80** |   **0.49** |   **0.69** |
+| **R101_DC5** |    Dinámico    |   60.1M    | **0.80** |   **0.49** |   **0.69** |
+
+**Conclusión sobre DETR**
+
+Los resultados empíricos demuestran un fenómeno de **paradoja de capacidad**. La variante base **ResNet-50 (R50)** obtuvo las métricas más altas (mAP@0.5 de 81%), superando a la variante más profunda (R101). Esto se debe a que los Transformers carecen de sesgos inductivos y son extremadamente dependientes de grandes volúmenes de datos; al utilizar un dataset industrial de tamaño limitado, el modelo R101 tiende a sobreajustarse, mientras que el R50 posee la capacidad óptima para generalizar. 
+
+Adicionalmente, el uso de convoluciones dilatadas (**DC5**), diseñadas para duplicar la resolución espacial y detectar objetos microscópicos, degradó el rendimiento. Esto sugiere que la escala de los defectos en las correas transportadoras es lo suficientemente grande como para ser capturada por la resolución estándar, y que el aumento de resolución del DC5 solo añadió ruido computacional, dificultando la convergencia del mecanismo de atención.
+
+---
+
 ### Comparativa Global
 
-Resumen comparativo seleccionando la mejor configuración de cada arquitectura para el despliegue final.
+Resumen comparativo seleccionando la mejor configuración de cada arquitectura evaluada para el despliegue final.
 
 | Arquitectura | Mejor Modelo | Tamaño entrada | Parámetros | mAP@0.5:0.95 |
 | :--- | :--- |----------------|:----------:| :---: |
 | **YOLO** | **YOLOv5s** | 640x640        |    7.2M    | **0.54** |
-| **SSD** | **SSD512** | 512x512        |   27.1M    | 0.42 |
+| **DETR** | **DETR-R50** | Dinámico       |   41.3M    | **0.50** |
+| **SSD** | **SSD512** | 512x512        |   27.1M    | **0.42** |
 
-### Conclusiones modelos de una sola etapa
+### Conclusiones Parciales
 
-El análisis experimental concluye que la arquitectura YOLOv5s es la solución más robusta y eficiente para el sistema de detección de fallas en correas transportadoras. En la comparativa entre arquitecturas, YOLOv5s supera a SSD512 con una ventaja significativa de precisión (+12% en mAP@0.5:0.95) utilizando casi 4 veces menos parámetros. Esta brecha de rendimiento evidencia que el backbone CSPDarknet de YOLO es superior a la arquitectura basada en VGG de SSD para la extracción de características finas y complejas en entornos industriales. Esto era un resultado esperado debido a la evolución de la familia de modelos YOLO con respecto a SSD, considerando que este último modelo mencionado fue comparado y puesto a prueba principalmente con las primeras versiones de YOLO.
+El análisis experimental integral concluye que la arquitectura **YOLOv5s** se mantiene como la solución más robusta y eficiente para el sistema de detección de fallas en correas transportadoras. 
 
+En la comparativa directa, YOLOv5s supera a **DETR-R50** (+4% en mAP@0.5:0.95) utilizando casi **6 veces menos parámetros** (7.2M vs 41.3M) y convergiendo en menos épocas. Aunque DETR demuestra ser una arquitectura poderosa y conceptualmente elegante al eliminar la necesidad de anclas y NMS, su naturaleza basada en Transformers lo hace inherentemente dependiente de conjuntos de datos masivos. En el contexto de este proyecto, donde el dataset industrial es de tamaño moderado, las redes puramente convolucionales (CNN) como YOLO aprovechan mejor sus sesgos inductivos espaciales para extraer características finas.
+
+Por su parte, **SSD512** queda relegado al último lugar de la comparativa, evidenciando que su backbone basado en VGG ha sido superado generacionalmente tanto por las estructuras CSPDarknet (YOLO) como por los mecanismos de atención global (DETR) para tareas de inspección industrial compleja.
