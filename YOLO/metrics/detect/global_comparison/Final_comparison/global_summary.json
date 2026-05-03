@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-05-03 12:48:27",
+  "models": {
+    "yolov5_l (l)": {
+      "variant": "l",
+      "best_mAP_0.5": 0.89751,
+      "best_mAP_0.5_0.95": 0.54607,
+      "best_F1": 0.8971489189068699,
+      "params_M": 46.5
+    },
+    "yolov5_m (m)": {
+      "variant": "m",
+      "best_mAP_0.5": 0.89377,
+      "best_mAP_0.5_0.95": 0.55047,
+      "best_F1": 0.8943297627433223,
+      "params_M": 21.2
+    },
+    "yolov5_n (n)": {
+      "variant": "n",
+      "best_mAP_0.5": 0.86758,
+      "best_mAP_0.5_0.95": 0.5021,
+      "best_F1": 0.8603532408945687,
+      "params_M": 1.9
+    },
+    "yolov5_s (s)": {
+      "variant": "s",
+      "best_mAP_0.5": 0.89684,
+      "best_mAP_0.5_0.95": 0.54838,
+      "best_F1": 0.8848727864333246,
+      "params_M": 7.2
+    },
+    "yolov5_x (x)": {
+      "variant": "x",
+      "best_mAP_0.5": 0.90153,
+      "best_mAP_0.5_0.95": 0.54294,
+      "best_F1": 0.8946331867235222,
+      "params_M": 86.7
+    }
+  }
+}
