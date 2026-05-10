@@ -1,0 +1,59 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: DINO/configs/model_variants.yaml
+# Descripción: Definición técnica de las variantes de DINO.
+#              Incluye hiperparámetros de Deformable Attention y CDN.
+# ==============================================================
+
+shared_transformer_params: &shared_transformer
+  hidden_dim: 256
+  nheads: 8
+  enc_layers: 6
+  dec_layers: 6
+  dim_feedforward: 2048
+  dropout: 0.0
+  num_queries: 900
+  position_embedding: "sine"
+  pre_norm: false
+  # --- DINO Specifics ---
+  use_dn: true
+  dn_number: 100
+  dn_box_noise_scale: 0.4
+  dn_label_noise_ratio: 0.5
+  two_stage_type: "standard"
+  enc_n_points: 4
+  dec_n_points: 4
+  use_deformable_box_attn: false
+  box_attn_type: "roi_align"
+  decoder_sa_type: "sa"
+
+variants:
+  r50_4scale:
+    description: "DINO base con backbone ResNet-50 y 4 escalas de características."
+    backbone: "resnet50"
+    dilation: false
+    num_feature_levels: 4
+    return_interm_indices: [1, 2, 3]
+    <<: *shared_transformer
+
+  r50_5scale:
+    description: "DINO con backbone ResNet-50 y 5 escalas (Optimizado para objetos pequeños)."
+    backbone: "resnet50"
+    dilation: false
+    num_feature_levels: 5
+    return_interm_indices: [0, 1, 2, 3]
+    <<: *shared_transformer
+
+  swin_l_4scale:
+    description: "DINO con backbone Swin-L y 4 escalas (State-of-the-Art)."
+    backbone: "swin_L_384_22k"
+    dilation: false
+    num_feature_levels: 4
+    return_interm_indices: [1, 2, 3]
+    use_checkpoint: true
+    <<: *shared_transformer
