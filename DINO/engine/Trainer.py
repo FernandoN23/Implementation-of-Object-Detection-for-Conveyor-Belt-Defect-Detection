@@ -188,8 +188,12 @@ class Trainer:
             yaml.dump(new_hyp, f, default_flow_style=False, sort_keys=False)
 
     def _maybe_download_weights(self):
+        if not self.cfg.pretrain_weights:
+            return
+
         w_path = Path(self.cfg.pretrain_weights)
-        if not w_path.exists() and self.cfg.pretrain_weights != "":
+        # [MODIFICADO]: Usar is_file() en lugar de exists()
+        if not w_path.is_file():
             variant = self.cfg.variant
             if variant in DINO_URLS:
                 print(f"[Trainer] Descargando pesos oficiales para '{variant}'...")
@@ -206,9 +210,10 @@ class Trainer:
 
         model, criterion, postprocessors = build_model(dino_args)
 
-        if not self.cfg.resume:
+        if not self.cfg.resume and self.cfg.pretrain_weights:
             w_path = Path(self.cfg.pretrain_weights)
-            if w_path.exists():
+            # [MODIFICADO]: Usar is_file() en lugar de exists()
+            if w_path.is_file():
                 print(f"[Trainer] Cargando pesos pre-entrenados desde {w_path}")
                 checkpoint = torch.load(w_path, map_location='cpu', weights_only=False)
                 # Limpiar state_dict para evitar conflictos con el número de clases

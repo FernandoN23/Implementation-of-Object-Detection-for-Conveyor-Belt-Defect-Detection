@@ -42,6 +42,10 @@ bn2gn:
   verbose: 1
 
 presets:
+  # ==========================================================
+  # Presets de Validación Final
+  # ==========================================================
+
   dino_r50_4scale:
     description: "Validación del modelo DINO R50 4-Scale entrenado."
     overrides:
@@ -49,7 +53,16 @@ presets:
         variant: "r50_4scale"
         run_name: "dino_r50_4s_belt"
         weights: ""
-        batch_size: 8
+        batch_size: 16
+
+  dino_r50_4scale_b4:
+    description: "Validación del modelo DINO R50 4-Scale (batch 4) entrenado."
+    overrides:
+      validation:
+        variant: "r50_4scale"
+        run_name: "dino_r50_4s_belt_batch_4"
+        weights: ""
+        batch_size: 16
 
   dino_r50_5scale:
     description: "Validación del modelo DINO R50 5-Scale entrenado."
@@ -58,7 +71,20 @@ presets:
         variant: "r50_5scale"
         run_name: "dino_r50_5s_belt"
         weights: ""
-        batch_size: 4
+        batch_size: 16
+
+  dino_r50_5scale_b4:
+    description: "Validación del modelo DINO R50 5-Scale (batch 4) entrenado."
+    overrides:
+      validation:
+        variant: "r50_5scale"
+        run_name: "dino_r50_5s_belt_batch_4"
+        weights: ""
+        batch_size: 16
+
+  # ==========================================================
+  # Presets de Validación de Pruebas (COCO)
+  # ==========================================================
 
   coco_r50_4scale_test:
     description: "Validación de la prueba DINO R50 4-Scale en COCO."

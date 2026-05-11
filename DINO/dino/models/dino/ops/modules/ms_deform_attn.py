@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------------------------
 # Deformable DETR
 # Copyright (c) 2020 SenseTime. All Rights Reserved.
-# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
+# Licensed under the Apache License, Version 2.0[see LICENSE for details]
 # ------------------------------------------------------------------------------------------------
 # Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
 # ------------------------------------------------------------------------------------------------
@@ -18,7 +18,8 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_, constant_
 
-from ..functions import MSDeformAttnFunction
+# [MODIFICADO]: Importamos la función de PyTorch puro en lugar de la compilada en C++
+from ..functions.ms_deform_attn_func import ms_deform_attn_core_pytorch
 
 
 def _is_power_of_2(n):
@@ -78,11 +79,11 @@ class MSDeformAttn(nn.Module):
     def forward(self, query, reference_points, input_flatten, input_spatial_shapes, input_level_start_index, input_padding_mask=None):
         """
         :param query                       (N, Length_{query}, C)
-        :param reference_points            (N, Length_{query}, n_levels, 2), range in [0, 1], top-left (0,0), bottom-right (1, 1), including padding area
+        :param reference_points            (N, Length_{query}, n_levels, 2), range in[0, 1], top-left (0,0), bottom-right (1, 1), including padding area
                                         or (N, Length_{query}, n_levels, 4), add additional (w, h) to form reference boxes
         :param input_flatten               (N, \sum_{l=0}^{L-1} H_l \cdot W_l, C)
-        :param input_spatial_shapes        (n_levels, 2), [(H_0, W_0), (H_1, W_1), ..., (H_{L-1}, W_{L-1})]
-        :param input_level_start_index     (n_levels, ), [0, H_0*W_0, H_0*W_0+H_1*W_1, H_0*W_0+H_1*W_1+H_2*W_2, ..., H_0*W_0+H_1*W_1+...+H_{L-1}*W_{L-1}]
+        :param input_spatial_shapes        (n_levels, 2),[(H_0, W_0), (H_1, W_1), ..., (H_{L-1}, W_{L-1})]
+        :param input_level_start_index     (n_levels, ),[0, H_0*W_0, H_0*W_0+H_1*W_1, H_0*W_0+H_1*W_1+H_2*W_2, ..., H_0*W_0+H_1*W_1+...+H_{L-1}*W_{L-1}]
         :param input_padding_mask          (N, \sum_{l=0}^{L-1} H_l \cdot W_l), True for padding elements, False for non-padding elements
 
         :return output                     (N, Length_{query}, C)
@@ -110,17 +111,19 @@ class MSDeformAttn(nn.Module):
             raise ValueError(
                 'Last dim of reference_points must be 2 or 4, but get {} instead.'.format(reference_points.shape[-1]))
 
-        # for amp
+        # [MODIFICADO]: Llamada a la función de PyTorch puro (ms_deform_attn_core_pytorch)
+        # Nota: Esta función no requiere 'input_level_start_index' ni 'im2col_step'
         if value.dtype == torch.float16:
             # for mixed precision
-            output = MSDeformAttnFunction.apply(
-            value.to(torch.float32), input_spatial_shapes, input_level_start_index, sampling_locations.to(torch.float32), attention_weights, self.im2col_step)
+            output = ms_deform_attn_core_pytorch(
+                value.to(torch.float32), input_spatial_shapes, sampling_locations.to(torch.float32), attention_weights
+            )
             output = output.to(torch.float16)
             output = self.output_proj(output)
             return output
 
-
-        output = MSDeformAttnFunction.apply(
-            value, input_spatial_shapes, input_level_start_index, sampling_locations, attention_weights, self.im2col_step)
+        output = ms_deform_attn_core_pytorch(
+            value, input_spatial_shapes, sampling_locations, attention_weights
+        )
         output = self.output_proj(output)
         return output

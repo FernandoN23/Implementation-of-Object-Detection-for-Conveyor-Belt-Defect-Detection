@@ -15,7 +15,6 @@ import sys
 import os
 from pathlib import Path
 
-# --- CONFIGURACIÓN DE ENTORNO ROCm/MIOPEN ---
 FILE = Path(__file__).resolve()
 DINO_ROOT = FILE.parent
 if str(DINO_ROOT) not in sys.path:
@@ -35,10 +34,51 @@ COCO_CLASSES = [
     'hair drier', 'toothbrush'
 ]
 
+DINO_DEFAULTS = {
+    'query_dim': 4,
+    'unic_layers': 0,
+    'decoder_layer_noise': False,
+    'dln_xy_noise': 0.2,
+    'dln_hw_noise': 0.2,
+    'add_channel_attention': False,
+    'add_pos_value': False,
+    'random_refpoints_xy': False,
+    'two_stage_type': 'standard',
+    'two_stage_pat_embed': 0,
+    'two_stage_add_query_num': 0,
+    'two_stage_learn_wh': False,
+    'two_stage_keep_all_tokens': False,
+    'dec_layer_number': None,
+    'decoder_sa_type': 'sa',
+    'decoder_module_seq':['sa', 'ca', 'ffn'],
+    'embed_init_tgt': True,
+    'use_detached_boxes_dec_out': False,
+    'transformer_activation': 'relu',
+    'num_patterns': 0,
+    'dec_pred_class_embed_share': True,
+    'dec_pred_bbox_embed_share': True,
+    'two_stage_bbox_embed_share': False,
+    'two_stage_class_embed_share': False,
+    'use_deformable_box_attn': False,
+    'box_attn_type': 'roi_align',
+    'match_unstable_error': True,
+    'fix_refpoints_hw': -1,
+    'use_dn': True,
+    'dn_number': 100,
+    'dn_box_noise_scale': 0.4,
+    'dn_label_noise_ratio': 0.5,
+    'matcher_type': 'HungarianMatcher',
+    'num_select': 300,
+    'nms_iou_threshold': -1,
+    'interm_loss_coef': 1.0,
+    'no_interm_box_loss': False,
+    'pe_temperatureH': 20,
+    'pe_temperatureW': 20,
+    'backbone_freeze_keywords': None,
+}
+
 
 class Dict2Obj:
-    """Convierte un diccionario en un objeto para inicialización segura de DINO."""
-
     def __init__(self, dictionary):
         for key, value in dictionary.items():
             if isinstance(value, dict):
@@ -60,16 +100,13 @@ def main():
     parser = argparse.ArgumentParser(description="DINO Training CLI - Belt Defects")
     parser.add_argument("--cfg-train", type=str, default="DINO/configs/train.yaml")
     parser.add_argument("--preset", type=str, default=None)
-    parser.add_argument("--resume", nargs="?", const=True, default=None,
-                        help="Reanudar entrenamiento.")
+    parser.add_argument("--resume", nargs="?", const=True, default=None, help="Reanudar entrenamiento.")
     args = parser.parse_args()
 
-    # 1. Cargar configuraciones
     train_cfg = load_yaml(args.cfg_train)
     dataset_cfg = load_yaml(train_cfg['paths']['dataset_cfg'])
     variants_cfg = load_yaml(train_cfg['paths']['variants_cfg'])
 
-    # 2. Aplicar Overrides de Preset
     if args.preset:
         if args.preset in train_cfg.get('presets', {}):
             overrides = train_cfg['presets'][args.preset].get('overrides', {})
@@ -86,7 +123,6 @@ def main():
         dataset_cfg['nc'] = 80
         dataset_cfg['names'] = {i: name for i, name in enumerate(COCO_CLASSES)}
 
-    # 3. Bootstrap MIOpen y Hardware
     mi_cfg = train_cfg['miopen']
     hw_cfg = train_cfg['hardware']
     bootstrap(MIOpenConfig(
@@ -97,19 +133,17 @@ def main():
         verbose=mi_cfg['verbose']
     ))
 
-    # --- INICIALIZACIÓN DE MOTOR ---
     from engine.warnings import install_global_warning_filters
     from engine.Trainer import Trainer, TrainerConfig
-
     install_global_warning_filters()
 
-    # 4. Preparar argumentos del modelo
     v_name = train_cfg['training']['variant']
     v_params = variants_cfg['variants'][v_name]
 
-    base_args = v_params.copy()
+    # [MODIFICADO]: Inyectamos los defaults de DINO antes de los parámetros del YAML
+    base_args = DINO_DEFAULTS.copy()
+    base_args.update(v_params)
 
-    # Extraer coeficientes de pérdida y configuraciones específicas de DINO
     for k in ['bbox_loss_coef', 'giou_loss_coef', 'cls_loss_coef', 'focal_alpha', 'aux_loss', 'lr_backbone']:
         if k in train_cfg['training']:
             base_args[k] = train_cfg['training'][k]
@@ -122,12 +156,13 @@ def main():
     base_args['dataset_file'] = 'coco'
     base_args['device'] = train_cfg['training']['device']
     base_args['num_classes'] = dataset_cfg['nc']
+    base_args['dn_labelbook_size'] = dataset_cfg['nc']
 
     model_args = Dict2Obj(base_args)
-
     resume_val = args.resume if args.resume is not None else train_cfg['training'].get('resume', False)
+    pw_raw = train_cfg['training'].get('pretrain_weights', "")
+    pw_resolved = str(Path(pw_raw).resolve()) if pw_raw else ""
 
-    # 5. Instanciar TrainerConfig
     cfg = TrainerConfig(
         variant=v_name,
         run_name=train_cfg['training']['run_name'],
@@ -139,7 +174,7 @@ def main():
         lr_drop=train_cfg['training']['lr_drop'],
         lr_gamma=train_cfg['training'].get('lr_gamma', 0.1),
         clip_max_norm=train_cfg['training']['clip_max_norm'],
-        pretrain_weights=str(Path(train_cfg['training']['pretrain_weights']).resolve()),
+        pretrain_weights=pw_resolved,
         nc=dataset_cfg['nc'],
         class_names=list(dataset_cfg['names'].values()),
         device=model_args.device,
@@ -154,7 +189,6 @@ def main():
         ema_decay=train_cfg['training'].get('ema_decay', 0.9997)
     )
 
-    # 6. Ejecutar Entrenamiento
     trainer = Trainer(cfg)
     trainer.fit()
 

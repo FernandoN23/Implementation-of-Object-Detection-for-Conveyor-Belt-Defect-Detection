@@ -8,6 +8,7 @@
 # Archivo: DINO/engine/bootstrap_miopen.py
 # Descripción: Inicialización de variables de entorno MIOpen/ROCm.
 #              Incluye optimización de memoria para evitar OOM.
+#              *VERSIÓN PYTORCH PURO: Sin compilación C++*
 # ==============================================================
 
 import os
@@ -69,3 +70,4 @@ def bootstrap(cfg: MIOpenConfig):
     if cfg.verbose > 0:
         print(f"[bootstrap_miopen] MIOpen configurado: FIND_MODE={cfg.find_mode}, "
               f"EXPANDABLE_SEGMENTS={cfg.expandable_segments}")
+        print(f"[bootstrap_miopen] INFO: Usando backend de PyTorch puro para Deformable Attention.")
