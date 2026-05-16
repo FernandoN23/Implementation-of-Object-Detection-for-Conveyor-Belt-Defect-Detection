@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: dataset.yaml
+# Archivo: YOLO/configs/dataset.yaml
 # Configuración del dataset utilizado por los modelos YOLO.
 # Define rutas, clases y nombres de defectos detectados.
 # ==============================================================

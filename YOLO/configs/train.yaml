@@ -180,7 +180,7 @@ presets:
       training:
         run_name: "yolov5_n"
         variant: "n"
-        epochs: 200
+        epochs: 300
         batch_size: 16
         imgsz: 640
         pretrain_weights: "YOLO/weights/yolov5n.pt"
@@ -196,7 +196,7 @@ presets:
       training:
         run_name: "yolov5_s"
         variant: "s"
-        epochs: 200
+        epochs: 300
         batch_size: 16
         imgsz: 640
         pretrain_weights: "YOLO/weights/yolov5s.pt"
@@ -212,7 +212,7 @@ presets:
       training:
         run_name: "yolov5_m"
         variant: "m"
-        epochs: 200
+        epochs: 300
         batch_size: 16
         imgsz: 640
         pretrain_weights: "YOLO/weights/yolov5m.pt"
@@ -228,7 +228,7 @@ presets:
       training:
         run_name: "yolov5_l"
         variant: "l"
-        epochs: 200
+        epochs: 300
         batch_size: 16
         imgsz: 640
         pretrain_weights: "YOLO/weights/yolov5l.pt"
@@ -244,7 +244,7 @@ presets:
       training:
         run_name: "yolov5_x"
         variant: "x"
-        epochs: 200
+        epochs: 300
         # Nota: Batch 16 en variante X consume mucha VRAM.
         # Ajustar si ocurre CUDA OOM.
         batch_size: 16

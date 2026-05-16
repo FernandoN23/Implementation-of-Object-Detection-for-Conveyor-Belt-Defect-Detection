@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: engine/warnings.py
+# Archivo: YOLO/engine/warnings.py
 # Descripción: Configuración centralizada de warnings y mensajes
 #              de logging ruidosos del proyecto.
 #              - Filtra avisos cosméticos (pin_memory, AMP).

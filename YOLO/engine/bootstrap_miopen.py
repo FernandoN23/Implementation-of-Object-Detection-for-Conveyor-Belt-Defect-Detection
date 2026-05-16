@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: engine/bootstrap_miopen.py
+# Archivo: YOLO/engine/bootstrap_miopen.py
 # Descripción: Inicialización temprana de variables y paths MIOpen/ROCm
 #              (debe ejecutarse ANTES de importar torch) y utilidades
 #              de verificación/log para entornos Windows ROCm Preview.
