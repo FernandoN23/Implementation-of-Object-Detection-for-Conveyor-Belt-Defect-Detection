@@ -1,4 +1,4 @@
-# ==============================================================
+  # ==============================================================
 # Departamento de Ingeniería Mecánica - Universidad de Chile
 # Trabajo de Memoria de Título:
 # "Implementación de algoritmos de reconocimiento de objetos
@@ -11,8 +11,7 @@
 # ==============================================================
 
 # Raíz del dataset
-path: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
-
+path: C:/Users/memorista/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Dataset
 # Rutas relativas a 'path'
 train: train/images
 val:   valid/images

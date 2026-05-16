@@ -1,6 +1,6 @@
-weights: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\YOLO\runs\detect\s\train\yolov5_s\weights\last.pt
+weights: C:\Users\memorista\Desktop\Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection\YOLO\runs\detect\s\train\yolov5_s\weights\last.pt
 cfg: ''
-data: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\YOLO\configs\dataset.yaml
+data: C:\Users\memorista\Desktop\Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection\YOLO\configs\dataset.yaml
 hyp:
   lr0: 0.01
   lrf: 0.01
