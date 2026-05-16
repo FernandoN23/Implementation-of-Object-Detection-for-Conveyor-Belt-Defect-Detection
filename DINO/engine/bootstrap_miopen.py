@@ -8,7 +8,7 @@
 # Archivo: DINO/engine/bootstrap_miopen.py
 # Descripción: Inicialización de variables de entorno MIOpen/ROCm.
 #              Incluye optimización de memoria para evitar OOM.
-#              *VERSIÓN PYTORCH PURO: Sin compilación C++*
+#              *VERSIÓN SEGURA PARA WINDOWS*
 # ==============================================================
 
 import os
@@ -28,17 +28,19 @@ class MIOpenConfig:
 
 
 class MuteStderr:
-    """Context manager para silenciar stderr a nivel de descriptor de archivo (C++ noise)."""
+    """
+    Context manager seguro para silenciar stderr en Windows.
+    [MODIFICADO]: Evita el uso de os.dup() que causa crashes silenciosos
+    al interactuar con el DataLoader en entornos Windows/ROCm.
+    """
     def __enter__(self):
-        self._original_stderr_fd = sys.stderr.fileno()
-        self._saved_stderr_fd = os.dup(self._original_stderr_fd)
-        self._devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(self._devnull, self._original_stderr_fd)
+        self._devnull = open(os.devnull, 'w')
+        self._old_stderr = sys.stderr
+        sys.stderr = self._devnull
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        os.dup2(self._saved_stderr_fd, self._original_stderr_fd)
-        os.close(self._saved_stderr_fd)
-        os.close(self._devnull)
+        sys.stderr = self._old_stderr
+        self._devnull.close()
 
 
 def bootstrap(cfg: MIOpenConfig):

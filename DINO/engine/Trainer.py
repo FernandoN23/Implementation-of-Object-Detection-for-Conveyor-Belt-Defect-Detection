@@ -9,6 +9,7 @@
 # Descripción: Orquestador de entrenamiento para DINO.
 #              Optimizado con backend 'Agg', limpieza de caché,
 #              AMP, ModelEma y Contrastive DeNoising (CDN).
+#              *CORREGIDO: EMA dinámico y protección NaN*
 # ==============================================================
 
 import os
@@ -73,7 +74,6 @@ class Dict2Obj:
                 setattr(self, key, value)
 
     def __getattr__(self, name):
-        # Retorna None si DINO pide un argumento que no definimos en el YAML (evita crashes)
         return None
 
 
@@ -146,7 +146,10 @@ class Trainer:
         self._check_and_save_hyp()
 
         self.model, self.criterion, self.postprocessors = self._setup_model()
-        self.ema_m = ModelEma(self.model, self.cfg.ema_decay)
+
+        # [MODIFICADO]: Ajuste dinámico del EMA para datasets pequeños
+        self.current_ema_decay = 0.90 if self.cfg.use_coco128 else self.cfg.ema_decay
+        self.ema_m = ModelEma(self.model, self.current_ema_decay)
 
         self.optimizer, self.lr_scheduler = self._setup_optimizer()
         self.validator = Validator(self.model, self.criterion, self.postprocessors, self.device)
@@ -192,7 +195,6 @@ class Trainer:
             return
 
         w_path = Path(self.cfg.pretrain_weights)
-        # [MODIFICADO]: Usar is_file() en lugar de exists()
         if not w_path.is_file():
             variant = self.cfg.variant
             if variant in DINO_URLS:
@@ -203,7 +205,6 @@ class Trainer:
     def _setup_model(self):
         self._maybe_download_weights()
 
-        # Convertir el diccionario de argumentos a un objeto para DINO
         dino_args = Dict2Obj(vars(self.cfg.model_args))
         dino_args.device = self.cfg.device
         dino_args.num_classes = self.cfg.nc
@@ -212,11 +213,9 @@ class Trainer:
 
         if not self.cfg.resume and self.cfg.pretrain_weights:
             w_path = Path(self.cfg.pretrain_weights)
-            # [MODIFICADO]: Usar is_file() en lugar de exists()
             if w_path.is_file():
                 print(f"[Trainer] Cargando pesos pre-entrenados desde {w_path}")
                 checkpoint = torch.load(w_path, map_location='cpu', weights_only=False)
-                # Limpiar state_dict para evitar conflictos con el número de clases
                 state_dict = checkpoint['model']
                 state_dict = {k: v for k, v in state_dict.items() if 'class_embed' not in k and 'label_enc' not in k}
                 model.load_state_dict(state_dict, strict=False)
@@ -229,7 +228,6 @@ class Trainer:
         return model, criterion, postprocessors
 
     def _setup_optimizer(self):
-        # Usar el gestor de parámetros oficial de DINO
         dino_args = Dict2Obj({
             'param_dict_type': 'default',
             'lr_backbone': self.cfg.lr_backbone,
@@ -427,16 +425,18 @@ class Trainer:
 
                 self.optimizer.zero_grad()
 
-                # Forward Pass con AMP y Targets (Requerido para Contrastive DeNoising)
                 with torch.autocast(device_type=self.device.type, enabled=self.cfg.use_amp):
                     outputs = self.model(samples, targets)
                     loss_dict = self.criterion(outputs, targets)
                     weight_dict = self.criterion.weight_dict
                     losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
-                if not math.isfinite(losses.item()): continue
+                # [MODIFICADO]: Protección contra NaNs en AMP (ROCm)
+                if not math.isfinite(losses.item()):
+                    print(f"[Trainer] ADVERTENCIA: Pérdida NaN/Inf detectada en batch {i}. Saltando actualización.")
+                    self.optimizer.zero_grad()
+                    continue
 
-                # Backward Pass y Step con GradScaler
                 self.scaler.scale(losses).backward()
 
                 if self.cfg.clip_max_norm > 0:
@@ -446,10 +446,8 @@ class Trainer:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
 
-                # Actualizar pesos EMA
                 self.ema_m.update(self.model)
 
-                # Registrar estadísticas
                 stats["loss"] += losses.item()
                 for k in ["loss_ce", "loss_bbox", "loss_giou", "loss_ce_dn", "loss_bbox_dn", "loss_giou_dn"]:
                     if k in loss_dict: stats[k] += loss_dict[k].item()

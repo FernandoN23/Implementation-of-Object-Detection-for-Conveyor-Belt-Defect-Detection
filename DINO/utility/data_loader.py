@@ -1,4 +1,4 @@
-# ==============================================================
+    # ==============================================================
 # Departamento de Ingeniería Mecánica - Universidad de Chile
 # Trabajo de Memoria de Título:
 # "Implementación de algoritmos de reconocimiento de objetos
@@ -52,7 +52,6 @@ def download_coco128(target_dir: Path):
 
     print(f"[data_loader] Descargando COCO128 en {target_dir}...")
 
-    # Asegurar que el directorio padre (runs/data) exista
     parent_dir = target_dir.parent
     parent_dir.mkdir(parents=True, exist_ok=True)
 
@@ -63,7 +62,6 @@ def download_coco128(target_dir: Path):
 
     print(f"[data_loader] Extrayendo COCO128...")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        # Extraer directamente en runs/data. El ZIP ya contiene la carpeta 'coco128'
         zip_ref.extractall(parent_dir)
 
     zip_path.unlink(missing_ok=True)
@@ -78,9 +76,7 @@ class YoloToDinoDataset(Dataset):
         self.use_coco128 = use_coco128
         self.class_names = class_names or[]
 
-        # Enrutamiento dinámico para COCO128
         if self.use_coco128:
-            # COCO128 no tiene partición 'valid' separada, usa la misma carpeta para todo
             split_dir = self.dataset_path
         else:
             split_dir = self.dataset_path / image_set
@@ -102,7 +98,7 @@ class YoloToDinoDataset(Dataset):
     def _build_coco_api(self):
         """Construye un objeto COCO en memoria a partir de los .txt de YOLO."""
         print(f"[data_loader] Aplicando adaptador de etiquetas DINO (.json)")
-        coco_data = {"images": [], "annotations": [], "categories":[]}
+        coco_data = {"images":[], "annotations": [], "categories":[]}
 
         for i, cat in enumerate(self.class_names):
             coco_data["categories"].append({"id": i, "name": cat})
@@ -175,8 +171,7 @@ class YoloToDinoDataset(Dataset):
             "boxes": boxes,
             "labels": labels,
             "image_id": torch.tensor([idx]),
-            "area": (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]) if len(boxes) > 0 else torch.tensor(
-                [0.0]),
+            "area": (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]) if len(boxes) > 0 else torch.tensor([0.0]),
             "iscrowd": torch.zeros((len(labels),), dtype=torch.int64),
             "orig_size": torch.as_tensor([int(h), int(w)]),
             "size": torch.as_tensor([int(h), int(w)])
@@ -198,6 +193,11 @@ def dino_collate_fn(batch):
 def build_dataloader(image_set, batch_size, num_workers=4, use_coco128=False, class_names=None):
     transform_set = "val" if image_set == "valid" else image_set
     transforms = make_coco_transforms(transform_set)
+
+    # [MODIFICADO]: Seguro contra bloqueos de multiprocesamiento en Windows
+    if os.name == 'nt' and num_workers > 0:
+        print(f"[data_loader] Windows detectado: Forzando num_workers=0 para evitar bloqueos de memoria compartida.")
+        num_workers = 0
 
     if use_coco128:
         dataset_path = DINO_ROOT / "runs" / "data" / "coco128"
