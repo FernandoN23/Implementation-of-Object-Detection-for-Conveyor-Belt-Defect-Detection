@@ -79,7 +79,7 @@ training:
   cos_lr: false         # usar cosine LR scheduler
   optimizer: "SGD"      # SGD | Adam | AdamW (mapeado a smart_optimizer)
   label_smoothing: 0.0
-  patience: 50          # EarlyStopping patience (epochs)
+  patience: 0          # EarlyStopping patience (epochs)
   save_period: -1       # guardar epochX cada N epochs (desactivado si < 1)
   seed: 0               # semilla global
 

@@ -260,6 +260,7 @@ def _build_trainer_config(
     # Logging y guardado
     # ---------------------------
     save_period = int(training.get("save_period", -1))
+    patience = int(training.get("patience", 50))
     ndjson_console = bool(training.get("ndjson_console", False))
     ndjson_file = bool(training.get("ndjson_file", False))
 
@@ -305,6 +306,7 @@ def _build_trainer_config(
         workers=workers,
         device=device,
         save_period=save_period,
+        patience=patience,
         seed=seed,
         exist_ok=exist_ok,
         resume=resume,

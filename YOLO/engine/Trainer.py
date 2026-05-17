@@ -205,6 +205,7 @@ class TrainerConfig:
     save_period: int = -1  # guarda epoch-k si > 0
     seed: int = 0
     exist_ok: bool = False  # reutilizar carpeta si existe
+    patience: int = 50
 
     # Reanudación de entrenamiento
     resume: bool | str = False  # False, True (auto), o ruta explícita
@@ -455,7 +456,7 @@ class Trainer:
             quad=False,
             cos_lr=False,
             label_smoothing=0.0,
-            patience=50,
+            patience=self.cfg.patience,
             freeze=[0],
             save_period=self.cfg.save_period,
             seed=self.cfg.seed,
