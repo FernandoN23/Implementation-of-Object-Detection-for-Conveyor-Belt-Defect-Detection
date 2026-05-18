@@ -21,6 +21,7 @@ import random
 import subprocess
 import sys
 import time
+import contextlib
 from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -88,9 +89,11 @@ from ultralytics.utils.patches import torch_load
 # símbolos quedan en None y el entrenamiento continúa sin aplicar el parche.
 try:  # pragma: no cover - integración dependiente del entorno del proyecto
     from engine.bn2gn_patch import apply_bn2gn_patch, BN2GNConfig  # type: ignore
+    from engine.bootstrap_miopen import MuteStderr
 except Exception:  # pragma: no cover
     apply_bn2gn_patch = None  # type: ignore
     BN2GNConfig = None  # type: ignore
+    MuteStderr = contextlib.nullcontext
 
 # -------- Proyecto Warnings: integración con engine/warnings --------
 try:  # pragma: no cover - integración opcional con el orquestador externo
@@ -303,7 +306,8 @@ def train(hyp, opt, device, callbacks):
         setattr(model, "_bn2gn_policy", cfg_bn2gn.policy)
         # ------------------------------------------------------------------------
 
-    amp = check_amp(model)  # check AMP
+    with MuteStderr():
+        amp = check_amp(model)  # check AMP
 
     # Freeze
     freeze = [f"model.{x}." for x in (freeze if len(freeze) > 1 else range(freeze[0]))]  # layers to freeze
@@ -405,7 +409,8 @@ def train(hyp, opt, device, callbacks):
 
         if not resume:
             if not opt.noautoanchor:
-                check_anchors(dataset, model=model, thr=hyp["anchor_t"], imgsz=imgsz)  # run AutoAnchor
+                with MuteStderr():
+                    check_anchors(dataset, model=model, thr=hyp["anchor_t"], imgsz=imgsz)  # run AutoAnchor
             model.half().float()  # pre-reduce anchor precision
 
         callbacks.run("on_pretrain_routine_end", labels, names)
@@ -471,39 +476,48 @@ def train(hyp, opt, device, callbacks):
         for i, (imgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
             callbacks.run("on_train_batch_start")
             ni = i + nb * epoch  # number integrated batches (since train start)
-            imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
-            # Warmup
-            if ni <= nw:
-                xi = [0, nw]  # x interp
-                # compute_loss.gr = np.interp(ni, xi, [0.0, 1.0])  # iou loss ratio (obj_loss = 1.0 or iou)
-                accumulate = max(1, np.interp(ni, xi, [1, nbs / batch_size]).round())
-                for j, x in enumerate(optimizer.param_groups):
-                    # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                    x["lr"] = np.interp(ni, xi, [hyp["warmup_bias_lr"] if j == 0 else 0.0, x["initial_lr"] * lf(epoch)])
-                    if "momentum" in x:
-                        x["momentum"] = np.interp(ni, xi, [hyp["warmup_momentum"], hyp["momentum"]])
+            # --- INICIO DEL BLOQUE SILENCIADO PARA EL PRIMER BATCH ---
+            # i == 0 (primer batch de la época) y epoch == start_epoch (primera época de esta ejecución)
+            mute_cond = (i == 0 or i == nb - 1) and (epoch == start_epoch)
+            context_manager = MuteStderr() if mute_cond else contextlib.nullcontext()
+            with context_manager:
+                imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
-            # Multi-scale
-            if opt.multi_scale:
-                sz = random.randrange(int(imgsz * 0.5), int(imgsz * 1.5) + gs) // gs * gs  # size
-                sf = sz / max(imgs.shape[2:])  # scale factor
-                if sf != 1:
-                    ns = [math.ceil(x * sf / gs) * gs for x in imgs.shape[2:]]  # new shape (stretched to gs-multiple)
-                    imgs = nn.functional.interpolate(imgs, size=ns, mode="bilinear", align_corners=False)
+                # Warmup
+                if ni <= nw:
+                    xi = [0, nw]  # x interp
+                    # compute_loss.gr = np.interp(ni, xi, [0.0, 1.0])  # iou loss ratio (obj_loss = 1.0 or iou)
+                    accumulate = max(1, np.interp(ni, xi, [1, nbs / batch_size]).round())
+                    for j, x in enumerate(optimizer.param_groups):
+                        # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
+                        x["lr"] = np.interp(ni, xi,
+                                            [hyp["warmup_bias_lr"] if j == 0 else 0.0, x["initial_lr"] * lf(epoch)])
+                        if "momentum" in x:
+                            x["momentum"] = np.interp(ni, xi, [hyp["warmup_momentum"], hyp["momentum"]])
 
-            # Forward
-            # -------- Proyecto AMP-migration: usar wrapper torch_amp_autocast unificado --------
-            with torch_amp_autocast(enabled=amp):
-                pred = model(imgs)  # forward
-                loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
-                if RANK != -1:
-                    loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
-                if opt.quad:
-                    loss *= 4.0
+                # Multi-scale
+                if opt.multi_scale:
+                    sz = random.randrange(int(imgsz * 0.5), int(imgsz * 1.5) + gs) // gs * gs  # size
+                    sf = sz / max(imgs.shape[2:])  # scale factor
+                    if sf != 1:
+                        ns = [math.ceil(x * sf / gs) * gs for x in
+                              imgs.shape[2:]]  # new shape (stretched to gs-multiple)
+                        imgs = nn.functional.interpolate(imgs, size=ns, mode="bilinear", align_corners=False)
 
-            # Backward
-            scaler.scale(loss).backward()
+                # Forward
+                # -------- Proyecto AMP-migration: usar wrapper torch_amp_autocast unificado --------
+                with torch_amp_autocast(enabled=amp):
+                    pred = model(imgs)  # forward
+                    loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
+                    if RANK != -1:
+                        loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
+                    if opt.quad:
+                        loss *= 4.0
+
+                # Backward
+                scaler.scale(loss).backward()
+            # --- FIN DEL BLOQUE SILENCIADO ---
 
             # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
             if ni - last_opt_step >= accumulate:
