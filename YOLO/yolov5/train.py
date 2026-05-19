@@ -409,8 +409,7 @@ def train(hyp, opt, device, callbacks):
 
         if not resume:
             if not opt.noautoanchor:
-                with MuteStderr():
-                    check_anchors(dataset, model=model, thr=hyp["anchor_t"], imgsz=imgsz)  # run AutoAnchor
+                check_anchors(dataset, model=model, thr=hyp["anchor_t"], imgsz=imgsz)  # run AutoAnchor
             model.half().float()  # pre-reduce anchor precision
 
         callbacks.run("on_pretrain_routine_end", labels, names)
@@ -445,6 +444,7 @@ def train(hyp, opt, device, callbacks):
     stopper, stop = EarlyStopping(patience=opt.patience), False
     compute_loss = ComputeLoss(model)  # init loss class
     callbacks.run("on_train_start")
+    _miopen_silenced_first_batch = False
     LOGGER.info(
         f"Image sizes {imgsz} train, {imgsz} val\n"
         f"Using {train_loader.num_workers * WORLD_SIZE} dataloader workers\n"
@@ -477,10 +477,11 @@ def train(hyp, opt, device, callbacks):
             callbacks.run("on_train_batch_start")
             ni = i + nb * epoch  # number integrated batches (since train start)
 
-            # --- INICIO DEL BLOQUE SILENCIADO PARA EL PRIMER BATCH ---
-            # i == 0 (primer batch de la época) y epoch == start_epoch (primera época de esta ejecución)
-            mute_cond = (i == 0 or i == nb - 1) and (epoch == start_epoch)
+            # --- INICIO DEL BLOQUE SILENCIADO ---
+            # Silenciamos los primeros 3 batches y el último batch de la primera época
+            mute_cond = (epoch == start_epoch) and (i < 3 or i == nb - 1)
             context_manager = MuteStderr() if mute_cond else contextlib.nullcontext()
+
             with context_manager:
                 imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
@@ -517,18 +518,18 @@ def train(hyp, opt, device, callbacks):
 
                 # Backward
                 scaler.scale(loss).backward()
-            # --- FIN DEL BLOQUE SILENCIADO ---
 
-            # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
-            if ni - last_opt_step >= accumulate:
-                scaler.unscale_(optimizer)  # unscale gradients
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                scaler.step(optimizer)  # optimizer.step
-                scaler.update()
-                optimizer.zero_grad()
-                if ema:
-                    ema.update(model)
-                last_opt_step = ni
+                # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
+                if ni - last_opt_step >= accumulate:
+                    scaler.unscale_(optimizer)  # unscale gradients
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                    scaler.step(optimizer)  # optimizer.step
+                    scaler.update()
+                    optimizer.zero_grad()
+                    if ema:
+                        ema.update(model)
+                    last_opt_step = ni
+            # --- FIN DEL BLOQUE SILENCIADO ---
 
             # Log
             if RANK in {-1, 0}:
