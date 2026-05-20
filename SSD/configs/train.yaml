@@ -42,7 +42,7 @@ presets:
 
     is_test: false
     dataset_backend: yolo
-    dataset_root: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
+    dataset_root: C:/Users/memorista/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Dataset
     yolo_sets:
       train: train/images
       val:   valid/images
@@ -56,12 +56,13 @@ presets:
     gamma: 0.1
 
     # Estrategia de Learning Rate (Base: 1 Epoch = 100 iters aprox)
-    lr_steps: [ 14000, 17000 ]
+    # Drops en época 140, 170 y 250.
+    lr_steps: [ 14000, 17000, 25000 ]
 
-    # Configuración de entrenamiento
+    # Configuración de entrenamiento (Extendido a 300 épocas)
     img_dim: 300
     batch_size: 16
-    max_iter: 20000
+    max_iter: 30000
     num_workers: 4
 
     device: ""
@@ -117,7 +118,7 @@ presets:
 
     is_test: false
     dataset_backend: yolo
-    dataset_root: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
+    dataset_root: C:/Users/memorista/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Dataset
     yolo_sets:
       train: train/images
       val: valid/images
@@ -130,13 +131,14 @@ presets:
     weight_decay: 0.0005
     gamma: 0.1
 
-    # Estrategia de Learning Rate
-    lr_steps: [ 14000, 17000 ]
+    # Estrategia de Learning Rate (Base: 1 Epoch = 100 iters aprox)
+    # Drops en época 140, 170 y 250.
+    lr_steps: [ 14000, 17000, 25000 ]
 
-    # Configuración de entrenamiento
+    # Configuración de entrenamiento (Extendido a 300 épocas)
     img_dim: 512
     batch_size: 16
-    max_iter: 20000
+    max_iter: 30000
     num_workers: 4
 
     device: ""
