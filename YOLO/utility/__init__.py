@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: YOLOv11/utility/__init__.py
+# Archivo: YOLOv/utility/__init__.py
 # Descripción: Inicializador del paquete `utility` para YOLOv11.
 #  Define la API pública de utilidades (data_loader, logger, losses,
 #  weights, etc.) y un mecanismo de importación perezosa (lazy) para

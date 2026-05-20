@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: clean_weights.py
+# Archivo: YOLO/utility/clean_weights.py
 # Descripción: Limpia pesos del modelo YOLOv5 adaptado para correas
 #              transportadoras, eliminando:
 #              (i) el checkpoint principal yolov5{variante}.pt en

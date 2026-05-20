@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: clean_runs.py
+# Archivo: YOLO/utility/clean_runs.py
 # Descripción: Limpia ejecuciones (runs) del modelo YOLOv5 adaptado,
 #              eliminando el contenido interno de:
 #              YOLO/runs/detect/{variante}/{carpeta}

@@ -54,6 +54,11 @@ YOLOV5_PARAMS_M = {
     "n": 1.9, "s": 7.2, "m": 21.2, "l": 46.5, "x": 86.7,
 }
 
+# GFLOPs aproximados de YOLOv5 (a imgsz=640)
+YOLOV5_GFLOPS = {
+    "n": 4.2, "s": 15.8, "m": 48.0, "l": 108.3, "x": 204.7,
+}
+
 # Paleta estándar para asignar colores únicos por experimento (run)
 STANDARD_PALETTE = [
     "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
@@ -309,7 +314,7 @@ class MergeManager:
             self._plot_comparative(keyword, f"Comparativa {title}", title, metrics_out / f"compare_{safe_name}.png",
                                    0.5)
 
-        self._plot_tradeoff(output_dir)
+        self._plot_tradeoffs(output_dir)
         self._save_summary_json(output_dir)
 
         print(f"[metrics.py] === Comparación Finalizada con Éxito en: {self.comparison_name} ===")
@@ -348,7 +353,8 @@ class MergeManager:
         plt.savefig(out_path, dpi=200)
         plt.close()
 
-    def _plot_tradeoff(self, output_dir: Path):
+    def _plot_tradeoffs(self, output_dir: Path):
+        """Genera gráficos de trade-off para Parámetros y GFLOPs."""
         data_points = []
         for label, (variant, df) in self.selected_runs.items():
             col = next((c for c in df.columns if "mAP_0.5:0.95" in c), None)
@@ -360,40 +366,55 @@ class MergeManager:
                 'label': label,
                 'variant': variant,
                 'params': YOLOV5_PARAMS_M.get(variant, 0),
+                'gflops': YOLOV5_GFLOPS.get(variant, 0),
                 'map': best_map,
                 'color': self.run_colors[label]
             })
 
         if not data_points: return
 
-        # Ordenar por parámetros para la línea continua
+        # --- Gráfico 1: Performance vs Parámetros ---
         data_points.sort(key=lambda x: x['params'])
+        self._render_scatter_plot(
+            data_points, 'params', "Parámetros (Millones)", "Best mAP@0.5:0.95",
+            "Trade-off: Performance vs Parámetros",
+            output_dir / "tradeoff_performance_params.png"
+        )
 
-        params = [d['params'] for d in data_points]
-        maps = [d['map'] for d in data_points]
+        # --- Gráfico 2: Performance vs GFLOPs ---
+        data_points.sort(key=lambda x: x['gflops'])
+        self._render_scatter_plot(
+            data_points, 'gflops', "GFLOPs (imgsz=640)", "Best mAP@0.5:0.95",
+            "Trade-off: Performance vs Costo Computacional (GFLOPs)",
+            output_dir / "tradeoff_performance_gflops.png"
+        )
+
+    def _render_scatter_plot(self, data_points, x_key, xlabel, ylabel, title, out_path):
+        """Función auxiliar para renderizar los gráficos de dispersión."""
+        x_vals = [d[x_key] for d in data_points]
+        y_vals = [d['map'] for d in data_points]
         colors = [d['color'] for d in data_points]
         labels = [d['label'] for d in data_points]
 
         plt.figure(figsize=(10, 6))
 
         # Dibujar línea de tendencia (solo si hay más de un punto)
-        if len(params) > 1:
-            plt.plot(params, maps, linestyle='--', color='#7f8c8d', alpha=0.6, zorder=1, linewidth=1.5)
+        if len(x_vals) > 1:
+            plt.plot(x_vals, y_vals, linestyle='--', color='#7f8c8d', alpha=0.6, zorder=1, linewidth=1.5)
 
         # Dibujar puntos
-        for i in range(len(params)):
-            plt.scatter(params[i], maps[i], color=colors[i], s=200, zorder=3, edgecolors='black', linewidth=1.2)
-            plt.annotate(f"  {labels[i]}", (params[i], maps[i]), xytext=(5, 5),
+        for i in range(len(x_vals)):
+            plt.scatter(x_vals[i], y_vals[i], color=colors[i], s=200, zorder=3, edgecolors='black', linewidth=1.2)
+            plt.annotate(f"  {labels[i]}", (x_vals[i], y_vals[i]), xytext=(5, 5),
                          textcoords='offset points', fontsize=9, fontweight='bold')
 
-        plt.xlabel("Parámetros (Millones)")
-        plt.ylabel("Best mAP@0.5:0.95")
-        plt.title("Trade-off: Performance vs Complejidad")
-
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
         plt.margins(0.15)
         plt.grid(True, linestyle='--', alpha=0.5)
         plt.tight_layout()
-        plt.savefig(output_dir / "tradeoff_performance_size.png", dpi=200)
+        plt.savefig(out_path, dpi=200)
         plt.close()
 
     def _save_summary_json(self, output_dir: Path):
@@ -408,7 +429,8 @@ class MergeManager:
                 "best_mAP_0.5": float(df[map50_col].max()) if map50_col else 0,
                 "best_mAP_0.5_0.95": float(df[map95_col].max()) if map95_col else 0,
                 "best_F1": float(df[f1_col].max()) if f1_col else 0,
-                "params_M": YOLOV5_PARAMS_M.get(variant, 0)
+                "params_M": YOLOV5_PARAMS_M.get(variant, 0),
+                "gflops": YOLOV5_GFLOPS.get(variant, 0)
             }
         with open(output_dir / "global_summary.json", "w") as f:
             json.dump(summary, f, indent=2)

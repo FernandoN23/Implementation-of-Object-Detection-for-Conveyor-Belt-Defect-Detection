@@ -24,6 +24,7 @@ import json
 import os
 import subprocess
 import sys
+import contextlib
 from pathlib import Path
 
 import numpy as np
@@ -43,9 +44,11 @@ from tqdm import tqdm
 # ---------------------------------------------------------------------------
 try:  # pragma: no cover - integración dependiente del entorno del proyecto
     from engine.bn2gn_patch import apply_bn2gn_patch, BN2GNConfig  # type: ignore
+    from engine.bootstrap_miopen import MuteStderr
 except Exception:  # pragma: no cover
     apply_bn2gn_patch = None  # type: ignore
     BN2GNConfig = None  # type: ignore
+    MuteStderr = contextlib.nullcontext
 
 try:  # pragma: no cover - integración opcional con el orquestador externo
     from engine.warnings import install_global_warning_filters  # type: ignore
@@ -392,30 +395,35 @@ def run(
     pbar = tqdm(dataloader, desc=s, bar_format=TQDM_BAR_FORMAT)  # progress bar
     for batch_i, (im, targets, paths, shapes) in enumerate(pbar):
         callbacks.run("on_val_batch_start")
-        with dt[0]:
-            if cuda:
-                im = im.to(device, non_blocking=True)
-                targets = targets.to(device)
-            im = im.half() if half else im.float()  # uint8 to fp16/32
-            im /= 255  # 0 - 255 to 0.0 - 1.0
-            nb, _, height, width = im.shape  # batch size, channels, height, width
 
-        # Inference
-        with dt[1]:
-            preds, train_out = model(im) if compute_loss else (model(im, augment=augment), None)
+        # --- INICIO DEL BLOQUE SILENCIADO PARA EL PRIMER BATCH ---
+        mute_cond = (batch_i == 0 or batch_i == len(dataloader) - 1)
+        context_manager = MuteStderr() if mute_cond else contextlib.nullcontext()
+        with context_manager:
+            with dt[0]:
+                if cuda:
+                    im = im.to(device, non_blocking=True)
+                    targets = targets.to(device)
+                im = im.half() if half else im.float()  # uint8 to fp16/32
+                im /= 255  # 0 - 255 to 0.0 - 1.0
+                nb, _, height, width = im.shape  # batch size, channels, height, width
 
-        # Loss
-        if compute_loss:
-            loss += compute_loss(train_out, targets)[1]  # box, obj, cls
+            # Inference
+            with dt[1]:
+                preds, train_out = model(im) if compute_loss else (model(im, augment=augment), None)
 
-        # NMS
-        targets[:, 2:] *= torch.tensor((width, height, width, height), device=device)  # to pixels
-        lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
-        with dt[2]:
-            preds = non_max_suppression(
-                preds, conf_thres, iou_thres, labels=lb, multi_label=True, agnostic=single_cls, max_det=max_det
-            )
+            # Loss
+            if compute_loss:
+                loss += compute_loss(train_out, targets)[1]  # box, obj, cls
 
+            # NMS
+            targets[:, 2:] *= torch.tensor((width, height, width, height), device=device)  # to pixels
+            lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
+            with dt[2]:
+                preds = non_max_suppression(
+                    preds, conf_thres, iou_thres, labels=lb, multi_label=True, agnostic=single_cls, max_det=max_det
+                )
+        # --- FIN DEL BLOQUE SILENCIADO ---
         # Metrics
         for si, pred in enumerate(preds):
             labels = targets[targets[:, 0] == si, 1:]

@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: clean_metrics.py
+# Archivo: YOLO/utility/clean_metrics.py
 # Descripción: Limpia métricas del modelo YOLOv5 adaptado para correas
 #              transportadoras, eliminando el contenido interno de:
 #              YOLO/metrics/detect/{variante}/{carpeta}

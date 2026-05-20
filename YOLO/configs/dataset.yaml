@@ -1,18 +1,17 @@
-# ==============================================================
+  # ==============================================================
 # Departamento de Ingeniería Mecánica - Universidad de Chile
 # Trabajo de Memoria de Título:
 # "Implementación de algoritmos de reconocimiento de objetos
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: dataset.yaml
+# Archivo: YOLO/configs/dataset.yaml
 # Configuración del dataset utilizado por los modelos YOLO.
 # Define rutas, clases y nombres de defectos detectados.
 # ==============================================================
 
 # Raíz del dataset
-path: C:/Users/memorista/Desktop/Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection/Dataset
-
+path: C:/Users/memorista/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Dataset
 # Rutas relativas a 'path'
 train: train/images
 val:   valid/images

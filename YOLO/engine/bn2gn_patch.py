@@ -5,7 +5,7 @@
 #  para la identificación de fallas en correas transportadoras"
 # Autor: Fernando N.
 # --------------------------------------------------------------
-# Archivo: engine/bn2gn_patch.py
+# Archivo: YOLO/engine/bn2gn_patch.py
 # Descripción: Política BatchNorm2d → GroupNorm para entornos ROCm.
 #              Modos: off | on | on_error. Incluye utilidades de
 #              sustitución segura, copia de parámetros y envoltorio

@@ -1,6 +1,6 @@
-weights: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\YOLO\runs\detect\s\train\yolov5_s\weights\last.pt
+weights: C:\Users\memorista\Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection\YOLO\runs\detect\s\train\yolov5_s\weights\last.pt
 cfg: ''
-data: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\YOLO\configs\dataset.yaml
+data: C:\Users\memorista\Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection\YOLO\configs\dataset.yaml
 hyp:
   lr0: 0.01
   lrf: 0.01
@@ -30,7 +30,7 @@ hyp:
   mosaic: 1.0
   mixup: 0.0
   copy_paste: 0.0
-epochs: 200
+epochs: 300
 batch_size: 16
 imgsz: 640
 rect: false
@@ -49,13 +49,13 @@ single_cls: false
 optimizer: SGD
 sync_bn: false
 workers: 4
-project: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\YOLO\runs\detect\s\train
+project: C:\Users\memorista\Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection\YOLO\runs\detect\s\train
 name: yolov5_s
 exist_ok: false
 quad: false
 cos_lr: false
 label_smoothing: 0.0
-patience: 50
+patience: 0
 freeze:
 - 0
 save_period: -1
@@ -71,4 +71,4 @@ bn2gn_policy: 'on'
 bn2gn_max_groups: 32
 bn2gn_min_channels_per_group: 1
 bn2gn_verbose: 1
-save_dir: C:\Users\memorista\Desktop\Implementation-of-Object-Recognition-Algorithms-for-Conveyor-Belt-Defect-Detection\YOLO\runs\detect\s\train\yolov5_s
+save_dir: C:\Users\memorista\Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection\YOLO\runs\detect\s\train\yolov5_s
