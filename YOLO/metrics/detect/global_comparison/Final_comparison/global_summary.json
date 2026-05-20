@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-05-20 12:44:35",
+  "models": {
+    "yolov5_l (l)": {
+      "variant": "l",
+      "best_mAP_0.5": 0.89581,
+      "best_mAP_0.5_0.95": 0.53589,
+      "best_F1": 0.8937010417738795,
+      "params_M": 46.5,
+      "gflops": 108.3
+    },
+    "yolov5_m (m)": {
+      "variant": "m",
+      "best_mAP_0.5": 0.8984,
+      "best_mAP_0.5_0.95": 0.54804,
+      "best_F1": 0.8937377059669022,
+      "params_M": 21.2,
+      "gflops": 48.0
+    },
+    "yolov5_n (n)": {
+      "variant": "n",
+      "best_mAP_0.5": 0.87352,
+      "best_mAP_0.5_0.95": 0.50887,
+      "best_F1": 0.8744003217268523,
+      "params_M": 1.9,
+      "gflops": 4.2
+    },
+    "yolov5_s (s)": {
+      "variant": "s",
+      "best_mAP_0.5": 0.89776,
+      "best_mAP_0.5_0.95": 0.5517,
+      "best_F1": 0.8896727674231739,
+      "params_M": 7.2,
+      "gflops": 15.8
+    },
+    "yolov5_x (x)": {
+      "variant": "x",
+      "best_mAP_0.5": 0.90117,
+      "best_mAP_0.5_0.95": 0.54354,
+      "best_F1": 0.8909528001571135,
+      "params_M": 86.7,
+      "gflops": 204.7
+    }
+  }
+}
