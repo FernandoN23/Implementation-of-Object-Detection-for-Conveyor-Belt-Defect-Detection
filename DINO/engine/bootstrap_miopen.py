@@ -8,7 +8,7 @@
 # Archivo: DINO/engine/bootstrap_miopen.py
 # Descripción: Inicialización de variables de entorno MIOpen/ROCm.
 #              Incluye optimización de memoria para evitar OOM.
-#              *VERSIÓN SEGURA PARA WINDOWS*
+#              *VERSIÓN SEGURA: Silenciador profundo C++ restaurado*
 # ==============================================================
 
 import os
@@ -29,18 +29,21 @@ class MIOpenConfig:
 
 class MuteStderr:
     """
-    Context manager seguro para silenciar stderr en Windows.
-    [MODIFICADO]: Evita el uso de os.dup() que causa crashes silenciosos
-    al interactuar con el DataLoader en entornos Windows/ROCm.
+    Context manager para silenciar stderr a nivel de descriptor de archivo (C++ noise).
+    [MODIFICADO]: Restaurado el uso de os.dup2 para interceptar impresiones
+    directas de los binarios de AMD (ej. IsEnoughWorkspace). Seguro de usar
+    ahora que num_workers=0 está forzado en Windows.
     """
     def __enter__(self):
-        self._devnull = open(os.devnull, 'w')
-        self._old_stderr = sys.stderr
-        sys.stderr = self._devnull
+        self._original_stderr_fd = sys.stderr.fileno()
+        self._saved_stderr_fd = os.dup(self._original_stderr_fd)
+        self._devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(self._devnull, self._original_stderr_fd)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        sys.stderr = self._old_stderr
-        self._devnull.close()
+        os.dup2(self._saved_stderr_fd, self._original_stderr_fd)
+        os.close(self._saved_stderr_fd)
+        os.close(self._devnull)
 
 
 def bootstrap(cfg: MIOpenConfig):
