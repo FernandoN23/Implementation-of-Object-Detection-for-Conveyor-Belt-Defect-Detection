@@ -9,7 +9,7 @@
 # Descripción: Orquestador de entrenamiento para DINO.
 #              Optimizado con backend 'Agg', limpieza de caché,
 #              AMP, ModelEma y Contrastive DeNoising (CDN).
-#              *CORREGIDO: Memoria de best_map al reanudar (Resume)*
+#              *CORREGIDO: Uso de pesos locales (Git LFS) para Transfer Learning*
 # ==============================================================
 
 import os
@@ -55,13 +55,6 @@ except ImportError as e:
     print(f"[Trainer] ERROR: Fallo al importar componentes esenciales de DINO: {e}")
     sys.exit(1)
 
-# URLs oficiales de DINO para inicialización
-DINO_URLS = {
-    "r50_4scale": "https://github.com/IDEA-Research/DINO/releases/download/v0.1.0/checkpoint0011_4scale.pth",
-    "r50_5scale": "https://github.com/IDEA-Research/DINO/releases/download/v0.1.0/checkpoint0011_5scale.pth",
-    "swin_l_4scale": "https://github.com/IDEA-Research/DINO/releases/download/v0.1.0/checkpoint0029_4scale_swin.pth"
-}
-
 
 class Dict2Obj:
     """Convierte un diccionario en un objeto para que DINO pueda acceder a args.atributo de forma segura."""
@@ -75,6 +68,7 @@ class Dict2Obj:
 
     def __getattr__(self, name):
         # Evitar que devuelva None para métodos mágicos (ej. __setstate__)
+        # Esto previene el error "TypeError: 'NoneType' object is not callable" al hacer torch.load()
         if name.startswith('__') and name.endswith('__'):
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         return None
@@ -192,20 +186,20 @@ class Trainer:
         with open(hyp_path, "w", encoding="utf-8") as f:
             yaml.dump(new_hyp, f, default_flow_style=False, sort_keys=False)
 
-    def _maybe_download_weights(self):
+    def _verify_pretrain_weights(self):
+        """Verifica que los pesos base existan localmente antes de iniciar."""
         if not self.cfg.pretrain_weights:
             return
 
         w_path = Path(self.cfg.pretrain_weights)
         if not w_path.is_file():
-            variant = self.cfg.variant
-            if variant in DINO_URLS:
-                print(f"[Trainer] Descargando pesos oficiales para '{variant}'...")
-                w_path.parent.mkdir(parents=True, exist_ok=True)
-                torch.hub.download_url_to_file(DINO_URLS[variant], str(w_path))
+            print(f"\n[Trainer] ERROR FATAL: No se encontraron los pesos pre-entrenados locales.")
+            print(f"[Trainer] Se esperaba el archivo en: {w_path.resolve()}")
+            print(f"[Trainer] Asegúrese de haber descargado los pesos base mediante Git LFS.")
+            sys.exit(1)
 
     def _setup_model(self):
-        self._maybe_download_weights()
+        self._verify_pretrain_weights()
 
         dino_args = Dict2Obj(vars(self.cfg.model_args))
         dino_args.device = self.cfg.device
@@ -216,9 +210,10 @@ class Trainer:
         if not self.cfg.resume and self.cfg.pretrain_weights:
             w_path = Path(self.cfg.pretrain_weights)
             if w_path.is_file():
-                print(f"[Trainer] Cargando pesos pre-entrenados desde {w_path}")
+                print(f"[Trainer] Cargando pesos pre-entrenados locales desde {w_path}")
                 checkpoint = torch.load(w_path, map_location='cpu', weights_only=False)
                 state_dict = checkpoint['model']
+                # Limpiar state_dict para evitar conflictos con el número de clases
                 state_dict = {k: v for k, v in state_dict.items() if 'class_embed' not in k and 'label_enc' not in k}
                 model.load_state_dict(state_dict, strict=False)
 
@@ -258,11 +253,6 @@ class Trainer:
             if 'scaler' in checkpoint and self.cfg.use_amp:
                 self.scaler.load_state_dict(checkpoint['scaler'])
 
-            if 'best_map' in checkpoint:
-                self.best_map = checkpoint['best_map']
-            if 'best_metrics' in checkpoint:
-                self.best_metrics = checkpoint['best_metrics']
-
             self.cfg.start_epoch = checkpoint['epoch'] + 1
             self.optimizer.param_groups[0]['lr'] = self.cfg.lr
             self.optimizer.param_groups[0]['initial_lr'] = self.cfg.lr
@@ -275,7 +265,6 @@ class Trainer:
             current_lr = self.optimizer.param_groups[0]['lr']
             print(
                 f"[Trainer] Estado restaurado. Continuando desde la época {self.cfg.start_epoch}. LR actual: {current_lr:.2e}")
-            print(f"[Trainer] Mejor mAP histórico recuperado: {self.best_map:.4f}")
         else:
             print(f"[Trainer] ADVERTENCIA: No se encontró archivo para reanudar. Iniciando desde cero.")
             self.cfg.start_epoch = 0
@@ -472,9 +461,7 @@ class Trainer:
             'optimizer': self.optimizer.state_dict(),
             'lr_scheduler': self.lr_scheduler.state_dict(),
             'scaler': self.scaler.state_dict() if self.cfg.use_amp else None,
-            'epoch': epoch,
-            'best_map': self.best_map,
-            'best_metrics': self.best_metrics
+            'epoch': epoch
         }
         save_on_master(checkpoint, self.weights_dir / "last.pt")
         current_map = val_stats.get("mAP_0.5", 0.0)

@@ -79,30 +79,53 @@ presets:
     overrides:
       training:
         variant: "r50_4scale"
-        run_name: "dino_r50_4s_belt_batch_4"
+        run_name: "dino_r50_4s_belt"
         epochs: 300
         batch_size: 4
         lr_drop: [150, 250]
-        pretrain_weights: "DINO/weights/base/checkpoint0011_4scale.pth"
+        pretrain_weights: "DINO/weights/base/36epochs_R50_4scale.pth"
 
   dino_r50_5scale_b4:
     description: "Entrenamiento DINO ResNet-50 5-Scale (300 ep, batch 4)."
     overrides:
       training:
         variant: "r50_5scale"
-        run_name: "dino_r50_5s_belt_batch_4"
+        run_name: "dino_r50_5s_belt"
         epochs: 300
         batch_size: 4
         lr_drop: [150, 250]
-        pretrain_weights: "DINO/weights/base/checkpoint0011_5scale.pth"
+        pretrain_weights: "DINO/weights/base/36epochs_R50_5scale.pth"
+
+  dino_swin_l_4scale_b4:
+    description: "Entrenamiento DINO Swin-L 4-Scale (300 ep, batch 4)."
+    overrides:
+      training:
+        variant: "swin_l_4scale"
+        run_name: "dino_swin_l_4s_belt"
+        epochs: 300
+        batch_size: 4
+        lr_drop: [150, 250]
+        pretrain_weights: "DINO/weights/base/36epochs_Swin_L_4scale.pth"
+
+  dino_swin_l_5scale_b4:
+    description: "Entrenamiento DINO Swin-L 5-Scale (300 ep, batch 4)."
+    overrides:
+      training:
+        variant: "swin_l_5scale"
+        run_name: "dino_swin_l_5s_belt"
+        epochs: 300
+        batch_size: 4
+        lr_drop: [ 150, 250 ]
+        pretrain_weights: "DINO/weights/base/36epochs_Swin_L_5scale.pth"
 
   coco_r50_4scale_test:
-    description: "Prueba rápida DINO R50 4-Scale en COCO (400 épocas)."
+    description: "Prueba rápida DINO R50 4-Scale en COCO (300 épocas)."
     overrides:
       training:
         variant: "r50_4scale"
         run_name: "coco_dino_r50_4s_test"
-        epochs: 400
+        epochs: 300
         batch_size: 4
-        lr_drop: [100]
+        lr_drop: [150, 250]
         use_coco128: true
+        pretrain_weights: "DINO/weights/base/36epochs_R50_4scale.pth"

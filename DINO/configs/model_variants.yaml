@@ -57,3 +57,12 @@ variants:
     return_interm_indices: [1, 2, 3]
     use_checkpoint: true
     <<: *shared_transformer
+
+  swin_l_5scale:
+    description: "DINO con backbone Swin-L y 5 escalas (Máxima precisión y costo computacional)."
+    backbone: "swin_L_384_22k"
+    dilation: false
+    num_feature_levels: 5
+    return_interm_indices: [0, 1, 2, 3]
+    use_checkpoint: true
+    <<: *shared_transformer
