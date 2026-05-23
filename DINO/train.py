@@ -7,6 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: DINO/train.py
 # Descripción: Punto de entrada CLI para el entrenamiento de DINO.
+#              *CORREGIDO: Serialización Pickle en Dict2Obj*
 # ==============================================================
 
 import argparse
@@ -87,6 +88,10 @@ class Dict2Obj:
                 setattr(self, key, value)
 
     def __getattr__(self, name):
+        # [MODIFICADO]: Evitar que devuelva None para métodos mágicos (ej. __setstate__)
+        # Esto previene el error "TypeError: 'NoneType' object is not callable" al hacer torch.load()
+        if name.startswith('__') and name.endswith('__'):
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         return None
 
 
@@ -140,7 +145,6 @@ def main():
     v_name = train_cfg['training']['variant']
     v_params = variants_cfg['variants'][v_name]
 
-    # [MODIFICADO]: Inyectamos los defaults de DINO antes de los parámetros del YAML
     base_args = DINO_DEFAULTS.copy()
     base_args.update(v_params)
 

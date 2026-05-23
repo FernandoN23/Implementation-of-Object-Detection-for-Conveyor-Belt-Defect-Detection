@@ -9,7 +9,7 @@
 # Descripción: Orquestador de entrenamiento para DINO.
 #              Optimizado con backend 'Agg', limpieza de caché,
 #              AMP, ModelEma y Contrastive DeNoising (CDN).
-#              *CORREGIDO: EMA dinámico y protección NaN*
+#              *CORREGIDO: Memoria de best_map al reanudar (Resume)*
 # ==============================================================
 
 import os
@@ -74,6 +74,9 @@ class Dict2Obj:
                 setattr(self, key, value)
 
     def __getattr__(self, name):
+        # Evitar que devuelva None para métodos mágicos (ej. __setstate__)
+        if name.startswith('__') and name.endswith('__'):
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         return None
 
 
@@ -147,7 +150,6 @@ class Trainer:
 
         self.model, self.criterion, self.postprocessors = self._setup_model()
 
-        # [MODIFICADO]: Ajuste dinámico del EMA para datasets pequeños
         self.current_ema_decay = 0.90 if self.cfg.use_coco128 else self.cfg.ema_decay
         self.ema_m = ModelEma(self.model, self.current_ema_decay)
 
@@ -256,6 +258,11 @@ class Trainer:
             if 'scaler' in checkpoint and self.cfg.use_amp:
                 self.scaler.load_state_dict(checkpoint['scaler'])
 
+            if 'best_map' in checkpoint:
+                self.best_map = checkpoint['best_map']
+            if 'best_metrics' in checkpoint:
+                self.best_metrics = checkpoint['best_metrics']
+
             self.cfg.start_epoch = checkpoint['epoch'] + 1
             self.optimizer.param_groups[0]['lr'] = self.cfg.lr
             self.optimizer.param_groups[0]['initial_lr'] = self.cfg.lr
@@ -268,6 +275,7 @@ class Trainer:
             current_lr = self.optimizer.param_groups[0]['lr']
             print(
                 f"[Trainer] Estado restaurado. Continuando desde la época {self.cfg.start_epoch}. LR actual: {current_lr:.2e}")
+            print(f"[Trainer] Mejor mAP histórico recuperado: {self.best_map:.4f}")
         else:
             print(f"[Trainer] ADVERTENCIA: No se encontró archivo para reanudar. Iniciando desde cero.")
             self.cfg.start_epoch = 0
@@ -431,7 +439,6 @@ class Trainer:
                     weight_dict = self.criterion.weight_dict
                     losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
-                # [MODIFICADO]: Protección contra NaNs en AMP (ROCm)
                 if not math.isfinite(losses.item()):
                     print(f"[Trainer] ADVERTENCIA: Pérdida NaN/Inf detectada en batch {i}. Saltando actualización.")
                     self.optimizer.zero_grad()
@@ -466,7 +473,8 @@ class Trainer:
             'lr_scheduler': self.lr_scheduler.state_dict(),
             'scaler': self.scaler.state_dict() if self.cfg.use_amp else None,
             'epoch': epoch,
-            'cfg': self.cfg
+            'best_map': self.best_map,
+            'best_metrics': self.best_metrics
         }
         save_on_master(checkpoint, self.weights_dir / "last.pt")
         current_map = val_stats.get("mAP_0.5", 0.0)

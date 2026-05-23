@@ -74,17 +74,6 @@ bn2gn:
 # Presets de Entrenamiento Final y Pruebas
 # --------------------------------------------------------------
 presets:
-  dino_r50_4scale:
-    description: "Entrenamiento DINO ResNet-50 4-Scale (300 ep, batch 16)."
-    overrides:
-      training:
-        variant: "r50_4scale"
-        run_name: "dino_r50_4s_belt"
-        epochs: 300
-        batch_size: 16
-        lr_drop: [150, 250]
-        pretrain_weights: "DINO/weights/base/checkpoint0011_4scale.pth"
-
   dino_r50_4scale_b4:
     description: "Entrenamiento DINO ResNet-50 4-Scale (300 ep, batch 4)."
     overrides:
@@ -95,17 +84,6 @@ presets:
         batch_size: 4
         lr_drop: [150, 250]
         pretrain_weights: "DINO/weights/base/checkpoint0011_4scale.pth"
-
-  dino_r50_5scale:
-    description: "Entrenamiento DINO ResNet-50 5-Scale (300 ep, batch 16)."
-    overrides:
-      training:
-        variant: "r50_5scale"
-        run_name: "dino_r50_5s_belt"
-        epochs: 300
-        batch_size: 16
-        lr_drop: [150, 250]
-        pretrain_weights: "DINO/weights/base/checkpoint0011_5scale.pth"
 
   dino_r50_5scale_b4:
     description: "Entrenamiento DINO ResNet-50 5-Scale (300 ep, batch 4)."
@@ -119,12 +97,12 @@ presets:
         pretrain_weights: "DINO/weights/base/checkpoint0011_5scale.pth"
 
   coco_r50_4scale_test:
-    description: "Prueba rápida DINO R50 4-Scale en COCO (200 épocas)."
+    description: "Prueba rápida DINO R50 4-Scale en COCO (400 épocas)."
     overrides:
       training:
         variant: "r50_4scale"
         run_name: "coco_dino_r50_4s_test"
-        epochs: 200
+        epochs: 400
         batch_size: 4
         lr_drop: [100]
         use_coco128: true
