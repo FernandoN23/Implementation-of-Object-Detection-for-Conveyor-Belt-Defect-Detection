@@ -8,6 +8,7 @@
 # Archivo: DINO/test.py
 # Descripción: Punto de entrada principal para pruebas de inferencia
 #              sobre modelos DINO entrenados.
+#              *CORREGIDO: lr_backbone > 0 para evitar crash en build_backbone*
 # ==============================================================
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ DINO_DEFAULTS = {
     'two_stage_keep_all_tokens': False,
     'dec_layer_number': None,
     'decoder_sa_type': 'sa',
-    'decoder_module_seq':['sa', 'ca', 'ffn'],
+    'decoder_module_seq': ['sa', 'ca', 'ffn'],
     'embed_init_tgt': True,
     'use_detached_boxes_dec_out': False,
     'transformer_activation': 'relu',
@@ -84,6 +85,7 @@ DINO_DEFAULTS = {
     'pe_temperatureW': 20,
     'backbone_freeze_keywords': None,
 }
+
 
 class Dict2Obj:
     def __init__(self, dictionary):
@@ -184,8 +186,10 @@ def load_model(weights: Path, variant: str, device_str: str, num_classes: int) -
 
     base_args = DINO_DEFAULTS.copy()
     base_args.update(v_params)
+
+    # [MODIFICADO]: lr_backbone se establece en 1e-5 en lugar de 0 para evitar el ValueError de DINO
     base_args.update({
-        'lr_backbone': 0, 'masks': False, 'frozen_weights': None, 'aux_loss': False, 'set_cost_class': 1.0,
+        'lr_backbone': 1e-5, 'masks': False, 'frozen_weights': None, 'aux_loss': False, 'set_cost_class': 1.0,
         'set_cost_bbox': 5.0, 'set_cost_giou': 2.0, 'bbox_loss_coef': 5.0, 'giou_loss_coef': 2.0,
         'cls_loss_coef': 1.0, 'focal_alpha': 0.25, 'dataset_file': 'coco',
         'device': str(device), 'num_classes': num_classes,
@@ -241,7 +245,7 @@ def box_iou(a: Box, b: Box) -> float:
     inter_h = max(0.0, min(a.y2, b.y2) - max(a.y1, b.y1))
     inter_area = inter_w * inter_h
     union = (max(0.0, a.x2 - a.x1) * max(0.0, a.y2 - a.y1)) + (
-                max(0.0, b.x2 - b.x1) * max(0.0, b.y2 - b.y1)) - inter_area
+            max(0.0, b.x2 - b.x1) * max(0.0, b.y2 - b.y1)) - inter_area
     return float(inter_area / union) if union > 0.0 else 0.0
 
 
@@ -407,23 +411,4 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--weights", type=str, required=True)
     parser.add_argument("--variant", type=str, default="r50_4scale")
     parser.add_argument("--device", type=str, default="")
-    parser.add_argument("--conf-thres", type=float, default=0.5)
-    parser.add_argument("--iou-match", type=float, default=0.5)
-    return parser.parse_args(argv)
-
-
-def main(argv: Optional[List[str]] = None) -> None:
-    print(f"[test.py] Iniciando visor interactivo DINO...")
-    args = parse_args(argv)
-    bootstrap(
-        MIOpenConfig(find_mode="FAST", user_db_path=None, disable_cache=True, expandable_segments=True, verbose=1))
-    try:
-        from engine.warnings import install_global_warning_filters
-        install_global_warning_filters()
-    except Exception:
-        pass
-    run_viewer(args)
-
-
-if __name__ == "__main__":
-    main()
+    parse

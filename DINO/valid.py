@@ -7,6 +7,7 @@
 # --------------------------------------------------------------
 # Archivo: DINO/valid.py
 # Descripción: Script de entrada (CLI) para validación de DINO.
+#              *CORREGIDO: lr_backbone > 0 para evitar crash en build_backbone*
 # ==============================================================
 
 import argparse
@@ -22,7 +23,7 @@ if str(DINO_ROOT) not in sys.path:
 
 from engine.bootstrap_miopen import bootstrap, MIOpenConfig
 
-COCO_CLASSES =[
+COCO_CLASSES = [
     'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
     'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
     'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
@@ -50,7 +51,7 @@ DINO_DEFAULTS = {
     'two_stage_keep_all_tokens': False,
     'dec_layer_number': None,
     'decoder_sa_type': 'sa',
-    'decoder_module_seq':['sa', 'ca', 'ffn'],
+    'decoder_module_seq': ['sa', 'ca', 'ffn'],
     'embed_init_tgt': True,
     'use_detached_boxes_dec_out': False,
     'transformer_activation': 'relu',
@@ -77,6 +78,7 @@ DINO_DEFAULTS = {
     'backbone_freeze_keywords': None,
 }
 
+
 class Dict2Obj:
     def __init__(self, dictionary):
         for key, value in dictionary.items():
@@ -84,12 +86,15 @@ class Dict2Obj:
                 setattr(self, key, Dict2Obj(value))
             else:
                 setattr(self, key, value)
+
     def __getattr__(self, name):
         return None
+
 
 def load_yaml(path):
     with open(path, 'r', encoding='utf-8') as f:
         return yaml.safe_load(f)
+
 
 def main():
     print(f"[valid.py] Iniciando script de validación DINO...")
@@ -137,8 +142,10 @@ def main():
 
     base_args = DINO_DEFAULTS.copy()
     base_args.update(v_params)
+
+    # [MODIFICADO]: lr_backbone se establece en 1e-5 en lugar de 0 para evitar el ValueError de DINO
     base_args.update({
-        'lr_backbone': 0, 'masks': False, 'frozen_weights': None, 'aux_loss': False, 'set_cost_class': 1.0,
+        'lr_backbone': 1e-5, 'masks': False, 'frozen_weights': None, 'aux_loss': False, 'set_cost_class': 1.0,
         'set_cost_bbox': 5.0, 'set_cost_giou': 2.0, 'bbox_loss_coef': 5.0, 'giou_loss_coef': 2.0,
         'cls_loss_coef': 1.0, 'focal_alpha': 0.25, 'dataset_file': 'coco',
         'device': args.device or valid_cfg['validation']['device'], 'num_classes': dataset_cfg['nc'],
@@ -194,6 +201,7 @@ def main():
     with open(save_dir / "metrics.yaml", "w") as f:
         yaml.dump(metrics, f)
     print(f"[valid.py] Reporte finalizado. Resultados en: {save_dir}")
+
 
 if __name__ == "__main__":
     main()
