@@ -14,7 +14,7 @@
 #              - Mantiene un comportamiento seguro: nunca oculta
 #                errores desconocidos.
 #              - Silencia advertencias cosméticas de MIOpen/ROCm.
-#              - [NUEVO] Silencia deprecaciones de torchvision.
+#              - Silencia deprecaciones de torchvision y PyTorch.
 #==============================================================
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ def _configure_python_warnings(force: bool = False) -> None:
     - Muestra una sola vez por ejecución los FutureWarning de AMP
       (`torch.cuda.amp.autocast`, `torch.cuda.amp.GradScaler`).
     - Silencia advertencias de MIOpen/ROCm.
-    - Silencia deprecaciones de torchvision.
+    - Silencia deprecaciones de torchvision y PyTorch (código legado de DINO).
     - No intercepta ni modifica errores reales.
     """
     global _original_showwarning, _showwarning_installed
@@ -128,9 +128,13 @@ def _configure_python_warnings(force: bool = False) -> None:
     warnings.filterwarnings("ignore", message=".*provided ptr: 0000000000000000.*")
     warnings.filterwarnings("ignore", message=".*Solver <.*>.*")
 
-    # [NUEVO] Filtros Regex para deprecaciones de torchvision (código legado de DINO)
+    # Filtros Regex para deprecaciones de torchvision (código legado de DINO)
     warnings.filterwarnings("ignore", message=".*The parameter 'pretrained' is deprecated.*", category=UserWarning)
     warnings.filterwarnings("ignore", message=".*Arguments other than a weight enum or `None` for 'weights' are deprecated.*", category=UserWarning)
+
+    # [NUEVO] Filtros Regex para deprecaciones de PyTorch 2.x (código legado de DINO)
+    warnings.filterwarnings("ignore", message=".*torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument.*", category=UserWarning)
+    warnings.filterwarnings("ignore", message=".*torch.range is deprecated and will be removed in a future release.*", category=UserWarning)
 
     def _y11_showwarning(message, category, filename, lineno, file=None, line=None):  # type: ignore[override]
         """Wrapper fino sobre showwarning.
