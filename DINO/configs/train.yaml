@@ -86,7 +86,7 @@ presets:
         pretrain_weights: "DINO/weights/base/36epochs_R50_4scale.pth"
 
   dino_r50_5scale_b4:
-    description: "Entrenamiento DINO ResNet-50 5-Scale (300 ep, batch 4)."
+    description: "Entrenamiento DINO ResNet-50 5-Scale (300 ep, batch 2)."
     overrides:
       training:
         variant: "r50_5scale"
