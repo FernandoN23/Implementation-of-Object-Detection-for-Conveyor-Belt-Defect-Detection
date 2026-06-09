@@ -21,18 +21,23 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 from torch.nn.init import xavier_uniform_, constant_, uniform_, normal_
 
+# [MODIFICADO: Optimización VRAM] Importación de la utilidad de Checkpointing
+import torch.utils.checkpoint as checkpoint
+
 from util.misc import inverse_sigmoid
 from .ops.modules import MSDeformAttn
 
 from .utils import sigmoid_focal_loss, MLP, _get_activation_fn, gen_sineembed_for_position
 
+
 class DeformableTransformer(nn.Module):
     def __init__(self, d_model=256, nhead=8,
                  num_encoder_layers=6, num_decoder_layers=6, dim_feedforward=1024, dropout=0.1,
                  activation="relu", return_intermediate_dec=False,
-                 num_feature_levels=4, dec_n_points=4,  enc_n_points=4,
+                 num_feature_levels=4, dec_n_points=4, enc_n_points=4,
                  two_stage=False, two_stage_num_proposals=300,
-                 use_dab=False, high_dim_query_update=False, no_sine_embed=False):
+                 use_dab=False, high_dim_query_update=False, no_sine_embed=False,
+                 use_checkpoint=False):  # [MODIFICADO: Optimización VRAM] Nuevo parámetro
         super().__init__()
 
         self.d_model = d_model
@@ -44,13 +49,17 @@ class DeformableTransformer(nn.Module):
         encoder_layer = DeformableTransformerEncoderLayer(d_model, dim_feedforward,
                                                           dropout, activation,
                                                           num_feature_levels, nhead, enc_n_points)
-        self.encoder = DeformableTransformerEncoder(encoder_layer, num_encoder_layers)
+        # [MODIFICADO: Optimización VRAM] Pasamos el flag al Encoder
+        self.encoder = DeformableTransformerEncoder(encoder_layer, num_encoder_layers, use_checkpoint=use_checkpoint)
 
         decoder_layer = DeformableTransformerDecoderLayer(d_model, dim_feedforward,
                                                           dropout, activation,
                                                           num_feature_levels, nhead, dec_n_points)
-        self.decoder = DeformableTransformerDecoder(decoder_layer, num_decoder_layers, return_intermediate_dec, 
-                                                            use_dab=use_dab, d_model=d_model, high_dim_query_update=high_dim_query_update, no_sine_embed=no_sine_embed)
+        # [MODIFICADO: Optimización VRAM] Pasamos el flag al Decoder
+        self.decoder = DeformableTransformerDecoder(decoder_layer, num_decoder_layers, return_intermediate_dec,
+                                                    use_dab=use_dab, d_model=d_model,
+                                                    high_dim_query_update=high_dim_query_update,
+                                                    no_sine_embed=no_sine_embed, use_checkpoint=use_checkpoint)
 
         self.level_embed = nn.Parameter(torch.Tensor(num_feature_levels, d_model))
 
@@ -155,23 +164,23 @@ class DeformableTransformer(nn.Module):
             spatial_shape = (h, w)
             spatial_shapes.append(spatial_shape)
 
-            src = src.flatten(2).transpose(1, 2)                # bs, hw, c
-            mask = mask.flatten(1)                              # bs, hw
-            pos_embed = pos_embed.flatten(2).transpose(1, 2)    # bs, hw, c
+            src = src.flatten(2).transpose(1, 2)  # bs, hw, c
+            mask = mask.flatten(1)  # bs, hw
+            pos_embed = pos_embed.flatten(2).transpose(1, 2)  # bs, hw, c
             lvl_pos_embed = pos_embed + self.level_embed[lvl].view(1, 1, -1)
             lvl_pos_embed_flatten.append(lvl_pos_embed)
             src_flatten.append(src)
             mask_flatten.append(mask)
-        src_flatten = torch.cat(src_flatten, 1)     # bs, \sum{hxw}, c 
-        mask_flatten = torch.cat(mask_flatten, 1)   # bs, \sum{hxw}
+        src_flatten = torch.cat(src_flatten, 1)  # bs, \sum{hxw}, c
+        mask_flatten = torch.cat(mask_flatten, 1)  # bs, \sum{hxw}
         lvl_pos_embed_flatten = torch.cat(lvl_pos_embed_flatten, 1)
         spatial_shapes = torch.as_tensor(spatial_shapes, dtype=torch.long, device=src_flatten.device)
-        level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))
+        level_start_index = torch.cat((spatial_shapes.new_zeros((1,)), spatial_shapes.prod(1).cumsum(0)[:-1]))
         valid_ratios = torch.stack([self.get_valid_ratio(m) for m in masks], 1)
 
         # encoder
-        memory = self.encoder(src_flatten, spatial_shapes, level_start_index, valid_ratios, lvl_pos_embed_flatten, mask_flatten)
-
+        memory = self.encoder(src_flatten, spatial_shapes, level_start_index, valid_ratios, lvl_pos_embed_flatten,
+                              mask_flatten)
 
         # prepare input for decoder
         bs, _, c = memory.shape
@@ -191,7 +200,7 @@ class DeformableTransformer(nn.Module):
             pos_trans_out = self.pos_trans_norm(self.pos_trans(self.get_proposal_pos_embed(topk_coords_unact)))
             query_embed, tgt = torch.split(pos_trans_out, c, dim=2)
         elif self.use_dab:
-            reference_points = query_embed[..., self.d_model:].sigmoid() 
+            reference_points = query_embed[..., self.d_model:].sigmoid()
             tgt = query_embed[..., :self.d_model]
             tgt = tgt.unsqueeze(0).expand(bs, -1, -1)
             init_reference_out = reference_points
@@ -199,15 +208,15 @@ class DeformableTransformer(nn.Module):
             query_embed, tgt = torch.split(query_embed, c, dim=1)
             query_embed = query_embed.unsqueeze(0).expand(bs, -1, -1)
             tgt = tgt.unsqueeze(0).expand(bs, -1, -1)
-            reference_points = self.reference_points(query_embed).sigmoid() 
-                # bs, num_quires, 2
+            reference_points = self.reference_points(query_embed).sigmoid()
+            # bs, num_quires, 2
             init_reference_out = reference_points
 
         # decoder
 
         hs, inter_references = self.decoder(tgt, reference_points, memory,
-                                            spatial_shapes, level_start_index, valid_ratios, 
-                                            query_pos=query_embed if not self.use_dab else None, 
+                                            spatial_shapes, level_start_index, valid_ratios,
+                                            query_pos=query_embed if not self.use_dab else None,
                                             src_padding_mask=mask_flatten)
 
         inter_references_out = inter_references
@@ -229,7 +238,8 @@ class DeformableTransformerEncoderLayer(nn.Module):
 
         # self attention
         if use_deformable_box_attn:
-            self.self_attn = MSDeformableBoxAttention(d_model, n_levels, n_heads, n_boxes=n_points, used_func=box_attn_type)
+            self.self_attn = MSDeformableBoxAttention(d_model, n_levels, n_heads, n_boxes=n_points,
+                                                      used_func=box_attn_type)
         else:
             self.self_attn = MSDeformAttn(d_model, n_levels, n_heads, n_points)
         self.dropout1 = nn.Dropout(dropout)
@@ -262,7 +272,8 @@ class DeformableTransformerEncoderLayer(nn.Module):
     def forward(self, src, pos, reference_points, spatial_shapes, level_start_index, key_padding_mask=None):
         # self attention
 
-        src2 = self.self_attn(self.with_pos_embed(src, pos), reference_points, src, spatial_shapes, level_start_index, key_padding_mask)
+        src2 = self.self_attn(self.with_pos_embed(src, pos), reference_points, src, spatial_shapes, level_start_index,
+                              key_padding_mask)
         src = src + self.dropout1(src2)
         src = self.norm1(src)
 
@@ -277,7 +288,7 @@ class DeformableTransformerEncoderLayer(nn.Module):
 
 
 class DeformableTransformerEncoder(nn.Module):
-    def __init__(self, encoder_layer, num_layers, norm=None):
+    def __init__(self, encoder_layer, num_layers, norm=None, use_checkpoint=False):  # [MODIFICADO: Optimización VRAM]
         super().__init__()
         if num_layers > 0:
             self.layers = _get_clones(encoder_layer, num_layers)
@@ -286,12 +297,12 @@ class DeformableTransformerEncoder(nn.Module):
             del encoder_layer
         self.num_layers = num_layers
         self.norm = norm
+        self.use_checkpoint = use_checkpoint  # [MODIFICADO: Optimización VRAM]
 
     @staticmethod
     def get_reference_points(spatial_shapes, valid_ratios, device):
         reference_points_list = []
         for lvl, (H_, W_) in enumerate(spatial_shapes):
-
             ref_y, ref_x = torch.meshgrid(torch.linspace(0.5, H_ - 0.5, H_, dtype=torch.float32, device=device),
                                           torch.linspace(0.5, W_ - 0.5, W_, dtype=torch.float32, device=device))
             ref_y = ref_y.reshape(-1)[None] / (valid_ratios[:, None, lvl, 1] * H_)
@@ -320,7 +331,15 @@ class DeformableTransformerEncoder(nn.Module):
         if self.num_layers > 0:
             reference_points = self.get_reference_points(spatial_shapes, valid_ratios, device=src.device)
         for _, layer in enumerate(self.layers):
-            output = layer(output, pos, reference_points, spatial_shapes, level_start_index, padding_mask)
+            # [MODIFICADO: Optimización VRAM] Inyección de Gradient Checkpointing en el Encoder
+            if self.use_checkpoint and self.training:
+                def _forward_wrapper_enc(out, p, ref_pts, s_shapes, l_start, p_mask):
+                    return layer(out, p, ref_pts, s_shapes, l_start, p_mask)
+
+                output = checkpoint.checkpoint(_forward_wrapper_enc, output, pos, reference_points, spatial_shapes,
+                                               level_start_index, padding_mask)
+            else:
+                output = layer(output, pos, reference_points, spatial_shapes, level_start_index, padding_mask)
 
         if self.norm is not None:
             output = self.norm(output)
@@ -345,7 +364,8 @@ class DeformableTransformerDecoderLayer(nn.Module):
         # cross attention
         # self.cross_attn = MSDeformAttn(d_model, n_levels, n_heads, n_points)
         if use_deformable_box_attn:
-            self.cross_attn = MSDeformableBoxAttention(d_model, n_levels, n_heads, n_boxes=n_points, used_func=box_attn_type)
+            self.cross_attn = MSDeformableBoxAttention(d_model, n_levels, n_heads, n_boxes=n_points,
+                                                       used_func=box_attn_type)
         else:
             self.cross_attn = MSDeformAttn(d_model, n_levels, n_heads, n_points)
         self.dropout1 = nn.Dropout(dropout)
@@ -372,14 +392,10 @@ class DeformableTransformerDecoderLayer(nn.Module):
         if decoder_sa_type == 'ca_content':
             self.self_attn = MSDeformAttn(d_model, n_levels, n_heads, n_points)
 
-
-
-
     def rm_self_attn_modules(self):
         self.self_attn = None
         self.dropout2 = None
         self.norm2 = None
-
 
     @staticmethod
     def with_pos_embed(tensor, pos):
@@ -391,25 +407,25 @@ class DeformableTransformerDecoderLayer(nn.Module):
         tgt = self.norm3(tgt)
         return tgt
 
-    def forward_sa(self, 
-                # for tgt
-                tgt: Optional[Tensor],  # nq, bs, d_model
-                tgt_query_pos: Optional[Tensor] = None, # pos for query. MLP(Sine(pos))
-                tgt_query_sine_embed: Optional[Tensor] = None, # pos for query. Sine(pos)
-                tgt_key_padding_mask: Optional[Tensor] = None,
-                tgt_reference_points: Optional[Tensor] = None, # nq, bs, 4
+    def forward_sa(self,
+                   # for tgt
+                   tgt: Optional[Tensor],  # nq, bs, d_model
+                   tgt_query_pos: Optional[Tensor] = None,  # pos for query. MLP(Sine(pos))
+                   tgt_query_sine_embed: Optional[Tensor] = None,  # pos for query. Sine(pos)
+                   tgt_key_padding_mask: Optional[Tensor] = None,
+                   tgt_reference_points: Optional[Tensor] = None,  # nq, bs, 4
 
-                # for memory
-                memory: Optional[Tensor] = None, # hw, bs, d_model
-                memory_key_padding_mask: Optional[Tensor] = None,
-                memory_level_start_index: Optional[Tensor] = None, # num_levels
-                memory_spatial_shapes: Optional[Tensor] = None, # bs, num_levels, 2
-                memory_pos: Optional[Tensor] = None, # pos for memory
+                   # for memory
+                   memory: Optional[Tensor] = None,  # hw, bs, d_model
+                   memory_key_padding_mask: Optional[Tensor] = None,
+                   memory_level_start_index: Optional[Tensor] = None,  # num_levels
+                   memory_spatial_shapes: Optional[Tensor] = None,  # bs, num_levels, 2
+                   memory_pos: Optional[Tensor] = None,  # pos for memory
 
-                # sa
-                self_attn_mask: Optional[Tensor] = None, # mask used for self-attention
-                cross_attn_mask: Optional[Tensor] = None, # mask used for cross-attention
-            ):
+                   # sa
+                   self_attn_mask: Optional[Tensor] = None,  # mask used for self-attention
+                   cross_attn_mask: Optional[Tensor] = None,  # mask used for cross-attention
+                   ):
         # self attention
         if self.self_attn is not None:
 
@@ -428,34 +444,35 @@ class DeformableTransformerDecoderLayer(nn.Module):
                 tgt = self.norm2(tgt)
             elif self.decoder_sa_type == 'ca_content':
                 tgt2 = self.self_attn(self.with_pos_embed(tgt, tgt_query_pos).transpose(0, 1),
-                            tgt_reference_points.transpose(0, 1).contiguous(),
-                            memory.transpose(0, 1), memory_spatial_shapes, memory_level_start_index, memory_key_padding_mask).transpose(0, 1)
+                                      tgt_reference_points.transpose(0, 1).contiguous(),
+                                      memory.transpose(0, 1), memory_spatial_shapes, memory_level_start_index,
+                                      memory_key_padding_mask).transpose(0, 1)
                 tgt = tgt + self.dropout2(tgt2)
                 tgt = self.norm2(tgt)
             else:
                 raise NotImplementedError("Unknown decoder_sa_type {}".format(self.decoder_sa_type))
 
-        return tgt            
+        return tgt
 
-    def forward_ca(self, 
-                # for tgt
-                tgt: Optional[Tensor],  # nq, bs, d_model
-                tgt_query_pos: Optional[Tensor] = None, # pos for query. MLP(Sine(pos))
-                tgt_query_sine_embed: Optional[Tensor] = None, # pos for query. Sine(pos)
-                tgt_key_padding_mask: Optional[Tensor] = None,
-                tgt_reference_points: Optional[Tensor] = None, # nq, bs, 4
+    def forward_ca(self,
+                   # for tgt
+                   tgt: Optional[Tensor],  # nq, bs, d_model
+                   tgt_query_pos: Optional[Tensor] = None,  # pos for query. MLP(Sine(pos))
+                   tgt_query_sine_embed: Optional[Tensor] = None,  # pos for query. Sine(pos)
+                   tgt_key_padding_mask: Optional[Tensor] = None,
+                   tgt_reference_points: Optional[Tensor] = None,  # nq, bs, 4
 
-                # for memory
-                memory: Optional[Tensor] = None, # hw, bs, d_model
-                memory_key_padding_mask: Optional[Tensor] = None,
-                memory_level_start_index: Optional[Tensor] = None, # num_levels
-                memory_spatial_shapes: Optional[Tensor] = None, # bs, num_levels, 2
-                memory_pos: Optional[Tensor] = None, # pos for memory
+                   # for memory
+                   memory: Optional[Tensor] = None,  # hw, bs, d_model
+                   memory_key_padding_mask: Optional[Tensor] = None,
+                   memory_level_start_index: Optional[Tensor] = None,  # num_levels
+                   memory_spatial_shapes: Optional[Tensor] = None,  # bs, num_levels, 2
+                   memory_pos: Optional[Tensor] = None,  # pos for memory
 
-                # sa
-                self_attn_mask: Optional[Tensor] = None, # mask used for self-attention
-                cross_attn_mask: Optional[Tensor] = None, # mask used for cross-attention
-            ):
+                   # sa
+                   self_attn_mask: Optional[Tensor] = None,  # mask used for self-attention
+                   cross_attn_mask: Optional[Tensor] = None,  # mask used for cross-attention
+                   ):
         # cross attention
 
         if self.key_aware_type is not None:
@@ -468,45 +485,46 @@ class DeformableTransformerDecoderLayer(nn.Module):
                 raise NotImplementedError("Unknown key_aware_type: {}".format(self.key_aware_type))
         tgt2 = self.cross_attn(self.with_pos_embed(tgt, tgt_query_pos).transpose(0, 1),
                                tgt_reference_points.transpose(0, 1).contiguous(),
-                               memory.transpose(0, 1), memory_spatial_shapes, memory_level_start_index, memory_key_padding_mask).transpose(0, 1)
+                               memory.transpose(0, 1), memory_spatial_shapes, memory_level_start_index,
+                               memory_key_padding_mask).transpose(0, 1)
         tgt = tgt + self.dropout1(tgt2)
         tgt = self.norm1(tgt)
 
-        return tgt  
+        return tgt
 
-    def forward(self, 
+    def forward(self,
                 # for tgt
                 tgt: Optional[Tensor],  # nq, bs, d_model
-                tgt_query_pos: Optional[Tensor] = None, # pos for query. MLP(Sine(pos))
-                tgt_query_sine_embed: Optional[Tensor] = None, # pos for query. Sine(pos)
+                tgt_query_pos: Optional[Tensor] = None,  # pos for query. MLP(Sine(pos))
+                tgt_query_sine_embed: Optional[Tensor] = None,  # pos for query. Sine(pos)
                 tgt_key_padding_mask: Optional[Tensor] = None,
-                tgt_reference_points: Optional[Tensor] = None, # nq, bs, 4
+                tgt_reference_points: Optional[Tensor] = None,  # nq, bs, 4
 
                 # for memory
-                memory: Optional[Tensor] = None, # hw, bs, d_model
+                memory: Optional[Tensor] = None,  # hw, bs, d_model
                 memory_key_padding_mask: Optional[Tensor] = None,
-                memory_level_start_index: Optional[Tensor] = None, # num_levels
-                memory_spatial_shapes: Optional[Tensor] = None, # bs, num_levels, 2
-                memory_pos: Optional[Tensor] = None, # pos for memory
+                memory_level_start_index: Optional[Tensor] = None,  # num_levels
+                memory_spatial_shapes: Optional[Tensor] = None,  # bs, num_levels, 2
+                memory_pos: Optional[Tensor] = None,  # pos for memory
 
                 # sa
-                self_attn_mask: Optional[Tensor] = None, # mask used for self-attention
-                cross_attn_mask: Optional[Tensor] = None, # mask used for cross-attention
-            ):
+                self_attn_mask: Optional[Tensor] = None,  # mask used for self-attention
+                cross_attn_mask: Optional[Tensor] = None,  # mask used for cross-attention
+                ):
 
         for funcname in self.module_seq:
             if funcname == 'ffn':
                 tgt = self.forward_ffn(tgt)
             elif funcname == 'ca':
                 tgt = self.forward_ca(tgt, tgt_query_pos, tgt_query_sine_embed, \
-                    tgt_key_padding_mask, tgt_reference_points, \
-                        memory, memory_key_padding_mask, memory_level_start_index, \
-                            memory_spatial_shapes, memory_pos, self_attn_mask, cross_attn_mask)
+                                      tgt_key_padding_mask, tgt_reference_points, \
+                                      memory, memory_key_padding_mask, memory_level_start_index, \
+                                      memory_spatial_shapes, memory_pos, self_attn_mask, cross_attn_mask)
             elif funcname == 'sa':
                 tgt = self.forward_sa(tgt, tgt_query_pos, tgt_query_sine_embed, \
-                    tgt_key_padding_mask, tgt_reference_points, \
-                        memory, memory_key_padding_mask, memory_level_start_index, \
-                            memory_spatial_shapes, memory_pos, self_attn_mask, cross_attn_mask)
+                                      tgt_key_padding_mask, tgt_reference_points, \
+                                      memory, memory_key_padding_mask, memory_level_start_index, \
+                                      memory_spatial_shapes, memory_pos, self_attn_mask, cross_attn_mask)
             else:
                 raise ValueError('unknown funcname {}'.format(funcname))
 
@@ -514,7 +532,8 @@ class DeformableTransformerDecoderLayer(nn.Module):
 
 
 class DeformableTransformerDecoder(nn.Module):
-    def __init__(self, decoder_layer, num_layers, return_intermediate=False, use_dab=False, d_model=256, query_dim=4):
+    def __init__(self, decoder_layer, num_layers, return_intermediate=False, use_dab=False, d_model=256, query_dim=4,
+                 use_checkpoint=False):  # [MODIFICADO: Optimización VRAM]
         super().__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.num_layers = num_layers
@@ -526,12 +545,12 @@ class DeformableTransformerDecoder(nn.Module):
         self.use_dab = use_dab
         self.d_model = d_model
         self.query_dim = query_dim
+        self.use_checkpoint = use_checkpoint  # [MODIFICADO: Optimización VRAM]
         if use_dab:
             self.query_scale = MLP(d_model, d_model, d_model, 2)
             self.ref_point_head = MLP(2 * d_model, d_model, d_model, 2)
 
-
-    def forward(self, tgt, reference_points, src, src_spatial_shapes,       
+    def forward(self, tgt, reference_points, src, src_spatial_shapes,
                 src_level_start_index, src_valid_ratios,
                 query_pos=None, src_padding_mask=None):
         output = tgt
@@ -544,19 +563,27 @@ class DeformableTransformerDecoder(nn.Module):
 
             if reference_points.shape[-1] == 4:
                 reference_points_input = reference_points[:, :, None] \
-                                         * torch.cat([src_valid_ratios, src_valid_ratios], -1)[:, None] # bs, nq, 4, 4
+                                         * torch.cat([src_valid_ratios, src_valid_ratios], -1)[:, None]  # bs, nq, 4, 4
             else:
                 assert reference_points.shape[-1] == 2
                 reference_points_input = reference_points[:, :, None] * src_valid_ratios[:, None]
-                
-            if self.use_dab:
 
-                query_sine_embed = gen_sineembed_for_position(reference_points_input[:, :, 0, :]) # bs, nq, 256*2 
-                raw_query_pos = self.ref_point_head(query_sine_embed) # bs, nq, 256
+            if self.use_dab:
+                query_sine_embed = gen_sineembed_for_position(reference_points_input[:, :, 0, :])  # bs, nq, 256*2
+                raw_query_pos = self.ref_point_head(query_sine_embed)  # bs, nq, 256
                 pos_scale = self.query_scale(output) if layer_id != 0 else 1
                 query_pos = pos_scale * raw_query_pos
-        
-            output = layer(output, query_pos, reference_points_input, src, src_spatial_shapes, src_level_start_index, src_padding_mask)
+
+            # [MODIFICADO: Optimización VRAM] Inyección de Gradient Checkpointing en el Decoder
+            if self.use_checkpoint and self.training:
+                def _forward_wrapper_dec(out, q_pos, ref_pts, s, s_shapes, s_level, s_pad):
+                    return layer(out, q_pos, ref_pts, s, s_shapes, s_level, s_pad)
+
+                output = checkpoint.checkpoint(_forward_wrapper_dec, output, query_pos, reference_points_input, src,
+                                               src_spatial_shapes, src_level_start_index, src_padding_mask)
+            else:
+                output = layer(output, query_pos, reference_points_input, src, src_spatial_shapes,
+                               src_level_start_index, src_padding_mask)
 
             # hack implementation for iterative bounding box refinement
             if self.bbox_embed is not None:
@@ -593,6 +620,6 @@ def build_deforamble_transformer(args):
         two_stage_num_proposals=args.num_queries,
         use_dab=args.ddetr_use_dab,
         high_dim_query_update=args.ddetr_high_dim_query_update,
-        no_sine_embed=args.ddetr_no_sine_embed)
-
-
+        no_sine_embed=args.ddetr_no_sine_embed,
+        use_checkpoint=getattr(args, 'use_checkpoint',
+                               False))  # [MODIFICADO: Optimización VRAM] Pasamos el flag desde args
