@@ -10,6 +10,8 @@
 #              *MODIFICADO*: Parámetros ajustados para consistencia
 #              con DETR (num_queries=100) y mitigación de OOM en
 #              ROCm (n_points=2, dn_number=50).
+#              *MODIFICADO*: use_checkpoint global para aplanar
+#              el consumo de VRAM en el Transformer (R50 y Swin).
 # ==============================================================
 
 shared_transformer_params: &shared_transformer
@@ -22,6 +24,7 @@ shared_transformer_params: &shared_transformer
   num_queries: 100      # Reducido de 900 a 100 (Consistencia DETR y ahorro VRAM)
   position_embedding: "sine"
   pre_norm: false
+  use_checkpoint: true  # [AÑADIDO]: Activa Gradient Checkpointing globalmente (Backbone + Transformer)
   # --- DINO Specifics ---
   use_dn: true
   dn_number: 50         # Reducido de 100 a 50 (Ahorro VRAM en Contrastive DeNoising)
@@ -57,7 +60,6 @@ variants:
     dilation: false
     num_feature_levels: 4
     return_interm_indices: [1, 2, 3]
-    use_checkpoint: true
     <<: *shared_transformer
 
   swin_l_5scale:
@@ -66,5 +68,4 @@ variants:
     dilation: false
     num_feature_levels: 5
     return_interm_indices: [0, 1, 2, 3]
-    use_checkpoint: true
     <<: *shared_transformer
