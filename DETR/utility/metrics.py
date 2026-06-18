@@ -9,7 +9,8 @@
 # Descripción: Motor gráfico para reportes de validación y
 #              herramienta CLI interactiva para comparación
 #              global de experimentos (Modo Merge).
-#              *Actualizado con paleta de colores dinámica*
+#              *Actualizado con paleta de colores dinámica y
+#               métricas estándar de Trade-off (GFLOPs/Params)*
 # ==============================================================
 
 import os
@@ -39,11 +40,20 @@ UTILITY_ROOT = FILE.parent
 DETR_ROOT = UTILITY_ROOT.parent
 METRICS_ROOT = DETR_ROOT / "metrics" / "detect"
 
+# Parámetros extraídos de la tabla oficial de DETR (en Millones)
 DETR_PARAMS_M = {
-    "r50": 41.3,
-    "r50_dc5": 41.3,
-    "r101": 60.1,
-    "r101_dc5": 60.1,
+    "r50": 41.0,
+    "r50_dc5": 41.0,
+    "r101": 60.0,
+    "r101_dc5": 60.0,
+}
+
+# GFLOPs extraídos de la tabla oficial de DETR
+DETR_GFLOPS = {
+    "r50": 86.0,
+    "r50_dc5": 187.0,
+    "r101": 152.0,
+    "r101_dc5": 253.0,
 }
 
 # Paleta estándar para asignar colores únicos por experimento (run)
@@ -189,7 +199,7 @@ class MergeManager:
             self._plot_comparative(keyword, f"Comparativa {title}", title, metrics_out / f"compare_{safe_name}.png",
                                    0.5)
 
-        self._plot_tradeoff(output_dir)
+        self._plot_tradeoffs(output_dir)
         self._save_summary_json(output_dir)
 
         print(f"[metrics.py] === Comparación Finalizada con Éxito en: {self.comparison_name} ===")
@@ -225,8 +235,9 @@ class MergeManager:
         plt.savefig(out_path, dpi=200);
         plt.close()
 
-    def _plot_tradeoff(self, output_dir: Path):
-        data_points =[]
+    def _plot_tradeoffs(self, output_dir: Path):
+        """Genera gráficos de trade-off para Parámetros y GFLOPs."""
+        data_points = []
         for label, (variant, df) in self.selected_runs.items():
             if 'metrics/mAP_0.5:0.95' not in df.columns: continue
             best_map = df['metrics/mAP_0.5:0.95'].max()
@@ -236,41 +247,55 @@ class MergeManager:
                 'label': label,
                 'variant': variant,
                 'params': DETR_PARAMS_M.get(variant, 0),
+                'gflops': DETR_GFLOPS.get(variant, 0),
                 'map': best_map,
                 'color': self.run_colors[label]
             })
 
         if not data_points: return
 
-        # Ordenar por parámetros para la línea continua
+        # --- Gráfico 1: Performance vs Parámetros ---
         data_points.sort(key=lambda x: x['params'])
+        self._render_scatter_plot(
+            data_points, 'params', "Parámetros (Millones)", "Best mAP@0.5:0.95",
+            "Trade-off: Performance vs Parámetros",
+            output_dir / "tradeoff_performance_params.png"
+        )
 
-        params = [d['params'] for d in data_points]
-        maps = [d['map'] for d in data_points]
+        # --- Gráfico 2: Performance vs GFLOPs ---
+        data_points.sort(key=lambda x: x['gflops'])
+        self._render_scatter_plot(
+            data_points, 'gflops', "GFLOPs", "Best mAP@0.5:0.95",
+            "Trade-off: Performance vs Costo Computacional (GFLOPs)",
+            output_dir / "tradeoff_performance_gflops.png"
+        )
+
+    def _render_scatter_plot(self, data_points, x_key, xlabel, ylabel, title, out_path):
+        """Función auxiliar para renderizar los gráficos de dispersión."""
+        x_vals = [d[x_key] for d in data_points]
+        y_vals = [d['map'] for d in data_points]
         colors = [d['color'] for d in data_points]
         labels = [d['label'] for d in data_points]
 
         plt.figure(figsize=(10, 6))
 
         # Dibujar línea de tendencia (solo si hay más de un punto)
-        if len(params) > 1:
-            plt.plot(params, maps, linestyle='--', color='#7f8c8d', alpha=0.6, zorder=1, linewidth=1.5)
+        if len(x_vals) > 1:
+            plt.plot(x_vals, y_vals, linestyle='--', color='#7f8c8d', alpha=0.6, zorder=1, linewidth=1.5)
 
         # Dibujar puntos
-        for i in range(len(params)):
-            plt.scatter(params[i], maps[i], color=colors[i], s=200, zorder=3, edgecolors='black', linewidth=1.2)
-            plt.annotate(f"  {labels[i]}", (params[i], maps[i]), xytext=(5, 5),
+        for i in range(len(x_vals)):
+            plt.scatter(x_vals[i], y_vals[i], color=colors[i], s=200, zorder=3, edgecolors='black', linewidth=1.2)
+            plt.annotate(f"  {labels[i]}", (x_vals[i], y_vals[i]), xytext=(5, 5),
                          textcoords='offset points', fontsize=9, fontweight='bold')
 
-        plt.xlabel("Parámetros (Millones)");
-        plt.ylabel("Best mAP@0.5:0.95");
-        plt.title("Trade-off: Performance vs Complejidad")
-
-        # Ajustar márgenes para que no se corten las etiquetas
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
         plt.margins(0.15)
-        plt.grid(True, linestyle='--', alpha=0.5);
+        plt.grid(True, linestyle='--', alpha=0.5)
         plt.tight_layout()
-        plt.savefig(output_dir / "tradeoff_performance_size.png", dpi=200);
+        plt.savefig(out_path, dpi=200)
         plt.close()
 
     def _save_summary_json(self, output_dir: Path):
@@ -282,7 +307,8 @@ class MergeManager:
                 "best_mAP_0.5_0.95": float(
                     df['metrics/mAP_0.5:0.95'].max()) if 'metrics/mAP_0.5:0.95' in df.columns else 0,
                 "best_F1": float(df['metrics/F1'].max()) if 'metrics/F1' in df.columns else 0,
-                "params_M": DETR_PARAMS_M.get(variant, 0)
+                "params_M": DETR_PARAMS_M.get(variant, 0),
+                "gflops": DETR_GFLOPS.get(variant, 0)
             }
         with open(output_dir / "global_summary.json", "w") as f:
             json.dump(summary, f, indent=2)
