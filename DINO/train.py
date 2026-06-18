@@ -7,7 +7,8 @@
 # --------------------------------------------------------------
 # Archivo: DINO/train.py
 # Descripción: Punto de entrada CLI para el entrenamiento de DINO.
-#              *CORREGIDO: Serialización Pickle en Dict2Obj*
+#              *CORREGIDO: Serialización Pickle y soporte para
+#               operador 'in' en Dict2Obj (Swin Backbone fix)*
 # ==============================================================
 
 import argparse
@@ -88,11 +89,15 @@ class Dict2Obj:
                 setattr(self, key, value)
 
     def __getattr__(self, name):
-        # [MODIFICADO]: Evitar que devuelva None para métodos mágicos (ej. __setstate__)
+        # Evitar que devuelva None para métodos mágicos (ej. __setstate__)
         # Esto previene el error "TypeError: 'NoneType' object is not callable" al hacer torch.load()
         if name.startswith('__') and name.endswith('__'):
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         return None
+
+    def __contains__(self, key):
+        # Permite usar el operador 'in' (ej. "backbone_dir" in args) necesario para Swin Backbone
+        return key in self.__dict__
 
 
 def load_yaml(path):

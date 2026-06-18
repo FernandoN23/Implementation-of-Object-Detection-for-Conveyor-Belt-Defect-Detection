@@ -8,6 +8,7 @@
 # Archivo: DINO/valid.py
 # Descripción: Script de entrada (CLI) para validación de DINO.
 #              *CORREGIDO: lr_backbone > 0 para evitar crash en build_backbone*
+#              *CORREGIDO: Dict2Obj unificado con soporte 'in'*
 # ==============================================================
 
 import argparse
@@ -88,7 +89,14 @@ class Dict2Obj:
                 setattr(self, key, value)
 
     def __getattr__(self, name):
+        # Evitar que devuelva None para métodos mágicos (ej. __setstate__)
+        if name.startswith('__') and name.endswith('__'):
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         return None
+
+    def __contains__(self, key):
+        # Permite usar el operador 'in' (ej. "backbone_dir" in args) necesario para Swin Backbone
+        return key in self.__dict__
 
 
 def load_yaml(path):

@@ -9,7 +9,9 @@
 # Descripción: Orquestador de entrenamiento para DINO.
 #              Optimizado con backend 'Agg', limpieza de caché,
 #              AMP, ModelEma y Contrastive DeNoising (CDN).
-#              *CORREGIDO: Uso de pesos locales (Git LFS) para Transfer Learning*
+#              *CORREGIDO: Cirugía de pesos (Size Mismatch) para
+#               soportar variantes Lite con Transfer Learning.*
+#              *CORREGIDO: Dict2Obj unificado con soporte 'in'*
 # ==============================================================
 
 import os
@@ -72,6 +74,10 @@ class Dict2Obj:
         if name.startswith('__') and name.endswith('__'):
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         return None
+
+    def __contains__(self, key):
+        # Permite usar el operador 'in' (ej. "backbone_dir" in args) necesario para Swin Backbone
+        return key in self.__dict__
 
 
 def increment_path(path, exist_ok=False, sep='', mkdir=False):
@@ -213,8 +219,33 @@ class Trainer:
                 print(f"[Trainer] Cargando pesos pre-entrenados locales desde {w_path}")
                 checkpoint = torch.load(w_path, map_location='cpu', weights_only=False)
                 state_dict = checkpoint['model']
+
                 # Limpiar state_dict para evitar conflictos con el número de clases
                 state_dict = {k: v for k, v in state_dict.items() if 'class_embed' not in k and 'label_enc' not in k}
+
+                # [MODIFICADO]: Cirugía de Pesos (Size Mismatch Mitigation)
+                # Recorta dinámicamente las matrices del checkpoint si son más grandes que las del modelo actual (Variantes Lite)
+                model_state_dict = model.state_dict()
+                trimmed_keys = 0
+                for k in list(state_dict.keys()):
+                    if k in model_state_dict:
+                        ckpt_shape = state_dict[k].shape
+                        model_shape = model_state_dict[k].shape
+                        if ckpt_shape != model_shape:
+                            # Si el checkpoint tiene más dimensiones (ej. 900 queries vs 100), recortamos
+                            if len(ckpt_shape) == len(model_shape) and all(
+                                    c >= m for c, m in zip(ckpt_shape, model_shape)):
+                                slices = tuple(slice(0, m) for m in model_shape)
+                                state_dict[k] = state_dict[k][slices]
+                                trimmed_keys += 1
+                            else:
+                                # Si las formas son incompatibles de otra manera, descartamos el peso
+                                del state_dict[k]
+
+                if trimmed_keys > 0:
+                    print(
+                        f"[Trainer] Info: Se recortaron {trimmed_keys} tensores del checkpoint para ajustarse a la arquitectura Lite.")
+
                 model.load_state_dict(state_dict, strict=False)
 
         if self.cfg.bn2gn_policy != "off":
