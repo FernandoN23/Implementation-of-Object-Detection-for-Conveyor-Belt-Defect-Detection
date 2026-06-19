@@ -22,7 +22,7 @@
 
 \par Las correas transportadoras operan en condiciones que las exponen a diversos tipos de daños, los cuales pueden generar costosos tiempos de inactividad. Para cada condición de falla, se han revisado exhaustivamente sus tipos y causas, así como los métodos adecuados para su mitigación, contribuyendo a mejorar la confiabilidad del sistema \cite{khanna2022types}. \\
 
-\par Entre las fallas más comunes en correas transportadoras se identifican el \textbf{daño por impacto}, que puede provocar \textbf{perforaciones o roturas locales}; la \textbf{delaminación}, generada por esfuerzos cíclicos y fatiga; y la \textbf{desalineación de la banda}, que causa \textbf{desgaste anómalo en los bordes}. Además, se reporta \textbf{desgaste abrasivo} en la cubierta superior por efecto de partículas duras, \textbf{rotura de cables de acero} en correas reforzadas, y \textbf{cortes longitudinales y transversales}, todos los cuales afectan directamente la vida útil y seguridad operativa del sistema.
+\par Entre las fallas más comunes en correas transportadoras se identifican el \textit{daño por impacto}, que puede provocar \textit{perforaciones o roturas locales}; la \textit{delaminación}, generada por esfuerzos cíclicos y fatiga; y la \textit{desalineación de la banda}, que causa \textit{desgaste anómalo en los bordes}. Además, se reporta \textit{desgaste abrasivo} en la cubierta superior por efecto de partículas duras, \textit{rotura de cables de acero} en correas reforzadas, y \textit{cortes longitudinales y transversales}, todos los cuales afectan directamente la vida útil y seguridad operativa del sistema.
 
 
 \begin{figure}[H]
@@ -128,7 +128,7 @@
 
 \par En los esquemas de optimización empleados para entrenamiento de redes convolucionales, la tasa de aprendizaje inicial $lr0$ juega un rol central al determinar la magnitud del paso de actualización de los parámetros en cada iteración. Si denotamos por $\eta_0 = lr0$ la tasa de aprendizaje inicial y por $\eta_f$ la tasa final, el hiperparámetro $lrf$ actúa como un factor de escala tal que, al final del entrenamiento, se cumple aproximadamente $\eta_f = lrf \cdot \eta_0$ \cite{nyuytiymbiy2020parameters}. Junto con ello, el número de épocas $E$ (en la tabla, “Número de \textit{épocas}”) fija cuántas pasadas completas se realizan sobre el conjunto de entrenamiento, mientras que el tamaño de \textit{batch} $B$ (4, 8 o 16 imágenes) controla cuántas muestras se usan para estimar el gradiente en cada actualización. El tamaño de imagen $(H, W)$, fijado típicamente en $640 \times 640$ píxeles, determina la resolución a la que se procesan las entradas y, por tanto, el compromiso entre detalle espacial y costo computacional. \\
 
-\par La regularización L2 se controla mediante el hiperparámetro \texttt{weight\_decay}, que añade a la función de pérdida una penalización sobre el tamaño de los pesos del modelo. De este modo se desincentivan valores excesivamente grandes y se reduce el riesgo de sobreajuste. Los términos \texttt{box\_loss}, \texttt{cls\_loss} y \texttt{object\_loss} actúan como coeficientes que ponderan, dentro de la pérdida total, la importancia relativa de la regresión de cajas, la clasificación de las clases y la detección de la presencia de objeto en cada ancla, respectivamente. Finalmente, el hiperparámetro \texttt{warmup\_epochs} define cuántas épocas iniciales se utilizan para incrementar de forma gradual la tasa de aprendizaje desde valores muy pequeños hasta su valor nominal, estabilizando las primeras iteraciones del entrenamiento. \\
+\par La regularización L2 se controla mediante el hiperparámetro \textit{weight\_decay}, que añade a la función de pérdida una penalización sobre el tamaño de los pesos del modelo. De este modo se desincentivan valores excesivamente grandes y se reduce el riesgo de sobreajuste. Los términos \textit{box\_loss}, \textit{cls\_loss} y \textit{object\_loss} actúan como coeficientes que ponderan, dentro de la pérdida total, la importancia relativa de la regresión de cajas, la clasificación de las clases y la detección de la presencia de objeto en cada ancla, respectivamente. Finalmente, el hiperparámetro \textit{warmup\_epochs} define cuántas épocas iniciales se utilizan para incrementar de forma gradual la tasa de aprendizaje desde valores muy pequeños hasta su valor nominal, estabilizando las primeras iteraciones del entrenamiento. \\
 
 
 
@@ -189,7 +189,7 @@
 
 \par Esta evidencia posiciona a YOLO como una alternativa particularmente atractiva cuando la restricción de tiempo de cómputo es crítica, como ocurre en la inspección continua de correas transportadoras en operación. No obstante lo anterior, la familia SSD mantiene un interés práctico como referencia clásica de detectores multi-escala. La arquitectura SSD fue concebida para superar las limitaciones de YOLOv1 frente a objetos pequeños y con relaciones de aspecto inusuales mediante el uso de múltiples mapas de características y conjuntos de cajas ancla de distintas escalas y proporciones \cite{zhang2021one_stage}. Su comparación directa con un modelo YOLO moderno permite analizar, en un mismo dominio industrial, el rendimiento relativo de dos enfoques representativos: uno enfocado en una representación multi-escala explícita (SSD) y otro en una arquitectura optimizada y profundamente integrada que ha ido incorporando progresivamente mecanismos de fusión de características y mejoras en la función de pérdida (YOLOv5). \\
 
-\par En consecuencia, en esta memoria se selecciona \textbf{YOLOv5} como representante de las arquitecturas YOLO de última generación (de acuerdo al artículo de Zhang et al.), dada su combinación favorable de velocidad y precisión, su soporte activo en marcos de trabajo actuales y la disponibilidad de variantes escalables en tamaño de modelo; en paralelo, se adopta \textbf{SSD} como baseline clásico de detectores de una etapa con énfasis en la detección multi-escala de objetos pequeños. Ambos modelos serán implementados y entrenados sobre un conjunto de datos específico de fallas en correas transportadoras, bajo un mismo protocolo experimental, con el propósito de comparar de forma controlada sus métricas de detección, su capacidad para identificar defectos y sus requerimientos computacionales en un escenario cercano al operativo.
+\par En consecuencia, en esta memoria se selecciona \textit{YOLOv5} como representante de las arquitecturas YOLO de última generación (de acuerdo al artículo de Zhang et al.), dada su combinación favorable de velocidad y precisión, su soporte activo en marcos de trabajo actuales y la disponibilidad de variantes escalables en tamaño de modelo; en paralelo (\textit{nano, small, medium, large, extra large}), se adopta \textit{SSD} como baseline clásico de detectores de una etapa con énfasis en la detección multi-escala de objetos pequeños. Ambos modelos serán implementados y entrenados sobre un conjunto de datos específico de fallas en correas transportadoras, bajo un mismo protocolo experimental, con el propósito de comparar de forma controlada sus métricas de detección, su capacidad para identificar defectos y sus requerimientos computacionales en un escenario cercano al operativo.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{YOLO (You Only Look Once)}
@@ -360,7 +360,7 @@ donde $\sigma(x)$ es la función sigmoide estándar. En comparación con funcion
 
 \subsection{Precisión, Exhaustividad y F-Score}
 
-\par La \textbf{precisión} (\textit{precision}) mide la proporción de verdaderos positivos entre todas las predicciones positivas. El \textbf{recall} o \textit{exhaustividad} mide la proporción de verdaderos positivos detectados sobre los positivos reales. 
+\par La \textit{precisión} (\textit{precision}) mide la proporción de verdaderos positivos entre todas las predicciones positivas. La \textit{exhaustividad} (\textit{recall}) mide la proporción de verdaderos positivos detectados sobre los positivos reales. 
 
 \[
 \text{Precision} = \frac{TP}{TP + FP} \quad \quad \text{Recall} = \frac{TP}{TP + FN}
@@ -392,7 +392,7 @@ donde $\sigma(x)$ es la función sigmoide estándar. En comparación con funcion
 \end{table}
 
 
-\par El \textbf{F-Score} ($F_{\beta}$) es la media ponderada entre precisión y recall, ajustada por el parámetro $\beta$. Un caso particular es el \textbf{F1-Score} ($F_{1}$), donde $\beta = 1$.
+\par El \textit{F-Score} ($F_{\beta}$) es la media ponderada entre precisión y recall, ajustada por el parámetro $\beta$. Un caso particular es el \textit{F1-Score} ($F_{1}$), donde $\beta = 1$.
 
 \[
 F_{\beta} = (1 + \beta^2) \cdot \frac{\text{Precision} \cdot \text{Recall}}{\beta^2 \cdot \text{Precision} + \text{Recall}} \quad \quad F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
@@ -400,7 +400,7 @@ F_{\beta} = (1 + \beta^2) \cdot \frac{\text{Precision} \cdot \text{Recall}}{\bet
 
 \subsection{Intersección sobre la unión (IoU)}
 
-\par El \textbf{IoU (Intersection over Union)} evalúa el solapamiento entre la predicción y la verdad de terreno:
+\par La intersección sobre la unión (\textit{Intersection over Union}) ó IoU, evalúa el solapamiento entre la predicción y la verdad de terreno:
 \\
 \[
 \text{IoU} = \frac{\text{Área de Intersección}}{\text{Área de Unión}}
@@ -419,13 +419,13 @@ F_{\beta} = (1 + \beta^2) \cdot \frac{\text{Precision} \cdot \text{Recall}}{\bet
 
 \subsection{Precisión promedio (Average Precision, AP) y precisión promedio media (mean Average Precision, mAP)}
 
-\par La \textbf{precisión promedio} (\textit{Average Precision}, AP) cuantifica el desempeño del modelo para una clase específica como el área bajo la curva precisión--exhaustividad (\textit{precision--recall}). En términos prácticos, el AP resume en un único valor cómo varía la precisión al recorrer distintos umbrales de confianza, integrando el compromiso entre detectar la mayor cantidad de verdaderos positivos posible y mantener bajo el número de falsos positivos para dicha clase. \\
+\par La \textit{precisión promedio} (\textit{Average Precision}) o AP, cuantifica el desempeño del modelo para una clase específica como el área bajo la curva precisión--exhaustividad (\textit{precision--recall}). En términos prácticos, el AP resume en un único valor cómo varía la precisión al recorrer distintos umbrales de confianza, integrando el compromiso entre detectar la mayor cantidad de verdaderos positivos posible y mantener bajo el número de falsos positivos para dicha clase. \\
 
-\par La \textbf{precisión promedio media} (\textit{mean Average Precision}, mAP) se define como el promedio del AP calculado sobre todas las clases del problema. Esta métrica entrega una visión global del rendimiento del modelo de detección, evitando que el análisis se concentre únicamente en las clases mayoritarias. En la práctica, se emplean variantes estandarizadas como \textbf{mAP@50}, que utiliza un umbral IoU fijo de 0{,}5 para considerar una predicción como correcta, y \textbf{mAP@50-95}, que promedia el AP sobre umbrales de IoU entre 0{,}5 y 0{,}95 (con paso de 0{,}05), imponiendo un criterio más estricto sobre la calidad geométrica de las cajas predichas. \\
+\par La \textit{precisión promedio media} (\textit{mean Average Precision}) o mAP, se define como el promedio del AP calculado sobre todas las clases del problema. Esta métrica entrega una visión global del rendimiento del modelo de detección, evitando que el análisis se concentre únicamente en las clases mayoritarias. En la práctica, se emplean variantes estandarizadas como \textit{mAP@50}, que utiliza un umbral IoU fijo de 0{,}5 para considerar una predicción como correcta, y \textit{mAP@50-95}, que promedia el AP sobre umbrales de IoU entre 0{,}5 y 0{,}95 (con paso de 0{,}05), imponiendo un criterio más estricto sobre la calidad geométrica de las cajas predichas. \\
 
 
 \subsection{Matriz de confusión (Confusion Matrix)}
 
-\par La \textbf{matriz de confusión} (\textit{Confusion Matrix}) representa de forma tabular los aciertos y errores del modelo al comparar sus predicciones con la verdad de terreno. En su forma más simple (binaria), recoge los conteos de verdaderos positivos (TP), verdaderos negativos (TN), falsos positivos (FP) y falsos negativos (FN); en el caso multiclase, se extiende a una matriz de dimensión $n \times n$, donde cada fila corresponde a la clase verdadera y cada columna a la clase predicha. \\
+\par La \textit{matriz de confusión} (\textit{Confusion Matrix}) representa de forma tabular los aciertos y errores del modelo al comparar sus predicciones con la verdad de terreno. En su forma más simple (binaria), recoge los conteos de verdaderos positivos (TP), verdaderos negativos (TN), falsos positivos (FP) y falsos negativos (FN); en el caso multiclase, se extiende a una matriz de dimensión $n \times n$, donde cada fila corresponde a la clase verdadera y cada columna a la clase predicha. \\
 
 \par Esta representación permite analizar en detalle el comportamiento del clasificador, identificando clases que se confunden sistemáticamente entre sí, posibles desequilibrios en el rendimiento (por ejemplo, clases con alta tasa de falsos negativos) y patrones de error que no son evidentes a partir de métricas agregadas. En el contexto de detección de objetos, la matriz de confusión se construye a partir de las detecciones aceptadas según un umbral de confianza e IoU, y resulta especialmente útil para interpretar los resultados por tipo de falla o categoría de interés. \\
