@@ -3,13 +3,13 @@
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {2.1.1}{\ignorespaces Machine Learning vs Deep Learning \cite {gupta2022deep}}}{5}{figure.caption.10}%
 \contentsline {figure}{\numberline {2.1.2}{\ignorespaces Tipos de falla comunes en correas transportadoras, imágenes adaptadas de \cite {khanna2022types}.}}{6}{figure.caption.11}%
-\contentsline {figure}{\numberline {2.2.1}{\ignorespaces Ejemplos de detección de objetos simples y múltiples. Imagen adaptada de \cite {kaur2022tools}.}}{7}{figure.caption.12}%
-\contentsline {figure}{\numberline {2.2.2}{\ignorespaces Arquitectura típica de Redes Neuronales Convolucionales. Imagen extraída de \cite {lubinus2023redes}.}}{8}{figure.caption.13}%
-\contentsline {figure}{\numberline {2.4.1}{\ignorespaces Clasificación de varias técnicas de detección de objetos. Imagen extraída de \cite {kaur2022tools}.}}{13}{figure.caption.15}%
-\contentsline {figure}{\numberline {2.4.2}{\ignorespaces Una revisión del rendimiento de los detectores de una sola etapa. Imagen extraída de \cite {zhang2021one_stage}.}}{14}{figure.caption.16}%
-\contentsline {figure}{\numberline {2.4.3}{\ignorespaces Arquitectura de YOLOv5, basada en una estructura de tipo \textit {backbone--neck--head} con módulos convolucionales CSP y fusión multi-escala. Imagen extraída de \cite {Jani2023ModelCompressionYOLOv5}.}}{16}{figure.caption.17}%
-\contentsline {figure}{\numberline {2.4.4}{\ignorespaces Arquitectura general de SSD. Imagen extraída y procesada de \cite {liu2016ssd}.}}{20}{figure.caption.23}%
-\contentsline {figure}{\numberline {2.6.1}{\ignorespaces Representación visual de Intersección sobre la Unión. Imagen extraída de \cite {schlosser2024overview}.}}{31}{figure.caption.31}%
+\contentsline {figure}{\numberline {2.2.1}{\ignorespaces Ejemplos de detección de objetos simples y múltiples. Imagen adaptada de \cite {kaur2022tools}.}}{6}{figure.caption.12}%
+\contentsline {figure}{\numberline {2.3.1}{\ignorespaces Arquitectura típica de Redes Neuronales Convolucionales. Diagrama adaptado de \cite {gupta2022deep}.}}{8}{figure.caption.13}%
+\contentsline {figure}{\numberline {2.5.1}{\ignorespaces Clasificación de varias técnicas de detección de objetos. Imagen extraída de \cite {kaur2022tools}.}}{13}{figure.caption.15}%
+\contentsline {figure}{\numberline {2.5.2}{\ignorespaces Una revisión del rendimiento de los detectores de una sola etapa. Imagen extraída de \cite {zhang2021one_stage}.}}{14}{figure.caption.16}%
+\contentsline {figure}{\numberline {2.5.3}{\ignorespaces Arquitectura de YOLOv5, basada en una estructura de tipo \textit {backbone--neck--head} con módulos convolucionales CSP y fusión multi-escala. Imagen extraída de \cite {Jani2023ModelCompressionYOLOv5}.}}{16}{figure.caption.17}%
+\contentsline {figure}{\numberline {2.5.4}{\ignorespaces Arquitectura general de SSD. Imagen extraída y procesada de \cite {liu2016ssd}.}}{20}{figure.caption.23}%
+\contentsline {figure}{\numberline {2.7.1}{\ignorespaces Representación visual de Intersección sobre la Unión. Imagen extraída de \cite {schlosser2024overview}.}}{31}{figure.caption.31}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {4.1.1}{\ignorespaces Distribución de frecuencia de las clases de fallas a través de las particiones del conjunto de datos.}}{40}{figure.caption.35}%

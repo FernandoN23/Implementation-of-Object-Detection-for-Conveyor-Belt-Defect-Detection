@@ -49,6 +49,15 @@ Gupta, J., Pathak, S., y Kumar, G., ``{Deep Learning (CNN) and Transfer
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
+\bibitem{kaur2022tools}
+Kaur, J. y Singh, W., ``{Tools, techniques, datasets and application areas for
+  object detection in an image: a review}'', {{Multimedia Tools and
+  Applications}}, vol.~81, no.~27, pp.~38297--38351, 2022,
+  \href{https://dx.doi.org/10.1007/s11042-022-13153-y}
+  {\nolinkurl{doi:\detokenize{10.1007/s11042-022-13153-y}}}.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
 \bibitem{arkin2023survey}
 Arkin, E., Yadikar, N., Xu, X., Aysa, A., y Ubul, K., ``{A survey: object
   detection methods from CNN to transformer}'', {Multimedia Tools and
@@ -71,15 +80,6 @@ Badillo, F.~L., Hernández, C. A.~R., Narváez, B.~M., y Trillos, Y. E.~A.,
   diagnósticas. Revisión de tema}'', {Revista Colombiana de Radiología},
   2023, \href{https://dx.doi.org/10.53903/01212095.161}
   {\nolinkurl{doi:\detokenize{10.53903/01212095.161}}}.
-\backrefprint\backrefparscantrue
-
-\backrefparscanfalse
-\bibitem{kaur2022tools}
-Kaur, J. y Singh, W., ``{Tools, techniques, datasets and application areas for
-  object detection in an image: a review}'', {{Multimedia Tools and
-  Applications}}, vol.~81, no.~27, pp.~38297--38351, 2022,
-  \href{https://dx.doi.org/10.1007/s11042-022-13153-y}
-  {\nolinkurl{doi:\detokenize{10.1007/s11042-022-13153-y}}}.
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse

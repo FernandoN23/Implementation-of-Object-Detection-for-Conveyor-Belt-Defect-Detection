@@ -2,7 +2,7 @@
 
 \section{Estado del arte en la identificación de fallas en correas transportadoras}
 
-\par El aprendizaje profundo (\textit{Deep Learning}) surge como una evolución de los enfoques clásicos de aprendizaje automático (\textit{Machine Learning}), al introducir redes neuronales profundas capaces de aprender de forma automática representaciones jerárquicas directamente desde los datos. En los métodos tradicionales de \textit{Machine Learning}, la etapa de ingeniería de características recae en el especialista, quien define manualmente descriptores (por ejemplo, basados en bordes, texturas o histogramas) y luego entrena un clasificador independiente sobre dichas representaciones. En contraste, en \textit{Deep Learning} la misma red realiza de manera integrada la extracción de características y la decisión final, aprendiendo dichas representaciones de alto nivel a partir de grandes volúmenes de datos. Esto ha permitido superar de forma sistemática a los métodos convencionales en tareas de clasificación, segmentación y detección de objetos. Adicionalmente, el aprendizaje por transferencia (\textit{transfer learning}) ha cobrado relevancia en escenarios con escasez de datos etiquetados, al reutilizar modelos profundos preentrenados en bases de datos extensas y ajustarlos a nuevas tareas de visión por computador, mejorando el rendimiento y reduciendo el costo computacional del entrenamiento \cite{gupta2022deep}.\\
+El aprendizaje profundo (\textit{Deep Learning}) surge como una evolución de los enfoques clásicos de aprendizaje automático (\textit{Machine Learning}), al introducir redes neuronales profundas capaces de aprender de forma automática representaciones jerárquicas directamente desde los datos. En los métodos tradicionales de \textit{Machine Learning}, la etapa de ingeniería de características recae en el especialista, quien define manualmente descriptores (por ejemplo, basados en bordes, texturas o histogramas) y luego entrena un clasificador independiente sobre dichas representaciones. En contraste, en \textit{Deep Learning} la misma red realiza de manera integrada la extracción de características y la decisión final, aprendiendo dichas representaciones de alto nivel a partir de grandes volúmenes de datos. Esto ha permitido superar de forma sistemática a los métodos convencionales en tareas de clasificación, segmentación y detección de objetos. Adicionalmente, el aprendizaje por transferencia (\textit{transfer learning}) ha cobrado relevancia en escenarios con escasez de datos etiquetados, al reutilizar modelos profundos preentrenados en bases de datos extensas y ajustarlos a nuevas tareas de visión por computador, mejorando el rendimiento y reduciendo el costo computacional del entrenamiento en los nuevos modelos \cite{gupta2022deep}.
 
 \begin{figure}[H]
     \centering
@@ -11,19 +11,14 @@
     \label{fig:2.1-ML_vs_DL}
 \end{figure}
 
-\par La detección de fallas en correas transportadoras se aborda como un problema de detección de objetos mediante aprendizaje supervisado. Existen dos enfoques principales: los modelos de dos etapas, como la familia R-CNN (red neuronal convolucional basada en regiones), que emplean redes de propuestas regionales seguidas de refinamiento, y los modelos de una etapa, como YOLO y SSD, que realizan predicciones por regresión directa, optimizados para aplicaciones en tiempo real \cite{zhang2021deep}. \\
-
-\par La detección de objetos ha sido uno de los problemas centrales en visión por computadora, tradicionalmente abordado mediante arquitecturas basadas en redes neuronales convolucionales (CNN). Estos modelos dominaron el campo durante más de una década, impulsando desarrollos significativos en precisión y eficiencia. Sin embargo, alcanzar un balance óptimo entre velocidad y exactitud ha requerido explorar estructuras más allá del marco convencional de las CNN. Los modelos basados en transformers, originalmente desarrollados para procesamiento de lenguaje natural (Natural Language Processing), han demostrado ser altamente efectivos al capturar relaciones espaciales globales en imágenes, lo que los convierte en una propuesta a considerar para la implementación de nuevos modelos de detección de objetos \cite{arkin2023survey}. \\
-
-\par Una memoria de título desarrollada en la Universidad de Chile \cite{angulo2024deteccion} implementa visión computacional y técnicas de aprendizaje profundo para la detección temprana de fallas en correas transportadoras, utilizando una de las versiones del modelo YOLO. El estudio describe detalladamente la implementación y calibración del modelo, además de proporcionar información técnica sobre redes neuronales convolucionales, métricas de evaluación, pruebas experimentales y resultados ilustrativos.
+En trabajos recientes, una memoria de título desarrollada en la Universidad de Chile \cite{angulo2024deteccion} implementa visión computacional y técnicas de aprendizaje profundo para la detección temprana de fallas en correas transportadoras, utilizando una de las versiones del modelo YOLO. El estudio describe detalladamente la implementación y calibración del modelo, además de proporcionar información técnica sobre redes neuronales convolucionales, métricas de evaluación, pruebas experimentales y resultados ilustrativos.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Fallas en correas transportadoras}
 
-\par Las correas transportadoras operan en condiciones que las exponen a diversos tipos de daños, los cuales pueden generar costosos tiempos de inactividad. Para cada condición de falla, se han revisado exhaustivamente sus tipos y causas, así como los métodos adecuados para su mitigación, contribuyendo a mejorar la confiabilidad del sistema \cite{khanna2022types}. \\
+Las correas transportadoras, máquinas de transporte de material continuo, operan en condiciones que las exponen a diversos tipos de daños, los cuales pueden generar costosos tiempos de inactividad. Para cada condición de falla, se estudiaron exhaustivamente sus tipos y causas, así como los métodos adecuados para su mitigación, contribuyendo a mejorar la confiabilidad del sistema \cite{khanna2022types}. 
 
-\par Entre las fallas más comunes en correas transportadoras se identifican el \textit{daño por impacto}, que puede provocar \textit{perforaciones o roturas locales}; la \textit{delaminación}, generada por esfuerzos cíclicos y fatiga; y la \textit{desalineación de la banda}, que causa \textit{desgaste anómalo en los bordes}. Además, se reporta \textit{desgaste abrasivo} en la cubierta superior por efecto de partículas duras, \textit{rotura de cables de acero} en correas reforzadas, y \textit{cortes longitudinales y transversales}, todos los cuales afectan directamente la vida útil y seguridad operativa del sistema.
-
+Entre las fallas más comunes en correas transportadoras se identifican el \textit{daño por impacto}, que puede provocar \textit{perforaciones o roturas locales}; la \textit{delaminación}, generada por esfuerzos cíclicos y fatiga; y la \textit{desalineación de la banda}, que causa \textit{desgaste anómalo en los bordes}. Además, se reporta \textit{desgaste abrasivo} en la cubierta superior por efecto de partículas duras, \textit{rotura de cables de acero} en correas reforzadas, y \textit{cortes longitudinales y transversales}, todos los cuales afectan directamente la vida útil y seguridad operativa del sistema.
 
 \begin{figure}[H]
     \centering
@@ -51,15 +46,9 @@
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Redes Neuronales Convolucionales (CNN)}
+\section{Detección de objetos en visión por computadora}
 
-\subsection{Contextualización}
-
-\par Desde sus orígenes, las redes neuronales artificiales se han concebido como modelos inspirados en el funcionamiento del cerebro humano, en los que un conjunto de neuronas simples se conectan mediante pesos sinápticos para procesar información de manera distribuida. Las redes neuronales convolucionales (CNN, por sus siglas en inglés) profundizan en esta analogía al especializarse en el procesamiento del sistema visual: reciben la imagen como una matriz de píxeles y, a través de una secuencia estructurada de operaciones —capas de convolución, funciones de activación no lineales (por ejemplo, ReLU), etapas de \textit{pooling}, aplanamiento y una capa final de clasificación basada en \textit{softmax}— son capaces de reconocer dígitos, objetos, escenas o acciones con alta precisión \cite{ajit2020review}. \\
-
-\par En una CNN típica, las capas de convolución aplican filtros o \textit{kernels} que se deslizan sobre la imagen, generando mapas de activación que condensan las características más representativas del contenido visual. Gracias a la conectividad local y al compartimiento de parámetros, estos filtros capturan patrones espaciales relevantes reduciendo el número total de pesos a entrenar y otorgando cierta invarianza frente a traslaciones. Las capas de \textit{pooling}, como el \textit{max pooling}, reducen progresivamente la resolución espacial de los mapas de activación, reteniendo las respuestas más fuertes y contribuyendo simultáneamente a disminuir la complejidad computacional y el sobreajuste. Finalmente, una o varias capas totalmente conectadas (\textit{fully connected}) integran la información extraída y producen la decisión final del modelo \cite{ajit2020review,lubinus2023redes}. \\
-
-\par La detección de objetos en visión por computador consiste en identificar automáticamente instancias presentes en una imagen o secuencia, localizándolas mediante cajas delimitadoras y asignándoles una clase. En los modelos modernos, esta tarea se formula como un problema conjunto de clasificación y regresión: para cada región candidata de la imagen se predice, de manera simultánea, la probabilidad de pertenencia a una clase y las coordenadas de la caja delimitadora asociada. La Figura~\ref{fig:2.2-object_detection_example} ilustra ejemplos de detección simple y múltiple de objetos, representativos de este tipo de problemas \cite{kaur2022tools}. \\
+La \textit{detección de objetos} consiste en identificar automáticamente instancias presentes en una imagen o secuencia, localizándolas mediante cajas delimitadoras y asignándoles una clase (\textit{clasificación}). En los modelos modernos, esta tarea se formula como un problema conjunto de clasificación y regresión: para cada región candidata de la imagen se predice, de manera simultánea, la probabilidad de pertenencia a una clase y las coordenadas de la caja delimitadora asociada. La Figura~\ref{fig:2.2-object_detection_example} ilustra ejemplos de detección simple y múltiple de objetos, representativos de este tipo de problemas \cite{kaur2022tools}.
 
 \begin{figure}[H]
     \centering
@@ -68,24 +57,115 @@
     \label{fig:2.2-object_detection_example}
 \end{figure}
 
+La detección de objetos ha sido uno de los problemas centrales en visión por computadora, tradicionalmente abordado mediante arquitecturas basadas en redes neuronales convolucionales (CNN). Estos modelos dominaron el campo durante más de una década, impulsando desarrollos significativos en precisión y eficiencia. Sin embargo, alcanzar un balance óptimo entre velocidad y exactitud ha requerido explorar estructuras más allá del marco convencional de las CNN. Los modelos basados en transformers, originalmente desarrollados para procesamiento de lenguaje natural (Natural Language Processing), han demostrado ser altamente efectivos al capturar relaciones espaciales globales en imágenes, lo que los convierte en una propuesta a considerar para la implementación de nuevos modelos de detección de objetos \cite{arkin2023survey}. 
+
+Aplicado al sector industrial, la detección de fallas en correas transportadoras se aborda fundamentalmente como un problema de detección de objetos mediante aprendizaje supervisado. Existen dos enfoques principales actualmente usados: los modelos de dos etapas, como la familia R-CNN (red neuronal convolucional basada en regiones), que emplean redes de propuestas regionales seguidas de refinamiento, y los modelos de una etapa, como YOLO y SSD, que realizan predicciones por regresión directa, optimizados para aplicaciones en tiempo real \cite{zhang2021deep}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Redes Neuronales Convolucionales (CNN)}
+
+\subsection{Contextualización}
+
+Desde sus orígenes, las redes neuronales artificiales se han concebido como modelos inspirados en el funcionamiento del cerebro humano, en los que un conjunto de neuronas simples se conectan mediante pesos sinápticos para procesar información de manera distribuida. Las redes neuronales convolucionales (CNN, por sus siglas en inglés) profundizan en esta analogía al especializarse en el procesamiento del sistema visual: reciben la imagen como una matriz de píxeles y, a través de una secuencia estructurada de operaciones —capas de convolución, funciones de activación no lineales (por ejemplo, ReLU), etapas de \textit{pooling}, aplanamiento y una capa final de clasificación basada en \textit{softmax}— son capaces de reconocer dígitos, objetos, escenas o acciones con alta precisión \cite{ajit2020review}.
+
+En una CNN típica, las capas de convolución aplican filtros o nucleos (\textit{kernels}) que se deslizan sobre la imagen, generando mapas de activación que condensan las características más representativas del contenido visual. Gracias a la conectividad local y al compartimiento de parámetros, estos filtros capturan patrones espaciales relevantes reduciendo el número total de pesos a entrenar y otorgando cierta invarianza frente a traslaciones. Las capas de \textit{pooling}, como el \textit{max pooling}, reducen progresivamente la resolución espacial de los mapas de activación, reteniendo las respuestas más fuertes y contribuyendo simultáneamente a disminuir la complejidad computacional y el sobreajuste. Finalmente, una o varias capas totalmente conectadas (\textit{fully connected}) integran la información extraída y producen la decisión final del modelo \cite{ajit2020review,lubinus2023redes}.
+
 \subsection{Arquitectura}
 
-\par En este contexto, las redes neuronales convolucionales constituyen el núcleo de la mayoría de arquitecturas de visión por computadora. Una CNN está formada por una sucesión de capas de convolución, funciones de activación no lineales (como ReLU o variantes), capas de normalización y, en algunos casos, capas de reducción de dimensionalidad (\textit{pooling}). Las convoluciones aplican filtros o \textit{kernels} que se desplazan sobre la imagen, compartiendo pesos en el plano espacial. Este mecanismo reduce el número de parámetros, explota la estructura local de las imágenes y confiere invariancia aproximada a traslaciones \cite{lubinus2023redes}. \\
+En este contexto, las redes neuronales convolucionales constituyen el núcleo de la mayoría de arquitecturas de visión por computadora. Una CNN está formada por una sucesión de capas de convolución, funciones de activación no lineales (como ReLU o variantes), capas de normalización y, en algunos casos, capas de reducción de dimensionalidad (\textit{pooling}). Las convoluciones aplican filtros o \textit{kernels} que se desplazan sobre la imagen, compartiendo pesos en el plano espacial. Este mecanismo reduce el número de parámetros, explota la estructura local de las imágenes y confiere invariancia aproximada a traslaciones \cite{lubinus2023redes}.
 
-\par Tal como se describe en revisiones recientes de aprendizaje profundo, las primeras capas de una CNN tienden a aprender características de bajo nivel (bordes, texturas, gradientes de intensidad), mientras que las capas intermedias y profundas capturan patrones de mayor complejidad (formas, partes de objetos y, finalmente, representaciones semánticas de alto nivel). Este aprendizaje jerárquico permite que una misma arquitectura pueda generalizar sobre grandes volúmenes de datos y adaptarse a distintas tareas visuales mediante el ajuste de sus parámetros \cite{gupta2022deep,lubinus2023redes}. \\
+Tal como se describe en revisiones recientes de aprendizaje profundo, las primeras capas de una CNN tienden a aprender características de bajo nivel (bordes, texturas, gradientes de intensidad), mientras que las capas intermedias y profundas capturan patrones de mayor complejidad (formas, partes de objetos y, finalmente, representaciones semánticas de alto nivel). Este aprendizaje jerárquico permite que una misma arquitectura pueda generalizar sobre grandes volúmenes de datos y adaptarse a distintas tareas visuales mediante el ajuste de sus parámetros \cite{gupta2022deep,lubinus2023redes}.
 
-\par En las capas de reducción o \textit{pooling}, como el \textit{max pooling}, se disminuye la resolución espacial de los mapas de características conservando las activaciones más relevantes. Esta etapa reduce la carga computacional y actúa como un mecanismo de regularización, al atenuar pequeños desplazamientos o deformaciones locales en la imagen. Finalmente, uno o varios bloques de capas densas (\textit{fully connected}) agregan la información extraída y realizan la clasificación o regresión final, según el diseño de \cite{lubinus2023redes} (ver Figura \ref{fig:2.2-CNN_architecture}). \\
-
+En las capas de reducción o \textit{pooling}, como el \textit{max pooling}, se disminuye la resolución espacial de los mapas de características conservando las activaciones más relevantes. Esta etapa reduce la carga computacional y actúa como un mecanismo de regularización, al atenuar pequeños desplazamientos o deformaciones locales en la imagen. Finalmente, uno o varios bloques de capas densas (\textit{fully connected}) agregan la información extraída y realizan la clasificación o regresión final, según el diseño de \cite{lubinus2023redes} (ver Figura \ref{fig:2.2-CNN_architecture}).
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2.2-CNN/CNN_architecture.png}
-    \caption{Arquitectura típica de Redes Neuronales Convolucionales. Imagen extraída de \cite{lubinus2023redes}.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        >=Stealth,
+        node distance=0.8cm and 0.5cm,
+        layer/.style={draw=black, thick, fill=blue!10, minimum width=0.6cm, inner sep=0pt},
+        pool/.style={draw=black, thick, fill=red!10, minimum width=0.4cm, inner sep=0pt},
+        dense/.style={draw=black, thick, fill=green!10, minimum width=0.3cm, minimum height=2.5cm, inner sep=0pt},
+        font=\sffamily\scriptsize
+    ]
+
+    % Input
+    \node[draw, thick, minimum width=1.5cm, minimum height=1.5cm, fill=gray!10] (input) {Input};
+    \node[below=0.8cm of input, font=\sffamily\tiny\bfseries] (text_input) {INPUT};
+
+    % Conv 1
+    \node[layer, minimum height=1.5cm, right=1.6cm of input, yshift=0.2cm] (conv1_3) {};
+    \node[layer, minimum height=1.5cm, right=1.5cm of input, yshift=0.1cm] (conv1_2) {};
+    \node[layer, minimum height=1.5cm, right=1.4cm of input] (conv1_1) {};
+    \node[font=\sffamily\tiny\bfseries, align=center] (text_conv1) at (conv1_1.south |- text_input) {CONVOLUTION \\[-2pt] + RELU};
+
+    % Pool 1
+    \node[pool, minimum height=1cm, right=1.4cm of conv1_1, yshift=0.1cm] (pool1_2) {};
+    \node[pool, minimum height=1cm, right=1.3cm of conv1_1] (pool1_1) {};
+    \node[font=\sffamily\tiny\bfseries] (text_pool1) at (pool1_1.south |- text_input) {POOLING};
+
+    % Conv 2
+    \node[layer, minimum height=1cm, right=1.5cm of pool1_1, yshift=0.1cm] (conv2_2) {};
+    \node[layer, minimum height=1cm, right=1.4cm of pool1_1] (conv2_1) {};
+    \node[font=\sffamily\tiny\bfseries, align=center] (text_conv2) at (conv2_1.south |- text_input) {CONVOLUTION \\[-2pt] + RELU};
+
+    % Pool 2
+    \node[pool, minimum height=0.6cm, right=1.4cm of conv2_1, yshift=0.1cm] (pool2_2) {};
+    \node[pool, minimum height=0.6cm, right=1.3cm of conv2_1] (pool2_1) {};
+    \node[font=\sffamily\tiny\bfseries] (text_pool2) at (pool2_1.south |- text_input) {POOLING};
+
+    % Flatten
+    \node[dense, right=2.0cm of pool2_1, fill=yellow!10] (flatten) {};
+    \node[font=\sffamily\tiny\bfseries] (text_flatten) at (flatten.south |- text_input) {FLATTEN};
+
+    % Fully Connected
+    \node[dense, right=1.2cm of flatten] (fc) {};
+    \node[font=\sffamily\tiny\bfseries, align=center] (text_fc) at (fc.south |- text_input) {FULLY \\[-2pt] CONNECTED};
+
+    % Softmax
+    \node[dense, right=1.2cm of fc, fill=purple!10] (softmax) {};
+    \node[font=\sffamily\tiny\bfseries] (text_softmax) at (softmax.south |- text_input) {SOFTMAX};
+
+    % Output classes
+    \node[right=0.2cm of softmax, anchor=west, align=left, yshift=1cm] (class1) {-- CAR};
+    \node[right=0.2cm of softmax, anchor=west, align=left, yshift=0.5cm] (class2) {-- TRUCK};
+    \node[right=0.2cm of softmax, anchor=west, align=left, yshift=0cm] (class3) {-- VAN};
+    \node[right=0.2cm of softmax, anchor=west, align=left, yshift=-0.5cm] (dots) {\vdots};
+    \node[right=0.2cm of softmax, anchor=west, align=left, yshift=-1cm] (classN) {-- BICYCLE};
+
+    % Connections
+    \draw[->] (input) -- (conv1_1);
+    \draw[->] (conv1_1) -- (pool1_1);
+    \draw[->] (pool1_1) -- (conv2_1);
+    \draw[->] (conv2_1) -- (pool2_1);
+    \draw[->, dashed] (pool2_1) -- (flatten);
+    \draw[->] (flatten.45) -- (fc.135);
+    \draw[->] (flatten.315) -- (fc.225);
+    \draw[->] (flatten.0) -- (fc.180);
+    \draw[->] (fc.45) -- (softmax.135);
+    \draw[->] (fc.315) -- (softmax.225);
+    \draw[->] (fc.0) -- (softmax.180);
+
+    % Braces for logical grouping
+    \coordinate (brace_y) at ($(text_input.south) + (0, -0.4)$);
+    
+    \draw[decorate,decoration={brace,amplitude=6pt,mirror},thick, draw=blue!60!black]
+      ($(text_conv1.south west |- brace_y)$) -- ($(text_pool2.south east |- brace_y)$) 
+      node[midway,below=10pt, font=\sffamily\scriptsize\bfseries, text=blue!60!black] {FEATURE LEARNING};
+      
+    \draw[decorate,decoration={brace,amplitude=6pt,mirror},thick, draw=blue!60!black]
+      ($(text_flatten.south west |- brace_y)$) -- ($(text_softmax.south east |- brace_y)$) 
+      node[midway,below=10pt, font=\sffamily\scriptsize\bfseries, text=blue!60!black] {CLASSIFICATION};
+
+    \end{tikzpicture}
+    }
+    \caption{Arquitectura típica de Redes Neuronales Convolucionales. Diagrama adaptado de \cite{gupta2022deep}.}
     \label{fig:2.2-CNN_architecture}
 \end{figure}
 
+Para tareas de detección de objetos, las CNN se integran habitualmente en una arquitectura de tipo \textit{backbone--neck--head}. El \textit{backbone} (por ejemplo, variantes de VGG, Darknet, ResNet u otras arquitecturas optimizadas para eficiencia) extrae los mapas de características base. Sobre estos mapas, el \textit{neck} construye representaciones multiescala mediante estructuras como pirámides de características (FPN, PAN), lo que permite detectar objetos de distintos tamaños. Finalmente, la \textit{head} de detección proyecta esas características a predicciones de clases y cajas delimitadoras, como ocurre en los modelos de una sola etapa (\textit{single-shot}) tipo YOLO y SSD, descritos en secciones posteriores \cite{zhang2021one_stage}. Esta conceptualización tripartita se estandariza y extrapola también a las arquitecturas modernas basadas en \textit{Transformers}, donde el \textit{neck} es sustituido por un bloque \textit{encoder-decoder} encargado de modelar dependencias globales mediante atención, acoplado a un \textit{backbone} de extracción visual y a una \textit{head} (típicamente redes prealimentadas simples o FFN) que ejecuta la predicción final \cite{arkin2023survey}.
 
-\par Para tareas de detección de objetos, las CNN se integran habitualmente en una arquitectura de tipo \textit{backbone--neck--head}. El \textit{backbone} (por ejemplo, variantes de VGG, ResNet u otras arquitecturas optimizadas para eficiencia) extrae los mapas de características base. Sobre estos mapas, el \textit{neck} construye representaciones multiescala mediante estructuras como pirámides de características (FPN, PAN), lo que permite detectar objetos de distintos tamaños. Finalmente, la \textit{head} de detección proyecta esas características a predicciones de clases y cajas delimitadoras, como ocurre en los modelos de una sola etapa (\textit{single-shot}) tipo YOLO y SSD, descritos en secciones posteriores \cite{zhang2021one_stage}. \\
 
 \subsection{Hiperparámetros en modelos de detección basados en CNN}
 
