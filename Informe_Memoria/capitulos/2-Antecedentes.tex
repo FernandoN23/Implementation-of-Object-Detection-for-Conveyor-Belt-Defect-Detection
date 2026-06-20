@@ -134,25 +134,33 @@
 
 \clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Mecanismo de atención y arquitectura Encoder-Decoder}
 
-\subsection{Mecanismo de atención en transformers}
+\subsection{Mecanismo de atención en Transformers}
 
-\par Los modelos basados en \textit{Transformers} reemplazan las estructuras recurrentes y convolucionales clásicas por capas apiladas de auto-atención y redes totalmente conectadas, lo que permite modelar dependencias globales en las secuencias con alta paralelización computacional \cite{vaswani2017attention}. En su formulación original, el transformador recibe una secuencia de tokens de entrada y, para cada posición, calcula combinaciones ponderadas del resto de posiciones mediante un mecanismo de atención escalado producto punto (\textit{scaled dot-product attention}), basado en tripletas de vectores consulta (\textit{queries}), clave (\textit{keys}) y valor (\textit{values}). \\
+El núcleo del paradigma \textit{Transformer} reside en el mecanismo de atención, el cual permite modelar dependencias globales entre los elementos de una secuencia o conjunto de datos sin recurrir a operaciones convolucionales o recurrentes \cite{vaswani2017attention}. La función de atención mapea una consulta (\textit{Query}, $Q$) y un conjunto de pares clave-valor (\textit{Key-Value}, $K, V$) hacia una salida, donde todos los elementos operan como vectores en un espacio de características.
 
-\par En visión por computador, la imagen se discretiza en una secuencia de \textit{tokens} (por ejemplo, parches bidimensionales proyectados a un espacio de \textit{embeddings} mediante una capa lineal o convolucional). Sobre esta representación, las capas de auto-atención permiten que cada token ``atienda'' a todos los demás, capturando relaciones espaciales de largo alcance que complementan la naturaleza local de los filtros convolucionales \cite{vaswani2017attention}. De esta manera, el modelo aprende qué regiones de la imagen son más relevantes para la tarea, redistribuyendo el foco de atención en función del contexto global. \\
+La formulación algorítmica específica empleada se denomina atención escalada por producto punto (\textit{Scaled Dot-Product Attention}). La salida se calcula como una suma ponderada de los valores ($V$), donde el peso asignado a cada valor es determinado por una función de compatibilidad entre la consulta y la clave correspondiente. Operando matricialmente sobre dimensiones $d_k$ (para consultas y claves) y $d_v$ (para valores), la operación se define rigurosamente como:
 
-\par Dada la complejidad y el carácter poco transparente de estos mecanismos internos, se han desarrollado métodos de explicabilidad específicos para arquitecturas con atención. Entre ellos, Chefer et al.~proponen un enfoque genérico capaz de propagar las ponderaciones de atención a través de arquitecturas bi-modales y encoder--decoder, generando mapas de relevancia interpretables a partir de las activaciones internas del modelo \cite{chefer2021generic}. En el contexto de detección de objetos, estos mapas permiten analizar qué regiones de la imagen influyen en las predicciones finales, aportando información complementaria a las métricas cuantitativas de desempeño. \\
+\begin{equation}
+    \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+\end{equation}
 
-\subsection{Arquitecturas encoder-decoder para detección de objetos}
+El factor de escalado $\frac{1}{\sqrt{d_k}}$ es crítico: previene que la magnitud de los productos punto escale excesivamente en dimensiones altas, lo cual saturaría la función \textit{softmax} empujándola hacia regiones con gradientes infinitesimales, imposibilitando la convergencia durante el entrenamiento \cite{vaswani2017attention}.
 
-\par En tareas de detección de objetos, los transformers suelen organizarse bajo un esquema encoder-decoder que extiende la formulación secuencial original al dominio de las imágenes. Modelos como DETR (\textit{DEtection TRansformer}) utilizan un \textit{backbone} convolucional para extraer mapas de características, seguido de un encoder transformer que refina dichas representaciones mediante auto-atención y un decoder que opera sobre un conjunto fijo de consultas (\textit{object queries}) \cite{carion2020end}. Cada consulta actúa como un ``ancla'' abstracta que compite por explicar la presencia de un objeto en la escena, de modo que la salida del decoder puede interpretarse como un conjunto de predicciones de cajas y clases, optimizadas mediante una asignación bi-objetos basada en emparejamiento bipartito. \\
+Para expandir la capacidad de representación del modelo, se implementa la atención multicabezal (\textit{Multi-Head Attention}). En lugar de calcular una única función de atención sobre la dimensionalidad completa, el modelo proyecta linealmente $Q$, $K$ y $V$ un número $h$ de veces hacia subespacios de menor dimensionalidad. Sobre cada una de estas proyecciones se aplica la atención de forma paralela, concatenando finalmente sus salidas. Esta ramificación permite que el modelo atienda simultáneamente a diferentes aspectos representacionales y subespacios de características, optimizando la extracción de patrones complejos.
 
-\par Esta formulación permite construir detectores de extremo a extremo, eliminando componentes manuales como el diseño de anclas y la supresión no máxima (\textit{Non-Maximum Suppression, NMS}), habituales en detectores convolucionales clásicos. No obstante, por ejemplo, las primeras versiones de DETR presentan una convergencia lenta y dificultades para modelar de forma eficiente objetos pequeños o distribuciones densas, lo que ha motivado el desarrollo de variantes más avanzadas \cite{carion2020end,zhang2022dino}. \\
+\subsection{Arquitectura Encoder-Decoder genérica}
 
-\par Por otro lado, DINO es un ejemplo representativo de esta nueva generación de detectores tipo DETR. El modelo mantiene la estructura \textit{backbone--encoder--decoder}, pero introduce mejoras específicas en tres frentes: (i) formula las \textit{queries} del decoder como cajas ancla dinámicas de cuatro dimensiones, que se refinan iterativamente a lo largo de las capas; (ii) incorpora atención deformable y características multiescala para concentrar el cómputo en un conjunto reducido de puntos de muestreo alrededor de referencias espaciales, mejorando la sensibilidad a objetos pequeños; y (iii) añade una rama de entrenamiento por \textit{denoising} contrastivo que acelera la convergencia y estabiliza el emparejamiento bipartito \cite{zhang2022dino}. Estas extensiones permiten que DINO alcance resultados de estado del arte en conjuntos de datos como COCO, manteniendo la naturaleza completamente diferenciable y de extremo a extremo del enfoque transformer \cite{zhang2022dino}. \\
+La arquitectura fundamental de los Transformers se estructura en dos bloques principales compuestos por la repetición apilada de capas idénticas: el codificador (\textit{Encoder}) y el decodificador (\textit{Decoder}) \cite{vaswani2017attention}.
 
-\par De manera complementaria, la destilación de conocimiento (\textit{knowledge distillation}) se ha incorporado como una estrategia para transferir la capacidad representacional de modelos visuales de gran escala (\textit{teacher}) hacia arquitecturas más livianas y eficientes (\textit{student}). En el contexto de la detección de objetos basada en transformers, esta técnica permite condensar el conocimiento aprendido por detectores preentrenados sobre grandes bases de datos en modelos más compactos, reduciendo el costo computacional de la inferencia sin sacrificar de forma significativa el rendimiento \cite{li2024distilling}.
+El \textbf{codificador} asimila los datos de entrada y construye una representación de contexto global. Cada una de sus capas consta de dos submódulos principales: un mecanismo de autoatención multicabezal (\textit{multi-head self-attention}) y una red neuronal totalmente conectada (\textit{Feed-Forward Network}, FFN) aplicada posición por posición. La autoatención permite que cada elemento de la entrada evalúe su relación métrica con todos los demás elementos simultáneamente, capturando dependencias de largo alcance en un único paso computacional.
+
+El \textbf{decodificador} transforma las representaciones procesadas por el codificador hacia el dominio de salida. Además de los dos submódulos presentes en el codificador, incorpora un tercer submódulo de \textit{atención cruzada} (\textit{cross-attention}). En este puente funcional, las consultas ($Q$) provienen de la capa interna anterior del decodificador, mientras que las claves ($K$) y los valores ($V$) se alimentan directamente desde la salida final del codificador. Esta interacción obliga al decodificador a focalizar su procesamiento en las regiones más relevantes de la entrada original al momento de generar predicciones.
+
+Para garantizar la estabilidad numérica de la red profunda, ambos bloques integran conexiones residuales alrededor de cada submódulo, seguidas inmediatamente por una operación de normalización de capa (\textit{Layer Normalization}), lo que facilita un flujo ininterrumpido de gradientes durante la fase de retropropagación.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -331,28 +339,162 @@ donde $\sigma(x)$ es la función sigmoide estándar. En comparación con funcion
 
 \clearpage 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{DETR (DEtection TRansformer) y DINO}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Modelos de detección de objetos basados en Transformers}
+\label{sec:transformers_detection}
 
-\subsection{Arquitecturas}
+\subsection{Contextualización}
 
-\par DETR y DINO son modelos de detección de objetos basados en la arquitectura de transformers, originalmente desarrollada para procesamiento de lenguaje natural, pero adaptada para visión por computadora. 
-\\
+El éxito consolidado de las Redes Neuronales Convolucionales (CNN) en visión computacional se fundamenta en su capacidad para explotar la invariancia a la traslación y la localidad espacial mediante el uso de filtros deslizantes. Sin embargo, esta naturaleza local limita inherentemente la captura de dependencias de largo alcance, requiriendo arquitecturas profundamente estratificadas o mecanismos complejos de fusión multiescala (como las pirámides de características) para asimilar el contexto global de una escena. 
 
-%DETR
-\par DETR (DEtection TRansformer) es un modelo de aprendizaje profundo (deep-learning), compuesta por tres elementos principales: un backbone convolucional (CNN backbone) que extrae las representaciones visuales, un transformador encoder-decoder (encoder-decoder transformer) que modela relaciones globales en la imagen, y una red neuronal completamente conectada (feed forward network, FFN) que realiza las predicciones finales. DETR no requiere componentes manuales ni estructuras complejas, lo que permite su implementación en frameworks de aprendizaje profundo estándar con pocas líneas de código \cite{carion2020end}. \\
+En este escenario, el paradigma de los \textit{Transformers} ---originalmente concebido para el procesamiento de lenguaje natural--- redefine la formulación de tareas visuales al reemplazar por completo las operaciones de convolución por mecanismos de autoatención global \cite{vaswani2017attention}. En el contexto de la detección de objetos, esta transición metodológica permite modelar explícitamente todas las interacciones de emparejamiento entre los elementos de una imagen. Al tratar la detección como un problema directo de predicción de conjuntos, estos modelos eliminan de manera nativa la necesidad de componentes heurísticos y procesos manuales críticamente dependientes del diseño del especialista, tales como la generación de cajas ancla espaciales (\textit{anchor boxes}) y los algoritmos de supresión de no máximos (NMS) encargados de colapsar predicciones duplicadas \cite{carion2020end}.
 
-%DINO
+\subsection{Arquitectura general}
 
-\par DINO es un modelo basado en DETR que incluye un backbone, un encoder y decoder multi-capa de Transformer, y múltiples cabezas de predicción (prediction heads). Emplea extractores de características multiescala que se procesan con embeddings posicionales (positional embeddings) en el encoder. Su innovación principal. respecto a DETR, es la selección mixta de queries (solicitudes) para inicializar anclas posicionales (positional anchors) en el decoder, mientras que las queries de contenido (content queries) permanecen aprendibles. Utiliza atención deformable (deformable attention) para actualizar características capa a capa y cuenta con una rama de desruido (denoising) con entrenamiento contrastivo, mejorando la gestión de muestras difíciles \cite{zhang2022dino}.
+A nivel macroestructural, mientras que los detectores convolucionales de una sola etapa se estructuran bajo la topología clásica de \textit{backbone--neck--head}, los detectores basados en Transformers reconfiguran estos componentes sustituyendo el \textit{neck} por un bloque de codificación y decodificación (*Encoder-Decoder*), manteniendo una cabeza de predicción optimizada para la proyección directa de conjuntos paralelos.
 
+% Imagen arquitectura general de los transformer por añadir.
 
+El flujo de información dentro de esta topología unificada se desglosa en los siguientes bloques funcionales:
 
-\subsection{Hiperparámetros}
+\begin{itemize}
+    \item \textbf{Backbone (Extractor visual):} Una red convolucional convencional (ej. ResNet) o un Transformer específico para visión (ej. Swin Transformer) recibe la imagen de entrada y genera un mapa de características de baja resolución espacial y alta densidad de canales, condensando la información visual representativa.
+    \item \textbf{Mecanismo de aplanado y codificación posicional:} Dado que los módulos de atención interna procesan secuencias unidimensionales y son simétricos respecto a permutaciones, las dimensiones espaciales del mapa de características se colapsan a una dimensión. Posteriormente, se incorporan vectores de codificación posicional estática (\textit{positional encodings}) para inyectar de forma explícita la estructura espacial perdida durante el aplanado.
+    \item \textbf{Transformer Encoder (Codificador contextual):} Formado por una sucesión de capas de autoatención multifrecuencia y redes prealimentadas (FFN). El codificador analiza de forma global las relaciones de proximidad y contexto entre todos los píxeles/parches del mapa, separando y desenredando las instancias de los objetos directamente en el espacio de características.
+    \item \textbf{Transformer Decoder (Decodificador de consultas):} Procesa en paralelo un conjunto fijo de vectores learnable denominados consultas de objetos (\textit{object queries}). A través de capas alternas de autoatención (interacción consulta-consulta) y atención cruzada (\textit{cross-attention} consulta-características del codificador), el decodificador restructura los vectores query mapeándolos hacia las zonas con mayor relevancia de la escena visual.
+    \item \textbf{Prediction Head (Cabezas de predicción):} Un bloque final constituido por redes neuronales completamente conectadas (FFN) toma los embeddings resultantes del decodificador y proyecta, de forma paralela e independiente, las coordenadas normalizadas de las cajas y las probabilidades de clase correspondientes para cada ranura (\textit{slot}).
+\end{itemize}
 
-\par En el modelo DETR, los hiperparámetros incluyen configuraciones específicas del número de \textit{layers} (capas) en la arquitectura, tasas de \textit{regularization} (regularización), tipo de \textit{optimizer} (optimizador) y esquemas de \textit{data augmentation} (aumento de datos) \cite{carion2020end}.
-\\
+\subsection{DETR (DEtection TRansformer)}
 
-\par En el modelo DINO, los hiperparámetros comparten similitudes con DETR, incluyendo el uso del optimizador AdamW con regularización por decaimiento de peso (weight decay) y ajustes en la tasa de aprendizaje mediante un programador dinámico (learning rate scheduler). Además, DINO incorpora un conjunto fijo y ampliado de consultas para el decoder (decoder queries), optimizando el equilibrio entre desempeño y costo computacional durante el entrenamiento \cite{zhang2022dino}.
+\subsubsection{Arquitectura general de DETR}
+
+El modelo DETR \cite{carion2020end} constituye el hito fundamental en la transición hacia detectores de extremo a extremo libres de componentes manuales. Arquitectónicamente, se concibe como una implementación elegante que acopla un extractor convolucional ResNet-50 con un bloque Transformer estándar de procesamiento no autorregresivo. El objetivo central de DETR es inferir simultáneamente un conjunto de tamaño fijo de $N$ predicciones (típicamente fijado en $N = 100$), donde $N$ se define para ser significativamente mayor que el número real de objetos habitualmente presentes en una imagen de la base de datos operativa.
+
+\subsubsection{Bloques fundamentales: Backbone, Encoder, Decoder y FFN}
+
+En la configuración por defecto de DETR, el mapa de características extraído por el \textit{backbone} reduce la resolución espacial por un factor de 32 ($H, W = H_0/32, W_0/32$). Una capa de convolución de $1\times1$ reduce la dimensionalidad de canales de 2048 a un espacio intermedio de tamaño $d = 256$. El codificador posee 6 capas compuestas por bloques de atención de 8 cabezas (*8-headed self-attention*) y una capa FFN con dimensión oculta de 2048. 
+
+El decodificador implementa igualmente 6 capas de procesamiento en paralelo. A diferencia de los transformers de procesamiento secuencial, DETR decodifica las $N$ consultas al mismo tiempo en cada capa. Las \textit{object queries} actúan como un conjunto de filtros abstractos capaces de especializarse en diferentes regiones espaciales y tamaños de cajas. El resultado de salida de cada ranura del decodificador es procesado de forma independiente por la cabeza de predicción, que consiste en un perceptrón multicapa (MLP) de 3 capas densas con funciones de activación ReLU y una proyección lineal final para la clasificación de clases mediante \textit{softmax}. Si una ranura no es asignada a ningún objeto real del terreno, el modelo predice la etiqueta de una clase especial denotada como vacía ($\emptyset$), que opera como la clase de fondo del sistema.
+
+\subsubsection{Pérdida de emparejamiento bipartito y el Algoritmo Húngaro}
+
+La naturaleza post-procesamiento libre de DETR radica en su formulación de la función de pérdida como un problema de optimización global de conjuntos. Para puntuar las predicciones con respecto a la verdad de terreno, se requiere realizar un emparejamiento biunívoco (uno a uno) entre el conjunto de etiquetas reales $y$ (completado con elementos vacíos $\emptyset$ hasta alcanzar el tamaño $N$) y el conjunto de predicciones $\hat{y} = \{\hat{y}_i\}_{i=1}^N$.
+
+Para hallar la permutación óptima del espacio de permutaciones $\mathfrak{S}_N$ con el menor costo global, se resuelve el problema de asignación mediante el método formalizado en la Ecuación \ref{eq:bipartite_matching}:
+
+\begin{equation}
+    \hat{\sigma} = \arg\min_{\sigma \in \mathfrak{S}_N} \sum_{i=1}^N \mathcal{L}_{match}(y_i, \hat{y}_{\sigma(i)})
+    \label{eq:bipartite_matching}
+\end{equation}
+
+Donde $\mathcal{L}_{match}(y_i, \hat{y}_{\sigma(i)})$ representa el costo de emparejamiento por parejas entre la anotación real $y_i = (c_i, b_i)$ (donde $c_i$ es la clase y $b_i$ el vector de coordenadas espaciales $[x, y, w, h]$ relativo al tamaño de la imagen) y la predicción indexada bajo la permutación $\sigma(i)$. Este costo integra de forma equilibrada la verosimilitud de la clase y la calidad geométrica de la caja delimitadora, expresándose matemáticamente según la Ecuación \ref{eq:l_match_detr}:
+
+\begin{equation}
+    \mathcal{L}_{match}(y_i, \hat{y}_{\sigma(i)}) = - \mathbb{I}_{\{c_i \neq \emptyset\}} \hat{p}_{\sigma(i)}(c_i) + \mathbb{I}_{\{c_i \neq \emptyset\}} \mathcal{L}_{box}(b_i, \hat{b}_{\sigma(i)})
+    \label{eq:l_match_detr}
+\end{equation}
+
+Donde $\hat{p}_{\sigma(i)}(c_i)$ indica la probabilidad predicha para la clase verdadera del objeto objetivo, y $\mathcal{L}_{box}$ es la penalización de regresión. Esta asignación óptima se calcula eficientemente mediante el algoritmo Húngaro \cite{carion2020end}. Una vez determinada la asignación óptima $\hat{\sigma}$, se computa la función de pérdida final del modelo, denominada pérdida Húngara (\textit{Hungarian Loss}), definida por la Ecuación \ref{eq:hungarian_loss}:
+
+\begin{equation}
+    \mathcal{L}_{Hungarian}(y, \hat{y}) = \sum_{i=1}^N \left[ -\log \hat{p}_{\hat{\sigma}(i)}(c_i) + \mathbb{I}_{\{c_i \neq \emptyset\}} \mathcal{L}_{box}(b_i, \hat{b}_{\hat{\sigma}(i)}) \right]
+    \label{eq:hungarian_loss}
+\end{equation}
+
+Para contrarrestar el desbalance de clases provocado por la alta cantidad de ranuras vacías, el término de log-probabilidad correspondiente a $c_i = \emptyset$ se pondera a la baja por un factor de escala de 10. Para garantizar la invariancia de escala de la pérdida geométrica frente a la coexistencia de objetos de dimensiones heterogéneas, la pérdida de caja $\mathcal{L}_{box}$ combina linealmente una norma $L_1$ espacial y una pérdida de Intersección sobre la Unión Generalizada (GIoU), calibrada por dos hiperparámetros de ponderación fijos ($\lambda_{L1}$ y $\lambda_{iou}$):
+
+\begin{equation}
+    \mathcal{L}_{box}(b_i, \hat{b}_{\hat{\sigma}(i)}) = \lambda_{iou} \mathcal{L}_{iou}(b_i, \hat{b}_{\hat{\sigma}(i)}) + \lambda_{L1} \|b_i - \hat{b}_{\hat{\sigma}(i)}\|_1
+    \label{eq:l_box_formulation}
+\end{equation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{DINO (DETR with Improved DeNoising Anchor Boxes)}
+
+\subsubsection{Evolución y arquitectura general de DINO}
+
+A pesar de las ventajas conceptuales de DETR, las implementaciones iniciales presentaban dos limitaciones de carácter crítico en entornos operativos: una velocidad de convergencia extremadamente lenta durante la optimización ---atribuible a la inestabilidad inherente de las asignaciones dinámicas del emparejamiento bipartito--- y deficiencias notorias en el rendimiento de detección sobre objetos con dimensiones espaciales reducidas. El modelo DINO \cite{zhang2022dino} surge para mitigar de forma conjunta estas ineficiencias, consolidándose como un detector Transformer de extremo a extremo capaz de alcanzar el estado del arte competitivo mediante innovaciones metodológicas explícitas.
+
+DINO preserva la topología jerárquica elemental \textit{backbone--encoder--decoder}, pero reconfigura el flujo incorporando el mecanismo de atención deformable multiescala heredado de Deformable DETR \cite{zhang2022dino}. Esta operación concentra el cómputo de atención restringiendo el escaneo a un conjunto pequeño y acotado de puntos de muestreo distribuidos clave de referencia espacial, optimizando la complejidad computacional. Asimismo, DINO modifica sustancialmente la naturaleza matemática de las \textit{object queries} decodificadoras, formulándolas como cajas de anclaje dinámicas cuatridimensionales (4D) de la forma $(x, y, w, h)$, las cuales son refinadas secuencialmente de manera iterativa a lo largo de cada una de las capas constitutivas del decodificador.
+
+\subsubsection{Contrastive DeNoising (CDN)}
+
+La inestabilidad en el entrenamiento de los detectores basados en asignaciones biunívocas ocurre cuando múltiples cajas ancla candidatas se encuentran en una vecindad espacial muy próxima a un único objeto real del terreno; pequeñas perturbaciones numéricas en las activaciones internas provocan saltos drásticos en las permutaciones calculadas por el algoritmo Húngaro, entregando gradientes de optimización inconsistentes. Trabajos previos como DN-DETR paliaron este efecto alimentando de forma auxiliar al decodificador con cajas reales anotadas a las que se les añadía ruido de baja magnitud moderada, entrenando la red exclusivamente para reconstruir la geometría real mediante una pérdida supervisada de eliminación de ruido (*denoising loss*).
+
+DINO evoluciona este concepto introduciendo el entrenamiento por eliminación de ruido contrastivo (\textit{Contrastive DeNoising}, CDN). El enfoque CDN expone de manera explícita al modelo ante muestras negativas difíciles (\textit{hard negative samples}) próximas al objetivo para afinar su capacidad de discriminación espacial. El sistema opera mediante la definición de dos hiperparámetros de escala geométrica de ruido ordenados de manera estricta ($\lambda_1 < \lambda_2$). Para cada objeto real de la imagen, se inyectan en paralelo dos tipos diferenciados de consultas perturbadas organizadas en un esquema geométrico concéntrico:
+
+\begin{itemize}
+    \item \textbf{Consultas Positivas (CDN positivas):} Ubicadas dentro del contorno interior delimitado por la escala de ruido pequeña ($\lambda_1$). El modelo está obligado a calcular la reconstrucción exacta del objeto real y estimar la clase correspondiente.
+    \item \textbf{Consultas Negativas (CDN negativas):} Localizadas en la franja espacial intermedia comprendida entre los límites geométricos de $\lambda_1$ y $\lambda_2$. Dado que se encuentran a una distancia analítica mayor del centro del objeto real, estas queries actúan como anclas confusas. El modelo es entrenado estrictamente para clasificar estas consultas bajo la etiqueta de "sin objeto" ($\emptyset$ o fondo).
+\end{itemize}
+
+Este entrenamiento dual enseña de manera robusta a la red a discernir desviaciones menores de localización y previene la aparición de predicciones redundantes o cajas delimitadoras duplicadas alrededor de un mismo defecto físico.
+
+\subsubsection{Mixed Query Selection}
+
+En la formulación clásica de DETR, las consultas iniciales que ingresan a la primera capa del decodificador consisten en embeddings vectoriales estáticos y abstractos aprendidos pasivamente del conjunto general de datos, inicializando la componente de contenido en vectores nulos ($0$). Para mejorar este acoplamiento de entrada, variantes posteriores implementaron la selección pura de consultas (*pure query selection*), técnica encargada de predecir de forma densa las puntuaciones de presencia de objeto en la última capa del codificador visual, seleccionando las características de los mejores $K$ puntos espaciales para inicializar tanto la posición como el contenido semántico del decodificador.
+
+DINO identifica que las características semánticas preliminares extraídas directamente por el codificador visual suelen manifestar ambigüedad o incoherencia contextual, dado que un único parche puede contener información parcial de un objeto o registrar la coexistencia de múltiples instancias densas. En consecuencia, DINO introduce la estrategia de selección mixta de consultas (\textit{Mixed Query Selection}). Este mecanismo selecciona los mejores $K$ mapas de características del codificador basándose exclusivamente en sus puntuaciones de clasificación para extraer y predecir las coordenadas espaciales de las cajas ancla que inicializarán de forma dinámica a las consultas posicionales del decodificador. En contraste, las consultas de contenido asociadas se mantienen declaradas explícitamente como vectores de parámetros de aprendizaje continuo independientes de la imagen individual. Esta separación modular robustece el foco del decodificador en la fase inicial del procesamiento, orientando su atención de manera prioritaria hacia los mapas de prioridad espacial antes de asimilar la variabilidad semántica de la escena.
+
+\subsubsection{Look Forward Twice}
+
+En los esquemas tradicionales de refinamiento iterativo de cajas de anclaje (denominados arquitecturas de mirada hacia adelante simple o \textit{look forward once}), cada capa $i$ del decodificador predice de forma local un vector de desplazamiento geométrico ($\Delta b_i$) para actualizar la posición proveniente de la capa previa inmediata, calculándose la pérdida supervisada de forma aislada sobre la caja refinada resultante. Para estabilizar numéricamente el proceso de optimización, el flujo de propagación de gradientes es interrumpido y desacoplado mediante una desconexión explícita de operaciones de gradiente (\textit{gradient detach}) entre las estructuras de capas sucesivas. Este diseño provoca que los parámetros funcionales optimizados en una capa temprana no reciban retroalimentación sobre la calidad del refinamiento geométrico alcanzado posteriormente en etapas profundas avanzadas de la red.
+
+Para solventar esta falta de comunicación paramétrica, DINO introduce el esquema de optimización bidireccional denominado \textit{Look Forward Twice}. Bajo esta formulación, los parámetros estructurales de la capa de procesamiento $i$ se encuentran influenciados de manera simultánea por la evaluación de pérdidas correspondiente a su propia predicción en el nivel $i$ y por la pérdida resultante de la capa posterior inmediata $(i+1)$. La lógica algorítmica de actualización se define formalmente a través del sistema de ecuaciones diferenciales y de asignación estructurado en la Ecuación \ref{eq:look_forward_twice}:
+
+\begin{equation}
+    \begin{aligned}
+        \Delta b_i &= \text{Layer}_i(b_{i-1}) \\
+        b_i' &= \text{Update}(b_{i-1}, \Delta b_i) \\
+        b_i &= \text{Detach}(b_i') \\
+        b_i^{(\text{pred})} &= \text{Update}(b_{i-1}', \Delta b_i)
+    \end{aligned}
+    \label{eq:look_forward_twice}
+\end{equation}
+
+Donde la función de actualización $\text{Update}$ refina la geometría espacial operando con sumas algebraicas aplicadas en el dominio matemático transformado tras la evaluación de una función sigmoide inversa. Mediante el flujo de \textit{Look Forward Twice}, el gradiente residual proveniente del término diferencial $\Delta b_{i+1}$ penetra la barrera de la capa adyacente para optimizar de forma unificada tanto la calidad geométrica de la caja inicial de referencia $b_{i-1}$ como la precisión intrínseca del estimador de desplazamiento local.
+
+\subsection{Hiperparámetros en modelos de detección basados en Transformers}
+
+La calibración de hiperparámetros en arquitecturas basadas en mecanismos de atención es fundamental para garantizar la convergencia estable de los optimizadores analíticos de segundo orden y regular el balance matemático de las predicciones de conjuntos. A diferencia de las CNN convolucionales optimizadas típicamente mediante algoritmos SGD clásicos, los Transformers de visión requieren configuraciones de optimización adaptativa con decaimiento de peso explícito y programas estrictos de modulación de tasa de aprendizaje. La Tabla \ref{tab:hiperparametros_transformers} sistematiza los hiperparámetros de control característicos para los modelos DETR y DINO de acuerdo con las especificaciones técnicas estandarizadas de la literatura científica.
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros representativos en arquitecturas de detección basadas en Transformers}
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor DETR Base} & \textbf{Valor DINO Base} & \textbf{Descripción Técnica} \\ 
+        \hline
+        $lr$ & $1 \times 10^{-4}$ & $1 \times 10^{-4}$ & Tasa de aprendizaje global del Transformer \\ 
+        \hline
+        $lr_{\text{backbone}}$ & $1 \times 10^{-5}$ & $1 \times 10^{-5}$ & Tasa de aprendizaje para el extractor visual \\ 
+        \hline
+        $\text{weight\_decay}$ & $1 \times 10^{-4}$ & $1 \times 10^{-4}$ & Regularización por decaimiento de peso \\ 
+        \hline
+        $\text{enc\_layers}$ & 6 & 6 & Número de capas de atención en el Codificador \\ 
+        \hline
+        $\text{dec\_layers}$ & 6 & 6 & Número de capas de atención en el Decodificador \\ 
+        \hline
+        $\text{hidden\_dim}$ ($d$) & 256 & 256 & Dimensión interna oculta del embedding \\ 
+        \hline
+        $\text{dim\_feedforward}$ & 2048 & 2048 & Dimensión de la capa oculta en bloques FFN \\ 
+        \hline
+        $\text{nheads}$ & 8 & 8 & Cantidad de cabezas de atención en paralelo \\ 
+        \hline
+        $\text{num\_queries}$ & 100 & 900 & Número total de ranuras de consulta por imagen \\ 
+        \hline
+        $\alpha_{\text{focal}}$ & -- & 0,25 & Factor de balanceo de clase en la pérdida Focal \\ 
+        \hline
+        $\gamma_{\text{focal}}$ & -- & 2,0 & Parámetro de modulación de la pérdida Focal \\ 
+        \hline
+    \end{tabular}
+    \label{tab:hiperparametros_transformers}
+\end{table}
+
+La disparidad en el parámetro $\text{num\_queries}$ refleja de manera directa la evolución conceptual de ambos modelos: DETR restringe su capacidad a 100 consultas estáticas debido al alto costo computacional del mecanismo de autoatención global completo, mientras que DINO, al apoyarse en el uso de capas de atención deformable y patrones espaciales multiescala optimizados, eleva su capacidad a 900 consultas dinámicas sin incurrir en desbordamiento de memoria ni inestabilidad numérica. Asimismo, la tasa de aprendizaje asignada al componente del extractor visual ($lr_{\text{backbone}}$) se restringe sistemáticamente a un orden de magnitud inferior con respecto a la tasa de aprendizaje global de la red con el propósito explícito de preservar los pesos base preentrenados sobre bases de datos masivas de gran escala (como ImageNet) y evitar la degradación catastrófica de los gradientes en las fases iniciales del entrenamiento.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Métricas}
 

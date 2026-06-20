@@ -106,41 +106,6 @@ Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A.~N.,
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
-\bibitem{chefer2021generic}
-Chefer, H., Gur, S., y Wolf, L., ``{Generic Attention-model Explainability for
-  Interpreting Bi-Modal and Encoder-Decoder Transformers}'', en {Proceedings of
-  the IEEE/CVF International Conference on Computer Vision (ICCV)},
-  p.~397–406, IEEE, 2021.
-\backrefprint\backrefparscantrue
-
-\backrefparscanfalse
-\bibitem{carion2020end}
-Carion, N., Massa, F., Synnaeve, G., Usunier, N., Kirillov, A., y Zagoruyko,
-  S., ``{End-to-End Object Detection with Transformers}'', en {Proceedings of
-  the European Conference on Computer Vision (ECCV)}, p.~213–229, 2020,
-  \href{https://dx.doi.org/10.1007/978-3-030-58452-8_13}
-  {\nolinkurl{doi:\detokenize{10.1007/978-3-030-58452-8_13}}}.
-\backrefprint\backrefparscantrue
-
-\backrefparscanfalse
-\bibitem{zhang2022dino}
-Zhang, H., Li, F., Liu, S., Zhang, L., Su, H., Zhu, J., Ni, L.~M., y Shum,
-  H.-Y., ``{DINO: DETR with Improved DeNoising Anchor Boxes for End-to-End
-  Object Detection}''. arXiv preprint arXiv:2203.03605, 2022.
-\newblock Accepted at ICLR 2023.
-\backrefprint\backrefparscantrue
-
-\backrefparscanfalse
-\bibitem{li2024distilling}
-Li, G., Wang, W., Li, X., Li, Z., Yang, J., Dai, J., Qiao, Y., y Zhang, S.,
-  ``{Distilling Knowledge from Large‑Scale Image Models for Object
-  Detection}'', en {Proceedings of the European Conference on Computer Vision
-  (ECCV)}, p.~11200, 2024,
-  \href{https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/11200.pdf}
-  {\nolinkurl{\detokenize{https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/11200.pdf}}}.
-\backrefprint\backrefparscantrue
-
-\backrefparscanfalse
 \bibitem{terven2023comprehensive}
 Terven, J., Córdova‑Esparza, D., y Romero‑González, J., ``{A
   Comprehensive Review of YOLO Architectures in Computer Vision: From YOLOv1 to
@@ -166,6 +131,23 @@ Liu, W., Anguelov, D., Erhan, D., Szegedy, C., Reed, S., Fu, C., y Berg, A.~C.,
   International Publishing, 2016,
   \href{https://dx.doi.org/10.1007/978-3-319-46448-0_2}
   {\nolinkurl{doi:\detokenize{10.1007/978-3-319-46448-0_2}}}.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
+\bibitem{carion2020end}
+Carion, N., Massa, F., Synnaeve, G., Usunier, N., Kirillov, A., y Zagoruyko,
+  S., ``{End-to-End Object Detection with Transformers}'', en {Proceedings of
+  the European Conference on Computer Vision (ECCV)}, p.~213–229, 2020,
+  \href{https://dx.doi.org/10.1007/978-3-030-58452-8_13}
+  {\nolinkurl{doi:\detokenize{10.1007/978-3-030-58452-8_13}}}.
+\backrefprint\backrefparscantrue
+
+\backrefparscanfalse
+\bibitem{zhang2022dino}
+Zhang, H., Li, F., Liu, S., Zhang, L., Su, H., Zhu, J., Ni, L.~M., y Shum,
+  H.-Y., ``{DINO: DETR with Improved DeNoising Anchor Boxes for End-to-End
+  Object Detection}''. arXiv preprint arXiv:2203.03605, 2022.
+\newblock Accepted at ICLR 2023.
 \backrefprint\backrefparscantrue
 
 \backrefparscanfalse
