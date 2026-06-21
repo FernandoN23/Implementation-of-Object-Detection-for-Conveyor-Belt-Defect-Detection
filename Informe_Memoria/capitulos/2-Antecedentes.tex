@@ -2,7 +2,8 @@
 
 \section{Estado del arte en la identificación de fallas en correas transportadoras}
 
-El aprendizaje profundo (\textit{Deep Learning}) surge como una evolución de los enfoques clásicos de aprendizaje automático (\textit{Machine Learning}), al introducir redes neuronales profundas capaces de aprender de forma automática representaciones jerárquicas directamente desde los datos. En los métodos tradicionales de \textit{Machine Learning}, la etapa de ingeniería de características recae en el especialista, quien define manualmente descriptores (por ejemplo, basados en bordes, texturas o histogramas) y luego entrena un clasificador independiente sobre dichas representaciones. En contraste, en \textit{Deep Learning} la misma red realiza de manera integrada la extracción de características y la decisión final, aprendiendo dichas representaciones de alto nivel a partir de grandes volúmenes de datos. Esto ha permitido superar de forma sistemática a los métodos convencionales en tareas de clasificación, segmentación y detección de objetos. Adicionalmente, el aprendizaje por transferencia (\textit{transfer learning}) ha cobrado relevancia en escenarios con escasez de datos etiquetados, al reutilizar modelos profundos preentrenados en bases de datos extensas y ajustarlos a nuevas tareas de visión por computador, mejorando el rendimiento y reduciendo el costo computacional del entrenamiento en los nuevos modelos \cite{gupta2022deep}.
+El aprendizaje profundo (\textit{Deep Learning}) surge como una evolución de los enfoques clásicos de aprendizaje automático (\textit{Machine Learning}), al introducir redes neuronales profundas capaces de aprender de forma automática representaciones jerárquicas directamente desde los datos. En los métodos tradicionales de \textit{Machine Learning}, la etapa de ingeniería de características recae en el especialista, quien define manualmente descriptores (por ejemplo, basados en bordes, texturas o histogramas) y luego entrena un clasificador independiente sobre dichas representaciones. En contraste, en \textit{Deep Learning} la misma red realiza de manera integrada la extracción de características y la decisión final, aprendiendo dichas representaciones de alto nivel a partir de grandes volúmenes de datos. Esto ha permitido superar de forma sistemática a los métodos convencionales en tareas de clasificación, segmentación y detección de objetos. En la Figura \ref{fig:2.1-ML_vs_DL} se ilustra gráficamente la diferencia conceptual. \\
+
 
 \begin{figure}[H]
     \centering
@@ -10,6 +11,8 @@ El aprendizaje profundo (\textit{Deep Learning}) surge como una evolución de lo
     \caption{Machine Learning vs Deep Learning \cite{gupta2022deep}}
     \label{fig:2.1-ML_vs_DL}
 \end{figure}
+Adicionalmente, el aprendizaje por transferencia (\textit{transfer learning}) ha cobrado relevancia en escenarios con escasez de datos etiquetados, al reutilizar modelos profundos preentrenados en bases de datos extensas y ajustarlos a nuevas tareas de visión por computador, mejorando el rendimiento y reduciendo el costo computacional del entrenamiento en los nuevos modelos \cite{gupta2022deep}. \\
+
 
 En trabajos recientes, una memoria de título desarrollada en la Universidad de Chile \cite{angulo2024deteccion} implementa visión computacional y técnicas de aprendizaje profundo para la detección temprana de fallas en correas transportadoras, utilizando una de las versiones del modelo YOLO. El estudio describe detalladamente la implementación y calibración del modelo, además de proporcionar información técnica sobre redes neuronales convolucionales, métricas de evaluación, pruebas experimentales y resultados ilustrativos.
 
@@ -18,31 +21,31 @@ En trabajos recientes, una memoria de título desarrollada en la Universidad de 
 
 Las correas transportadoras, máquinas de transporte de material continuo, operan en condiciones que las exponen a diversos tipos de daños, los cuales pueden generar costosos tiempos de inactividad. Para cada condición de falla, se estudiaron exhaustivamente sus tipos y causas, así como los métodos adecuados para su mitigación, contribuyendo a mejorar la confiabilidad del sistema \cite{khanna2022types}. \\
 
-Entre las fallas más comunes en correas transportadoras se identifican el \textit{daño por impacto}, que puede provocar \textit{perforaciones o roturas locales}; la \textit{delaminación}, generada por esfuerzos cíclicos y fatiga; y la \textit{desalineación de la banda}, que causa \textit{desgaste anómalo en los bordes}. Además, se reporta \textit{desgaste abrasivo} en la cubierta superior por efecto de partículas duras, \textit{rotura de cables de acero} en correas reforzadas, y \textit{cortes longitudinales y transversales}, todos los cuales afectan directamente la vida útil y seguridad operativa del sistema.
+Entre las fallas más comunes en correas transportadoras se identifican el \textit{daño por impacto}, que puede provocar \textit{perforaciones o roturas locales}; la \textit{delaminación}, generada por esfuerzos cíclicos y fatiga; y la \textit{desalineación de la banda}, que causa \textit{desgaste anómalo en los bordes}. Además, se reporta \textit{desgaste abrasivo} en la cubierta superior por efecto de partículas duras, \textit{rotura de cables de acero} en correas reforzadas, y \textit{cortes longitudinales y transversales}, todos los cuales afectan directamente la vida útil y seguridad operativa del sistema. Estas fallas se encuentran recopiladas en la Figura \ref{fig:2.1-falla_correas}
 
 \begin{figure}[H]
     \centering
     \subfloat[Desgasta abrasivo banda]{
-        \includegraphics[width=0.23\textwidth]{img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda.png}
+        \includegraphics[width=0.23\textwidth]{img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png}
     }
     \hfill
     \subfloat[Desgaste abrasivo bordes banda]{
-        \includegraphics[width=0.23\textwidth]{img/2-Antecedentes/Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png}
+        \includegraphics[width=0.23\textwidth]{img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png}
     }
     \hfill
     \subfloat[Perforación de banda]{
-        \includegraphics[width=0.23\textwidth]{img/2-Antecedentes/Fotos_Fallas/Perforacion_banda.png}
+        \includegraphics[width=0.23\textwidth]{img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png}
     }
     \hfill
     \subfloat[Rotura de banda]{
-        \includegraphics[width=0.23\textwidth]{img/2-Antecedentes/Fotos_Fallas/Rotura_banda.png}
+        \includegraphics[width=0.23\textwidth]{img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png}
     }
     \hfill
     \subfloat[Corte longitudinal ó Desgarro]{
-        \includegraphics[width=0.4\textwidth]{img/2-Antecedentes/Fotos_Fallas/Corte_longitudinal.png}
+        \includegraphics[width=0.4\textwidth]{img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png}
     }
     \caption{Tipos de falla comunes en correas transportadoras, imágenes adaptadas de \cite{khanna2022types}.}
-    \label{fig:falla_correas}
+    \label{fig:2.1-falla_correas}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -76,7 +79,7 @@ En este contexto, las redes neuronales convolucionales constituyen el núcleo de
 
 Tal como se describe en revisiones recientes de aprendizaje profundo, las primeras capas de una CNN tienden a aprender características de bajo nivel (bordes, texturas, gradientes de intensidad), mientras que las capas intermedias y profundas capturan patrones de mayor complejidad (formas, partes de objetos y, finalmente, representaciones semánticas de alto nivel). Este aprendizaje jerárquico permite que una misma arquitectura pueda generalizar sobre grandes volúmenes de datos y adaptarse a distintas tareas visuales mediante el ajuste de sus parámetros \cite{gupta2022deep,lubinus2023redes}. \\
 
-En las capas de reducción o \textit{pooling}, como el \textit{max pooling}, se disminuye la resolución espacial de los mapas de características conservando las activaciones más relevantes. Esta etapa reduce la carga computacional y actúa como un mecanismo de regularización, al atenuar pequeños desplazamientos o deformaciones locales en la imagen. Finalmente, uno o varios bloques de capas densas (\textit{fully connected}) agregan la información extraída y realizan la clasificación o regresión final, según el diseño de \cite{lubinus2023redes} (ver Figura \ref{fig:2.2-CNN_architecture}).
+En las capas de reducción o \textit{pooling}, como el \textit{max pooling}, se disminuye la resolución espacial de los mapas de características conservando las activaciones más relevantes. Esta etapa reduce la carga computacional y actúa como un mecanismo de regularización, al atenuar pequeños desplazamientos o deformaciones locales en la imagen. Finalmente, uno o varios bloques de capas densas (\textit{fully connected}) agregan la información extraída y realizan la clasificación o regresión final. Esto se muestra en la Figura \ref{fig:2.2-CNN_architecture}.
 
 \begin{figure}[H]
     \centering
@@ -219,7 +222,7 @@ Para mitigar el riesgo de sobreajuste, la regularización $L_2$ se modula a trav
 
 \subsection{Mecanismo de atención en Transformers}
 
-El núcleo del paradigma \textit{Transformer} reside en el mecanismo de atención, el cual permite modelar dependencias globales entre los elementos de una secuencia o conjunto de datos sin recurrir a operaciones convolucionales o recurrentes \cite{vaswani2017attention}. La función de atención mapea una consulta (\textit{Query}, $Q$) y un conjunto de pares clave-valor (\textit{Key-Value}, $K, V$) hacia una salida, donde todos los elementos operan como vectores en un espacio de características.
+El núcleo del paradigma \textit{Transformer} reside en el mecanismo de atención, el cual permite modelar dependencias globales entre los elementos de una secuencia o conjunto de datos sin recurrir a operaciones convolucionales o recurrentes \cite{vaswani2017attention}. La función de atención mapea una consulta (\textit{Query}, $Q$) y un conjunto de pares clave-valor (\textit{Key-Value}, $K, V$) hacia una salida, donde todos los elementos operan como vectores en un espacio de características. \\
 
 La formulación algorítmica específica empleada se denomina atención escalada por producto punto (\textit{Scaled Dot-Product Attention}). La salida se calcula como una suma ponderada de los valores ($V$), donde el peso asignado a cada valor es determinado por una función de compatibilidad entre la consulta y la clave correspondiente. Operando matricialmente sobre dimensiones $d_k$ (para consultas y claves) y $d_v$ (para valores), la operación se define rigurosamente como:
 
@@ -227,19 +230,44 @@ La formulación algorítmica específica empleada se denomina atención escalada
     \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
 \end{equation}
 
-El factor de escalado $\frac{1}{\sqrt{d_k}}$ es crítico: previene que la magnitud de los productos punto escale excesivamente en dimensiones altas, lo cual saturaría la función \textit{softmax} empujándola hacia regiones con gradientes infinitesimales, imposibilitando la convergencia durante el entrenamiento \cite{vaswani2017attention}.
+El factor de escalado $\frac{1}{\sqrt{d_k}}$ es crítico: previene que la magnitud de los productos punto escale excesivamente en dimensiones altas, lo cual saturaría la función \textit{softmax} empujándola hacia regiones con gradientes infinitesimales, imposibilitando la convergencia durante el entrenamiento \cite{vaswani2017attention}. \\
 
-Para expandir la capacidad de representación del modelo, se implementa la atención multicabezal (\textit{Multi-Head Attention}). En lugar de calcular una única función de atención sobre la dimensionalidad completa, el modelo proyecta linealmente $Q$, $K$ y $V$ un número $h$ de veces hacia subespacios de menor dimensionalidad. Sobre cada una de estas proyecciones se aplica la atención de forma paralela, concatenando finalmente sus salidas. Esta ramificación permite que el modelo atienda simultáneamente a diferentes aspectos representacionales y subespacios de características, optimizando la extracción de patrones complejos.
+Para expandir la capacidad de representación del modelo, se implementa la atención multicabezal (\textit{Multi-Head Attention}). En lugar de calcular una única función de atención sobre la dimensionalidad completa, el modelo proyecta linealmente $Q$, $K$ y $V$ un número $h$ de veces hacia subespacios de menor dimensionalidad. Sobre cada una de estas proyecciones se aplica la atención de forma paralela, generando valores de salida de dimensión $d_v$. Finalmente, estas salidas se concatenan y se proyectan nuevamente. La operación matemática se expresa como:
+
+\begin{equation}
+    \begin{aligned}
+        \text{MultiHead}(Q, K, V) &= \text{Concat}(\text{head}_1, \dots, \text{head}_h)W^O \\
+        \text{where } \text{head}_i &= \text{Attention}(QW_i^Q, KW_i^K, VW_i^V)
+    \end{aligned}
+\end{equation}
+
+Donde las proyecciones son matrices de parámetros de aprendizaje continuo $W_i^Q \in \mathbb{R}^{d_{\text{model}} \times d_k}$, $W_i^K \in \mathbb{R}^{d_{\text{model}} \times d_k}$, $W_i^V \in \mathbb{R}^{d_{\text{model}} \times d_v}$ y $W^O \in \mathbb{R}^{hd_v \times d_{\text{model}}}$ \cite{vaswani2017attention}. Esta ramificación permite que el modelo atienda simultáneamente a diferentes aspectos representacionales y subespacios de características, optimizando la extracción de patrones complejos. Ambos mecanismos se ilustran en la Figura \ref{fig:2.4-Attention}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png}
+    \caption{Atención escalada por producto punto (izquierda). Atención Multicabezal (derecha). Imagen extraída de \cite{vaswani2017attention}.}
+    \label{fig:2.4-Attention}
+\end{figure}
 
 \subsection{Arquitectura Encoder-Decoder}
 
-La arquitectura fundamental de los Transformers se estructura en dos bloques principales compuestos por la repetición apilada de capas idénticas: el codificador (\textit{Encoder}) y el decodificador (\textit{Decoder}) \cite{vaswani2017attention}.
+La arquitectura fundamental de los Transformers se estructura en dos bloques principales compuestos por la repetición apilada de capas idénticas: el codificador (\textit{Encoder}) y el decodificador (\textit{Decoder}) \cite{vaswani2017attention}. \\
 
-El \textbf{codificador} asimila los datos de entrada y construye una representación de contexto global. Cada una de sus capas consta de dos submódulos principales: un mecanismo de autoatención multicabezal (\textit{multi-head self-attention}) y una red neuronal totalmente conectada (\textit{Feed-Forward Network}, FFN) aplicada posición por posición. La autoatención permite que cada elemento de la entrada evalúe su relación métrica con todos los demás elementos simultáneamente, capturando dependencias de largo alcance en un único paso computacional.
+El \textit{codificador} asimila los datos de entrada y construye una representación de contexto global. Cada una de sus capas consta de dos submódulos principales: un mecanismo de autoatención multicabezal (\textit{multi-head self-attention}) y una red neuronal totalmente conectada (\textit{Feed-Forward Network}, FFN) aplicada posición por posición. La autoatención permite que cada elemento de la entrada evalúe su relación métrica con todos los demás elementos simultáneamente, capturando dependencias de largo alcance en un único paso computacional. \\
 
-El \textbf{decodificador} transforma las representaciones procesadas por el codificador hacia el dominio de salida. Además de los dos submódulos presentes en el codificador, incorpora un tercer submódulo de \textit{atención cruzada} (\textit{cross-attention}). En este puente funcional, las consultas ($Q$, \textit{queries}) provienen de la capa interna anterior del decodificador, mientras que las claves ($K$, \textit{keys}) y los valores ($V$, \textit{values}) se alimentan directamente desde la salida final del codificador. Esta interacción obliga al decodificador a focalizar su procesamiento en las regiones más relevantes de la entrada original al momento de generar predicciones.
+El \textit{decodificador} transforma las representaciones procesadas por el codificador hacia el dominio de salida. Además de los dos submódulos presentes en el codificador, incorpora un tercer submódulo de \textit{atención cruzada} (\textit{cross-attention}). En este puente funcional, las consultas ($Q$, \textit{queries}) provienen de la capa interna anterior del decodificador, mientras que las claves ($K$, \textit{keys}) y los valores ($V$, \textit{values}) se alimentan directamente desde la salida final del codificador. Esta interacción obliga al decodificador a focalizar su procesamiento en las regiones más relevantes de la entrada original al momento de generar predicciones. \\
 
-Para garantizar la estabilidad numérica de la red profunda, ambos bloques integran conexiones residuales alrededor de cada submódulo, seguidas inmediatamente por una operación de normalización de capa (\textit{Layer Normalization}), lo que facilita un flujo ininterrumpido de gradientes durante la fase de retropropagación.
+Para garantizar la estabilidad numérica de la red profunda, ambos bloques integran conexiones residuales alrededor de cada submódulo, seguidas inmediatamente por una operación de normalización de capa (\textit{Layer Normalization}), lo que facilita un flujo ininterrumpido de gradientes durante la fase de retropropagación. \\
+
+De acuerdo a lo antes mencionado, la arquitectura transformer se muestra en la Figura \ref{fig:2.4-transformer_architecture}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png}
+    \caption{Arquitectura del Modelo Transformer. Imagen extraída de \cite{vaswani2017attention}.}
+    \label{fig:2.4-transformer_architecture}
+\end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -249,13 +277,13 @@ Para garantizar la estabilidad numérica de la red profunda, ambos bloques integ
 
 \subsection{Contextualización}
 
-\par YOLO y SSD pertenecen a la familia de modelos de detección de objetos de una sola etapa (\textit{one-stage detectors}), en los cuales la localización de las cajas delimitadoras y la clasificación de las instancias se realizan en una única pasada por la red. Ambos se basan en redes neuronales convolucionales (CNN) y se enmarcan dentro de los enfoques de detección de objetos con aprendizaje profundo, donde la propia red efectúa de manera conjunta la extracción de características y la predicción final. En la Figura~\ref{fig:2.4-YOLO_SSD_DL} se esquematiza la relación entre los esquemas tradicionales de detección de objetos basados en \textit{Machine Learning}, los modelos de una etapa como YOLO y SSD —que serán objeto de estudio en esta memoria— y los modelos de dos etapas (\textit{two-stage}), dentro de los cuales destaca la familia R-CNN, pionera en el uso de propuestas de regiones como base para la extracción de características y la detección posterior \cite{kaur2022tools}. \\
+\par YOLO y SSD pertenecen a la familia de modelos de detección de objetos de una sola etapa (\textit{one-stage detectors}), en los cuales la localización de las cajas delimitadoras y la clasificación de las instancias se realizan en una única pasada por la red. Ambos se basan en redes neuronales convolucionales (CNN) y se enmarcan dentro de los enfoques de detección de objetos con aprendizaje profundo, donde la propia red efectúa de manera conjunta la extracción de características y la predicción final. En la Figura~\ref{fig:2.5-YOLO_SSD_DL} se esquematiza la relación entre los esquemas tradicionales de detección de objetos basados en \textit{Machine Learning}, los modelos de una etapa como YOLO y SSD —que serán objeto de estudio en esta memoria— y los modelos de dos etapas (\textit{two-stage}), dentro de los cuales destaca la familia R-CNN, pionera en el uso de propuestas de regiones como base para la extracción de características y la detección posterior \cite{kaur2022tools}. \\
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/YOLO_SSD_DL.png}
+    \includegraphics[width=0.95\textwidth]{img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png}
     \caption{Clasificación de varias técnicas de detección de objetos. Imagen extraída de \cite{kaur2022tools}.}
-    \label{fig:2.4-YOLO_SSD_DL}
+    \label{fig:2.5-YOLO_SSD_DL}
 \end{figure}
 
 \par Dentro de los detectores de una sola etapa, una revisión exhaustiva de las arquitecturas de regresión propuestas en la literatura reciente identifica a las familias YOLO y SSD —incluyendo sus extensiones como DSSD— como los representantes más influyentes de este paradigma, al combinar elevados niveles de rendimiento con velocidades de inferencia adecuadas para aplicaciones en tiempo real \cite{zhang2021one_stage}. En dicha revisión se analiza la evolución cronológica desde YOLOv1 y SSD-300 hasta variantes más recientes como YOLOv4 y YOLOv5, destacando el compromiso alcanzado entre exactitud, capacidad para detectar objetos pequeños y eficiencia computacional en escenarios exigentes.\\  
@@ -266,18 +294,18 @@ Para garantizar la estabilidad numérica de la red profunda, ambos bloques integ
 \subsection{Selección de modelos}
 
 
-\par La revisión de Zhang et al.\ \cite{zhang2021one_stage} entrega un marco cuantitativo para esta decisión. En la Figura \ref{fig:2.4-one_stage_performance_comparative} de dicho trabajo se reportan, sobre el conjunto de datos MS~COCO, métricas de precisión promedio (AP) y velocidad máxima en cuadros por segundo (FPS) para distintos detectores de una etapa. Allí se observa que modelos basados en SSD, como SSD-300 y DSSD-321, alcanzan AP del orden de $31$--$33{,}2$ con velocidades cercanas a $11{,}8$--$16{,}4$~FPS, mientras que las versiones recientes de YOLO (YOLOv3, YOLOv4 y YOLOv5) logran precisiones comparables o superiores junto con incrementos significativos en velocidad, llegando en el caso de YOLOv5 a valores cercanos a $200$~FPS con AP en torno a $45{,}5$ en MS~COCO.
+\par La revisión de Zhang et al.\ \cite{zhang2021one_stage} entrega un marco cuantitativo para esta decisión. En la Figura \ref{fig:2.5-one_stage_performance_comparative} de dicho trabajo se reportan, sobre el conjunto de datos MS~COCO, métricas de precisión promedio (AP) y velocidad máxima en cuadros por segundo (FPS) para distintos detectores de una etapa. Allí se observa que modelos basados en SSD, como SSD-300 y DSSD-321, alcanzan AP del orden de $31$--$33{,}2$ con velocidades cercanas a $11{,}8$--$16{,}4$~FPS, mientras que las versiones recientes de YOLO (YOLOv3, YOLOv4 y YOLOv5) logran precisiones comparables o superiores junto con incrementos significativos en velocidad, llegando en el caso de YOLOv5 a valores cercanos a $200$~FPS con AP en torno a $45{,}5$ en MS~COCO.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/Review_OS_Models.png}
+    \includegraphics[width=0.95\textwidth]{img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png}
     \caption{Una revisión del rendimiento de los detectores de una sola etapa. Imagen extraída de \cite{zhang2021one_stage}.}
-    \label{fig:2.4-one_stage_performance_comparative}
+    \label{fig:2.5-one_stage_performance_comparative}
 \end{figure}
 
 \par Esta evidencia posiciona a YOLO como una alternativa particularmente atractiva cuando la restricción de tiempo de cómputo es crítica, como ocurre en la inspección continua de correas transportadoras en operación. No obstante lo anterior, la familia SSD mantiene un interés práctico como referencia clásica de detectores multi-escala. La arquitectura SSD fue concebida para superar las limitaciones de YOLOv1 frente a objetos pequeños y con relaciones de aspecto inusuales mediante el uso de múltiples mapas de características y conjuntos de cajas ancla de distintas escalas y proporciones \cite{zhang2021one_stage}. Su comparación directa con un modelo YOLO moderno permite analizar, en un mismo dominio industrial, el rendimiento relativo de dos enfoques representativos: uno enfocado en una representación multi-escala explícita (SSD) y otro en una arquitectura optimizada y profundamente integrada que ha ido incorporando progresivamente mecanismos de fusión de características y mejoras en la función de pérdida (YOLOv5). \\
 
-\par En consecuencia, en esta memoria se selecciona \textit{YOLOv5} como representante de las arquitecturas YOLO de última generación (de acuerdo al artículo de Zhang et al.), dada su combinación favorable de velocidad y precisión, su soporte activo en marcos de trabajo actuales y la disponibilidad de variantes escalables en tamaño de modelo; en paralelo (\textit{nano, small, medium, large, extra large}), se adopta \textit{SSD} como baseline clásico de detectores de una etapa con énfasis en la detección multi-escala de objetos pequeños. Ambos modelos serán implementados y entrenados sobre un conjunto de datos específico de fallas en correas transportadoras, bajo un mismo protocolo experimental, con el propósito de comparar de forma controlada sus métricas de detección, su capacidad para identificar defectos y sus requerimientos computacionales en un escenario cercano al operativo.
+\par En consecuencia, en esta memoria se selecciona \textit{YOLOv5} como representante de las arquitecturas YOLO de última generación (de acuerdo al artículo de Zhang et al.), dada su combinación favorable de velocidad y precisión y la disponibilidad de variantes escalables en tamaño de modelo (\textit{nano, small, medium, large, extra large}). Además se adopta \textit{SSD} como modelo de comparación base clásico de detectores de una etapa con énfasis en la detección multi-escala de objetos pequeños. Ambos modelos serán implementados y entrenados sobre un conjunto de datos específico de fallas en correas transportadoras, bajo un mismo protocolo experimental, con el propósito de comparar de forma controlada sus métricas de detección, su capacidad para identificar defectos y sus requerimientos computacionales en un escenario cercano al operativo.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{YOLO (You Only Look Once)}
@@ -287,36 +315,36 @@ Para garantizar la estabilidad numérica de la red profunda, ambos bloques integ
 
 \par A lo largo de sus versiones, la familia YOLO ha incorporado mejoras progresivas en la arquitectura de la red, en las estrategias de entrenamiento y en los mecanismos de fusión multi-escala. Las primeras versiones (YOLOv1--YOLOv3) introdujeron el uso de cajas ancla (\textit{anchor boxes}) y pirámides de características (\textit{feature pyramids}), mientras que YOLOv4 integró la arquitectura CSPDarknet53 y técnicas avanzadas de entrenamiento \cite{zhang2021one_stage}. Sobre esta base, YOLOv5 consolida una arquitectura moderna orientada a la implementación práctica, optimizando el balance entre costo computacional y desempeño en métricas de detección, lo que explica su amplia adopción en aplicaciones industriales y embebidas \cite{Jani2023ModelCompressionYOLOv5}.
 
-\subsubsection{Arquitectura general de YOLOv5}
+\subsubsection{Arquitectura de YOLOv5}
 
-\par YOLOv5 adopta una arquitectura modular de tres componentes: espina dorsal (\textit{backbone}), cuello de agregación de características (\textit{neck}) y cabeza de detección (\textit{detection head}), tal como se describe en revisiones recientes del modelo \cite{Jani2023ModelCompressionYOLOv5}. Esta descomposición permite separar claramente el aprendizaje de representaciones de bajo y alto nivel, la fusión de información multi-escala y la predicción final de cajas y clases. Ver Figura \ref{fig:2.4-YOLO_v5_architecture}. \\
+\par YOLOv5 adopta una arquitectura modular de tres componentes: espina dorsal (\textit{backbone}), cuello de agregación de características (\textit{neck}) y cabeza de detección (\textit{detection head}), tal como se describe en revisiones recientes del modelo \cite{Jani2023ModelCompressionYOLOv5}. Esta descomposición permite separar claramente el aprendizaje de representaciones de bajo y alto nivel, la fusión de información multi-escala y la predicción final de cajas y clases. Ver Figura \ref{fig:2.5-YOLO_v5_architecture}. \\
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/YOLO_v5_Architecture_l.png}
-    \caption{Arquitectura de YOLOv5, basada en una estructura de tipo \textit{backbone--neck--head} con módulos convolucionales CSP y fusión multi-escala. Imagen extraída de \cite{Jani2023ModelCompressionYOLOv5}.}
-    \label{fig:2.4-YOLO_v5_architecture}
+    \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png}
+    \caption{Arquitectura de YOLOv5, basada en una estructura de tipo \textit{backbone--neck--head}. Imagen extraída de \cite{Jani2023ModelCompressionYOLOv5}.}
+    \label{fig:2.5-YOLO_v5_architecture}
 \end{figure}
 
-\par En términos generales, el \textit{backbone} extrae características jerárquicas a partir de la imagen de entrada, el \textit{neck} combina y refina dichas características en múltiples resoluciones, y la \textit{head} produce, para cada nivel de resolución, las predicciones de cajas delimitadoras (\textit{bounding boxes}), confianza de objeto (\textit{objectness}) y probabilidades de clase. Esta organización sigue el esquema \textit{backbone--neck--head} común en detectores de una etapa, pero YOLOv5 lo implementa mediante bloques convolucionales específicos (CSP, C3, SPPF) que mejoran la eficiencia del flujo de información y reducen redundancias en los gradientes \cite{Jani2023ModelCompressionYOLOv5}.
+\par En términos generales, el \textit{backbone} extrae características jerárquicas a partir de la imagen de entrada, el \textit{neck} combina y refina dichas características en múltiples resoluciones, y la \textit{head} produce, para cada nivel de resolución, las predicciones de cajas delimitadoras (\textit{bounding boxes}), confianza de objeto (\textit{objectness}) y probabilidades de clase. Esta organización sigue el esquema \textit{backbone--neck--head} común en detectores de una etapa, pero YOLOv5 lo implementa mediante bloques convolucionales específicos (CSP, C3, SPPF) que mejoran la eficiencia del flujo de información y reducen redundancias en los gradientes \cite{Jani2023ModelCompressionYOLOv5}. A continuación se detalla cada una de las partes de la arquitectura de YOLOv5.
 
 \subsubsection{Bloques convolucionales: backbone, neck y head}
 
 \paragraph{Espina dorsal de la red (\textit{backbone})}
 
-\par El \textit{backbone} de YOLOv5 se basa en una variante de CSPDarknet53, derivada de la arquitectura Darknet-53 con la incorporación de la estrategia de redes parciales por etapa (\textit{Cross Stage Partial Network, CSP}). Esta estrategia consiste, de forma simplificada, en dividir el mapa de características en dos rutas paralelas, procesar una de ellas mediante bloques residuales y luego fusionarlas nuevamente. El objetivo es reducir la duplicación de gradientes y hacer más eficiente el uso de los canales de características. \\
+\par La columna vertebral (\textit{backbone}) de YOLOv5 se basa en una variante de CSPDarknet53, derivada de la arquitectura Darknet-53 con la incorporación de la estrategia de redes parciales por etapa (\textit{Cross Stage Partial Network, CSP}). Esta estrategia consiste, de forma simplificada, en dividir el mapa de características en dos rutas paralelas, procesar una de ellas mediante bloques residuales y luego fusionarlas nuevamente. El objetivo es reducir la duplicación de gradientes y hacer más eficiente el uso de los canales de características. \\
 
 \par En la práctica, YOLOv5 utiliza bloques C3, que son módulos convolucionales de tipo CSP simplificados. Cada bloque C3 agrupa varias capas convolucionales con conexiones de atajo (\textit{shortcut connections}) internas, lo que facilita el aprendizaje de representaciones profundas sin degradar el gradiente. La espina dorsal, tras recibir imágenes de entrada de 640x640 píxeles (resolución de trabajo de YOLO), combina secuencias de bloques \textit{ConvBNSiLU} (convolución + normalización por lotes + función de activación SiLU) y módulos C3, culminando en un bloque de agrupación piramidal espacial rápida (\textit{Spatial Pyramid Pooling Fast, SPPF}). Este último expande el campo receptivo (\textit{receptive field}) mediante operaciones de \textit{max-pooling} con diferentes tamaños de ventana, sin incrementar la resolución de los mapas de características \cite{Jani2023ModelCompressionYOLOv5}. \\
 
 \paragraph{Cuello de agregación (\textit{neck})}
 
-\par El \textit{neck} de YOLOv5 implementa una red de agregación de rutas (\textit{Path Aggregation Network, PANet}) combinada con la filosofía CSP, conocida como CSP-PAN. Su función es fusionar características provenientes de diferentes niveles de resolución del \textit{backbone}, de modo que las capas profundas (con alto contenido semántico) se combinen con capas más superficiales (con mejor resolución espacial) \cite{Jani2023ModelCompressionYOLOv5}. \\
+\par El cuello (\textit{neck}) de YOLOv5 implementa una red de agregación de rutas (\textit{Path Aggregation Network, PANet}) combinada con la filosofía CSP, conocida como CSP-PAN. Su función es fusionar características provenientes de diferentes niveles de resolución del \textit{backbone}, de modo que las capas profundas (con alto contenido semántico) se combinen con capas más superficiales (con mejor resolución espacial) \cite{Jani2023ModelCompressionYOLOv5}. \\
 
 \par Esta fusión se realiza mediante una secuencia de operaciones de muestreo ascendente (\textit{upsampling}), concatenación de mapas de características y bloques C3 adicionales. De este modo, el \textit{neck} genera un conjunto de mapas a distintas escalas que preservan tanto la localización precisa de los objetos como la información contextual, lo que es especialmente relevante en escenas industriales donde defectos pequeños y grandes coexisten en una misma imagen. \\
 
 \paragraph{Cabeza de detección (\textit{detection head})}
 
-\par La \textit{head} de YOLOv5 es una cabeza de detección convolucional multi-escala, conceptualmente similar a la introducida en YOLOv3. Para cada escala de salida (por ejemplo, mapas con baja, media y alta resolución), la cabeza predice, en cada celda de la rejilla y para cada caja ancla (\textit{anchor box}), un vector que incluye: desplazamientos de la caja delimitadora (posición y tamaño), una puntuación de presencia de objeto (\textit{objectness score}) y una distribución de probabilidades sobre las clases. \\
+\par La cabeza (\textit{head}) de YOLOv5 es una cabeza de detección convolucional multi-escala, conceptualmente similar a la introducida en YOLOv3. Para cada escala de salida (por ejemplo, mapas con baja, media y alta resolución), la cabeza predice, en cada celda de la rejilla y para cada caja ancla (\textit{anchor box}), un vector que incluye: desplazamientos de la caja delimitadora (posición y tamaño), una puntuación de presencia de objeto (\textit{objectness score}) y una distribución de probabilidades sobre las clases. \\
 
 \par Estas predicciones se obtienen mediante capas convolucionales finales de tamaño $1\times1$, que proyectan los mapas de características del \textit{neck} hacia el espacio de parámetros de detección. La formulación permite que la red aprenda, de forma conjunta, la localización y clasificación de múltiples objetos en una sola etapa, manteniendo el tiempo de inferencia bajo, un requisito clave para la detección de fallas en correas transportadoras en tiempo casi real.
 
@@ -363,13 +391,13 @@ donde $\sigma(x)$ es la función sigmoide estándar. En comparación con funcion
 
 \par SSD es un detector de objetos de una sola etapa (\textit{single-shot detector}) que, al igual que YOLO, evita el uso explícito de propuestas de regiones y realiza simultáneamente la clasificación y regresión de cajas delimitadoras en una única pasada de la red. Su diseño se basa en una red convolucional profunda pre-entrenada para clasificación (VGG-16), sobre la cual se añaden capas convolucionales adicionales que producen mapas de características a diferentes escalas. En cada uno de estos mapas, SSD evalúa un conjunto de cajas predeterminadas (\textit{default boxes}) de múltiples escalas y razones de aspecto, generando para cada una puntuaciones de clase y desplazamientos de caja \cite{liu2016ssd}.\\
 
-\par De este modo, SSD modela la detección como un problema de regresión y clasificación conjunta sobre un conjunto fijo de cajas ancla distribuidas de manera densa en varios mapas de características. Esta formulación permite alcanzar un compromiso favorable entre precisión y velocidad, evitando la etapa de \textit{region proposals} y el reprocesamiento de píxeles o características, logrando así detección en tiempo casi real con una precisión comparable a métodos de dos etapas basados en Faster R-CNN \cite{liu2016ssd}. La arquitectura general (que contempla sus dos versiones principales, SSD300 y SSD512), se muestra en la Figura \ref{fig:2.4-SSD_architecture}.
+\par De este modo, SSD modela la detección como un problema de regresión y clasificación conjunta sobre un conjunto fijo de cajas ancla distribuidas de manera densa en varios mapas de características. Esta formulación permite alcanzar un compromiso favorable entre precisión y velocidad, evitando la etapa de \textit{region proposals} y el reprocesamiento de píxeles o características, logrando así detección en tiempo casi real con una precisión comparable a métodos de dos etapas basados en Faster R-CNN \cite{liu2016ssd}. La arquitectura general (que contempla sus dos versiones principales, SSD300 y SSD512), se muestra en la Figura \ref{fig:2.5-SSD_architecture}.
   
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.4-YOLO_SSD/SSD_Architecture.png}
+    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png}
     \caption{Arquitectura general de SSD. Imagen extraída y procesada de \cite{liu2016ssd}.}
-    \label{fig:2.4-SSD_architecture}
+    \label{fig:2.5-SSD_architecture}
 \end{figure}
 
 \subsubsection{Arquitectura general de SSD}
@@ -628,13 +656,13 @@ F_{\beta} = (1 + \beta^2) \cdot \frac{\text{Precision} \cdot \text{Recall}}{\bet
 \text{IoU} = \frac{\text{Área de Intersección}}{\text{Área de Unión}}
 \]
 
-\par En la Figura \ref{fig:2.6-IoU}, es posible ver una representación mediante conjuntos de la definición de intersección sobre la unión.
+\par En la Figura \ref{fig:2.7-IoU}, es posible ver una representación mediante conjuntos de la definición de intersección sobre la unión.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\textwidth]{img/2-Antecedentes/2.6-Metricas/IoU_metric.png}
+    \includegraphics[width=0.6\textwidth]{img/2-Antecedentes/2.7-Metricas/IoU_metric.png}
     \caption{Representación visual de Intersección sobre la Unión. Imagen extraída de \cite{schlosser2024overview}.}
-    \label{fig:2.6-IoU}
+    \label{fig:2.7-IoU}
 \end{figure}
 
 \par Esta métrica es aplicada en la detección de objetos para ver qué tan acertada es la caja delimitadora de predicción respecto a la caja delimitadora real.

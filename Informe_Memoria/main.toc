@@ -13,87 +13,87 @@
 \contentsline {subsection}{\numberline {2.3.3}Hiperparámetros en modelos de detección basados en CNN}{9}{subsection.2.3.3}%
 \contentsline {section}{\numberline {2.4}Mecanismo de atención y arquitectura Encoder-Decoder}{11}{section.2.4}%
 \contentsline {subsection}{\numberline {2.4.1}Mecanismo de atención en Transformers}{11}{subsection.2.4.1}%
-\contentsline {subsection}{\numberline {2.4.2}Arquitectura Encoder-Decoder}{11}{subsection.2.4.2}%
-\contentsline {section}{\numberline {2.5}Modelos de detección de objetos de una sola etapa}{13}{section.2.5}%
-\contentsline {subsection}{\numberline {2.5.1}Contextualización}{13}{subsection.2.5.1}%
-\contentsline {subsection}{\numberline {2.5.2}Selección de modelos}{14}{subsection.2.5.2}%
-\contentsline {subsection}{\numberline {2.5.3}YOLO (You Only Look Once)}{15}{subsection.2.5.3}%
-\contentsline {subsubsection}{\numberline {2.5.3.1}Arquitectura general de YOLOv5}{16}{subsubsection.2.5.3.1}%
-\contentsline {subsubsection}{\numberline {2.5.3.2}Bloques convolucionales: backbone, neck y head}{17}{subsubsection.2.5.3.2}%
-\contentsline {paragraph}{Espina dorsal de la red (\textit {backbone})}{17}{section*.18}%
-\contentsline {paragraph}{Cuello de agregación (\textit {neck})}{17}{section*.19}%
-\contentsline {paragraph}{Cabeza de detección (\textit {detection head})}{17}{section*.20}%
-\contentsline {subsubsection}{\numberline {2.5.3.3}Funciones de activación y funciones de salida en YOLOv5}{18}{subsubsection.2.5.3.3}%
-\contentsline {paragraph}{Funciones de activación internas}{18}{section*.21}%
-\contentsline {paragraph}{Funciones de salida para detección y clasificación}{18}{section*.22}%
-\contentsline {subsubsection}{\numberline {2.5.3.4}Diferencias clave de YOLOv5 respecto a versiones anteriores}{19}{subsubsection.2.5.3.4}%
-\contentsline {subsection}{\numberline {2.5.4}SSD (Single Shot Multibox Detector)}{19}{subsection.2.5.4}%
-\contentsline {subsubsection}{\numberline {2.5.4.1}Arquitectura general de SSD}{20}{subsubsection.2.5.4.1}%
-\contentsline {subsubsection}{\numberline {2.5.4.2}Bloques convolucionales: backbone, capas adicionales y cabezas de predicción}{20}{subsubsection.2.5.4.2}%
-\contentsline {paragraph}{Espina dorsal de la red (\textit {backbone})}{20}{section*.24}%
-\contentsline {paragraph}{Capas de características adicionales (\textit {extra feature layers})}{21}{section*.25}%
-\contentsline {paragraph}{Cabezas de predicción (\textit {prediction heads})}{21}{section*.26}%
-\contentsline {subsubsection}{\numberline {2.5.4.3}Funciones de activación y funciones de salida en SSD}{22}{subsubsection.2.5.4.3}%
-\contentsline {paragraph}{Funciones de activación internas}{22}{section*.27}%
-\contentsline {paragraph}{Funciones de salida para detección y clasificación}{22}{section*.28}%
-\contentsline {section}{\numberline {2.6}Modelos de detección de objetos basados en Transformers}{23}{section.2.6}%
-\contentsline {subsection}{\numberline {2.6.1}Contextualización}{23}{subsection.2.6.1}%
-\contentsline {subsection}{\numberline {2.6.2}Arquitectura general}{23}{subsection.2.6.2}%
-\contentsline {subsection}{\numberline {2.6.3}DETR (DEtection TRansformer)}{24}{subsection.2.6.3}%
-\contentsline {subsubsection}{\numberline {2.6.3.1}Arquitectura general de DETR}{24}{subsubsection.2.6.3.1}%
-\contentsline {subsubsection}{\numberline {2.6.3.2}Bloques fundamentales: Backbone, Encoder, Decoder y FFN}{24}{subsubsection.2.6.3.2}%
-\contentsline {subsubsection}{\numberline {2.6.3.3}Pérdida de emparejamiento bipartito y el Algoritmo Húngaro}{25}{subsubsection.2.6.3.3}%
-\contentsline {subsection}{\numberline {2.6.4}DINO (DETR with Improved DeNoising Anchor Boxes)}{26}{subsection.2.6.4}%
-\contentsline {subsubsection}{\numberline {2.6.4.1}Evolución y arquitectura general de DINO}{26}{subsubsection.2.6.4.1}%
-\contentsline {subsubsection}{\numberline {2.6.4.2}Contrastive DeNoising (CDN)}{26}{subsubsection.2.6.4.2}%
-\contentsline {subsubsection}{\numberline {2.6.4.3}Mixed Query Selection}{27}{subsubsection.2.6.4.3}%
-\contentsline {subsubsection}{\numberline {2.6.4.4}Look Forward Twice}{27}{subsubsection.2.6.4.4}%
-\contentsline {subsection}{\numberline {2.6.5}Hiperparámetros en modelos de detección basados en Transformers}{28}{subsection.2.6.5}%
-\contentsline {section}{\numberline {2.7}Métricas}{29}{section.2.7}%
-\contentsline {subsection}{\numberline {2.7.1}Precisión, Exhaustividad y F-Score}{29}{subsection.2.7.1}%
-\contentsline {subsection}{\numberline {2.7.2}Intersección sobre la unión (IoU)}{30}{subsection.2.7.2}%
-\contentsline {subsection}{\numberline {2.7.3}Precisión promedio (Average Precision, AP) y precisión promedio media (mean Average Precision, mAP)}{31}{subsection.2.7.3}%
-\contentsline {subsection}{\numberline {2.7.4}Matriz de confusión (Confusion Matrix)}{32}{subsection.2.7.4}%
-\contentsline {chapter}{\numberline {3}Metodología}{33}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Identificación de fallas}{33}{section.3.1}%
-\contentsline {section}{\numberline {3.2}Base de datos y entorno virtual}{33}{section.3.2}%
-\contentsline {subsection}{\numberline {3.2.1}Base de datos elaborada}{34}{subsection.3.2.1}%
-\contentsline {subsection}{\numberline {3.2.2}Recopilación y limpieza}{34}{subsection.3.2.2}%
-\contentsline {subsection}{\numberline {3.2.3}Entorno virtual}{34}{subsection.3.2.3}%
-\contentsline {section}{\numberline {3.3}Implementación de YOLOv5}{35}{section.3.3}%
-\contentsline {subsection}{\numberline {3.3.1}Estructura de trabajo}{35}{subsection.3.3.1}%
-\contentsline {subsubsection}{\numberline {3.3.1.1}Hiperparámetros de YOLOv5}{36}{subsubsection.3.3.1.1}%
-\contentsline {section}{\numberline {3.4}Implementación de SSD}{36}{section.3.4}%
-\contentsline {subsection}{\numberline {3.4.1}Estructura de trabajo}{36}{subsection.3.4.1}%
-\contentsline {subsubsection}{\numberline {3.4.1.1}Hiperparámetros de SSD}{37}{subsubsection.3.4.1.1}%
-\contentsline {chapter}{\numberline {4}Resultados y Discusión}{39}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Base de datos implementada}{39}{section.4.1}%
-\contentsline {section}{\numberline {4.2}Métricas modelos de una sola etapa}{41}{section.4.2}%
-\contentsline {subsection}{\numberline {4.2.1}YOLOv5}{41}{subsection.4.2.1}%
-\contentsline {subsubsection}{\numberline {4.2.1.1}Curva de pérdida vs época por componentes}{41}{subsubsection.4.2.1.1}%
-\contentsline {subsubsection}{\numberline {4.2.1.2}Curva de pérdida vs época promedio}{42}{subsubsection.4.2.1.2}%
-\contentsline {subsubsection}{\numberline {4.2.1.3}Precision y Recall}{43}{subsubsection.4.2.1.3}%
-\contentsline {subsubsection}{\numberline {4.2.1.4}F1-Score}{45}{subsubsection.4.2.1.4}%
-\contentsline {subsubsection}{\numberline {4.2.1.5}Precisión Promedio Media (mAP)}{45}{subsubsection.4.2.1.5}%
-\contentsline {subsubsection}{\numberline {4.2.1.6}Distribución de IoU}{46}{subsubsection.4.2.1.6}%
-\contentsline {subsubsection}{\numberline {4.2.1.7}Matriz de Confusión}{47}{subsubsection.4.2.1.7}%
-\contentsline {subsection}{\numberline {4.2.2}SSD}{49}{subsection.4.2.2}%
-\contentsline {subsubsection}{\numberline {4.2.2.1}Curva de pérdida vs época específicas}{49}{subsubsection.4.2.2.1}%
-\contentsline {subsubsection}{\numberline {4.2.2.2}Curva de pérdida vs época promedio}{50}{subsubsection.4.2.2.2}%
-\contentsline {subsubsection}{\numberline {4.2.2.3}Precision y Recall}{51}{subsubsection.4.2.2.3}%
-\contentsline {subsubsection}{\numberline {4.2.2.4}F1-Score}{53}{subsubsection.4.2.2.4}%
-\contentsline {subsubsection}{\numberline {4.2.2.5}Precisión Promedio Media (mAP)}{53}{subsubsection.4.2.2.5}%
-\contentsline {subsubsection}{\numberline {4.2.2.6}Distribución de IoU}{54}{subsubsection.4.2.2.6}%
-\contentsline {subsubsection}{\numberline {4.2.2.7}Matriz de Confusión}{55}{subsubsection.4.2.2.7}%
-\contentsline {section}{\numberline {4.3}Pruebas y detección de fallas}{57}{section.4.3}%
-\contentsline {subsection}{\numberline {4.3.1}YOLOv5}{57}{subsection.4.3.1}%
-\contentsline {subsection}{\numberline {4.3.2}SSD300}{58}{subsection.4.3.2}%
-\contentsline {section}{\numberline {4.4}Discusión entre YOLOv5 y SSD300}{60}{section.4.4}%
-\contentsline {subsection}{\numberline {4.4.1}Análisis del desempeño de YOLOv5}{60}{subsection.4.4.1}%
-\contentsline {subsection}{\numberline {4.4.2}Análisis del desempeño de SSD}{60}{subsection.4.4.2}%
-\contentsline {subsection}{\numberline {4.4.3}Comparativa de convergencia y arquitectura: YOLOv5 vs. SSD}{61}{subsection.4.4.3}%
-\contentsline {subsection}{\numberline {4.4.4}Desempeño en pruebas}{61}{subsection.4.4.4}%
-\contentsline {chapter}{\numberline {5}Conclusiones}{63}{chapter.5}%
-\contentsline {chapter}{Bibliografía}{65}{chapter*.61}%
-\contentsline {chapter}{\numberline {6}Anexos}{67}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{68}{section.6.1}%
+\contentsline {subsection}{\numberline {2.4.2}Arquitectura Encoder-Decoder}{12}{subsection.2.4.2}%
+\contentsline {section}{\numberline {2.5}Modelos de detección de objetos de una sola etapa}{14}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}Contextualización}{14}{subsection.2.5.1}%
+\contentsline {subsection}{\numberline {2.5.2}Selección de modelos}{15}{subsection.2.5.2}%
+\contentsline {subsection}{\numberline {2.5.3}YOLO (You Only Look Once)}{16}{subsection.2.5.3}%
+\contentsline {subsubsection}{\numberline {2.5.3.1}Arquitectura de YOLOv5}{17}{subsubsection.2.5.3.1}%
+\contentsline {subsubsection}{\numberline {2.5.3.2}Bloques convolucionales: backbone, neck y head}{18}{subsubsection.2.5.3.2}%
+\contentsline {paragraph}{Espina dorsal de la red (\textit {backbone})}{18}{section*.20}%
+\contentsline {paragraph}{Cuello de agregación (\textit {neck})}{18}{section*.21}%
+\contentsline {paragraph}{Cabeza de detección (\textit {detection head})}{18}{section*.22}%
+\contentsline {subsubsection}{\numberline {2.5.3.3}Funciones de activación y funciones de salida en YOLOv5}{19}{subsubsection.2.5.3.3}%
+\contentsline {paragraph}{Funciones de activación internas}{19}{section*.23}%
+\contentsline {paragraph}{Funciones de salida para detección y clasificación}{19}{section*.24}%
+\contentsline {subsubsection}{\numberline {2.5.3.4}Diferencias clave de YOLOv5 respecto a versiones anteriores}{20}{subsubsection.2.5.3.4}%
+\contentsline {subsection}{\numberline {2.5.4}SSD (Single Shot Multibox Detector)}{20}{subsection.2.5.4}%
+\contentsline {subsubsection}{\numberline {2.5.4.1}Arquitectura general de SSD}{21}{subsubsection.2.5.4.1}%
+\contentsline {subsubsection}{\numberline {2.5.4.2}Bloques convolucionales: backbone, capas adicionales y cabezas de predicción}{21}{subsubsection.2.5.4.2}%
+\contentsline {paragraph}{Espina dorsal de la red (\textit {backbone})}{21}{section*.26}%
+\contentsline {paragraph}{Capas de características adicionales (\textit {extra feature layers})}{22}{section*.27}%
+\contentsline {paragraph}{Cabezas de predicción (\textit {prediction heads})}{22}{section*.28}%
+\contentsline {subsubsection}{\numberline {2.5.4.3}Funciones de activación y funciones de salida en SSD}{23}{subsubsection.2.5.4.3}%
+\contentsline {paragraph}{Funciones de activación internas}{23}{section*.29}%
+\contentsline {paragraph}{Funciones de salida para detección y clasificación}{23}{section*.30}%
+\contentsline {section}{\numberline {2.6}Modelos de detección de objetos basados en Transformers}{24}{section.2.6}%
+\contentsline {subsection}{\numberline {2.6.1}Contextualización}{24}{subsection.2.6.1}%
+\contentsline {subsection}{\numberline {2.6.2}Arquitectura general}{24}{subsection.2.6.2}%
+\contentsline {subsection}{\numberline {2.6.3}DETR (DEtection TRansformer)}{25}{subsection.2.6.3}%
+\contentsline {subsubsection}{\numberline {2.6.3.1}Arquitectura general de DETR}{25}{subsubsection.2.6.3.1}%
+\contentsline {subsubsection}{\numberline {2.6.3.2}Bloques fundamentales: Backbone, Encoder, Decoder y FFN}{25}{subsubsection.2.6.3.2}%
+\contentsline {subsubsection}{\numberline {2.6.3.3}Pérdida de emparejamiento bipartito y el Algoritmo Húngaro}{26}{subsubsection.2.6.3.3}%
+\contentsline {subsection}{\numberline {2.6.4}DINO (DETR with Improved DeNoising Anchor Boxes)}{27}{subsection.2.6.4}%
+\contentsline {subsubsection}{\numberline {2.6.4.1}Evolución y arquitectura general de DINO}{27}{subsubsection.2.6.4.1}%
+\contentsline {subsubsection}{\numberline {2.6.4.2}Contrastive DeNoising (CDN)}{27}{subsubsection.2.6.4.2}%
+\contentsline {subsubsection}{\numberline {2.6.4.3}Mixed Query Selection}{28}{subsubsection.2.6.4.3}%
+\contentsline {subsubsection}{\numberline {2.6.4.4}Look Forward Twice}{28}{subsubsection.2.6.4.4}%
+\contentsline {subsection}{\numberline {2.6.5}Hiperparámetros en modelos de detección basados en Transformers}{29}{subsection.2.6.5}%
+\contentsline {section}{\numberline {2.7}Métricas}{30}{section.2.7}%
+\contentsline {subsection}{\numberline {2.7.1}Precisión, Exhaustividad y F-Score}{30}{subsection.2.7.1}%
+\contentsline {subsection}{\numberline {2.7.2}Intersección sobre la unión (IoU)}{31}{subsection.2.7.2}%
+\contentsline {subsection}{\numberline {2.7.3}Precisión promedio (Average Precision, AP) y precisión promedio media (mean Average Precision, mAP)}{32}{subsection.2.7.3}%
+\contentsline {subsection}{\numberline {2.7.4}Matriz de confusión (Confusion Matrix)}{33}{subsection.2.7.4}%
+\contentsline {chapter}{\numberline {3}Metodología}{34}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Identificación de fallas}{34}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Base de datos y entorno virtual}{34}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Base de datos elaborada}{35}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Recopilación y limpieza}{35}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Entorno virtual}{35}{subsection.3.2.3}%
+\contentsline {section}{\numberline {3.3}Implementación de YOLOv5}{36}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Estructura de trabajo}{36}{subsection.3.3.1}%
+\contentsline {subsubsection}{\numberline {3.3.1.1}Hiperparámetros de YOLOv5}{37}{subsubsection.3.3.1.1}%
+\contentsline {section}{\numberline {3.4}Implementación de SSD}{37}{section.3.4}%
+\contentsline {subsection}{\numberline {3.4.1}Estructura de trabajo}{37}{subsection.3.4.1}%
+\contentsline {subsubsection}{\numberline {3.4.1.1}Hiperparámetros de SSD}{38}{subsubsection.3.4.1.1}%
+\contentsline {chapter}{\numberline {4}Resultados y Discusión}{40}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Base de datos implementada}{40}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Métricas modelos de una sola etapa}{42}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}YOLOv5}{42}{subsection.4.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.1.1}Curva de pérdida vs época por componentes}{42}{subsubsection.4.2.1.1}%
+\contentsline {subsubsection}{\numberline {4.2.1.2}Curva de pérdida vs época promedio}{43}{subsubsection.4.2.1.2}%
+\contentsline {subsubsection}{\numberline {4.2.1.3}Precision y Recall}{44}{subsubsection.4.2.1.3}%
+\contentsline {subsubsection}{\numberline {4.2.1.4}F1-Score}{46}{subsubsection.4.2.1.4}%
+\contentsline {subsubsection}{\numberline {4.2.1.5}Precisión Promedio Media (mAP)}{46}{subsubsection.4.2.1.5}%
+\contentsline {subsubsection}{\numberline {4.2.1.6}Distribución de IoU}{47}{subsubsection.4.2.1.6}%
+\contentsline {subsubsection}{\numberline {4.2.1.7}Matriz de Confusión}{48}{subsubsection.4.2.1.7}%
+\contentsline {subsection}{\numberline {4.2.2}SSD}{50}{subsection.4.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.2.1}Curva de pérdida vs época específicas}{50}{subsubsection.4.2.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.2.2}Curva de pérdida vs época promedio}{51}{subsubsection.4.2.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.2.3}Precision y Recall}{52}{subsubsection.4.2.2.3}%
+\contentsline {subsubsection}{\numberline {4.2.2.4}F1-Score}{54}{subsubsection.4.2.2.4}%
+\contentsline {subsubsection}{\numberline {4.2.2.5}Precisión Promedio Media (mAP)}{54}{subsubsection.4.2.2.5}%
+\contentsline {subsubsection}{\numberline {4.2.2.6}Distribución de IoU}{55}{subsubsection.4.2.2.6}%
+\contentsline {subsubsection}{\numberline {4.2.2.7}Matriz de Confusión}{56}{subsubsection.4.2.2.7}%
+\contentsline {section}{\numberline {4.3}Pruebas y detección de fallas}{58}{section.4.3}%
+\contentsline {subsection}{\numberline {4.3.1}YOLOv5}{58}{subsection.4.3.1}%
+\contentsline {subsection}{\numberline {4.3.2}SSD300}{59}{subsection.4.3.2}%
+\contentsline {section}{\numberline {4.4}Discusión entre YOLOv5 y SSD300}{61}{section.4.4}%
+\contentsline {subsection}{\numberline {4.4.1}Análisis del desempeño de YOLOv5}{61}{subsection.4.4.1}%
+\contentsline {subsection}{\numberline {4.4.2}Análisis del desempeño de SSD}{61}{subsection.4.4.2}%
+\contentsline {subsection}{\numberline {4.4.3}Comparativa de convergencia y arquitectura: YOLOv5 vs. SSD}{62}{subsection.4.4.3}%
+\contentsline {subsection}{\numberline {4.4.4}Desempeño en pruebas}{62}{subsection.4.4.4}%
+\contentsline {chapter}{\numberline {5}Conclusiones}{64}{chapter.5}%
+\contentsline {chapter}{Bibliografía}{66}{chapter*.63}%
+\contentsline {chapter}{\numberline {6}Anexos}{68}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{69}{section.6.1}%
