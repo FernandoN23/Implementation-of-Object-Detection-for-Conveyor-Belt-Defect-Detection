@@ -315,7 +315,7 @@ De acuerdo a lo antes mencionado, la arquitectura transformer se muestra en la F
 
 \par A lo largo de sus versiones, la familia YOLO ha incorporado mejoras progresivas en la arquitectura de la red, en las estrategias de entrenamiento y en los mecanismos de fusión multi-escala. Las primeras versiones (YOLOv1--YOLOv3) introdujeron el uso de cajas ancla (\textit{anchor boxes}) y pirámides de características (\textit{feature pyramids}), mientras que YOLOv4 integró la arquitectura CSPDarknet53 y técnicas avanzadas de entrenamiento \cite{zhang2021one_stage}. Sobre esta base, YOLOv5 consolida una arquitectura moderna orientada a la implementación práctica, optimizando el balance entre costo computacional y desempeño en métricas de detección, lo que explica su amplia adopción en aplicaciones industriales y embebidas \cite{Jani2023ModelCompressionYOLOv5}.
 
-\subsubsection{Arquitectura de YOLOv5}
+\subsubsection{Arquitectura del modelo YOLOv5}
 
 \par YOLOv5 adopta una arquitectura modular de tres componentes: espina dorsal (\textit{backbone}), cuello de agregación de características (\textit{neck}) y cabeza de detección (\textit{detection head}), tal como se describe en revisiones recientes del modelo \cite{Jani2023ModelCompressionYOLOv5}. Esta descomposición permite separar claramente el aprendizaje de representaciones de bajo y alto nivel, la fusión de información multi-escala y la predicción final de cajas y clases. Ver Figura \ref{fig:2.5-YOLO_v5_architecture}. \\
 
@@ -330,7 +330,7 @@ De acuerdo a lo antes mencionado, la arquitectura transformer se muestra en la F
 
 \subsubsection{Bloques convolucionales: backbone, neck y head}
 
-\paragraph{Espina dorsal de la red (\textit{backbone})}
+\paragraph{Columna Vertebral (\textit{backbone})}
 
 \par La columna vertebral (\textit{backbone}) de YOLOv5 se basa en una variante de CSPDarknet53, derivada de la arquitectura Darknet-53 con la incorporación de la estrategia de redes parciales por etapa (\textit{Cross Stage Partial Network, CSP}). Esta estrategia consiste, de forma simplificada, en dividir el mapa de características en dos rutas paralelas, procesar una de ellas mediante bloques residuales y luego fusionarlas nuevamente. El objetivo es reducir la duplicación de gradientes y hacer más eficiente el uso de los canales de características. \\
 
@@ -346,7 +346,7 @@ De acuerdo a lo antes mencionado, la arquitectura transformer se muestra en la F
 
 \par La cabeza (\textit{head}) de YOLOv5 es una cabeza de detección convolucional multi-escala, conceptualmente similar a la introducida en YOLOv3. Para cada escala de salida (por ejemplo, mapas con baja, media y alta resolución), la cabeza predice, en cada celda de la rejilla y para cada caja ancla (\textit{anchor box}), un vector que incluye: desplazamientos de la caja delimitadora (posición y tamaño), una puntuación de presencia de objeto (\textit{objectness score}) y una distribución de probabilidades sobre las clases. \\
 
-\par Estas predicciones se obtienen mediante capas convolucionales finales de tamaño $1\times1$, que proyectan los mapas de características del \textit{neck} hacia el espacio de parámetros de detección. La formulación permite que la red aprenda, de forma conjunta, la localización y clasificación de múltiples objetos en una sola etapa, manteniendo el tiempo de inferencia bajo, un requisito clave para la detección de fallas en correas transportadoras en tiempo casi real.
+\par Estas predicciones se obtienen mediante capas convolucionales finales de tamaño $1\times1$, que proyectan los mapas de características del \textit{cuello} hacia el espacio de parámetros de detección. La formulación permite que la red aprenda, de forma conjunta, la localización y clasificación de múltiples objetos en una sola etapa, manteniendo el tiempo de inferencia bajo, un requisito clave para la detección de fallas en correas transportadoras en tiempo casi real.
 
 \subsubsection{Funciones de activación y funciones de salida en YOLOv5}
 
@@ -365,9 +365,9 @@ donde $\sigma(x)$ es la función sigmoide estándar. En comparación con funcion
 \par En la capa de salida, YOLOv5 emplea funciones de activación específicas para cada tipo de predicción:
 
 \begin{itemize}
-    \item \textbf{Confianza de objeto (\textit{objectness}):} la probabilidad de que exista un objeto en una celda de la rejilla se modela mediante una función sigmoide (\textit{sigmoid}), que asigna valores en el rango $[0,1]$. Esta probabilidad se interpreta como el grado de confianza en que la caja propuesta contiene un objeto de interés.
-    \item \textbf{Probabilidades de clase (\textit{class probabilities}):} para cada clase, YOLOv5 utiliza igualmente funciones sigmoides independientes, lo que permite un esquema de clasificación de tipo multi-etiqueta (\textit{multi-label}), en lugar de una normalización \textit{softmax} estricta. De este modo, una misma caja podría, en teoría, activar más de una clase, aunque en la práctica suele seleccionarse la clase con mayor probabilidad.
-    \item \textbf{Parámetros de la caja delimitadora (\textit{bounding box regression}):} las coordenadas centrales y dimensiones de la caja se parametrizan respecto de las cajas ancla y de la celda de la rejilla. A través de funciones no lineales (incluyendo sigmoides y transformaciones exponenciales), el modelo aprende a ajustar el tamaño y posición de las cajas para aproximarse lo mejor posible a las anotaciones reales.
+    \item \textit{Confianza de objeto (\textit{objectness}):} la probabilidad de que exista un objeto en una celda de la rejilla se modela mediante una función sigmoide (\textit{sigmoid}), que asigna valores en el rango $[0,1]$. Esta probabilidad se interpreta como el grado de confianza en que la caja propuesta contiene un objeto de interés.
+    \item \textit{Probabilidades de clase (\textit{class probabilities}):} para cada clase, YOLOv5 utiliza igualmente funciones sigmoides independientes, lo que permite un esquema de clasificación de tipo multi-etiqueta (\textit{multi-label}), en lugar de una normalización \textit{softmax} estricta. De este modo, una misma caja podría, en teoría, activar más de una clase, aunque en la práctica suele seleccionarse la clase con mayor probabilidad.
+    \item \textit{Parámetros de la caja delimitadora (\textit{bounding box regression}):} las coordenadas centrales y dimensiones de la caja se parametrizan respecto de las cajas ancla y de la celda de la rejilla. A través de funciones no lineales (incluyendo sigmoides y transformaciones exponenciales), el modelo aprende a ajustar el tamaño y posición de las cajas para aproximarse lo mejor posible a las anotaciones reales.
 \end{itemize}
 
 \par Estas funciones de salida se combinan con funciones de pérdida (\textit{loss functions}) específicas, típicamente basadas en el índice de similitud de intersección sobre unión (\textit{Intersection over Union, IoU}) para las cajas y en la entropía cruzada (\textit{cross-entropy}) para las probabilidades, lo que permite entrenar el modelo de forma robusta frente a solapamientos entre objetos y desbalances entre clases.
@@ -389,62 +389,59 @@ donde $\sigma(x)$ es la función sigmoide estándar. En comparación con funcion
 \subsection{SSD (Single Shot Multibox Detector)}
 \label{subsec:ssd}
 
-\par SSD es un detector de objetos de una sola etapa (\textit{single-shot detector}) que, al igual que YOLO, evita el uso explícito de propuestas de regiones y realiza simultáneamente la clasificación y regresión de cajas delimitadoras en una única pasada de la red. Su diseño se basa en una red convolucional profunda pre-entrenada para clasificación (VGG-16), sobre la cual se añaden capas convolucionales adicionales que producen mapas de características a diferentes escalas. En cada uno de estos mapas, SSD evalúa un conjunto de cajas predeterminadas (\textit{default boxes}) de múltiples escalas y razones de aspecto, generando para cada una puntuaciones de clase y desplazamientos de caja \cite{liu2016ssd}.\\
+SSD es un detector de objetos de una sola etapa (\textit{single-shot detector}) que, al igual que YOLO, evita el uso explícito de propuestas de regiones y realiza simultáneamente la clasificación y regresión de cajas delimitadoras en una única pasada de la red. Su diseño se basa en una red convolucional profunda preentrenada para clasificación (VGG-16), sobre la cual se añaden capas convolucionales adicionales que producen mapas de características a diferentes escalas. En cada uno de estos mapas, SSD evalúa un conjunto de cajas predeterminadas (\textit{default boxes}) de múltiples escalas y razones de aspecto —estrategia de la cual deriva el término \textit{multibox}—, generando para cada una puntuaciones de clase y desplazamientos de caja \cite{liu2016ssd}.\\
 
-\par De este modo, SSD modela la detección como un problema de regresión y clasificación conjunta sobre un conjunto fijo de cajas ancla distribuidas de manera densa en varios mapas de características. Esta formulación permite alcanzar un compromiso favorable entre precisión y velocidad, evitando la etapa de \textit{region proposals} y el reprocesamiento de píxeles o características, logrando así detección en tiempo casi real con una precisión comparable a métodos de dos etapas basados en Faster R-CNN \cite{liu2016ssd}. La arquitectura general (que contempla sus dos versiones principales, SSD300 y SSD512), se muestra en la Figura \ref{fig:2.5-SSD_architecture}.
+De este modo, SSD modela la detección como un problema de regresión y clasificación conjunta sobre un conjunto fijo de cajas ancla distribuidas de manera densa en varios mapas de características. Esta formulación permite alcanzar un compromiso favorable entre precisión y velocidad, evitando la etapa de \textit{region proposals} y el reprocesamiento de píxeles o características, logrando así detección en tiempo casi real con una precisión comparable a métodos de dos etapas basados en Faster R-CNN \cite{liu2016ssd}. La arquitectura general (que contempla sus dos versiones principales, SSD300 y SSD512), se muestra en la Figura \ref{fig:2.5-SSD_architecture}.\\
   
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png}
+    \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png}
     \caption{Arquitectura general de SSD. Imagen extraída y procesada de \cite{liu2016ssd}.}
     \label{fig:2.5-SSD_architecture}
 \end{figure}
 
-\subsubsection{Arquitectura general de SSD}
+\subsubsection{Arquitectura del modelo SSD}
 
-\par Conceptualmente, SSD puede describirse como una arquitectura de tipo \textit{backbone} con capas adicionales de características y cabezas de predicción convolucionales, organizada en múltiples niveles de resolución. A partir de una imagen de entrada (típicamente de $300\times300$ o $512\times512$ píxeles), la red VGG-16 pre-entrenada extrae representaciones jerárquicas hasta una cierta profundidad, tras lo cual se agregan capas convolucionales extra que reducen progresivamente la resolución espacial de los mapas de características.\\
+Conceptualmente, SSD se describe como una arquitectura basada en un \textit{backbone} con capas de características adicionales y cabezas de predicción convolucionales, estructurada en múltiples niveles de resolución. A partir de una imagen de entrada (típicamente de $300\times300$ o $512\times512$ píxeles), la red VGG-16 preentrenada extrae representaciones jerárquicas hasta una profundidad específica, tras lo cual se anexan capas convolucionales extra que reducen progresivamente la resolución espacial de los mapas de características.\\
 
-\par Sobre un conjunto de mapas de salida seleccionados (por ejemplo, \texttt{conv4\_3}, \texttt{conv7}, \texttt{conv8\_2}, \texttt{conv9\_2}, \texttt{conv10\_2} y \texttt{conv11\_2} en SSD300), se definen, para cada celda, varias \textit{default boxes} de distintas escalas y razones de aspecto. Para cada una de estas cajas, pequeñas convoluciones $3\times3$ producen, en una sola operación, los desplazamientos de la caja y las puntuaciones de clase asociadas. El conjunto global de salidas corresponde así a miles de cajas candidata por imagen, que posteriormente se filtran mediante umbral de confianza y supresión de no-máximos (\textit{Non-Maximum Suppression, NMS}) para obtener las detecciones finales \cite{liu2016ssd}.\\
+Sobre un conjunto seleccionado de mapas de salida, se definen para cada celda varias cajas predeterminadas (\textit{default boxes}) de distintas escalas y razones de aspecto. Para cada caja candidata, filtros convolucionales compactos de $3\times3$ computan en una sola operación los desplazamientos espaciales y las puntuaciones de clase asociadas. El tensor global de salidas comprende miles de predicciones por imagen, las cuales son depuradas posteriormente mediante umbrales de confianza y supresión de no-máximos (\textit{Non-Maximum Suppression, NMS}) para consolidar las detecciones finales \cite{liu2016ssd}. A continuación se detallan los módulos estructurales del modelo.\\
 
 \subsubsection{Bloques convolucionales: backbone, capas adicionales y cabezas de predicción}
 
-\paragraph{Espina dorsal de la red (\textit{backbone})}
+\paragraph{Columna Vertebral (\textit{backbone})}
 
-\par El \textit{backbone} de SSD se basa en VGG-16, una arquitectura originalmente diseñada para clasificación de imágenes. En el contexto de SSD, VGG-16 se utiliza hasta la capa \texttt{pool5}, eliminando las capas totalmente conectadas finales y las capas de \textit{dropout}. Las capas \texttt{fc6} y \texttt{fc7} se convierten en capas convolucionales (\texttt{conv6} y \texttt{conv7}), de modo que la red completa se mantiene totalmente convolucional. Además, se modifica la operación de \texttt{pool5} y se emplean convoluciones dilatadas (\textit{atrous}) para mantener un campo receptivo amplio sin reducir en exceso la resolución de los mapas de características \cite{liu2016ssd}.\\
+El \textit{backbone} de SSD hereda la arquitectura VGG-16 truncada hasta la capa \textit{pool5}, descartando las capas densas terminales y los módulos de \textit{dropout}. Las capas \textit{fc6} y \textit{fc7} se transforman en capas convolucionales (\textit{conv6} y \textit{conv7}). Simultáneamente, la operación de \textit{pool5} se modifica y se implementan convoluciones dilatadas (\textit{atrous convolutions}) para expandir el campo receptivo sin degradar la resolución de los mapas de características \cite{liu2016ssd}.\\
 
-\par Entre los mapas de salida proporcionados por el \textit{backbone}, la capa \texttt{conv4\_3} es especialmente relevante, ya que conserva una resolución relativamente alta y se utiliza directamente para detección. Para compatibilizar su escala de activaciones con las capas más profundas, SSD aplica una normalización L2 por ubicación sobre \texttt{conv4\_3}, escalando posteriormente la norma de las características mediante un factor aprendible durante el entrenamiento. Esto permite que las contribuciones de esta capa superficial se integren de forma estable con las capas más profundas en el proceso de detección \cite{liu2016ssd}.\\
+Entre los mapas extraídos, la capa \textit{conv4\_3} resulta crítica al conservar una alta resolución espacial, empleándose directamente para la detección de instancias de menor escala. Para alinear su magnitud de activaciones con las capas más profundas, SSD aplica una normalización L2 por ubicación sobre \textit{conv4\_3}, introduciendo un factor de escala aprendible durante la optimización. Este mecanismo garantiza la integración estable de características superficiales y profundas durante la propagación \cite{liu2016ssd}.\\
 
 \paragraph{Capas de características adicionales (\textit{extra feature layers})}
 
-\par Sobre la salida de \texttt{conv7}, SSD incorpora una serie de capas convolucionales adicionales que generan mapas de características de resolución decreciente, como \texttt{conv8\_2}, \texttt{conv9\_2}, \texttt{conv10\_2} y \texttt{conv11\_2} en el caso de SSD300, y una capa adicional \texttt{conv12\_2} en SSD512. Estas capas se construyen habitualmente como pares de convoluciones $1\times1$ (para reducir dimensionalidad de canales) seguidas de convoluciones $3\times3$ con \textit{stride} mayor que uno para reducir la resolución espacial.\\
+Sobre la salida de \textit{conv7}, se acoplan redes convolucionales en cascada que generan mapas de resolución decreciente (por ejemplo, \textit{conv8\_2} hasta \textit{conv11\_2} en SSD300, añadiendo \textit{conv12\_2} en SSD512). Estos bloques operan típicamente mediante pares de convoluciones de reducción de dimensionalidad de canales ($1\times1$) seguidas de convoluciones espaciales ($3\times3$) con \textit{stride} mayor a uno para ejecutar la submuestración.\\
 
-\par El propósito de estas capas extra es conformar una pirámide de mapas de características en la que cada nivel se especializa en un rango de escalas de objetos. De este modo, los mapas de mayor resolución capturan mejor objetos pequeños, mientras que los mapas más gruesos concentran la detección de objetos medianos y grandes. Esta estrategia de múltiples capas de salida permite a SSD aproximar un comportamiento similar al de un \textit{feature pyramid}, pero integrado de forma directa en la arquitectura convolucional \cite{liu2016ssd}.\\
+El objetivo de esta extensión es construir una pirámide de características explícita, donde la detección de objetos pequeños se delega a los mapas de alta resolución, y los objetos de gran escala se capturan en las capas terminales más gruesas. Este diseño emula el comportamiento de una \textit{feature pyramid} de manera eficiente y directa sobre el flujo convolucional de una sola etapa \cite{liu2016ssd}.\\
 
 \paragraph{Cabezas de predicción (\textit{prediction heads})}
 
-\par Para cada mapa de características seleccionado, SSD define una cabeza de predicción convolucional que opera de forma densa sobre todas las ubicaciones espaciales. En términos generales, para un mapa de tamaño $m\times n$ con $p$ canales, se asocian $k$ \textit{default boxes} por cada celda. La cabeza de predicción aplica, en cada posición, un conjunto de filtros convolucionales $3\times3\times p$ que producen, por cada caja, $c$ puntuaciones de clase (incluyendo el fondo) y $4$ parámetros de regresión asociados a la caja.\\
+Para cada mapa seleccionado, SSD proyecta una cabeza de predicción que opera de forma densa sobre la topología espacial. En un mapa de dimensiones $m\times n$ con $p$ canales, se asocian $k$ \textit{default boxes} por celda. La proyección convolucional aplica filtros de $3\times3\times p$, emitiendo $c$ puntuaciones de clase (incluyendo la clase de fondo) y $4$ coordenadas de regresión geométrica por cada caja.\\
 
-\par Esto implica que, para cada mapa, la cabeza de predicción genera $(c+4)kmn$ salidas, correspondientes a la combinación de todas las ubicaciones, cajas y clases. En el caso de SSD300, la combinación de todos los mapas de salida produce del orden de $8732$ \textit{default boxes} por imagen, mientras que SSD512 incrementa este número al operar con una resolución de entrada mayor \cite{liu2016ssd}. Durante el post-procesamiento, las predicciones se filtran mediante umbrales de confianza y NMS por clase, reteniendo únicamente un número acotado de detecciones finales por imagen.\\
+La arquitectura genera un total de $(c+4)kmn$ salidas por mapa. Evaluado globalmente, SSD300 produce del orden de $8732$ cajas candidatas por imagen, volumen que se incrementa sustancialmente en SSD512 debido a su mayor resolución de entrada \cite{liu2016ssd}. Durante el post-procesamiento, este conjunto masivo se filtra empleando NMS por clase para aislar las detecciones óptimas.\\
 
 \subsubsection{Funciones de activación y funciones de salida en SSD}
 
 \paragraph{Funciones de activación internas}
 
-\par En las capas internas, SSD hereda principalmente las funciones de activación de VGG-16, esto es, funciones ReLU (\textit{Rectified Linear Unit}) aplicadas después de las convoluciones. Estas activaciones se utilizan tanto en el \textit{backbone} como en las capas adicionales de características, lo que permite una representación no lineal suficiente sin introducir funciones más complejas. Adicionalmente, la normalización L2 aplicada a \texttt{conv4\_3} actúa como un mecanismo complementario de estabilización de la escala de características en las primeras capas utilizadas para detección.\\
+En las capas extractoras, SSD conserva la función de activación no lineal ReLU (\textit{Rectified Linear Unit}) estándar de VGG-16 aplicada tras las convoluciones. Esta función proporciona una representación computacionalmente eficiente y mitiga la saturación del gradiente en capas profundas. Adicionalmente, la normalización L2 específica de la capa \textit{conv4\_3} actúa como un regularizador estabilizador para la varianza de las activaciones tempranas empleadas en la detección.\\
 
 \paragraph{Funciones de salida para detección y clasificación}
 
-\par En la capa de salida, SSD emplea funciones de activación diferenciadas para la regresión de cajas y la clasificación de objetos:
+La capa de inferencia emplea funciones diferenciadas según el objetivo matemático de la rama:
 
 \begin{itemize}
-    \item \textbf{Regresión de cajas delimitadoras (\textit{bounding box regression}):} los parámetros de cada caja se predicen como desplazamientos (centro y dimensiones) respecto de la \textit{default box} asociada. La función de pérdida para estos parámetros corresponde a una pérdida Smooth L1 (tipo Huber) aplicada a las diferencias entre los offsets predichos y los offsets de las cajas reales, medida sobre el centro y las dimensiones de la caja \cite{liu2016ssd}.
-    \item \textbf{Puntuaciones de clase (\textit{class confidences}):} para cada \textit{default box}, SSD predice una distribución de probabilidad sobre $c$ clases (incluyendo la clase de fondo) mediante una función \textit{softmax}. La pérdida de clasificación correspondiente es la entropía cruzada (\textit{softmax loss}) sobre dichas probabilidades, lo que permite tratar de forma explícita el fondo como una clase adicional \cite{liu2016ssd}.
+    \item \textit{Regresión de cajas delimitadoras (bounding box regression):} Los parámetros geométricos se modelan como desplazamientos residuales (centroide y dimensiones) respecto a la \textit{default box}. La optimización emplea una métrica de pérdida Smooth L1 (tipo Huber), la cual ofrece mayor robustez frente a valores atípicos espaciales y estabiliza el entrenamiento \cite{liu2016ssd}.
+    \item \textit{Puntuaciones de clase (class confidences):} La distribución probabilística sobre las $c$ clases se aproxima mediante la función \textit{softmax}, penalizada a través de la entropía cruzada multiclase (\textit{softmax loss}). El fondo se procesa explícitamente como una categoría independiente \cite{liu2016ssd}.
 \end{itemize}
 
-\par El objetivo total de entrenamiento se formula como una combinación ponderada de la pérdida de localización (Smooth L1) y la pérdida de confianza (\textit{softmax loss}), normalizada por el número de cajas positivas asociadas a objetos reales. Este enfoque, junto con estrategias de \textit{hard negative mining} y de aumento de datos, permite entrenar SSD de manera estable incluso con un gran número de \textit{default boxes} negativas por imagen \cite{liu2016ssd}.\\
-
-
-
+El objetivo total de entrenamiento se formula como una combinación ponderada de la pérdida de localización (Smooth L1) y la pérdida de confianza (\textit{softmax loss}), normalizada por el número de cajas positivas asociadas a objetos reales. Este enfoque, junto con estrategias de minería de negativos difíciles (\textit{hard negative mining}) y de aumento de datos, permite entrenar SSD de manera estable incluso con un gran número de cajas ancla negativas por imagen \cite{liu2016ssd}.\\
 \clearpage 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -453,41 +450,54 @@ donde $\sigma(x)$ es la función sigmoide estándar. En comparación con funcion
 
 \subsection{Contextualización}
 
-El éxito consolidado de las Redes Neuronales Convolucionales (CNN) en visión computacional se fundamenta en su capacidad para explotar la invariancia a la traslación y la localidad espacial mediante el uso de filtros deslizantes. Sin embargo, esta naturaleza local limita inherentemente la captura de dependencias de largo alcance, requiriendo arquitecturas profundamente estratificadas o mecanismos complejos de fusión multiescala (como las pirámides de características) para asimilar el contexto global de una escena. 
+El éxito consolidado de las Redes Neuronales Convolucionales (CNN) en visión computacional se fundamenta en su capacidad para explotar la invariancia a la traslación y la localidad espacial mediante el uso de filtros deslizantes. Sin embargo, esta naturaleza local limita inherentemente la captura de dependencias de largo alcance, requiriendo arquitecturas profundamente estratificadas o mecanismos complejos de fusión multiescala (como las pirámides de características) para asimilar el contexto global de una escena.\\
 
-En este escenario, el paradigma de los \textit{Transformers} ---originalmente concebido para el procesamiento de lenguaje natural--- redefine la formulación de tareas visuales al reemplazar por completo las operaciones de convolución por mecanismos de autoatención global \cite{vaswani2017attention}. En el contexto de la detección de objetos, esta transición metodológica permite modelar explícitamente todas las interacciones de emparejamiento entre los elementos de una imagen. Al tratar la detección como un problema directo de predicción de conjuntos, estos modelos eliminan de manera nativa la necesidad de componentes heurísticos y procesos manuales críticamente dependientes del diseño del especialista, tales como la generación de cajas ancla espaciales (\textit{anchor boxes}) y los algoritmos de supresión de no máximos (NMS) encargados de colapsar predicciones duplicadas \cite{carion2020end}.
+En este escenario, el paradigma de los \textit{Transformers} ---originalmente concebido para el procesamiento de lenguaje natural--- redefine la formulación de tareas visuales al reemplazar por completo las operaciones de convolución por mecanismos de autoatención global \cite{vaswani2017attention}. En el contexto de la detección de objetos, esta transición metodológica permite modelar explícitamente todas las interacciones de emparejamiento entre los elementos de una imagen. Al tratar la detección como un problema directo de predicción de conjuntos, estos modelos eliminan de manera nativa la necesidad de componentes heurísticos y procesos manuales críticamente dependientes del diseño del especialista, tales como la generación de cajas ancla espaciales (\textit{anchor boxes}) y los algoritmos de supresión de no máximos (NMS) encargados de colapsar predicciones duplicadas \cite{carion2020end}.\\
 
 \subsection{Arquitectura general}
 
-A nivel macroestructural, mientras que los detectores convolucionales de una sola etapa se estructuran bajo la topología clásica de \textit{backbone--neck--head}, los detectores basados en Transformers reconfiguran estos componentes sustituyendo el \textit{neck} por un bloque de codificación y decodificación (*Encoder-Decoder*), manteniendo una cabeza de predicción optimizada para la proyección directa de conjuntos paralelos.
-
-% Imagen arquitectura general de los transformer por añadir.
+A nivel general, mientras que los detectores convolucionales de una sola etapa se estructuran bajo la topología clásica de columna vertebral-cuello-cabeza (\textit{backbone--neck--head}), los detectores basados en Transformers reconfiguran estos componentes sustituyendo el \textit{neck} por un bloque de codificación y decodificación (\textit{Encoder-Decoder}), manteniendo una cabeza de predicción optimizada para la proyección directa de conjuntos paralelos.\\
 
 El flujo de información dentro de esta topología unificada se desglosa en los siguientes bloques funcionales:
 
 \begin{itemize}
-    \item \textbf{Backbone (Extractor visual):} Una red convolucional convencional (ej. ResNet) o un Transformer específico para visión (ej. Swin Transformer) recibe la imagen de entrada y genera un mapa de características de baja resolución espacial y alta densidad de canales, condensando la información visual representativa.
-    \item \textbf{Mecanismo de aplanado y codificación posicional:} Dado que los módulos de atención interna procesan secuencias unidimensionales y son simétricos respecto a permutaciones, las dimensiones espaciales del mapa de características se colapsan a una dimensión. Posteriormente, se incorporan vectores de codificación posicional estática (\textit{positional encodings}) para inyectar de forma explícita la estructura espacial perdida durante el aplanado.
-    \item \textbf{Transformer Encoder (Codificador contextual):} Formado por una sucesión de capas de autoatención multifrecuencia y redes prealimentadas (FFN). El codificador analiza de forma global las relaciones de proximidad y contexto entre todos los píxeles/parches del mapa, separando y desenredando las instancias de los objetos directamente en el espacio de características.
-    \item \textbf{Transformer Decoder (Decodificador de consultas):} Procesa en paralelo un conjunto fijo de vectores learnable denominados consultas de objetos (\textit{object queries}). A través de capas alternas de autoatención (interacción consulta-consulta) y atención cruzada (\textit{cross-attention} consulta-características del codificador), el decodificador restructura los vectores query mapeándolos hacia las zonas con mayor relevancia de la escena visual.
-    \item \textbf{Prediction Head (Cabezas de predicción):} Un bloque final constituido por redes neuronales completamente conectadas (FFN) toma los embeddings resultantes del decodificador y proyecta, de forma paralela e independiente, las coordenadas normalizadas de las cajas y las probabilidades de clase correspondientes para cada ranura (\textit{slot}).
+    \item \textit{Columna Vertebral (backbone):} Una red convolucional convencional preentrenada (ej. ResNet, SwinL) recibe la imagen de entrada y genera un mapa de características de baja resolución espacial y alta densidad de canales, condensando la información visual representativa.
+    \item \textit{Mecanismo de aplanado y codificación posicional (Positional Encoding):} Dado que los módulos de atención interna procesan secuencias unidimensionales y son simétricos respecto a permutaciones, las dimensiones espaciales del mapa de características se colapsan a una dimensión. Posteriormente, se incorporan vectores de codificación posicional estática (\textit{positional encodings}) para inyectar de forma explícita la estructura espacial perdida durante el aplanado.
+    \item \textit{Codificador contextual (Transformer Encoder):} Formado por una sucesión de capas de autoatención multifrecuencia y redes prealimentadas (FFN). El codificador analiza de forma global las relaciones de proximidad y contexto entre todos los píxeles/parches del mapa, separando y desenredando las instancias de los objetos directamente en el espacio de características.
+    \item \textit{Decodificador de consultas (Transformer Decoder):} Procesa en paralelo un conjunto fijo de vectores de aprendizaje continuo denominados consultas de objetos (\textit{object queries}). A través de capas alternas de autoatención (interacción consulta-consulta) y atención cruzada (\textit{cross-attention} consulta-características del codificador), el decodificador restructura los vectores query mapeándolos hacia las zonas con mayor relevancia de la escena visual.
+    \item \textit{Cabezas de predicción (Prediction Heads):} Un bloque final constituido por redes neuronales completamente conectadas (FFN) toma los tensores resultantes del decodificador y proyecta, de forma paralela e independiente, las coordenadas normalizadas de las cajas y las probabilidades de clase correspondientes para cada ranura (\textit{slot}).
 \end{itemize}
 
 \subsection{DETR (DEtection TRansformer)}
 
 \subsubsection{Arquitectura general de DETR}
 
-El modelo DETR \cite{carion2020end} constituye el hito fundamental en la transición hacia detectores de extremo a extremo libres de componentes manuales. Arquitectónicamente, se concibe como una implementación elegante que acopla un extractor convolucional ResNet-50 con un bloque Transformer estándar de procesamiento no autorregresivo. El objetivo central de DETR es inferir simultáneamente un conjunto de tamaño fijo de $N$ predicciones (típicamente fijado en $N = 100$), donde $N$ se define para ser significativamente mayor que el número real de objetos habitualmente presentes en una imagen de la base de datos operativa.
+El modelo DETR \cite{carion2020end} constituye el hito fundamental en la transición hacia detectores de extremo a extremo libres de componentes manuales. Arquitectónicamente, se concibe como una implementación elegante que acopla un extractor convolucional ResNet-50 con un bloque Transformer estándar de procesamiento no autorregresivo. El objetivo central de DETR es inferir simultáneamente un conjunto de tamaño fijo de $N$ predicciones, donde $N$ se define para ser significativamente mayor que el número real de objetos habitualmente presentes en una imagen de la base de datos operativa. El modelo y su arquitectura se ilustran en la Figura \ref{fig:2.6-DETR_Architecture}. \\
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png}
+    \caption{Arquitectura general de DETR. Imagen extraída de \cite{carion2020end}.}
+    \label{fig:2.6-DETR_Architecture}
+\end{figure}
 
 \subsubsection{Bloques fundamentales: Backbone, Encoder, Decoder y FFN}
 
-En la configuración por defecto de DETR, el mapa de características extraído por el \textit{backbone} reduce la resolución espacial por un factor de 32 ($H, W = H_0/32, W_0/32$). Una capa de convolución de $1\times1$ reduce la dimensionalidad de canales de 2048 a un espacio intermedio de tamaño $d = 256$. El codificador posee 6 capas compuestas por bloques de atención de 8 cabezas (*8-headed self-attention*) y una capa FFN con dimensión oculta de 2048. 
+\paragraph{Columna vertebral (\textit{Backbone})}
 
-El decodificador implementa igualmente 6 capas de procesamiento en paralelo. A diferencia de los transformers de procesamiento secuencial, DETR decodifica las $N$ consultas al mismo tiempo en cada capa. Las \textit{object queries} actúan como un conjunto de filtros abstractos capaces de especializarse en diferentes regiones espaciales y tamaños de cajas. El resultado de salida de cada ranura del decodificador es procesado de forma independiente por la cabeza de predicción, que consiste en un perceptrón multicapa (MLP) de 3 capas densas con funciones de activación ReLU y una proyección lineal final para la clasificación de clases mediante \textit{softmax}. Si una ranura no es asignada a ningún objeto real del terreno, el modelo predice la etiqueta de una clase especial denotada como vacía ($\emptyset$), que opera como la clase de fondo del sistema.
+Conectando con la estructura unificada definida previamente en la Sección 2.6.2, el \textit{backbone} actúa como el extractor visual base. En la configuración por defecto de DETR, el mapa de características extraído reduce la resolución espacial por un factor de 32 ($H, W = H_0/32, W_0/32$). Para transicionar al dominio de atención, una convolución de $1\times1$ comprime la dimensionalidad de canales de 2048 a un espacio latente de tamaño $d = 256$, colapsando posteriormente sus dimensiones espaciales a una secuencia unidimensional.\\
+
+\paragraph{Codificador (\textit{Encoder})}
+
+Como mecanismo de codificación contextual, el codificador asimila la secuencia aplanada junto con su codificación posicional. Posee 6 capas apiladas, compuestas estructuralmente por bloques de autoatención multicabezal (\textit{8-headed self-attention}) y una red prealimentada (FFN) con dimensión oculta de 2048, modelando las interacciones globales entre todos los parches de la imagen.\\
+
+\paragraph{Decodificador (\textit{Decoder}) y Cabezas de Predicción (\textit{FFN})}
+
+Actuando como decodificador de consultas, este bloque implementa 6 capas de procesamiento en paralelo. A diferencia de los Transformers autorregresivos, DETR decodifica simultáneamente un conjunto fijo de $N$ consultas. Estas \textit{object queries} operan como filtros abstractos que asimilan el contexto global a través de la atención cruzada con el codificador. Finalmente, la cabeza de predicción proyecta las salidas: un perceptrón multicapa (MLP) de 3 capas densas predice las coordenadas geométricas, mientras una proyección lineal ejecuta la clasificación mediante \textit{softmax}. Si una ranura no empareja con un objeto real, el modelo predice la clase de fondo ($\emptyset$).\\
 
 \subsubsection{Pérdida de emparejamiento bipartito y el Algoritmo Húngaro}
 
-La naturaleza post-procesamiento libre de DETR radica en su formulación de la función de pérdida como un problema de optimización global de conjuntos. Para puntuar las predicciones con respecto a la verdad de terreno, se requiere realizar un emparejamiento biunívoco (uno a uno) entre el conjunto de etiquetas reales $y$ (completado con elementos vacíos $\emptyset$ hasta alcanzar el tamaño $N$) y el conjunto de predicciones $\hat{y} = \{\hat{y}_i\}_{i=1}^N$.
+La naturaleza post-procesamiento libre de DETR radica en su formulación de la función de pérdida como un problema de optimización global de conjuntos. Para puntuar las predicciones con respecto a la verdad de terreno, se requiere realizar un emparejamiento biunívoco (uno a uno) entre el conjunto de etiquetas reales $y$ (completado con elementos vacíos $\emptyset$ hasta alcanzar el tamaño $N$) y el conjunto de predicciones $\hat{y} = \{\hat{y}_i\}_{i=1}^N$.\\
 
 Para hallar la permutación óptima del espacio de permutaciones $\mathfrak{S}_N$ con el menor costo global, se resuelve el problema de asignación mediante el método formalizado en la Ecuación \ref{eq:bipartite_matching}:
 
@@ -522,34 +532,35 @@ Para contrarrestar el desbalance de clases provocado por la alta cantidad de ran
 
 \subsubsection{Evolución y arquitectura general de DINO}
 
-A pesar de las ventajas conceptuales de DETR, las implementaciones iniciales presentaban dos limitaciones de carácter crítico en entornos operativos: una velocidad de convergencia extremadamente lenta durante la optimización ---atribuible a la inestabilidad inherente de las asignaciones dinámicas del emparejamiento bipartito--- y deficiencias notorias en el rendimiento de detección sobre objetos con dimensiones espaciales reducidas. El modelo DINO \cite{zhang2022dino} surge para mitigar de forma conjunta estas ineficiencias, consolidándose como un detector Transformer de extremo a extremo capaz de alcanzar el estado del arte competitivo mediante innovaciones metodológicas explícitas.
+A pesar de las ventajas conceptuales de DETR, las implementaciones iniciales presentaban dos limitaciones de carácter crítico en entornos operativos: una velocidad de convergencia extremadamente lenta durante la optimización ---atribuible a la inestabilidad inherente de las asignaciones dinámicas del emparejamiento bipartito--- y deficiencias notorias en el rendimiento de detección sobre objetos con dimensiones espaciales reducidas. El modelo DINO \cite{zhang2022dino} surge para mitigar de forma conjunta estas ineficiencias, consolidándose como un detector Transformer de extremo a extremo capaz de alcanzar el estado del arte competitivo mediante innovaciones metodológicas explícitas.\\
 
-DINO preserva la topología jerárquica elemental \textit{backbone--encoder--decoder}, pero reconfigura el flujo incorporando el mecanismo de atención deformable multiescala heredado de Deformable DETR \cite{zhang2022dino}. Esta operación concentra el cómputo de atención restringiendo el escaneo a un conjunto pequeño y acotado de puntos de muestreo distribuidos clave de referencia espacial, optimizando la complejidad computacional. Asimismo, DINO modifica sustancialmente la naturaleza matemática de las \textit{object queries} decodificadoras, formulándolas como cajas de anclaje dinámicas cuatridimensionales (4D) de la forma $(x, y, w, h)$, las cuales son refinadas secuencialmente de manera iterativa a lo largo de cada una de las capas constitutivas del decodificador.
+DINO preserva la topología jerárquica elemental \textit{backbone--encoder--decoder}, pero reconfigura el flujo incorporando el mecanismo de atención deformable multiescala heredado de Deformable DETR \cite{zhang2022dino}. Esta operación concentra el cómputo de atención restringiendo el escaneo a un conjunto pequeño y acotado de puntos de muestreo distribuidos clave de referencia espacial, optimizando la complejidad computacional. Asimismo, DINO modifica sustancialmente la naturaleza matemática de las \textit{object queries} decodificadoras, formulándolas como cajas de anclaje dinámicas cuatridimensionales (4D) de la forma $(x, y, w, h)$, las cuales son refinadas secuencialmente de manera iterativa a lo largo de cada una de las capas constitutivas del decodificador. Ver Figura \ref{fig:2.6-DINO_architecture}.\\
 
-\subsubsection{Contrastive DeNoising (CDN)}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png}
+    \caption{Arquitectura DINO. Imagen extraída de \cite{zhang2022dino}.}
+    \label{fig:2.6-DINO_architecture}
+\end{figure}
 
-La inestabilidad en el entrenamiento de los detectores basados en asignaciones biunívocas ocurre cuando múltiples cajas ancla candidatas se encuentran en una vecindad espacial muy próxima a un único objeto real del terreno; pequeñas perturbaciones numéricas en las activaciones internas provocan saltos drásticos en las permutaciones calculadas por el algoritmo Húngaro, entregando gradientes de optimización inconsistentes. Trabajos previos como DN-DETR paliaron este efecto alimentando de forma auxiliar al decodificador con cajas reales anotadas a las que se les añadía ruido de baja magnitud moderada, entrenando la red exclusivamente para reconstruir la geometría real mediante una pérdida supervisada de eliminación de ruido (*denoising loss*).
+\subsubsection{Eliminación de ruido contrastiva (\textit{Contrastive DeNoising})}
 
-DINO evoluciona este concepto introduciendo el entrenamiento por eliminación de ruido contrastivo (\textit{Contrastive DeNoising}, CDN). El enfoque CDN expone de manera explícita al modelo ante muestras negativas difíciles (\textit{hard negative samples}) próximas al objetivo para afinar su capacidad de discriminación espacial. El sistema opera mediante la definición de dos hiperparámetros de escala geométrica de ruido ordenados de manera estricta ($\lambda_1 < \lambda_2$). Para cada objeto real de la imagen, se inyectan en paralelo dos tipos diferenciados de consultas perturbadas organizadas en un esquema geométrico concéntrico:
+La inestabilidad en el entrenamiento de detectores basados en asignaciones biunívocas se manifiesta cuando múltiples cajas candidatas convergen espacialmente sobre un mismo objeto; pequeñas perturbaciones numéricas provocan saltos drásticos en las permutaciones del algoritmo Húngaro, desestabilizando los gradientes. Aunque modelos previos como DN-DETR paliaron este efecto inyectando ruido moderado para forzar la reconstrucción geométrica (\textit{denoising loss}), carecían de robustez ante falsos positivos cercanos. DINO evoluciona orgánicamente este concepto mediante el entrenamiento por eliminación de ruido contrastivo (\textit{Contrastive DeNoising}, CDN) \cite{zhang2022dino}. Este enfoque expone explícitamente al modelo ante muestras negativas difíciles (\textit{hard negative samples}) definiendo dos escalas geométricas estrictas ($\lambda_1 < \lambda_2$), inyectando en paralelo dos tipos de consultas en un esquema concéntrico:
 
 \begin{itemize}
-    \item \textbf{Consultas Positivas (CDN positivas):} Ubicadas dentro del contorno interior delimitado por la escala de ruido pequeña ($\lambda_1$). El modelo está obligado a calcular la reconstrucción exacta del objeto real y estimar la clase correspondiente.
-    \item \textbf{Consultas Negativas (CDN negativas):} Localizadas en la franja espacial intermedia comprendida entre los límites geométricos de $\lambda_1$ y $\lambda_2$. Dado que se encuentran a una distancia analítica mayor del centro del objeto real, estas queries actúan como anclas confusas. El modelo es entrenado estrictamente para clasificar estas consultas bajo la etiqueta de "sin objeto" ($\emptyset$ o fondo).
+    \item \textit{Consultas Positivas (CDN positivas):} Ubicadas en el contorno interior ($\lambda_1$), obligando al modelo a reconstruir con exactitud el objeto real y estimar su clase.
+    \item \textit{Consultas Negativas (CDN negativas):} Confinadas en la franja espacial intermedia entre $\lambda_1$ y $\lambda_2$. Al operar como anclas confusas, el modelo es penalizado si no las clasifica estrictamente como "sin objeto" ($\emptyset$ o fondo).
 \end{itemize}
 
-Este entrenamiento dual enseña de manera robusta a la red a discernir desviaciones menores de localización y previene la aparición de predicciones redundantes o cajas delimitadoras duplicadas alrededor de un mismo defecto físico.
+Este régimen dual de entrenamiento enseña a la red a discernir desviaciones milimétricas de localización, suprimiendo de raíz las predicciones redundantes alrededor de un mismo defecto físico.\\
 
-\subsubsection{Mixed Query Selection}
+\subsubsection{Selección mixta de consultas (\textit{mixed query selection})}
 
-En la formulación clásica de DETR, las consultas iniciales que ingresan a la primera capa del decodificador consisten en embeddings vectoriales estáticos y abstractos aprendidos pasivamente del conjunto general de datos, inicializando la componente de contenido en vectores nulos ($0$). Para mejorar este acoplamiento de entrada, variantes posteriores implementaron la selección pura de consultas (*pure query selection*), técnica encargada de predecir de forma densa las puntuaciones de presencia de objeto en la última capa del codificador visual, seleccionando las características de los mejores $K$ puntos espaciales para inicializar tanto la posición como el contenido semántico del decodificador.
+La inicialización de las consultas en el decodificador ha transitado históricamente desde tensores estáticos (en el DETR clásico) hasta selecciones dinámicas basadas en las mejores activaciones del codificador (\textit{pure query selection}). Sin embargo, transferir directamente las características semánticas del codificador arrastra ambigüedad contextual, ya que un único parche convolucional frecuentemente encapsula información parcial o múltiples instancias superpuestas \cite{zhang2022dino}. Para depurar esta entrada, DINO implementa una estrategia de selección mixta de consultas (\textit{mixed query selection}). Este mecanismo desacopla la inicialización: extrae de los mejores $K$ mapas del codificador únicamente las coordenadas espaciales para inicializar dinámicamente las anclas posicionales, mientras que las consultas de contenido asociadas se mantienen aisladas como parámetros de aprendizaje independientes de la imagen. Esta separación modular orienta la atención inicial del decodificador estrictamente hacia la topología espacial, evitando la contaminación semántica prematura.\\
 
-DINO identifica que las características semánticas preliminares extraídas directamente por el codificador visual suelen manifestar ambigüedad o incoherencia contextual, dado que un único parche puede contener información parcial de un objeto o registrar la coexistencia de múltiples instancias densas. En consecuencia, DINO introduce la estrategia de selección mixta de consultas (\textit{Mixed Query Selection}). Este mecanismo selecciona los mejores $K$ mapas de características del codificador basándose exclusivamente en sus puntuaciones de clasificación para extraer y predecir las coordenadas espaciales de las cajas ancla que inicializarán de forma dinámica a las consultas posicionales del decodificador. En contraste, las consultas de contenido asociadas se mantienen declaradas explícitamente como vectores de parámetros de aprendizaje continuo independientes de la imagen individual. Esta separación modular robustece el foco del decodificador en la fase inicial del procesamiento, orientando su atención de manera prioritaria hacia los mapas de prioridad espacial antes de asimilar la variabilidad semántica de la escena.
+\subsubsection{Proyección anticipada doble (\textit{look forward twice})}
 
-\subsubsection{Look Forward Twice}
-
-En los esquemas tradicionales de refinamiento iterativo de cajas de anclaje (denominados arquitecturas de mirada hacia adelante simple o \textit{look forward once}), cada capa $i$ del decodificador predice de forma local un vector de desplazamiento geométrico ($\Delta b_i$) para actualizar la posición proveniente de la capa previa inmediata, calculándose la pérdida supervisada de forma aislada sobre la caja refinada resultante. Para estabilizar numéricamente el proceso de optimización, el flujo de propagación de gradientes es interrumpido y desacoplado mediante una desconexión explícita de operaciones de gradiente (\textit{gradient detach}) entre las estructuras de capas sucesivas. Este diseño provoca que los parámetros funcionales optimizados en una capa temprana no reciban retroalimentación sobre la calidad del refinamiento geométrico alcanzado posteriormente en etapas profundas avanzadas de la red.
-
-Para solventar esta falta de comunicación paramétrica, DINO introduce el esquema de optimización bidireccional denominado \textit{Look Forward Twice}. Bajo esta formulación, los parámetros estructurales de la capa de procesamiento $i$ se encuentran influenciados de manera simultánea por la evaluación de pérdidas correspondiente a su propia predicción en el nivel $i$ y por la pérdida resultante de la capa posterior inmediata $(i+1)$. La lógica algorítmica de actualización se define formalmente a través del sistema de ecuaciones diferenciales y de asignación estructurado en la Ecuación \ref{eq:look_forward_twice}:
+El refinamiento iterativo de cajas de anclaje suele padecer de un desacople en el flujo de gradientes. En arquitecturas tradicionales (\textit{look forward once}), la propagación matemática se interrumpe intencionalmente mediante una desconexión de gradiente (\textit{gradient detach}) entre capas sucesivas para evitar inestabilidad. No obstante, esto impide que los parámetros de una capa temprana se ajusten basándose en el éxito o fracaso del refinamiento geométrico ocurrido en capas más profundas. Para restaurar esta comunicación sin sacrificar la estabilidad numérica, DINO introduce la proyección anticipada doble (\textit{look forward twice}) \cite{zhang2022dino}. Bajo este esquema bidireccional, los parámetros estructurales de la capa $i$ se optimizan asimilando simultáneamente la pérdida local de su predicción y el gradiente retropropagado desde la capa adyacente $(i+1)$. Esta lógica algorítmica de actualización unificada se rige formalmente por el sistema de ecuaciones diferenciales y de asignación estructurado en la Ecuación \ref{eq:look_forward_twice}:
 
 \begin{equation}
     \begin{aligned}
@@ -561,49 +572,45 @@ Para solventar esta falta de comunicación paramétrica, DINO introduce el esque
     \label{eq:look_forward_twice}
 \end{equation}
 
-Donde la función de actualización $\text{Update}$ refina la geometría espacial operando con sumas algebraicas aplicadas en el dominio matemático transformado tras la evaluación de una función sigmoide inversa. Mediante el flujo de \textit{Look Forward Twice}, el gradiente residual proveniente del término diferencial $\Delta b_{i+1}$ penetra la barrera de la capa adyacente para optimizar de forma unificada tanto la calidad geométrica de la caja inicial de referencia $b_{i-1}$ como la precisión intrínseca del estimador de desplazamiento local.
+Donde la función de actualización $\text{Update}$ refina la geometría espacial operando con sumas algebraicas aplicadas en el dominio matemático transformado tras la evaluación de una función sigmoide inversa. Mediante el flujo de \textit{Look Forward Twice}, el gradiente residual proveniente del término diferencial $\Delta b_{i+1}$ penetra la barrera de la capa adyacente para optimizar de forma unificada tanto la calidad geométrica de la caja inicial de referencia $b_{i-1}$ como la precisión intrínseca del estimador de desplazamiento local.\\
 
 \subsection{Hiperparámetros en modelos de detección basados en Transformers}
 
-La calibración de hiperparámetros en arquitecturas basadas en mecanismos de atención es fundamental para garantizar la convergencia estable de los optimizadores analíticos de segundo orden y regular el balance matemático de las predicciones de conjuntos. A diferencia de las CNN convolucionales optimizadas típicamente mediante algoritmos SGD clásicos, los Transformers de visión requieren configuraciones de optimización adaptativa con decaimiento de peso explícito y programas estrictos de modulación de tasa de aprendizaje. La Tabla \ref{tab:hiperparametros_transformers} sistematiza los hiperparámetros de control característicos para los modelos DETR y DINO de acuerdo con las especificaciones técnicas estandarizadas de la literatura científica.
+La calibración de hiperparámetros en arquitecturas basadas en mecanismos de atención es fundamental para garantizar la convergencia estable de los optimizadores analíticos de segundo orden y regular el balance matemático de las predicciones de conjuntos. A diferencia de las CNN convolucionales optimizadas típicamente mediante algoritmos SGD clásicos, los Transformers de visión requieren configuraciones de optimización adaptativa con decaimiento de peso explícito y programas estrictos de modulación de tasa de aprendizaje. La Tabla \ref{tab:hiperparametros_transformers} sistematiza los hiperparámetros de control característicos para la arquitectura general de detectores Transformer.\\
 
 \begin{table}[H]
     \centering
-    \caption{Hiperparámetros representativos en arquitecturas de detección basadas en Transformers}
-    \begin{tabular}{|c|c|c|c|}
+    \caption{Parámetros e hiperparámetros representativos en arquitecturas Transformer}
+    \begin{tabular}{|c|l|}
         \hline
-        \textbf{Hiperparámetro} & \textbf{Valor DETR Base} & \textbf{Valor DINO Base} & \textbf{Descripción Técnica} \\ 
+        \textit{Parámetro/Hiperparámetro} & \textit{Descripción Técnica} \\ 
         \hline
-        $lr$ & $1 \times 10^{-4}$ & $1 \times 10^{-4}$ & Tasa de aprendizaje global del Transformer \\ 
+        $lr$ & Tasa de aprendizaje global del modelo. \\ 
         \hline
-        $lr_{\text{backbone}}$ & $1 \times 10^{-5}$ & $1 \times 10^{-5}$ & Tasa de aprendizaje para el extractor visual \\ 
+        $lr_{\text{backbone}}$ & Tasa de aprendizaje reducida para el extractor visual. \\ 
         \hline
-        $\text{weight\_decay}$ & $1 \times 10^{-4}$ & $1 \times 10^{-4}$ & Regularización por decaimiento de peso \\ 
+        $\text{weight\_decay}$ & Regularización L2 para mitigar el sobreajuste. \\ 
         \hline
-        $\text{enc\_layers}$ & 6 & 6 & Número de capas de atención en el Codificador \\ 
+        $\text{enc\_layers}$ & Número de capas operativas en el Codificador. \\ 
         \hline
-        $\text{dec\_layers}$ & 6 & 6 & Número de capas de atención en el Decodificador \\ 
+        $\text{dec\_layers}$ & Número de capas operativas en el Decodificador. \\ 
         \hline
-        $\text{hidden\_dim}$ ($d$) & 256 & 256 & Dimensión interna oculta del embedding \\ 
+        $\text{hidden\_dim}$ ($d$) & Dimensión del espacio latente en los bloques de atención. \\ 
         \hline
-        $\text{dim\_feedforward}$ & 2048 & 2048 & Dimensión de la capa oculta en bloques FFN \\ 
+        $\text{dim\_feedforward}$ & Dimensión oculta en las redes prealimentadas (FFN). \\ 
         \hline
-        $\text{nheads}$ & 8 & 8 & Cantidad de cabezas de atención en paralelo \\ 
+        $\text{nheads}$ & Cantidad de cabezas en la atención multicabezal. \\ 
         \hline
-        $\text{num\_queries}$ & 100 & 900 & Número total de ranuras de consulta por imagen \\ 
+        $\text{num\_queries}$ & Ranuras fijas procesadas en paralelo por imagen. \\ 
         \hline
-        $\alpha_{\text{focal}}$ & -- & 0,25 & Factor de balanceo de clase en la pérdida Focal \\ 
+        $\alpha_{\text{focal}}$ & Factor de balanceo de clases en la pérdida Focal. \\ 
         \hline
-        $\gamma_{\text{focal}}$ & -- & 2,0 & Parámetro de modulación de la pérdida Focal \\ 
+        $\gamma_{\text{focal}}$ & Penalizador predicciones de fondo en la pérdida Focal. \\ 
         \hline
     \end{tabular}
     \label{tab:hiperparametros_transformers}
 \end{table}
 
-La disparidad en el parámetro $\text{num\_queries}$ refleja de manera directa la evolución conceptual de ambos modelos: DETR restringe su capacidad a 100 consultas estáticas debido al alto costo computacional del mecanismo de autoatención global completo, mientras que DINO, al apoyarse en el uso de capas de atención deformable y patrones espaciales multiescala optimizados, eleva su capacidad a 900 consultas dinámicas sin incurrir en desbordamiento de memoria ni inestabilidad numérica. Asimismo, la tasa de aprendizaje asignada al componente del extractor visual ($lr_{\text{backbone}}$) se restringe sistemáticamente a un orden de magnitud inferior con respecto a la tasa de aprendizaje global de la red con el propósito explícito de preservar los pesos base preentrenados sobre bases de datos masivas de gran escala (como ImageNet) y evitar la degradación catastrófica de los gradientes en las fases iniciales del entrenamiento.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Métricas}
 
 \par Con el fin de validar la implementación de los modelos de detección de objetos para la clasificación de fallas, se emplean métricas cuantitativas estándar en visión por computador. El uso de estas métricas otorgan las herramientas esenciales para evaluar críticamente y de forma fiable los modelos implementados \cite{schlosser2024overview}.
