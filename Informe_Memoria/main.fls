@@ -829,6 +829,10 @@ INPUT .\capitulos\3-Metodología.tex
 INPUT .\capitulos\3-Metodología.tex
 INPUT .\capitulos\3-Metodología.tex
 INPUT capitulos\3-Metodología.tex
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmsso8.tfm
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmss10.tfm
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmssbx10.tfm
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmssbo10.tfm
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmvtt10.tfm
 INPUT .\capitulos\4-Resultados_Discusión.tex
 INPUT .\capitulos\4-Resultados_Discusión.tex
@@ -1062,8 +1066,12 @@ INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmri12.
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmri12.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmss8.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmss8.pfb
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmssbo10.pfb
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmssbo10.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmssbx10.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmssbx10.pfb
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsso8.pfb
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsso8.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsy10.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsy10.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsy8.pfb

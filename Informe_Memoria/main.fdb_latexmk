@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 1782095880.80467 "main.aux" "main.bbl" "main" 1782096108.95927 0
+["bibtex main"] 1782175627.97828 "main.aux" "main.bbl" "main" 1782176006.26408 0
   "./library.bib" 1782095880 9706 cd78276dfa38b77b55a5411fe95c9875 ""
   "./natnumurl.bst" 1781904148 21201 c3a97a2434b58cd70f7f9c9df607b80a ""
-  "main.aux" 1782096107 81935 d9ce37cfc820ea633bc12c803dfbe042 "pdflatex"
+  "main.aux" 1782176005 83964 de6caf815aef33e639ae45cfcdd57687 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1782096099.6326 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1782096108.95991 0
-  "Abstracto.tex" 1782096098 2016 c7b7bdad644f5c1e378763eed1d303b0 ""
+["pdflatex"] 1782175996.67503 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1782176006.26474 0
+  "Abstracto.tex" 1782096139 2016 c7b7bdad644f5c1e378763eed1d303b0 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1760210407 81086 6fddea6b023469843de28035c851ec71 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1758130852 688 37338d6ab346c2f1466b29e195316aa4 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs5.tfm" 1758130853 684 3a51bd4fd9600428d5264cf25f04bb9a ""
@@ -43,9 +43,12 @@
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmr8.tfm" 1256929440 12064 9b9ade9f64cb32ce1d9a88d21fbd5c2d ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmri10.tfm" 1256929440 17148 9556e1b5f936b77a796f68d2d559ba99 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmri12.tfm" 1256929440 17144 271aaf9ebb339934b04110dc5211fba4 ""
+  "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmss10.tfm" 1256929440 11176 53ebf7a171df1f9447b387b178768bb5 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmss12.tfm" 1256929440 11232 955a7245396175d9219648eadc654ac9 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmss8.tfm" 1256929440 11180 705632ac6b4fb69204ad970192cdf4e5 ""
+  "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmssbo10.tfm" 1256929440 11304 1bf3f99c327bf3c434fc66d6737a89a2 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmssbx10.tfm" 1256929440 11168 06d87f5698fd1b642d96449b7c8d90b0 ""
+  "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmsso8.tfm" 1256929440 11312 6908420b41cb9ad797e206f7391721ea ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/ec-lmvtt10.tfm" 1256929440 12024 aeb93ded6597c024b4981c5135905506 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/lmex10.tfm" 1256929440 992 ce925c9346c7613270a79afbee98c070 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/tfm/public/lm/lmmi10.tfm" 1256929440 1528 6d36b2385e0ca062a654de6ac59cb34f ""
@@ -86,7 +89,9 @@
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb" 1256929440 112593 fda2373ba4420af33949610de4c28fe8 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb" 1256929440 109265 e6c7d377db6dfccd4a123fb26da8cffb ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmss8.pfb" 1256929440 94400 e33ecfb646a9f148e2e53da01a9168fe ""
+  "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbo10.pfb" 1256929440 137678 8726d3e67382c572603fb5c7f1cac23a ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbx10.pfb" 1256929440 119663 1a3a2206591ddc98c6d6c6271a282516 ""
+  "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsso8.pfb" 1256929440 106860 a773e4958b589eadcc5b01a914624508 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb" 1256929440 27863 09ce3735688ffde955e72da27c95b61a ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb" 1256929440 27802 5c876bb2c4040caaf035d60bd74a86bd ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmvtt10.pfb" 1256929440 117731 ad3ac49c9eca9be8a89894c58a6b393d ""
@@ -358,7 +363,7 @@
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-base.sty" 1750428951 20785 198a9cb2e04238d92c320d0d9edbd76a ""
   "capitulos/1-Introducción.tex" 1782096038 6036 5b59a02a427538e3ab44e527f2e21b42 ""
   "capitulos/2-Antecedentes.tex" 1782095560 79173 f0b1e444617039ba315f2ed643b35656 ""
-  "capitulos/3-Metodología.tex" 1781904148 15470 322d8291294d804890eb9227dcf0b983 ""
+  "capitulos/3-Metodología.tex" 1782175996 23651 15b0fbcd3a5a0212afa8c87fc5f85be5 ""
   "capitulos/4-Resultados_Discusión.tex" 1781993304 35022 09986f9ea6ec17760ab3bd848411aaa7 ""
   "capitulos/5-Conclusiones.tex" 1781904148 2439 a2b7776c5d56614b074ce6b917f3fe72 ""
   "capitulos/6-Anexos.tex" 1781904148 4050 cc057c16c29ff9b7b1669333a5d32db9 ""
@@ -406,12 +411,12 @@
   "img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_hole_test.jpeg" 1781904148 136284 930781458fa358ca0225ccac852e294a ""
   "img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_tear_test.jpeg" 1781904148 199469 f4996cd900a3210b27b6b62d3670ceae ""
   "img/4-Resultados_Discusion/YOLO/pruebas/yolov5s_wear_test.jpeg" 1781904148 211209 25111691d40a60ecec8b10876048f5d5 ""
-  "main.aux" 1782096107 81935 d9ce37cfc820ea633bc12c803dfbe042 "pdflatex"
-  "main.bbl" 1782095881 7630 1b49a454a1af69abfad0ec91db6af99b "bibtex main"
-  "main.lof" 1782096107 7255 a61ec0e710dd8ff50cff1aec18b43d89 "pdflatex"
-  "main.lot" 1782096107 1074 a066389b5c171887bde83b314653fc01 "pdflatex"
+  "main.aux" 1782176005 83964 de6caf815aef33e639ae45cfcdd57687 "pdflatex"
+  "main.bbl" 1782175628 7630 1b49a454a1af69abfad0ec91db6af99b "bibtex main"
+  "main.lof" 1782176005 7896 5307072c019eb9c7c274d009d35da66c "pdflatex"
+  "main.lot" 1782176005 1074 1c76b91f2eda327c1535c175310f1b06 "pdflatex"
   "main.tex" 1782096098 3958 d68f925860f460fde53bb7e67e09f211 ""
-  "main.toc" 1782096107 10236 4333137b06b4502b0e2608417df1b0c3 "pdflatex"
+  "main.toc" 1782176005 10239 ed523aa6d7d8c1602c0ce46c3db68c6e "pdflatex"
   "template.tex" 1781995931 290936 df2de9e1556f11a5d36036a27ac47b7a ""
   "template_config.tex" 1781904884 21966 e22124ed80d77f98d8f6e6a7c15e444f ""
   (generated)
