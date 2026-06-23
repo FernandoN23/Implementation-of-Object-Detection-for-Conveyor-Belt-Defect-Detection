@@ -9,9 +9,11 @@
         \hline
         \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre} \\
         \hline 
-        $variant$ & s & Variante del modelo \\
+        $variant$ & $\{n,s,m,l,x \}$ & Variante del modelo \\
         \hline
         $img\_size$ & 640 & Tamaño imagen de entrada \\
+        \hline
+        $epochs$ & 300 & Épocas de entrenamiento \\
         \hline
         $optimizer$ & SGD & Optimizador de entrenamiento \\
         \hline
@@ -66,9 +68,11 @@
         \hline
         \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre / Descripción} \\
         \hline
-        $variant$ & ssd300 & Variante del modelo \\
+        $variant$ & $\{ssd300/ssd512\}$ & Variante del modelo \\
         \hline
-        $img\_dim$ & 300 & Tamaño imagen de entrada ($300\times300$) \\
+        $img\_dim$ & 300/512 & Tamaño imagen ($300\times300$ / $512\times512$) \\
+        \hline
+        $epochs$ & 300 & Épocas de entrenamiento \\
         \hline
         $opt$ & SGD & Optimizador \\
         \hline
@@ -80,11 +84,11 @@
         \hline
         $gamma$ & 0.1 & Factor de decaimiento de $lr$ \\
         \hline
-        $lr\_steps$ & $[1000, 3000, 4500]$ & Iteraciones de ajuste de $lr$ \\
+        $lr\_steps$ & $[14000, 17000]$ & Iteraciones de ajuste de $lr$ \\
         \hline
-        $batch\_size$ & 32 & Tamaño de lote de entrenamiento \\
+        $batch\_size$ & 16 & Tamaño de lote de entrenamiento \\
         \hline
-        $max\_iter$ & 5000 & Iteraciones máximas de entrenamiento \\
+        $max\_iter$ & 20000 & Iteraciones máximas de entrenamiento \\
         \hline
         $overlap\_thresh$ & 0.5 & Umbral IoU para \textit{matching} positivo \\
         \hline

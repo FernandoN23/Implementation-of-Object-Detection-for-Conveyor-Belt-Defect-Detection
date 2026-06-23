@@ -221,59 +221,7 @@ Simultáneamente, un sustrato de algoritmos auxiliares opera en segundo plano pa
 
 \section{Implementación de modelos One-Stage (YOLOv5 y SSD)}
 
-\subsection{Estructura de trabajo unificada}
-
-La implementación de los detectores de una sola etapa (YOLOv5 y SSD) se integró reutilizando de forma rigurosa la capa envolvente transversal (\textit{wrapper}). Dependiendo de la rama activa en el repositorio (\textit{YOLO} o \textit{SSD}), el núcleo extrae el modelo correspondiente y ejecuta el flujo de optimización unificado. El árbol de directorios general, que se mantiene invariante sin importar la arquitectura cargada, se expone en el Código \ref{lst:estructura-onestage}.\\
-
-\begin{lstlisting}[
-    float,
-    floatplacement=H,                               
-    caption={Estructura de directorios unificada. La carpeta \textit{models/} cambia su contenido interno según la rama de GIT activa.},
-    label={lst:estructura-onestage},
-    basicstyle=\ttfamily\scriptsize,
-    numbers=none,
-    columns=fullflexible,
-    frame=single,
-    xleftmargin=2.5cm,
-    framexleftmargin=0.5cm,
-    framexrightmargin=0.5cm,
-    breaklines=true,
-    breakatwhitespace=true
-]
-Proyecto_Core/ (Rama Activa: YOLO o SSD)
-|-- configs/
-|   |-- dataset.yaml        : Rutas y clases del dataset
-|   |-- model_variants.yaml : Parametros de escalado (variantes)
-|   |-- train.yaml          : Hiperparametros de entrenamiento
-|   `-- valid.yaml          : Hiperparametros de validacion
-|-- engine/
-|   |-- bn2gn_patch.py      : Parche para normalizacion por lotes
-|   |-- bootstrap_miopen.py : Interfaz de mitigacion de MIOpen
-|   |-- Trainer.py          : Modulo de entrenamiento agnostico
-|   |-- Validator.py        : Modulo de validacion interna/externa
-|   `-- warnings.py         : Modulo de advertencias y errores menores
-|-- metrics/                : Carpeta de almacenamiento de metricas
-|-- runs/                   : Carpeta de almacenamiento de ejecuciones
-|-- utility/
-|   |-- check_dataset.py    : Revisa compatibilidad de datos
-|   |-- data_loader.py      : Modulo de carga y normalizacion tensorial
-|   `-- metrics.py          : Script de generacion de graficos y tablas
-|-- weights/                : Carpeta de almacenamiento de pesos optimizados
-|-- models/                 : Modulo inyectado desde la rama correspondiente
-|   |-- yolov5/             : [Si rama = YOLO] Modulo oficial YOLOv5
-|   `-- ssd/                : [Si rama = SSD] Modulo oficial SSD
-|-- train.py                : Script principal de entrenamiento
-|-- valid.py                : Script principal de validacion
-`-- test.py                 : Script principal de pruebas
-\end{lstlisting}
-
-El flujo experimental pivota sobre los scripts \textit{train.py}, \textit{valid.py} y \textit{test.py}. Al invocar \textit{train.py}, el motor lee las directrices desde \textit{configs/}, aísla las dependencias requeridas y delega la ejecución al módulo \textit{Trainer.py}. Si la rama activa es \textit{YOLO}, se inyecta el parche de normalización \textit{bn2gn\_patch.py}; si la rama es \textit{SSD}, el sistema activa el preprocesador de mallas restrictivo en \textit{data\_loader.py}. Tras converger matemáticamente, los scripts \textit{valid.py} y \textit{test.py} tabulan las métricas estandarizadas en los directorios de salida.\\
-
-\subsection{Especificaciones e hiperparámetros}
-
-La calibración de ambas redes convolucionales considera parámetros técnicos fundamentales que rigen la actualización del gradiente, la generación de cajas espaciales y el balance de clasificación. La Tabla \ref{tab:3.4-hiperparametros-ssd} (detallada posteriormente en el Capítulo 5.1) centraliza los hiperparámetros definitivos empleados durante la optimización. En el caso de YOLOv5, los valores derivan de heurísticas de ajuste empírico comprobadas \cite{ultralyticsHyperparameterTuning}, mientras que para SSD, se respetan las proporciones de cajas por defecto (\textit{default boxes}) y las tasas de decaimiento del paper fundacional \cite{liu2016ssd}, ambas calibradas finamente al dominio de desgaste abrasivo y rasgaduras en correas.\\
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Implementación de modelos basados en Transformers (DETR y DINO)}
 
-% Esta sección queda lista y encapsulada para ser rellenada con los flujos de inferencia por atención.
