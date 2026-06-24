@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  22 JUN 2026 22:34
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  24 JUN 2026 13:25
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -2535,7 +2535,7 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 (Font)              <4.00003> on input line 52.
  [2]) (capitulos/2-Antecedentes.tex [3{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]
 Capítulo 2.
-<img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png, id=343, 681.54625pt x 352.31625pt>
+<img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png, id=350, 681.54625pt x 352.31625pt>
 File: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png  used on input line 10.
@@ -2543,33 +2543,33 @@ Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png  used o
 [4
 
  <./img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png (PNG copy)>]
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png, id=355, 657.95813pt x 492.33937pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png, id=362, 657.95813pt x 492.33937pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png  used on input line 30.
 (pdftex.def)             Requested size: 108.56516pt x 81.23248pt.
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png, id=357, 654.94687pt x 492.33937pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png, id=364, 654.94687pt x 492.33937pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png  used on input line 34.
 (pdftex.def)             Requested size: 108.56516pt x 81.60811pt.
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png, id=358, 634.62094pt x 481.8pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png, id=365, 634.62094pt x 481.8pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png  used on input line 38.
 (pdftex.def)             Requested size: 108.56516pt x 82.41953pt.
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png, id=359, 643.6547pt x 475.02469pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png, id=366, 643.6547pt x 475.02469pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png  used on input line 42.
 (pdftex.def)             Requested size: 108.56516pt x 80.12251pt.
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png, id=360, 1073.51062pt x 427.5975pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png, id=367, 1073.51062pt x 427.5975pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png  used on input line 46.
 (pdftex.def)             Requested size: 188.8096pt x 75.20258pt.
  [5]
-<img/2-Antecedentes/2-Object_Detection_example.png, id=371, 1449.415pt x 348.30125pt>
+<img/2-Antecedentes/2-Object_Detection_example.png, id=378, 1449.415pt x 348.30125pt>
 File: img/2-Antecedentes/2-Object_Detection_example.png Graphic file (type png)
 <use img/2-Antecedentes/2-Object_Detection_example.png>
 Package pdftex.def Info: img/2-Antecedentes/2-Object_Detection_example.png  used on input line 58.
@@ -2579,7 +2579,7 @@ LaTeX Font Info:    Trying to load font information for T1+lmss on input line 16
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmss.fd
 File: t1lmss.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) [8] [9{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}] [10]
-<img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png, id=440, 727.96968pt x 382.42876pt>
+<img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png, id=447, 727.96968pt x 382.42876pt>
 File: img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png Graphic file (type png)
 <use img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png>
 Package pdftex.def Info: img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png  used on input line 248.
@@ -2587,13 +2587,13 @@ Package pdftex.def Info: img/2-Antecedentes/2.4-Transformers/Attention_Simple_Mu
  [11
 
 {C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathex.enc}] [12 <./img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png>]
-<img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png, id=463, 436.63126pt x 581.17125pt>
+<img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png, id=471, 436.63126pt x 581.17125pt>
 File: img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png>
 Package pdftex.def Info: img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png  used on input line 267.
 (pdftex.def)             Requested size: 377.62642pt x 502.63527pt.
  [13 <./img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png>]
-<img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png, id=475, 592.46344pt x 322.20375pt>
+<img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png, id=482, 592.46344pt x 322.20375pt>
 File: img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png Graphic file (type png)
 <use img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png>
 Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png  used on input line 284.
@@ -2601,99 +2601,99 @@ Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png  used 
  [14
 
  <./img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png>]
-<img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png, id=487, 739.26187pt x 364.36125pt>
+<img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png, id=494, 739.26187pt x 364.36125pt>
 File: img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png Graphic file (type png)
 <use img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png>
 Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png  used on input line 301.
 (pdftex.def)             Requested size: 448.42822pt x 221.02022pt.
  [15 <./img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png>] [16]
-<img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png, id=508, 660.21657pt x 475.02469pt>
+<img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png, id=515, 660.21657pt x 475.02469pt>
 File: img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png Graphic file (type png)
 <use img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png>
-Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png  used on input line 324.
+Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png  used on input line 326.
 (pdftex.def)             Requested size: 424.82523pt x 305.66736pt.
  [17 <./img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png>] [18] [19] [20]
-<img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png, id=547, 574.39594pt x 171.64125pt>
+<img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png, id=554, 574.39594pt x 171.64125pt>
 File: img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png>
-Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png  used on input line 398.
+Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png  used on input line 400.
 (pdftex.def)             Requested size: 424.82523pt x 126.94966pt.
  [21 <./img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png>] [22] [23] [24
 
 ]
-<img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png, id=590, 935.74594pt x 247.67531pt>
+<img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png, id=597, 935.74594pt x 247.67531pt>
 File: img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png>
-Package pdftex.def Info: img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png  used on input line 479.
+Package pdftex.def Info: img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png  used on input line 481.
 (pdftex.def)             Requested size: 472.03123pt x 124.94087pt.
  [25] [26 <./img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png>]
-LaTeX Font Info:    Trying to load font information for U+euf on input line 502.
+LaTeX Font Info:    Trying to load font information for U+euf on input line 504.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\ueuf.fd
 File: ueuf.fd 2013/01/14 v3.01 Euler Fraktur
 ) [27]
-<img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png, id=624, 796.47563pt x 315.42844pt>
+<img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png, id=631, 796.47563pt x 315.42844pt>
 File: img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png>
-Package pdftex.def Info: img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png  used on input line 541.
+Package pdftex.def Info: img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png  used on input line 543.
 (pdftex.def)             Requested size: 377.62642pt x 149.5509pt.
- [28 <./img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png>] [29] [30]
-<img/2-Antecedentes/2.7-Metricas/IoU_metric.png, id=655, 356.83313pt x 363.60844pt>
+ [28 <./img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png>] [29] [30] [31]
+<img/2-Antecedentes/2.7-Metricas/IoU_metric.png, id=674, 356.83313pt x 363.60844pt>
 File: img/2-Antecedentes/2.7-Metricas/IoU_metric.png Graphic file (type png)
 <use img/2-Antecedentes/2.7-Metricas/IoU_metric.png>
-Package pdftex.def Info: img/2-Antecedentes/2.7-Metricas/IoU_metric.png  used on input line 670.
+Package pdftex.def Info: img/2-Antecedentes/2.7-Metricas/IoU_metric.png  used on input line 709.
 (pdftex.def)             Requested size: 283.22162pt x 288.61237pt.
- [31] [32 <./img/2-Antecedentes/2.7-Metricas/IoU_metric.png>]) (capitulos/3-Metodología.tex [33]
+ [32] [33 <./img/2-Antecedentes/2.7-Metricas/IoU_metric.png>]) (capitulos/3-Metodología.tex [34]
 Capítulo 3.
-[34
+[35
 
-] [35]
+] [36]
 LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <8.00006> not available
 (Font)              Font shape `T1/lmss/m/sl' tried instead on input line 121.
 LaTeX Font Info:    Font shape `T1/lmss/bx/it' in size <10.95007> not available
 (Font)              Font shape `T1/lmss/bx/sl' tried instead on input line 121.
- [36] [37]) (capitulos/4-Resultados_Discusión.tex [38]
+ [37] [38]) (capitulos/4-Resultados_Discusión.tex [39]
 Capítulo 4.
-<img/4-Resultados_Discusion/Dataset/class_distribution.png, id=709, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/Dataset/class_distribution.png, id=728, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/Dataset/class_distribution.png Graphic file (type png)
 <use img/4-Resultados_Discusion/Dataset/class_distribution.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/Dataset/class_distribution.png  used on input line 32.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
-[39
+[40
 
 ]
-<img/4-Resultados_Discusion/Dataset/split_composition.png, id=715, 578.16pt x 433.62pt>
+<img/4-Resultados_Discusion/Dataset/split_composition.png, id=734, 578.16pt x 433.62pt>
 File: img/4-Resultados_Discusion/Dataset/split_composition.png Graphic file (type png)
 <use img/4-Resultados_Discusion/Dataset/split_composition.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/Dataset/split_composition.png  used on input line 39.
 (pdftex.def)             Requested size: 377.62642pt x 283.21927pt.
- [40 <./img/4-Resultados_Discusion/Dataset/class_distribution.png> <./img/4-Resultados_Discusion/Dataset/split_composition.png>] [41
+ [41 <./img/4-Resultados_Discusion/Dataset/class_distribution.png> <./img/4-Resultados_Discusion/Dataset/split_composition.png>] [42
 
-] [42
+] [43
 
 ]) (capitulos/5-Conclusiones.tex
 Capítulo 5.
-) (main.bbl [43
+) (main.bbl [44
 
 
-] [44
+] [45
 
-]) (capitulos/6-Anexos.tex [45]
+]) (capitulos/6-Anexos.tex [46]
 Capítulo 6.
 
 Overfull \hbox (14.93567pt too wide) in paragraph at lines 8--62
  [][] 
  []
 
-[46
+[47
 
 ]
 Overfull \hbox (16.72961pt too wide) in paragraph at lines 67--115
  [][] 
  []
 
-) [47] (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
+) [48] (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
 File: se-utf8.def 2019/11/29 v1.12 stringenc: UTF-8
-) [48] (main.aux
+) [49] (main.aux
 LaTeX Info: Redefining \. on input line 16.
 LaTeX Info: Redefining \% on input line 16.
 )
@@ -2703,18 +2703,18 @@ L3 programming layer <2024-01-04>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 45903 strings out of 474486
- 852831 string characters out of 5743755
- 1955542 words of memory out of 5000000
- 67068 multiletter control sequences out of 15000+600000
+ 45908 strings out of 474486
+ 852909 string characters out of 5743755
+ 1956542 words of memory out of 5000000
+ 67070 multiletter control sequences out of 15000+600000
  690893 words of font info for 155 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  113i,14n,110p,2976b,2628s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/euler/eufm10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmex10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi6.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmss8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbo10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbx10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsso8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on main.pdf (56 pages, 6910919 bytes).
+Output written on main.pdf (57 pages, 6915082 bytes).
 PDF statistics:
- 1182 PDF objects out of 1200 (max. 8388607)
- 1020 compressed objects within 11 object streams
- 213 named destinations out of 1000 (max. 500000)
- 774 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1204 PDF objects out of 1440 (max. 8388607)
+ 1039 compressed objects within 11 object streams
+ 216 named destinations out of 1000 (max. 500000)
+ 782 words of extra memory for PDF output out of 10000 (max. 10000000)
 

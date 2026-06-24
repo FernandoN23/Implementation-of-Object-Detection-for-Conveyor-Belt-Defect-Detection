@@ -3,11 +3,12 @@
 \addvspace {10\p@ }
 \contentsline {table}{\numberline {2.3.1}{\ignorespaces Hiperparámetros comunes en modelos de detección basados en CNN}}{9}{table.caption.14}%
 \contentsline {table}{\numberline {2.6.1}{\ignorespaces Parámetros e hiperparámetros representativos en arquitecturas Transformer}}{30}{table.caption.36}%
-\contentsline {table}{\numberline {2.7.1}{\ignorespaces Definiciones generales \textit {Machine Learning} \cite {schlosser2024overview}}}{31}{table.caption.37}%
+\contentsline {table}{\numberline {2.6.2}{\ignorespaces Comparativa de rendimiento y complejidad evolutiva para detectores \textit {Transformer} en MS-COCO. Datos extraídos y consolidados de \cite {carion2020end} y \cite {zhang2022dino}.}}{31}{table.caption.37}%
+\contentsline {table}{\numberline {2.7.1}{\ignorespaces Definiciones generales \textit {Machine Learning} \cite {schlosser2024overview}}}{32}{table.caption.38}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {4.1.1}{\ignorespaces Resumen de las propiedades y distribución del conjunto de datos.}}{39}{table.caption.41}%
+\contentsline {table}{\numberline {4.1.1}{\ignorespaces Resumen de las propiedades y distribución del conjunto de datos.}}{40}{table.caption.42}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {6.1.1}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}}{47}{table.caption.45}%
-\contentsline {table}{\numberline {6.1.2}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}}{48}{table.caption.46}%
+\contentsline {table}{\numberline {6.1.1}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}}{48}{table.caption.46}%
+\contentsline {table}{\numberline {6.1.2}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}}{49}{table.caption.47}%

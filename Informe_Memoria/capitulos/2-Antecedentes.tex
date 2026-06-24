@@ -303,6 +303,8 @@ De acuerdo a lo antes mencionado, la arquitectura transformer se muestra en la F
     \label{fig:2.5-one_stage_performance_comparative}
 \end{figure}
 
+
+
 \par Esta evidencia posiciona a YOLO como una alternativa particularmente atractiva cuando la restricción de tiempo de cómputo es crítica, como ocurre en la inspección continua de correas transportadoras en operación. No obstante lo anterior, la familia SSD mantiene un interés práctico como referencia clásica de detectores multi-escala. La arquitectura SSD fue concebida para superar las limitaciones de YOLOv1 frente a objetos pequeños y con relaciones de aspecto inusuales mediante el uso de múltiples mapas de características y conjuntos de cajas ancla de distintas escalas y proporciones \cite{zhang2021one_stage}. Su comparación directa con un modelo YOLO moderno permite analizar, en un mismo dominio industrial, el rendimiento relativo de dos enfoques representativos: uno enfocado en una representación multi-escala explícita (SSD) y otro en una arquitectura optimizada y profundamente integrada que ha ido incorporando progresivamente mecanismos de fusión de características y mejoras en la función de pérdida (YOLOv5). \\
 
 \par En consecuencia, en esta memoria se selecciona \textit{YOLOv5} como representante de las arquitecturas YOLO de última generación (de acuerdo al artículo de Zhang et al.), dada su combinación favorable de velocidad y precisión y la disponibilidad de variantes escalables en tamaño de modelo (\textit{nano, small, medium, large, extra large}). Además se adopta \textit{SSD} como modelo de comparación base clásico de detectores de una etapa con énfasis en la detección multi-escala de objetos pequeños. Ambos modelos serán implementados y entrenados sobre un conjunto de datos específico de fallas en correas transportadoras, bajo un mismo protocolo experimental, con el propósito de comparar de forma controlada sus métricas de detección, su capacidad para identificar defectos y sus requerimientos computacionales en un escenario cercano al operativo.
@@ -610,6 +612,43 @@ La calibración de hiperparámetros en arquitecturas basadas en mecanismos de at
     \end{tabular}
     \label{tab:hiperparametros_transformers}
 \end{table}
+
+
+\subsection{Selección de modelos}
+
+La adopción de arquitecturas basadas en atención para la detección de fallas requiere balancear la complejidad paramétrica (\textit{Params}) y el costo computacional (\textit{GFLOPs}) con el rendimiento empírico. El marco cuantitativo establecido por las investigaciones seminales de DETR \cite{carion2020end} y DINO \cite{zhang2022dino} evidencia la superioridad progresiva de estos modelos sobre el conjunto de datos estándar MS-COCO. La Tabla \ref{tab:2.6-transformer_performance} sintetiza la evolución del rendimiento (AP y AP$_{50}$) frente a los requerimientos de cómputo dentro de la misma familia de detectores.\\
+
+\begin{table}[H]
+    \centering
+    \caption{Comparativa de rendimiento y complejidad evolutiva para detectores \textit{Transformer} en MS-COCO. Datos extraídos y consolidados de \cite{carion2020end} y \cite{zhang2022dino}.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{|l|l|c|c|c|c|c|c|}
+        \hline
+        \textit{Modelo} & \textit{Backbone} & \textit{Épocas} & \textit{AP (mAP global)} & \textit{AP$_{50}$} & \textit{GFLOPs} & \textit{FPS Máx.} & \textit{Parámetros} \\ 
+        \hline
+        DETR & ResNet-50 & 500 & 42.0 & 62.4 & 86 & 28 & 41M \\ 
+        \hline
+        DETR-DC5 & ResNet-50 & 500 & 43.3 & 63.1 & 187 & 12 & 41M \\ 
+        \hline
+        DETR-R101 & ResNet-101 & 500 & 43.5 & 63.8 & 152 & 20 & 60M \\ 
+        \hline
+        DETR-DC5-R101 & ResNet-101 & 500 & 44.9 & 64.7 & 253 & 10 & 60M \\ 
+        \hline
+        \textit{DINO (4-scale)} & \textit{ResNet-50} & 36 & \textit{50.9} & \textit{69.0} & \textit{279} & 24 & \textit{47M} \\ 
+        \hline
+        \textit{DINO (5-scale)} & \textit{ResNet-50} & 36 & \textit{51.2} & \textit{69.0} & \textit{860} & 10 & \textit{47M} \\ 
+        \hline
+        \textit{DINO (Ours)} & \textit{Swin-L} & 36 & \textit{63.2} & \textit{-} & \textit{-} & - & \textit{218M} \\ 
+        \hline
+    \end{tabular}%
+    }
+    \label{tab:2.6-transformer_performance}
+\end{table}
+
+Los resultados tabulados demuestran empíricamente que las mejoras arquitectónicas integradas en DINO optimizan radicalmente su eficiencia de convergencia y rendimiento final respecto a la arquitectura seminal DETR. Específicamente, DINO supera los 50.9 AP en apenas 36 épocas (frente a los 42.0 AP requeridos por el modelo base DETR tras 500 épocas), y escala masivamente hasta los 63.2 AP al implementar un extractor \textit{Swin-L}, estableciendo el estado del arte en la literatura. \\
+
+En consecuencia, esta memoria establece a \textit{DETR} ---abarcando sus variantes \textit{ResNet-50}, \textit{ResNet-101} y modificaciones \textit{DC5}--- como la arquitectura de referencia (línea base) del paradigma de atención, justificado por su valor histórico como pionero en la detección libre de anclas. Como contraparte evolutiva, se selecciona a \textit{DINO} (mediante sus configuraciones \textit{ResNet-50} de 4 y 5 escalas, y \textit{Swin-L}) para cuantificar el límite superior de rendimiento empírico y aceleración de convergencia derivado de sus optimizaciones frente al modelo original.\\
+
 
 \section{Métricas}
 

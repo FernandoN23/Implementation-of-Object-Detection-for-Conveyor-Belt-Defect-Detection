@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1782182084.32219 "main.aux" "main.bbl" "main" 1782182090.52462 0
+["bibtex main"] 1782321902.85089 "main.aux" "main.bbl" "main" 1782321908.23739 0
   "./library.bib" 1782095880 9706 cd78276dfa38b77b55a5411fe95c9875 ""
   "./natnumurl.bst" 1781904148 21201 c3a97a2434b58cd70f7f9c9df607b80a ""
-  "main.aux" 1782182089 68140 8b276e381568615f97081ebf5252ff10 "pdflatex"
+  "main.aux" 1782321907 69364 effe34723d8dc805d9f2f95a80d9dff8 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1782182084.61075 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1782182090.52535 0
+["pdflatex"] 1782321903.2292 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1782321908.23804 0
   "Abstracto.tex" 1782096139 2016 c7b7bdad644f5c1e378763eed1d303b0 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1760210407 81086 6fddea6b023469843de28035c851ec71 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1758130852 688 37338d6ab346c2f1466b29e195316aa4 ""
@@ -361,8 +361,8 @@
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-abspage.sty" 1750428951 2269 2de6c7a5fd634dfef00a960544463a38 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-base.sty" 1750428951 20785 198a9cb2e04238d92c320d0d9edbd76a ""
   "capitulos/1-Introducción.tex" 1782096038 6036 5b59a02a427538e3ab44e527f2e21b42 ""
-  "capitulos/2-Antecedentes.tex" 1782095560 79173 f0b1e444617039ba315f2ed643b35656 ""
-  "capitulos/3-Metodología.tex" 1782182031 19532 beb20fde398880c710cd50ee74e5b633 ""
+  "capitulos/2-Antecedentes.tex" 1782321896 82343 6dbf3f2d37244621e127c56e8ba6fed4 ""
+  "capitulos/3-Metodología.tex" 1782182103 19532 beb20fde398880c710cd50ee74e5b633 ""
   "capitulos/4-Resultados_Discusión.tex" 1782182031 5657 d26120d0f3d8d90c858496ee365bb300 ""
   "capitulos/5-Conclusiones.tex" 1782182077 24 8dd28fdca787fa798488f50001886caf ""
   "capitulos/6-Anexos.tex" 1782181821 4225 6471fe192d31d62a231a9983852f65c3 ""
@@ -386,12 +386,12 @@
   "img/2-Antecedentes/2.7-Metricas/IoU_metric.png" 1781904148 27123 72ca482b8f8bc9e54098b7fdd75c3b59 ""
   "img/4-Resultados_Discusion/Dataset/class_distribution.png" 1781904148 147023 9b6813b6b2dc14764d7f12bdb1c39595 ""
   "img/4-Resultados_Discusion/Dataset/split_composition.png" 1781904148 150729 ca5a685131e480f702cc1b19c08c770c ""
-  "main.aux" 1782182089 68140 8b276e381568615f97081ebf5252ff10 "pdflatex"
-  "main.bbl" 1782182084 7630 1b49a454a1af69abfad0ec91db6af99b "bibtex main"
-  "main.lof" 1782182089 3530 c4ed4796de4bbfae079f0cb7132ae20d "pdflatex"
-  "main.lot" 1782182089 1074 14f6ceec6ba9b912ca0626af6085df86 "pdflatex"
+  "main.aux" 1782321907 69364 effe34723d8dc805d9f2f95a80d9dff8 "pdflatex"
+  "main.bbl" 1782321903 7630 1b49a454a1af69abfad0ec91db6af99b "bibtex main"
+  "main.lof" 1782321907 3530 ab7a14e2ca1efba633e03f7583cf3cbf "pdflatex"
+  "main.lot" 1782321907 1338 90eb28b0e63fb2c0fc3af8bb29b21eac "pdflatex"
   "main.tex" 1782096098 3958 d68f925860f460fde53bb7e67e09f211 ""
-  "main.toc" 1782182089 9265 98ccfd2ece110863b7b29ecaa687ba14 "pdflatex"
+  "main.toc" 1782321907 9357 84147a183d58b1556217bb9a8db4e57f "pdflatex"
   "template.tex" 1781995931 290936 df2de9e1556f11a5d36036a27ac47b7a ""
   "template_config.tex" 1781904884 21966 e22124ed80d77f98d8f6e6a7c15e444f ""
   (generated)
