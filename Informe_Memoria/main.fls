@@ -829,6 +829,14 @@ INPUT .\capitulos\3-Metodología.tex
 INPUT .\capitulos\3-Metodología.tex
 INPUT .\capitulos\3-Metodología.tex
 INPUT capitulos\3-Metodología.tex
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmvtt10.tfm
+INPUT .\img\3-Metodologia\3.2-Formato_etiquetas.png
+INPUT .\img\3-Metodologia\3.2-Formato_etiquetas.png
+INPUT .\img\3-Metodologia\3.2-Formato_etiquetas.png
+INPUT .\img\3-Metodologia\3.2-Formato_etiquetas.png
+INPUT .\img\3-Metodologia\3.2-Formato_etiquetas.png
+INPUT .\img\3-Metodologia\3.2-Formato_etiquetas.png
+INPUT .\img\3-Metodologia\3.2-Formato_etiquetas.png
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmsso8.tfm
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmss10.tfm
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmssbx10.tfm
@@ -907,5 +915,7 @@ INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsy10.
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsy10.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsy8.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmsy8.pfb
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmvtt10.pfb
+INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\lm\lmvtt10.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\amsfonts\symbols\msbm10.pfb
 INPUT C:\Users\seika\AppData\Local\Programs\MiKTeX\fonts\type1\public\amsfonts\symbols\msbm10.pfb

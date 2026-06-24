@@ -160,4 +160,11 @@ Schlosser, T., Friedrich, M., Meyer, T., y Kowerko, D., ``{A Consolidated
 \newblock Accessed manuscript, unpublished.
 \backrefprint\backrefparscantrue
 
+\backrefparscanfalse
+\bibitem{ultralyticsDataset}
+{Ultralytics}, ``Ultralytics {YOLO} hyperparameter tuning guide''.
+  \url{https://docs.ultralytics.com/datasets#steps-to-contribute-a-new-dataset},
+  2023.
+\backrefprint\backrefparscantrue
+
 \end{thebibliography}

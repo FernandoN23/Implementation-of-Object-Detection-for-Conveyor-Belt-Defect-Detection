@@ -13,7 +13,7 @@ De acuerdo al Capítulo 2, sección 2.1, las fallas en correas transportadoras s
     \item \textit{Abrasión (Wear):} desgaste progresivo de la superficie de la correa debido a fricción, que se manifiesta como adelgazamiento del recubrimiento y patrones característicos de pérdida de material.
 \end{itemize}
 
-De esta forma, las fallas antes mencionadas se convierten en \textit{clases} algorítmicas para los modelos de detección de objetos.\\
+De esta forma, las fallas antes mencionadas se convierten en \textit{clases} para los modelos de detección de objetos. Los casos dónde no se presenten fallas, se consideran clases de fondo (\textit{background}), las cuáles corresponderán a casos sin falla. \\
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Base de datos}
@@ -23,18 +23,81 @@ De esta forma, las fallas antes mencionadas se convierten en \textit{clases} alg
 El entrenamiento de modelos basados en redes neuronales (convolucionales o Transformers) requiere disponer de un conjunto de datos suficientemente representativo, anotado y particionado en subconjuntos mutuamente excluyentes:
 
 \begin{itemize}
-    \item \textit{Entrenamiento (train):} conjunto utilizado para ajustar los parámetros del modelo mediante el proceso de optimización. Suele concentrar entre un 60\% y un 80\% del total de muestras disponibles.
-    \item \textit{Validación (valid):} conjunto empleado durante el entrenamiento para calcular métricas intermedias, seleccionar hiperparámetros y monitorizar el sobreajuste. Sus ejemplos no se usan para actualizar los pesos del modelo y, por lo general, representan una fracción menor que el conjunto de entrenamiento.
-    \item \textit{Prueba (test):} conjunto reservado para la evaluación final e independiente del modelo, una vez completado el ajuste y la selección de hiperparámetros. Permite estimar el desempeño esperado en condiciones de uso real.
+    \item \textit{Entrenamiento (train):} conjunto utilizado para ajustar los parámetros del modelo mediante el proceso de optimización. Se utilizó un 70\% del total de muestras disponibles.
+    \item \textit{Validación (valid):} conjunto empleado durante el entrenamiento para calcular métricas intermedias, seleccionar hiperparámetros y monitorizar el sobreajuste. Sus ejemplos no se usan para actualizar los pesos del modelo y, por lo general, representan una fracción menor que el conjunto de entrenamiento. Se utilizó un 20\% del total de muestras disponibles.
+    \item \textit{Prueba (test):} conjunto reservado para la evaluación final e independiente del modelo, una vez completado el ajuste y la selección de hiperparámetros. Permite estimar el desempeño esperado en condiciones de uso real. Se utilizó el 10\% del total de muestras disponibles.
 \end{itemize}
 
 \subsection{Recopilación y limpieza}
 
-Mediante el sitio web \textit{Roboflow}, así como plataformas de datos abiertos tales como \textit{Kaggle Datasets}, \textit{ImageNet}, \textit{Open Images Dataset} y otros repositorios académicos de libre acceso, se recopilaron bases de datos relacionadas con fallas en correas transportadoras y con entornos industriales de transporte de material a granel. Cada conjunto presentaba su propia organización de clases, resolución de imágenes y formato de anotación, por lo que fue necesario unificar las etiquetas al formato YOLO antes de su utilización en los modelos de detección.\\
+Mediante el sitio web \textit{Roboflow} y repositorios académicos, se recopilaron diversas bases de datos relacionadas con fallas en correas transportadoras. Cada conjunto original presentaba su propia organización de clases, resolución y formato de anotación, exigiendo una homologación estricta.\\
 
-Posteriormente, se aplicó un proceso de depuración y limpieza de datos. En primer lugar, se descartaron imágenes irrelevantes (sin presencia clara de correa transportadora o sin defecto observable) y aquellas con problemas severos de calidad, como baja resolución, desenfoque o ruido excesivo. En segundo lugar, se normalizaron las anotaciones corrigiendo etiquetas inconsistentes, reclasificando ejemplos cuya clase no coincidía con el defecto presente y ajustando las cajas delimitadoras cuando su posición o tamaño eran inadecuados. Finalmente, se homogeneizó la nomenclatura de clases y el formato de las etiquetas, garantizando una base de datos coherente y consistente para el entrenamiento y evaluación de los modelos.\\
+El proceso de depuración operó en tres fases secuenciales. En primer lugar, se purgaron imágenes irrelevantes (ausencia de fallas) o con ruido severo (desenfoque, baja resolución). En segundo lugar, se normalizaron las anotaciones corrigiendo etiquetas inconsistentes y reajustando cajas delimitadoras geométrica o posicionalmente defectuosas. Finalmente, se homogeneizó la nomenclatura de clases según lo descrito en la Sección 3.1. Este protocolo iterativo permitió consolidar un corpus definitivo de 2312 imágenes útiles, escaladas a una resolución matricial uniforme de $640\times640$ píxeles.\\
 
-En total, se logró confeccionar una base de datos de 2312 imágenes, todas con resolución de $640\times640$ píxeles y etiquetas normalizadas de acuerdo al formato topológico requerido por las arquitecturas.\\
+\subsection{Estructura topológica y formato de anotación}
+
+Para facilitar la evaluación y separar los regímenes de entrenamiento, validación y prueba, la base de datos se dividió físicamente. La organización de los datos, gestionada mediante un archivo de configuración maestro (\textit{data.yaml}) que mapea rutas y clases, sigue el estándar jerárquico expuesto en el Código \ref{lst:estructura-dataset}.\\
+
+\begin{lstlisting}[
+    float,
+    floatplacement=H,                               
+    caption={Estructura topológica del conjunto de datos estandarizado. Formato extraído de \cite{ultralyticsDataset}},
+    label={lst:estructura-dataset},
+    basicstyle=\ttfamily\scriptsize,
+    numbers=none,
+    columns=fullflexible,
+    frame=single,
+    xleftmargin=2.5cm,
+    framexleftmargin=0.5cm,
+    framexrightmargin=0.5cm,
+    breaklines=true,
+    breakatwhitespace=true
+]
+dataset/
+|-- test/
+|   |-- images/
+|   `-- labels/
+|-- train/
+|   |-- images/
+|   `-- labels/
+|-- valid/
+|   |-- images/
+|   `-- labels/
+`-- data.yaml
+\end{lstlisting}
+
+Dentro de la estructuración mencionada, la parametrización de las etiquetas espaciales se estandarizó universalmente bajo el formato YOLO. Cada imagen posee un archivo de texto (\textit{label.txt}) homónimo, donde cada línea representa una instancia detectada mediante el vector acoplado a su clase. De esta forma, el nombre de cada una de las imágenes en la carpeta \textit{images/}, en la base de datos (\textit{dataset/}), comparte el mismo nombre de su archivo de etiqueta en la carpeta \textit{labels/}, con el fin de facilitar el procesamiento y localización. El vector presente en cada etiqueta se muestra en la Ecuación \ref{eq:yolo_vector}.
+
+\begin{equation}
+    v = [c, x, y, w, h]
+    \label{eq:yolo_vector}
+\end{equation}
+
+Donde $c \in \{0, 1, 2, 3, 4\}$ es el identificador de clase de cada falla y se corresponde con el siguiente vector: $\{Hole, Impact Damage, Puncture, Tear, Wear\}$. Para garantizar la invariancia frente a futuras transformaciones de resolución matricial, las coordenadas del centroide $(x, y)$ y las dimensiones de la caja $(w, h)$ se normalizan en el intervalo continuo $[0, 1]$ respecto a la anchura ($W$) y altura ($H$) absoluta de la imagen original, rigiéndose por el sistema de Ecuaciones \ref{eq:yolo_normalization}:
+
+\begin{equation}
+    \begin{aligned}
+        x &= \frac{x_{\min} + x_{\max}}{2W}, \quad &y &= \frac{y_{\min} + y_{\max}}{2H} \\
+        w &= \frac{x_{\max} - x_{\min}}{W}, \quad &h &= \frac{y_{\max} - y_{\min}}{H}
+    \end{aligned}
+    \label{eq:yolo_normalization}
+\end{equation}
+
+En la Figura \ref{fig:3.2-etiquetas} se muestra una representación de las coordenadas en el vector de etiquetado.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{img/3-Metodologia/3.2-Formato_etiquetas.png}
+    \caption{Representación visual de las coordenadas espaciales del vector de formato de etiquetas. Elaboración Propia.}
+    \label{fig:3.2-etiquetas}
+\end{figure}
+
+
+\subsection{Adaptación de etiquetas}
+
+Si bien la normalización escalar de YOLO es altamente eficiente para el almacenamiento en disco, las arquitecturas convolucionales como SSD exigen tensores con coordenadas absolutas (formato Pascal VOC), mientras que los detectores basados en atención (DETR, DINO) requieren anotaciones jerárquicas bajo el estándar MS-COCO (\textit{JSON}).\\
+
+Para resolver esta discrepancia geométrica sin la ineficiencia de duplicar físicamente los archivos, se implementó el módulo auxiliar \textit{data\_loader.py}. Operando como un intérprete dinámico en la implementación de utilidades, este algoritmo lee los tensores normalizados de YOLO durante la fase de carga en memoria de los datos y aplica las transformaciones algebraicas inversas necesarias. De este modo, adapta las coordenadas, las mallas espaciales y la resolución a las restricciones topológicas exactas del modelo requerido.\\
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -42,13 +105,11 @@ En total, se logró confeccionar una base de datos de 2312 imágenes, todas con 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Entorno virtual y arquitectura de la implementación}
 
-Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio oficial. Todas las librerías requeridas se gestionan mediante un archivo de requerimientos estricto, que agrupa paquetes para aprendizaje profundo, procesamiento de datos, visión por computador y visualización de resultados.\\
+Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio oficial. Todas las librerías requeridas se gestionan mediante un archivo de requerimientos estricto (\textit{requirements.txt}), que agrupa las dependencias y paquetes de ROCm (debido al uso de Arquitectura AMD para esta memoria), librerías de Pytorch compatibles, scripts de análisis de datos y librerias específicas para cada modelo.\\
 
-La creación y activación del entorno se realiza con las utilidades estándar de \textit{Python}. La ejecución algorítmica se efectúa sobre una GPU AMD Radeon compatible con la pila ROCm/DirectML, utilizando la distribución oficial de PyTorch para esta arquitectura de hardware.\\
+Para garantizar la estandarización y evitar conflictos de dependencias entre arquitecturas dispares (además de disminuir la carga de elementos), la gestión del código fuente se estructuró mediante un sistema topológico de ramas (\textit{branches}) a través del controlador de versiones GIT. El núcleo de procesamiento (\textit{engine}), las configuraciones globales y los algoritmos utilitarios operan como una capa base transversal (\textit{wrapper}). En este ecosistema, cada arquitectura de detección se aísla de forma modular en una rama independiente del repositorio.\\  
 
-Para garantizar la estandarización y evitar conflictos de dependencias entre arquitecturas dispares, la gestión del código fuente se estructuró mediante un sistema topológico de ramas (\textit{branches}) a través del controlador de versiones GIT. El núcleo de procesamiento (\textit{engine}), las configuraciones globales y los algoritmos utilitarios operan como una capa base transversal (\textit{wrapper}). En este ecosistema, cada arquitectura de detección se aísla de forma modular en una rama independiente del repositorio (por ejemplo, la rama \textit{YOLO}, la rama \textit{SSD}, o la rama en desarrollo \textit{DINO}). 
-
-Debido a restricciones físicas de memoria en el hardware (VRAM), el motor opera con un diseño de inserción única (\textit{single-socket}): solo una arquitectura puede acoplarse y entrenarse a la vez. Los \textit{scripts} principales actúan como orquestadores que encienden el flujo, ingiriendo bases de datos y configuraciones en memoria para finalmente exportar los resultados estandarizados, tal como se esquematiza en la Figura \ref{fig:3.1-ModularLayer}.\\
+Debido a restricciones físicas de memoria en el hardware (VRAM), el motor opera con un diseño de inserción única (\textit{single-socket}): solo una arquitectura puede acoplarse y entrenarse a la vez. Los códigos (\textit{scripts}) principales actúan como orquestadores que encienden el flujo: entrenamiento (\textit{train}), validación (\textit{valid}) y prueba (\textit{test}). Éstos orquestadores cargan bases de datos y configuraciones en memoria, entrenando y validando el modelo, para finalmente exportar los resultados estandarizados, tal como se esquematiza en la Figura \ref{fig:3.1-ModularLayer}.\\
 
 \begin{figure}[H]
     \centering
@@ -119,12 +180,12 @@ Debido a restricciones físicas de memoria en el hardware (VRAM), el motor opera
 
     \end{tikzpicture}
     }
-    \caption{Topología modular \textit{single-socket}. Los orquestadores interpretan las configuraciones y dictan las directrices operativas a la estructura maestra. Sólo una arquitectura (rama de GIT) se acopla a la vez.}
+    \caption{Topología modular \textit{single-socket} implementada. Los orquestadores interpretan las configuraciones y dictan las directrices operativas a la estructura maestra, cargando las Bases de Datos y entregando los resultados requeridos tras pasar por las etapas internas de entrenamiento y validación. Sólo una arquitectura (o rama) se acopla a la vez.}
     \label{fig:3.1-ModularLayer}
 \end{figure}
 
 
-\subsection{Anatomía interna de la Estructura Maestra}
+\subsection{Anatomía de la Estructura Maestra}
 
 Para profundizar en el acoplamiento lógico y funcional entre el motor central y las redes neuronales, la Figura \ref{fig:3.2-EngineZoom} expone el diseño interno de la \textit{Estructura Maestra} y su interacción directa con el modelo en ejecución. En este nivel de abstracción, los organismos principales son los módulos \textit{Trainer.py} y \textit{Validator.py}, los cuales actúan como orquestadores del flujo de tensores y la retropropagación.\\
 

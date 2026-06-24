@@ -63,30 +63,32 @@
 \contentsline {section}{\numberline {3.2}Base de datos}{35}{section.3.2}%
 \contentsline {subsection}{\numberline {3.2.1}Base de datos elaborada}{36}{subsection.3.2.1}%
 \contentsline {subsection}{\numberline {3.2.2}Recopilación y limpieza}{36}{subsection.3.2.2}%
-\contentsline {section}{\numberline {3.3}Entorno virtual y arquitectura de la implementación}{37}{section.3.3}%
-\contentsline {subsection}{\numberline {3.3.1}Anatomía interna de la Estructura Maestra}{38}{subsection.3.3.1}%
-\contentsline {section}{\numberline {3.4}Implementación de modelos One-Stage (YOLOv5 y SSD)}{39}{section.3.4}%
-\contentsline {section}{\numberline {3.5}Implementación de modelos basados en Transformers (DETR y DINO)}{39}{section.3.5}%
-\contentsline {chapter}{\numberline {4}Resultados y Discusión}{40}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Base de datos implementada}{40}{section.4.1}%
-\contentsline {section}{\numberline {4.2}Métricas modelos de una sola etapa}{42}{section.4.2}%
-\contentsline {subsection}{\numberline {4.2.1}YOLOv5}{42}{subsection.4.2.1}%
-\contentsline {subsubsection}{\numberline {4.2.1.1}Curva de pérdida vs época por componentes}{42}{subsubsection.4.2.1.1}%
-\contentsline {subsubsection}{\numberline {4.2.1.2}Curva de pérdida vs época promedio}{42}{subsubsection.4.2.1.2}%
-\contentsline {subsubsection}{\numberline {4.2.1.3}Precision y Recall}{42}{subsubsection.4.2.1.3}%
-\contentsline {subsubsection}{\numberline {4.2.1.4}F1-Score}{42}{subsubsection.4.2.1.4}%
-\contentsline {subsubsection}{\numberline {4.2.1.5}Precisión Promedio Media (mAP)}{42}{subsubsection.4.2.1.5}%
-\contentsline {subsubsection}{\numberline {4.2.1.6}Distribución de IoU}{42}{subsubsection.4.2.1.6}%
-\contentsline {subsubsection}{\numberline {4.2.1.7}Matriz de Confusión}{42}{subsubsection.4.2.1.7}%
-\contentsline {subsection}{\numberline {4.2.2}SSD}{43}{subsection.4.2.2}%
-\contentsline {subsubsection}{\numberline {4.2.2.1}Curva de pérdida vs época específicas}{43}{subsubsection.4.2.2.1}%
-\contentsline {subsubsection}{\numberline {4.2.2.2}Curva de pérdida vs época promedio}{43}{subsubsection.4.2.2.2}%
-\contentsline {subsubsection}{\numberline {4.2.2.3}Precision y Recall}{43}{subsubsection.4.2.2.3}%
-\contentsline {subsubsection}{\numberline {4.2.2.4}F1-Score}{43}{subsubsection.4.2.2.4}%
-\contentsline {subsubsection}{\numberline {4.2.2.5}Precisión Promedio Media (mAP)}{43}{subsubsection.4.2.2.5}%
-\contentsline {subsubsection}{\numberline {4.2.2.6}Distribución de IoU}{43}{subsubsection.4.2.2.6}%
-\contentsline {subsubsection}{\numberline {4.2.2.7}Matriz de Confusión}{43}{subsubsection.4.2.2.7}%
-\contentsline {chapter}{\numberline {5}Conclusiones}{44}{chapter.5}%
-\contentsline {chapter}{Bibliografía}{45}{chapter*.45}%
-\contentsline {chapter}{\numberline {6}Anexos}{47}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{48}{section.6.1}%
+\contentsline {subsection}{\numberline {3.2.3}Estructura topológica y formato de anotación}{36}{subsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.2.4}Adaptación de etiquetas}{38}{subsection.3.2.4}%
+\contentsline {section}{\numberline {3.3}Entorno virtual y arquitectura de la implementación}{38}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Anatomía de la Estructura Maestra}{40}{subsection.3.3.1}%
+\contentsline {section}{\numberline {3.4}Implementación de modelos One-Stage (YOLOv5 y SSD)}{41}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Implementación de modelos basados en Transformers (DETR y DINO)}{41}{section.3.5}%
+\contentsline {chapter}{\numberline {4}Resultados y Discusión}{42}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Base de datos implementada}{42}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Métricas modelos de una sola etapa}{44}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}YOLOv5}{44}{subsection.4.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.1.1}Curva de pérdida vs época por componentes}{44}{subsubsection.4.2.1.1}%
+\contentsline {subsubsection}{\numberline {4.2.1.2}Curva de pérdida vs época promedio}{44}{subsubsection.4.2.1.2}%
+\contentsline {subsubsection}{\numberline {4.2.1.3}Precision y Recall}{44}{subsubsection.4.2.1.3}%
+\contentsline {subsubsection}{\numberline {4.2.1.4}F1-Score}{44}{subsubsection.4.2.1.4}%
+\contentsline {subsubsection}{\numberline {4.2.1.5}Precisión Promedio Media (mAP)}{44}{subsubsection.4.2.1.5}%
+\contentsline {subsubsection}{\numberline {4.2.1.6}Distribución de IoU}{44}{subsubsection.4.2.1.6}%
+\contentsline {subsubsection}{\numberline {4.2.1.7}Matriz de Confusión}{44}{subsubsection.4.2.1.7}%
+\contentsline {subsection}{\numberline {4.2.2}SSD}{45}{subsection.4.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.2.1}Curva de pérdida vs época específicas}{45}{subsubsection.4.2.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.2.2}Curva de pérdida vs época promedio}{45}{subsubsection.4.2.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.2.3}Precision y Recall}{45}{subsubsection.4.2.2.3}%
+\contentsline {subsubsection}{\numberline {4.2.2.4}F1-Score}{45}{subsubsection.4.2.2.4}%
+\contentsline {subsubsection}{\numberline {4.2.2.5}Precisión Promedio Media (mAP)}{45}{subsubsection.4.2.2.5}%
+\contentsline {subsubsection}{\numberline {4.2.2.6}Distribución de IoU}{45}{subsubsection.4.2.2.6}%
+\contentsline {subsubsection}{\numberline {4.2.2.7}Matriz de Confusión}{45}{subsubsection.4.2.2.7}%
+\contentsline {chapter}{\numberline {5}Conclusiones}{46}{chapter.5}%
+\contentsline {chapter}{Bibliografía}{47}{chapter*.47}%
+\contentsline {chapter}{\numberline {6}Anexos}{49}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{50}{section.6.1}%
