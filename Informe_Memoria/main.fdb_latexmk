@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1782325631.41926 "main.aux" "main.bbl" "main" 1782325769.02466 0
+["bibtex main"] 1782336873.67931 "main.aux" "main.bbl" "main" 1782336905.56526 0
   "./library.bib" 1782324420 9965 9af40dc0002dcd9547aa5fa8dd6739b6 ""
   "./natnumurl.bst" 1781904148 21201 c3a97a2434b58cd70f7f9c9df607b80a ""
-  "main.aux" 1782325767 72022 70a2bde6794b4193f3c45da9324e9c0d "pdflatex"
+  "main.aux" 1782336904 72770 2098c9c77c5383235cdbb795f90879f8 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1782325764.03784 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1782325769.02528 0
+["pdflatex"] 1782336900.57888 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1782336905.5659 0
   "Abstracto.tex" 1782096139 2016 c7b7bdad644f5c1e378763eed1d303b0 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1760210407 81086 6fddea6b023469843de28035c851ec71 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1758130852 688 37338d6ab346c2f1466b29e195316aa4 ""
@@ -363,11 +363,11 @@
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-base.sty" 1750428951 20785 198a9cb2e04238d92c320d0d9edbd76a ""
   "capitulos/1-Introducción.tex" 1782096038 6036 5b59a02a427538e3ab44e527f2e21b42 ""
   "capitulos/2-Antecedentes.tex" 1782321896 82343 6dbf3f2d37244621e127c56e8ba6fed4 ""
-  "capitulos/3-Metodología.tex" 1782325763 23198 4fbe63516940f125575dd3f259b0ba5b ""
+  "capitulos/3-Metodología.tex" 1782336899 30973 17e32a7ad6d6cb4125988da342005665 ""
   "capitulos/4-Resultados_Discusión.tex" 1782182031 5657 d26120d0f3d8d90c858496ee365bb300 ""
   "capitulos/5-Conclusiones.tex" 1782182077 24 8dd28fdca787fa798488f50001886caf ""
-  "capitulos/6-Anexos.tex" 1782181821 4225 6471fe192d31d62a231a9983852f65c3 ""
-  "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" 1782096098 3958 d68f925860f460fde53bb7e67e09f211 ""
+  "capitulos/6-Anexos.tex" 1782335779 4225 84b81906dd323361480b18801aa5a53a ""
+  "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" 1782336678 3958 d68f925860f460fde53bb7e67e09f211 ""
   "img//departamentos/uchile2.pdf" 1781904148 18772 1d92f499584e10e4c8e0b3bf44be0bbf ""
   "img/2-Antecedentes/2-Object_Detection_example.png" 1781904148 751229 8088d2f3fe22b26b3b93790ff7951a61 ""
   "img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png" 1781904148 1362339 6d37a26bdda4f4c629ec3452f690f5ac ""
@@ -388,12 +388,12 @@
   "img/3-Metodologia/3.2-Formato_etiquetas.png" 1782323597 141478 73aad21567c8bca04ebc380e837cc20f ""
   "img/4-Resultados_Discusion/Dataset/class_distribution.png" 1781904148 147023 9b6813b6b2dc14764d7f12bdb1c39595 ""
   "img/4-Resultados_Discusion/Dataset/split_composition.png" 1781904148 150729 ca5a685131e480f702cc1b19c08c770c ""
-  "main.aux" 1782325767 72022 70a2bde6794b4193f3c45da9324e9c0d "pdflatex"
-  "main.bbl" 1782325631 7877 644619963ed61bf171755d833cc93908 "bibtex main"
-  "main.lof" 1782325767 3865 945c7d659271d4067ae75942825e671c "pdflatex"
-  "main.lot" 1782325767 1338 bd1768ccf871936cd46787b56e950446 "pdflatex"
-  "main.tex" 1782096098 3958 d68f925860f460fde53bb7e67e09f211 ""
-  "main.toc" 1782325767 9561 296e6eb77821256023f3056a50d66d53 "pdflatex"
+  "main.aux" 1782336904 72770 2098c9c77c5383235cdbb795f90879f8 "pdflatex"
+  "main.bbl" 1782336873 8175 db973ebf96385bef38bc6005b0fccce3 "bibtex main"
+  "main.lof" 1782336904 3889 fcf4625da0e74a0b45c1657e2e89b37c "pdflatex"
+  "main.lot" 1782336904 1630 d6be3459edfd295ee94c81b12b7c87d5 "pdflatex"
+  "main.tex" 1782336678 3958 d68f925860f460fde53bb7e67e09f211 ""
+  "main.toc" 1782336904 9561 a8f0add383d8d2a1b21088cbc15da690 "pdflatex"
   "template.tex" 1781995931 290936 df2de9e1556f11a5d36036a27ac47b7a ""
   "template_config.tex" 1781904884 21966 e22124ed80d77f98d8f6e6a7c15e444f ""
   (generated)

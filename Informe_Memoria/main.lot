@@ -6,9 +6,10 @@
 \contentsline {table}{\numberline {2.6.2}{\ignorespaces Comparativa de rendimiento y complejidad evolutiva para detectores \textit {Transformer} en MS-COCO. Datos extraídos y consolidados de \cite {carion2020end} y \cite {zhang2022dino}.}}{31}{table.caption.37}%
 \contentsline {table}{\numberline {2.7.1}{\ignorespaces Definiciones generales \textit {Machine Learning} \cite {schlosser2024overview}}}{32}{table.caption.38}%
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {3.4.1}{\ignorespaces Hiperparámetros base estandarizados para el entrenamiento comparativo de los modelos YOLOv5 y SSD. Ambos incorporan el optimizador de Descenso de Gradiente Estocástico (\textit {Stochastic Gradient Descent}).}}{44}{table.caption.44}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {4.1.1}{\ignorespaces Resumen de las propiedades y distribución del conjunto de datos.}}{42}{table.caption.44}%
+\contentsline {table}{\numberline {4.1.1}{\ignorespaces Resumen de las propiedades y distribución del conjunto de datos.}}{45}{table.caption.45}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {6.1.1}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}}{50}{table.caption.48}%
-\contentsline {table}{\numberline {6.1.2}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}}{51}{table.caption.49}%
+\contentsline {table}{\numberline {6.1.1}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}}{53}{table.caption.49}%
+\contentsline {table}{\numberline {6.1.2}{\ignorespaces Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}}{54}{table.caption.50}%

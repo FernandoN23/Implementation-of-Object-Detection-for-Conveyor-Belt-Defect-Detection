@@ -167,4 +167,12 @@ Schlosser, T., Friedrich, M., Meyer, T., y Kowerko, D., ``{A Consolidated
   2023.
 \backrefprint\backrefparscantrue
 
+\backrefparscanfalse
+\bibitem{repo_fernando2024}
+{N.}, F., ``{Implementation of Object Detection for Conveyor Belt Defect
+  Detection}''.
+  \url{https://github.com/FernandoN23/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection},
+  2024.
+\backrefprint\backrefparscantrue
+
 \end{thebibliography}

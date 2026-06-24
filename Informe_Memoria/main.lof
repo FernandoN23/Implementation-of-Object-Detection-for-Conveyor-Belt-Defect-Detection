@@ -16,10 +16,10 @@
 \contentsline {figure}{\numberline {2.7.1}{\ignorespaces Representación visual de Intersección sobre la Unión. Imagen extraída de \cite {schlosser2024overview}.}}{33}{figure.caption.39}%
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {3.2.1}{\ignorespaces Representación visual de las coordenadas espaciales del vector de formato de etiquetas. Elaboración Propia.}}{38}{figure.caption.41}%
-\contentsline {figure}{\numberline {3.3.1}{\ignorespaces Topología modular \textit {single-socket} implementada. Los orquestadores interpretan las configuraciones y dictan las directrices operativas a la estructura maestra, cargando las Bases de Datos y entregando los resultados requeridos tras pasar por las etapas internas de entrenamiento y validación. Sólo una arquitectura (o rama) se acopla a la vez.}}{39}{figure.caption.42}%
-\contentsline {figure}{\numberline {3.3.2}{\ignorespaces Vista detallada (\textit {zoom}) de la interacción interna. La arquitectura neuronal opera como una caja negra impenetrable. Las conexiones ortogonales garantizan flujos limpios, destacando la exportación independiente de pesos y registros desde el Entrenador.}}{41}{figure.caption.43}%
+\contentsline {figure}{\numberline {3.3.1}{\ignorespaces Topología modular \textit {single-socket} implementada. Los orquestadores interpretan las configuraciones y dictan las directrices operativas a la estructura maestra, cargando las Bases de Datos y entregando los resultados requeridos tras pasar por las etapas internas de entrenamiento y validación. Sólo una arquitectura (o rama) se acopla a la vez.}}{40}{figure.caption.42}%
+\contentsline {figure}{\numberline {3.3.2}{\ignorespaces Vista detallada (\textit {zoom}) de la interacción interna. La arquitectura neuronal opera como una caja negra intocable (no se modifica). Los 3 módulos principales se conectan mediante los dos ejecutadores principales: Entrenador (\textit {Trainer}) y Validador (\textit {Validator})}}{41}{figure.caption.43}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {4.1.1}{\ignorespaces Distribución de frecuencia de las clases de fallas a través de las particiones del conjunto de datos.}}{43}{figure.caption.45}%
-\contentsline {figure}{\numberline {4.1.2}{\ignorespaces Composición detallada de las particiones del conjunto de datos, diferenciando entre imágenes con objetos y casos de fondo.}}{43}{figure.caption.46}%
+\contentsline {figure}{\numberline {4.1.1}{\ignorespaces Distribución de frecuencia de las clases de fallas a través de las particiones del conjunto de datos.}}{46}{figure.caption.46}%
+\contentsline {figure}{\numberline {4.1.2}{\ignorespaces Composición detallada de las particiones del conjunto de datos, diferenciando entre imágenes con objetos y casos de fondo.}}{46}{figure.caption.47}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }

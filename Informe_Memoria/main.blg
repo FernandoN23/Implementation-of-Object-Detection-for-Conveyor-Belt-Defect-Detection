@@ -5,36 +5,36 @@ Reallocating 'name_of_file' (item size: 1) to 10 items.
 The style file: natnumurl.bst
 Reallocating 'name_of_file' (item size: 1) to 8 items.
 Database file #1: library.bib
-You've used 19 entries,
+You've used 20 entries,
             1986 wiz_defined-function locations,
-            574 strings with 8530 characters,
-and the built_in function-call counts, 5470 in all, are:
-= -- 515
-> -- 256
+            580 strings with 8760 characters,
+and the built_in function-call counts, 5611 in all, are:
+= -- 528
+> -- 260
 < -- 0
-+ -- 93
-- -- 74
-* -- 444
-:= -- 753
-add.period$ -- 22
-call.type$ -- 19
-change.case$ -- 20
++ -- 95
+- -- 75
+* -- 450
+:= -- 772
+add.period$ -- 23
+call.type$ -- 20
+change.case$ -- 21
 chr.to.int$ -- 0
-cite$ -- 19
-duplicate$ -- 270
-empty$ -- 501
-format.name$ -- 74
-if$ -- 1318
+cite$ -- 20
+duplicate$ -- 274
+empty$ -- 522
+format.name$ -- 75
+if$ -- 1355
 int.to.chr$ -- 0
-int.to.str$ -- 19
+int.to.str$ -- 20
 missing$ -- 14
-newline$ -- 104
-num.names$ -- 19
-pop$ -- 82
+newline$ -- 109
+num.names$ -- 20
+pop$ -- 88
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 0
-skip$ -- 197
+skip$ -- 201
 stack$ -- 0
 substring$ -- 254
 swap$ -- 118
@@ -43,6 +43,6 @@ text.prefix$ -- 0
 top$ -- 0
 type$ -- 0
 warning$ -- 0
-while$ -- 38
-width$ -- 21
-write$ -- 225
+while$ -- 39
+width$ -- 22
+write$ -- 235
