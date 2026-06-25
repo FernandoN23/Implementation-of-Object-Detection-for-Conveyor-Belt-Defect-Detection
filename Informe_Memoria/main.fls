@@ -1079,10 +1079,13 @@ INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\R_curve.png
 INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\R_curve.png
 INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\R_curve.png
 INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\R_curve.png
-INPUT .\img\4-Resultados_Discusion\DETR\detr_r50_belt_batch_4\confusion_matrix.png
-INPUT .\img\4-Resultados_Discusion\DETR\detr_r50_belt_batch_4\confusion_matrix.png
-INPUT .\img\4-Resultados_Discusion\DETR\detr_r50_belt_batch_4\confusion_matrix.png
-INPUT .\img\4-Resultados_Discusion\DETR\detr_r50_belt_batch_4\confusion_matrix.png
+INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\confusion_matrix.png
+INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\confusion_matrix.png
+INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\confusion_matrix.png
+INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\confusion_matrix.png
+INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\confusion_matrix.png
+INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\confusion_matrix.png
+INPUT .\img\4-Resultados_Discusion\DINO\dino_r50_4s_belt_mod\confusion_matrix.png
 INPUT .\capitulos\5-Conclusiones.tex
 INPUT .\capitulos\5-Conclusiones.tex
 INPUT .\capitulos\5-Conclusiones.tex

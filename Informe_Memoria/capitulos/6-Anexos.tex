@@ -2,7 +2,6 @@
 
 \section{Tablas de Hiperparámetros}
 
-\subsection{Hiperparámetros Modelos One-Stage}
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}
@@ -27,10 +26,6 @@
         $weight\_decay$ & 0.0005 & Regularización $L_2$ \\
         \hline
         $batch\_size$ & 8 & Tamaño de lote de entrenamiento \\
-        \hline
-        $warmup\_epochs$ & 3.0 & Épocas de calentamiento \\
-        \hline
-        $warmup\_momentum$ & 0.8 & Momento en calentamiento \\
         \hline
         $warmup\_bias\_lr$ & 0.1 & Tasa de aprendizaje sesgos calentamiento \\
         \hline
@@ -115,7 +110,6 @@
     \label{tab:6.1-hiperparametros-ssd}
 \end{table}
 
-\subsection{Hiperparámetros Modelos Transformers}
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de DETR.}
@@ -204,7 +198,8 @@
     \label{tab:6.1-hiperparametros-dino}
 \end{table}
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
 
 \section{Resultados Finales}
 
@@ -272,4 +267,23 @@
     \end{tabular}%
     }
     \label{tab:6.2-summary-detr-exact}
+\end{table}
+
+\subsection{Resultados finales y mejores DINO}
+
+\begin{table}[H]
+    \centering
+    \caption{Resumen preliminar detallado de métricas de rendimiento, complejidad paramétrica y costo computacional para las variantes evaluadas de DINO.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{|l|c|c|c|c|c|}
+        \hline
+        \textbf{Variante} & \textbf{mAP@0.5} & \textbf{mAP@0.5:0.95} & \textbf{F1-Score} & \textbf{Parám. (M)} & \textbf{GFLOPs} \\
+        \hline
+        DINO-R50-4scale & 0.8809 & 0.5298 & 0.7550 & 47.0 & 279.0 \\
+        \hline
+        DINO-Swin-L & 0.8710 & 0.5240 & 0.7554 & 218.0 & 1040.0 \\
+        \hline
+    \end{tabular}%
+    }
+    \label{tab:6.2-summary-dino-exact}
 \end{table}

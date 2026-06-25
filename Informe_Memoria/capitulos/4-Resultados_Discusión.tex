@@ -280,7 +280,7 @@ A continuación se muestran todos los resultados relevantes obtenidos para el mo
     \label{fig:4.3-Perdida_DETR}
 \end{figure}
 
-En la Figura \ref{fig:4.3-Perdida_DETR}, se aprecia un descenso drástico inicial seguido de una convergencia progresiva. Se evidencia un escalón de optimización pronunciado en la época 150, correspondiente al decaimiento programado de la tasa de aprendizaje (\textit{lr drop}). La variante base \textit{ResNet-50} (R50) logra estabilizarse en el nivel de pérdida más bajo, mientras que las arquitecturas que implementan convoluciones dilatadas (DC5) exhiben una mayor resistencia a minimizar el error residual.
+En la Figura \ref{fig:4.3-Perdida_DETR}, se aprecia un descenso drástico inicial seguido de una convergencia progresiva. Se evidencia un escalón de optimización pronunciado en la época 150, correspondiente al decaimiento programado de la tasa de aprendizaje (\textit{lr drop}). La variante base \textit{ResNet-50} (R50) logra estabilizarse en el nivel de pérdida más bajo, mientras que las arquitecturas que implementan convoluciones dilatadas (DC5) exhiben una mayor resistencia a minimizar el error residual, sobre todo la variante \textit{ResNet-101-DC5}, que presenta un error bastante elevado al comienzo del entrenamiento.
 
 \paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
 
@@ -291,7 +291,7 @@ En la Figura \ref{fig:4.3-Perdida_DETR}, se aprecia un descenso drástico inicia
     \label{fig:4.3-mAP0.5_DETR}
 \end{figure}
 
-A partir de la Figura \ref{fig:4.3-mAP0.5_DETR}, la escalada del rendimiento tras el ajuste del optimizador (época 150) es notoria. La variante estándar R50 domina la extracción de características alcanzando un pico de $0.8067$. Aumentar la profundidad del extractor a R101 no reporta beneficios ($0.7984$), y la inclusión de características de alta resolución (DC5) penaliza severamente el desempeño inicial y final.
+A partir de la Figura \ref{fig:4.3-mAP0.5_DETR}, la escalada del rendimiento tras el ajuste del optimizador (época 150) es notoria. La variante estándar R50 domina la extracción de características alcanzando un pico de $0.8067$. Aumentar la profundidad del extractor a R101 no reporta beneficios ($0.7984$), y la inclusión de características de alta resolución (DC5) penaliza severamente el desempeño inicial e intermedio, a pesar de una convergencia pareja al final del entrenamiento.
 
 \begin{figure}[H]
     \centering
@@ -322,7 +322,7 @@ La curva de la Figura \ref{fig:4.3-f1_score_general_DETR} ratifica la tendencia 
     \label{fig:4.3-Tradeoff_Gflops_DETR}
 \end{figure}
 
-La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es categórica respecto a la ineficiencia del escalamiento horizontal en DETR. La variante R50 maximiza el rendimiento ($0.5033$ mAP) consumiendo únicamente $86.0$ GFLOPs. Por el contrario, la variante R101-DC5 dispara el costo a $253.0$ GFLOPs (un incremento de casi 300\%) resultando en una degradación empírica del rendimiento ($0.4878$ mAP), confirmando un régimen de saturación geométrica.
+La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es categórica respecto a la ineficiencia del escalamiento horizontal en DETR. La variante R50 maximiza el rendimiento ($0.5033$ mAP) consumiendo únicamente $86.0$ GFLOPs. Por el contrario, la variante R101-DC5 dispara el costo a $253.0$ GFLOPs (un incremento de casi 300\%) resultando en una degradación empírica del rendimiento ($0.4878$ mAP).
 
 \paragraph{Resultados específicos mejor variante (\textit{DETR\_R50})}
 
@@ -376,9 +376,11 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la 
 \clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
 \subsection{DINO (\textit{DETR with Improved DeNoising Anchor Boxes})}
 
+\textbf{[Nota: La ejecución y recolección de métricas para la variante DINO-R50-5scale se encuentra actualmente en fase de entrenamiento. Los gráficos y el análisis de esta sección se actualizarán una vez finalice dicho proceso para incluir la comparativa completa. Como adelanto, esta variante pendiente nunca logró la convergencia.]}
+
+A continuación se muestran los resultados preliminares obtenidos para el modelo DINO. Estos fueron obtenidos aplicando la metodología explicada en la Sección 3. Los mejores resultados se encuentran también adjuntos en Anexos 6.2, en la Tabla \ref{tab:6.2-summary-dino-exact}.
 
 \paragraph{Pérdida Total vs Época (\textit{Total Loss vs Epoch})}
 
@@ -389,15 +391,18 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la 
     \label{fig:4.3-Perdida_DINO}
 \end{figure}
 
+En la Figura \ref{fig:4.3-Perdida_DINO}, se observa que ambas variantes logran una convergencia rápida y estable. La variante con \textit{backbone} Swin-L exhibe un descenso inicial más abrupto, pero finalmente la variante R50-4scale logra estabilizarse en un nivel de pérdida residual marginalmente inferior hacia el final del entrenamiento.
 
 \paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/metrics/compare_mAP_0.5.png}
-    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DETR. Falta por agregar la variante R50-5scale.}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}
     \label{fig:4.3-mAP0.5_DINO}
 \end{figure}
+
+A partir de la Figura \ref{fig:4.3-mAP0.5_DINO}, el modelo DINO-R50-4scale demuestra una superioridad temprana y sostenida, alcanzando un pico de $0.8809$. La arquitectura Swin-L, a pesar de su mayor densidad paramétrica, se satura de forma prematura estableciendo un techo ligeramente inferior de $0.8710$.
 
 \begin{figure}[H]
     \centering
@@ -405,6 +410,8 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la 
     \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}
     \label{fig:4.3-mAP0.5_0.95_DINO}
 \end{figure}
+
+Al evaluar bajo el umbral IoU estricto en la Figura \ref{fig:4.3-mAP0.5_0.95_DINO}, se confirma la ventaja de la variante R50-4scale. Esta configuración establece el máximo en $0.5298$, manteniendo una brecha consistente sobre la variante Swin-L ($0.5240$) durante el último tercio del régimen de optimización.
 
 \paragraph{F1-Score vs Época}
 
@@ -415,20 +422,22 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la 
     \label{fig:4.3-f1_score_general_DINO}
 \end{figure}
 
+La curva de la Figura \ref{fig:4.3-f1_score_general_DINO} ilustra un empate técnico en la capacidad armónica de clasificación. Ambas variantes saturan la métrica en torno a 0.755, demostrando que el incremento masivo de complejidad en Swin-L no aporta mejoras tangibles en el balance de precisión y exhaustividad.
+
 \paragraph{Trade-off Performance vs Costo Computacional}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/tradeoff_performance_gflops.png}
-    \caption{Tradeoff de rendimiento entre todas las variantes del modelo DETR. Muestra el rendimiento map0.5-0.05 en función de la cantidad de GFlops de cómputo utilizado por la variante. Falta por agregar la variante R50-5scale.}
+    \caption{Tradeoff de rendimiento entre todas las variantes del modelo DINO. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante. Falta por agregar la variante R50-5scale.}
     \label{fig:4.3-Tradeoff_Gflops_DINO}
 \end{figure}
 
-\paragraph{Resultados específicos mejor variante (\textit{DINO\_R50\_4scale})}
+La Figura \ref{fig:4.3-Tradeoff_Gflops_DINO} revela un escenario de ineficiencia severa para arquitecturas pesadas. La variante R50-4scale maximiza el rendimiento ($0.5298$ mAP) con un costo de $279.0$ GFLOPs. Implementar el \textit{backbone} Swin-L dispara el costo computacional a $1040.0$ GFLOPs (un aumento de $\sim 272\%$) e incrementa los parámetros a $218.0$M, resultando irónicamente en un rendimiento métrico marginalmente inferior.
 
+\paragraph{Resultados específicos mejor variante preliminar (\textit{DINO\_R50\_4scale})}
 
 \subparagraph{Curva de F1-Score vs Confianza}
-
 
 \begin{figure}[H]
     \centering
@@ -437,7 +446,7 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la 
     \label{fig:4.3-F1_curve_DINO_R50_4scale}
 \end{figure}
 
-
+En la Figura \ref{fig:4.3-F1_curve_DINO_R50_4scale}, el pico óptimo global se establece en 0.88 bajo un umbral de confianza de 0.444. Si bien las clases principales muestran curvas robustas que superan 0.90, la clase \textit{Puncture} se mantiene rezagada con un F1 máximo que apenas supera 0.60, limitando la media del sistema.
 
 \subparagraph{Curva de Precisión vs Confianza (\textit{Precision Curve vs Confidence})}
 
@@ -448,6 +457,8 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la 
     \label{fig:4.3-P_curve_DINO_R50_4scale}
 \end{figure}
 
+La Figura \ref{fig:4.3-P_curve_DINO_R50_4scale} muestra una convergencia hacia alta precisión con umbrales moderados para la mayoría de los defectos. Sin embargo, la clase \textit{Puncture} requiere someter la predicción a confianzas cercanas a 0.85 para depurar los falsos positivos.
+
 \subparagraph{Curva de Exhaustividad vs Confianza (\textit{Recall Curve vs Confidence})}
 
 \begin{figure}[H]
@@ -457,19 +468,23 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la 
     \label{fig:4.3-R_curve_DINO_R50_4scale}
 \end{figure}
 
+De acuerdo a la Figura \ref{fig:4.3-R_curve_DINO_R50_4scale}, la variante demuestra una excelente retención de características reales para casi todo el espectro, pero la tasa de recuperación de la clase \textit{Puncture} decrece de forma lineal y pronunciada conforme aumenta el rigor probabilístico.
 
 \subparagraph{Matriz de confusión (\textit{Confusion Matrix})}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/confusion_matrix.png}
     \caption{Matriz de confusión de la variante DINO-R50-4scale (\textit{ResNet-50}).}
     \label{fig:4.3-conf_matrix_DINO_R50_4scale}
 \end{figure}
 
-
-
-
+La matriz de la Figura \ref{fig:4.3-conf_matrix_DINO_R50_4scale} evidencia una alta capacidad de aislamiento para defectos evidentes (\textit{Impact Damage} 0.95, \textit{Hole} 0.92, \textit{Wear} 0.92, \textit{Tear} 0.91). El principal vector de error recae en las detecciones omitidas para características difusas, donde un 19\% de las muestras reales de la clase \textit{Puncture} son erróneamente clasificadas como fondo (\textit{background}).
 
 \clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\section{Discusión general de resultados}
+

@@ -45,13 +45,13 @@
 \contentsline {figure}{\numberline {4.3.22}{\ignorespaces Curvas de Exhaustividad en función de la confianza de detección de la variante DETR-R50 (\textit {ResNet-50}).}}{67}{figure.caption.92}%
 \contentsline {figure}{\numberline {4.3.23}{\ignorespaces Matriz de confusión de la variante DETR-R50 (\textit {ResNet-50}).}}{68}{figure.caption.94}%
 \contentsline {figure}{\numberline {4.3.24}{\ignorespaces Pérdida vs época total de la validación en cada variante del modelo DINO. Falta por agregar la variante R50-5scale.}}{69}{figure.caption.96}%
-\contentsline {figure}{\numberline {4.3.25}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DETR. Falta por agregar la variante R50-5scale.}}{69}{figure.caption.98}%
+\contentsline {figure}{\numberline {4.3.25}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}}{70}{figure.caption.98}%
 \contentsline {figure}{\numberline {4.3.26}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}}{70}{figure.caption.99}%
-\contentsline {figure}{\numberline {4.3.27}{\ignorespaces F1-Score vs época para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}}{70}{figure.caption.101}%
-\contentsline {figure}{\numberline {4.3.28}{\ignorespaces Tradeoff de rendimiento entre todas las variantes del modelo DETR. Muestra el rendimiento map0.5-0.05 en función de la cantidad de GFlops de cómputo utilizado por la variante. Falta por agregar la variante R50-5scale.}}{71}{figure.caption.103}%
-\contentsline {figure}{\numberline {4.3.29}{\ignorespaces Curvas de F1-Score en función de la confianza de detección de la variante DINO-R50-4scale (\textit {ResNet-50}).}}{71}{figure.caption.106}%
-\contentsline {figure}{\numberline {4.3.30}{\ignorespaces Curvas de Precision en función de la confianza de detección de la variante DINO-R50-4scale (\textit {ResNet-50}).}}{72}{figure.caption.108}%
-\contentsline {figure}{\numberline {4.3.31}{\ignorespaces Curvas de Exhaustividad en función de la confianza de detección de la variante DINO-R50-4scale (\textit {ResNet-50}).}}{72}{figure.caption.110}%
-\contentsline {figure}{\numberline {4.3.32}{\ignorespaces Matriz de confusión de la variante DINO-R50-4scale (\textit {ResNet-50}).}}{73}{figure.caption.112}%
+\contentsline {figure}{\numberline {4.3.27}{\ignorespaces F1-Score vs época para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}}{71}{figure.caption.101}%
+\contentsline {figure}{\numberline {4.3.28}{\ignorespaces Tradeoff de rendimiento entre todas las variantes del modelo DINO. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante. Falta por agregar la variante R50-5scale.}}{72}{figure.caption.103}%
+\contentsline {figure}{\numberline {4.3.29}{\ignorespaces Curvas de F1-Score en función de la confianza de detección de la variante DINO-R50-4scale (\textit {ResNet-50}).}}{73}{figure.caption.106}%
+\contentsline {figure}{\numberline {4.3.30}{\ignorespaces Curvas de Precision en función de la confianza de detección de la variante DINO-R50-4scale (\textit {ResNet-50}).}}{74}{figure.caption.108}%
+\contentsline {figure}{\numberline {4.3.31}{\ignorespaces Curvas de Exhaustividad en función de la confianza de detección de la variante DINO-R50-4scale (\textit {ResNet-50}).}}{75}{figure.caption.110}%
+\contentsline {figure}{\numberline {4.3.32}{\ignorespaces Matriz de confusión de la variante DINO-R50-4scale (\textit {ResNet-50}).}}{76}{figure.caption.112}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
