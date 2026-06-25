@@ -1,7 +1,7 @@
 experiment:
-  variant: swin_l_4scale
-  run_name: dino_swin_l_4s_belt
-  save_dir: C:\Users\memorista\Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection\DINO\runs\swin_l_4scale\train\dino_swin_l_4s_belt
+  variant: swin_l
+  run_name: dino_swin_l_belt
+  save_dir: C:\Users\memorista\Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection\DINO\runs\swin_l\train\dino_swin_l_belt
   device: cuda
   use_coco128: false
 training:
@@ -72,7 +72,7 @@ architecture:
   use_checkpoint: true
   enc_n_points: 2
   dec_n_points: 2
-  description: DINO con backbone Swin-L y 4 escalas (State-of-the-Art).
+  description: DINO con backbone Swin_L (State-of-the-Art).
   backbone: swin_L_384_22k
   dilation: false
   num_feature_levels: 4
