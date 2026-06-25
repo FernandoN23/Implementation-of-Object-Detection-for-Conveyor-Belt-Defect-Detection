@@ -90,19 +90,31 @@
 \contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{60}{section*.75}%
 \contentsline {subsection}{\numberline {4.3.3}DETR (\textit {DEtection TRansformer})}{61}{subsection.4.3.3}%
 \contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{61}{section*.77}%
-\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{61}{section*.79}%
-\contentsline {paragraph}{F1-Score vs Época}{62}{section*.82}%
-\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{63}{section*.84}%
-\contentsline {paragraph}{Resultados específicos mejor variante (\textit {DETR\_R50})}{63}{section*.86}%
-\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{63}{section*.87}%
-\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{64}{section*.89}%
-\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{64}{section*.91}%
-\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{65}{section*.93}%
-\contentsline {subsection}{\numberline {4.3.4}DINO (\textit {DETR with Improved DeNoising Anchor Boxes})}{66}{subsection.4.3.4}%
-\contentsline {chapter}{\numberline {5}Conclusiones}{67}{chapter.5}%
-\contentsline {chapter}{Bibliografía}{68}{chapter*.95}%
-\contentsline {chapter}{\numberline {6}Anexos}{70}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{71}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Resultados Finales}{74}{section.6.2}%
-\contentsline {subsection}{\numberline {6.2.1}Resultados finales y mejores YOLOv5}{74}{subsection.6.2.1}%
-\contentsline {subsection}{\numberline {6.2.2}Resultados finales y mejores SSD}{75}{subsection.6.2.2}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{62}{section*.79}%
+\contentsline {paragraph}{F1-Score vs Época}{63}{section*.82}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{64}{section*.84}%
+\contentsline {paragraph}{Resultados específicos mejor variante (\textit {DETR\_R50})}{64}{section*.86}%
+\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{65}{section*.87}%
+\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{66}{section*.89}%
+\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{67}{section*.91}%
+\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{68}{section*.93}%
+\contentsline {subsection}{\numberline {4.3.4}DINO (\textit {DETR with Improved DeNoising Anchor Boxes})}{69}{subsection.4.3.4}%
+\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{69}{section*.95}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{69}{section*.97}%
+\contentsline {paragraph}{F1-Score vs Época}{70}{section*.100}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{71}{section*.102}%
+\contentsline {paragraph}{Resultados específicos mejor variante (\textit {DINO\_R50\_4scale})}{71}{section*.104}%
+\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{71}{section*.105}%
+\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{72}{section*.107}%
+\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{72}{section*.109}%
+\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{73}{section*.111}%
+\contentsline {chapter}{\numberline {5}Conclusiones}{74}{chapter.5}%
+\contentsline {chapter}{Bibliografía}{75}{chapter*.113}%
+\contentsline {chapter}{\numberline {6}Anexos}{77}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{77}{section.6.1}%
+\contentsline {subsection}{\numberline {6.1.1}Hiperparámetros Modelos One-Stage}{78}{subsection.6.1.1}%
+\contentsline {subsection}{\numberline {6.1.2}Hiperparámetros Modelos Transformers}{80}{subsection.6.1.2}%
+\contentsline {section}{\numberline {6.2}Resultados Finales}{81}{section.6.2}%
+\contentsline {subsection}{\numberline {6.2.1}Resultados finales y mejores YOLOv5}{81}{subsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.2.2}Resultados finales y mejores SSD}{82}{subsection.6.2.2}%
+\contentsline {subsection}{\numberline {6.2.3}Resultados finales y mejores DETR}{82}{subsection.6.2.3}%

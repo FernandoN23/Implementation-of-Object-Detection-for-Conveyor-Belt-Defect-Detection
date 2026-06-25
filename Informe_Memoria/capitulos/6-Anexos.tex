@@ -2,6 +2,7 @@
 
 \section{Tablas de Hiperparámetros}
 
+\subsection{Hiperparámetros Modelos One-Stage}
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}
@@ -114,6 +115,7 @@
     \label{tab:6.1-hiperparametros-ssd}
 \end{table}
 
+\subsection{Hiperparámetros Modelos Transformers}
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de DETR.}
@@ -247,4 +249,27 @@
     \end{tabular}%
     }
     \label{tab:6.2-summary-ssd-exact}
+\end{table}
+
+\subsection{Resultados finales y mejores DETR}
+
+\begin{table}[H]
+    \centering
+    \caption{Resumen detallado de métricas de rendimiento, complejidad paramétrica y costo computacional para las variantes evaluadas de DETR.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{|l|c|c|c|c|c|}
+        \hline
+        \textbf{Variante} & \textbf{mAP@0.5} & \textbf{mAP@0.5:0.95} & \textbf{F1-Score} & \textbf{Parám. (M)} & \textbf{GFLOPs} \\
+        \hline
+        DETR-R50 & 0.8067 & 0.5033 & 0.6959 & 41.0 & 86.0 \\
+        \hline
+        DETR-R50-DC5 & 0.7784 & 0.4713 & 0.6845 & 41.0 & 187.0 \\
+        \hline
+        DETR-R101 & 0.7984 & 0.4914 & 0.6887 & 60.0 & 152.0 \\
+        \hline
+        DETR-R101-DC5 & 0.7960 & 0.4878 & 0.6922 & 60.0 & 253.0 \\
+        \hline
+    \end{tabular}%
+    }
+    \label{tab:6.2-summary-detr-exact}
 \end{table}

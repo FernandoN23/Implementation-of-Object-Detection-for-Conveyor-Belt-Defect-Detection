@@ -269,6 +269,8 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tend
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{DETR (\textit{DEtection TRansformer})}
 
+A continuación se muestran todos los resultados relevantes obtenidos para el modelo DETR y sus 4 variantes. Estos fueron obtenidos aplicando la metodología explicada en la Sección 3. Los mejores resultados se encuentran también adjuntos en Anexos 6.2, en la Tabla \ref{tab:6.2-summary-detr-exact}.
+
 \paragraph{Pérdida Total vs Época (\textit{Total Loss vs Epoch})}
 
 \begin{figure}[H]
@@ -278,6 +280,7 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tend
     \label{fig:4.3-Perdida_DETR}
 \end{figure}
 
+En la Figura \ref{fig:4.3-Perdida_DETR}, se aprecia un descenso drástico inicial seguido de una convergencia progresiva. Se evidencia un escalón de optimización pronunciado en la época 150, correspondiente al decaimiento programado de la tasa de aprendizaje (\textit{lr drop}). La variante base \textit{ResNet-50} (R50) logra estabilizarse en el nivel de pérdida más bajo, mientras que las arquitecturas que implementan convoluciones dilatadas (DC5) exhiben una mayor resistencia a minimizar el error residual.
 
 \paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
 
@@ -288,12 +291,16 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tend
     \label{fig:4.3-mAP0.5_DETR}
 \end{figure}
 
+A partir de la Figura \ref{fig:4.3-mAP0.5_DETR}, la escalada del rendimiento tras el ajuste del optimizador (época 150) es notoria. La variante estándar R50 domina la extracción de características alcanzando un pico de $0.8067$. Aumentar la profundidad del extractor a R101 no reporta beneficios ($0.7984$), y la inclusión de características de alta resolución (DC5) penaliza severamente el desempeño inicial y final.
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5_0.95.png}
     \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo DETR.}
     \label{fig:4.3-mAP0.5_0.95_DETR}
 \end{figure}
+
+Al analizar la Figura \ref{fig:4.3-mAP0.5_0.95_DETR} bajo un criterio de solapamiento estricto, la ventaja arquitectónica de la variante R50 se consolida, estableciendo el máximo global de la familia en $0.5033$. Las variaciones estructurales más complejas (R101 y DC5) fracasan en superar la barrera de $0.4920$, demostrando que la complejidad paramétrica en la etapa convolucional no se traduce directamente en una mejor asignación bipartita en el \textit{Transformer}.
 
 \paragraph{F1-Score vs Época}
 
@@ -304,20 +311,22 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tend
     \label{fig:4.3-f1_score_general_DETR}
 \end{figure}
 
+La curva de la Figura \ref{fig:4.3-f1_score_general_DETR} ratifica la tendencia global. El equilibrio óptimo entre precisión y exhaustividad se alcanza mediante la topología R50 con un F1-Score máximo de $0.6959$, manteniendo una ligera pero consistente superioridad sobre el resto de las configuraciones durante la fase asintótica del entrenamiento.
+
 \paragraph{Trade-off Performance vs Costo Computacional}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/Final_comparison/tradeoff_performance_gflops.png}
-    \caption{Tradeoff de rendimiento entre todas las variantes del modelo DETR. Muestra el rendimiento map0.5-0.05 en función de la cantidad de GFlops de cómputo utilizado por la variante.}
+    \caption{Tradeoff de rendimiento entre todas las variantes del modelo DETR. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante.}
     \label{fig:4.3-Tradeoff_Gflops_DETR}
 \end{figure}
 
+La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es categórica respecto a la ineficiencia del escalamiento horizontal en DETR. La variante R50 maximiza el rendimiento ($0.5033$ mAP) consumiendo únicamente $86.0$ GFLOPs. Por el contrario, la variante R101-DC5 dispara el costo a $253.0$ GFLOPs (un incremento de casi 300\%) resultando en una degradación empírica del rendimiento ($0.4878$ mAP), confirmando un régimen de saturación geométrica.
+
 \paragraph{Resultados específicos mejor variante (\textit{DETR\_R50})}
 
-
 \subparagraph{Curva de F1-Score vs Confianza}
-
 
 \begin{figure}[H]
     \centering
@@ -326,7 +335,7 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tend
     \label{fig:4.3-F1_curve_DETR_R50}
 \end{figure}
 
-
+Como se observa en la Figura \ref{fig:4.3-F1_curve_DETR_R50}, la métrica global del modelo alcanza su pico máximo bajo un umbral de confianza elevado. Las clases dominantes mantienen un desempeño aceptable, pero la dispersión en clases morfológicamente complejas arrastra la media asintótica de la red.
 
 \subparagraph{Curva de Precisión vs Confianza (\textit{Precision Curve vs Confidence})}
 
@@ -337,6 +346,8 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tend
     \label{fig:4.3-P_curve_DETR_R50}
 \end{figure}
 
+De acuerdo a la Figura \ref{fig:4.3-P_curve_DETR_R50}, la arquitectura de atención global requiere umbrales de confianza cercanos a $1.0$ para purgar la totalidad de los falsos positivos. Se evidencia una varianza considerable en las predicciones marginales antes de alcanzar la convergencia de asertividad.
+
 \subparagraph{Curva de Exhaustividad vs Confianza (\textit{Recall Curve vs Confidence})}
 
 \begin{figure}[H]
@@ -346,6 +357,7 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tend
     \label{fig:4.3-R_curve_DETR_R50}
 \end{figure}
 
+En la Figura \ref{fig:4.3-R_curve_DETR_R50}, el modelo evidencia una retención sólida de verdaderos positivos en umbrales bajos e intermedios, sin embargo, la tasa de recuperación colapsa precipitadamente para ciertas clases al someter la predicción a filtros de alta exigencia probabilística.
 
 \subparagraph{Matriz de confusión (\textit{Confusion Matrix})}
 
@@ -356,20 +368,104 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tend
     \label{fig:4.3-conf_matrix_DETR_R50}
 \end{figure}
 
-
-
-
-
-
+La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la distribución del error en la fase de inferencia. La diagonal principal concentra el grueso de las clasificaciones correctas, no obstante, el vector de fondo (\textit{background}) capta una porción significativa de falsos negativos en defectos de menor escala, exponiendo las limitaciones de las consultas espaciales (\textit{object queries}) en áreas de baja resolución.
 
 
 
 
 \clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 \subsection{DINO (\textit{DETR with Improved DeNoising Anchor Boxes})}
 
 
+\paragraph{Pérdida Total vs Época (\textit{Total Loss vs Epoch})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/losses/compare_val_loss.png}
+    \caption{Pérdida vs época total de la validación en cada variante del modelo DINO. Falta por agregar la variante R50-5scale.}
+    \label{fig:4.3-Perdida_DINO}
+\end{figure}
+
+
+\paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/metrics/compare_mAP_0.5.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DETR. Falta por agregar la variante R50-5scale.}
+    \label{fig:4.3-mAP0.5_DINO}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/metrics/compare_mAP_0.5_0.95.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}
+    \label{fig:4.3-mAP0.5_0.95_DINO}
+\end{figure}
+
+\paragraph{F1-Score vs Época}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/metrics/compare_F1.png}
+    \caption{F1-Score vs época para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}
+    \label{fig:4.3-f1_score_general_DINO}
+\end{figure}
+
+\paragraph{Trade-off Performance vs Costo Computacional}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/tradeoff_performance_gflops.png}
+    \caption{Tradeoff de rendimiento entre todas las variantes del modelo DETR. Muestra el rendimiento map0.5-0.05 en función de la cantidad de GFlops de cómputo utilizado por la variante. Falta por agregar la variante R50-5scale.}
+    \label{fig:4.3-Tradeoff_Gflops_DINO}
+\end{figure}
+
+\paragraph{Resultados específicos mejor variante (\textit{DINO\_R50\_4scale})}
+
+
+\subparagraph{Curva de F1-Score vs Confianza}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/F1_curve.png}
+    \caption{Curvas de F1-Score en función de la confianza de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
+    \label{fig:4.3-F1_curve_DINO_R50_4scale}
+\end{figure}
+
+
+
+\subparagraph{Curva de Precisión vs Confianza (\textit{Precision Curve vs Confidence})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/P_curve.png}
+    \caption{Curvas de Precision en función de la confianza de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
+    \label{fig:4.3-P_curve_DINO_R50_4scale}
+\end{figure}
+
+\subparagraph{Curva de Exhaustividad vs Confianza (\textit{Recall Curve vs Confidence})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png}
+    \caption{Curvas de Exhaustividad en función de la confianza de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
+    \label{fig:4.3-R_curve_DINO_R50_4scale}
+\end{figure}
+
+
+\subparagraph{Matriz de confusión (\textit{Confusion Matrix})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png}
+    \caption{Matriz de confusión de la variante DINO-R50-4scale (\textit{ResNet-50}).}
+    \label{fig:4.3-conf_matrix_DINO_R50_4scale}
+\end{figure}
 
 
 
