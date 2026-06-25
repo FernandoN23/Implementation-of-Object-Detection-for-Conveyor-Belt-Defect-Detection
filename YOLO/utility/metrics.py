@@ -65,6 +65,10 @@ STANDARD_PALETTE = [
     "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
 ]
 
+# Colores para Train/Val (Modo Individual)
+COLOR_TRAIN = "#1f77b4"  # Azul
+COLOR_VAL = "#ff7f0e"  # Naranja
+
 
 # ---------------------------------------------------------------------------
 # Configuración
@@ -150,7 +154,7 @@ def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
 # ---------------------------------------------------------------------------
 
 def load_results_csv(path: Path) -> pd.DataFrame:
-    """Carga results.csv, limpia columnas y calcula F1-Score."""
+    """Carga results.csv, limpia columnas, calcula F1-Score y Total Loss."""
     if not path.is_file():
         return pd.DataFrame()
 
@@ -166,6 +170,15 @@ def load_results_csv(path: Path) -> pd.DataFrame:
         R = df[r_col]
         # F1 = 2 * (P * R) / (P + R), evitando división por cero
         df["metrics/F1"] = 2 * (P * R) / (P + R + 1e-16)
+
+    # Calcular Total Loss sumando las componentes (Box + Obj + Cls)
+    train_loss_cols = [c for c in df.columns if "train/" in c and "loss" in c]
+    val_loss_cols = [c for c in df.columns if "val/" in c and "loss" in c]
+
+    if train_loss_cols:
+        df["train/total_loss"] = df[train_loss_cols].sum(axis=1)
+    if val_loss_cols:
+        df["val/total_loss"] = df[val_loss_cols].sum(axis=1)
 
     return df
 
@@ -292,8 +305,9 @@ class MergeManager:
 
         print(f"[metrics.py] Generando gráficos en {output_dir}...")
 
-        # Columnas específicas de YOLOv5
+        # Columnas específicas de YOLOv5 (Añadida Total Loss)
         loss_types = {
+            "Total Loss (Val)": "val/total_loss",
             "Box Loss (Val)": "val/box_loss",
             "Objectness Loss (Val)": "val/obj_loss",
             "Classification Loss (Val)": "val/cls_loss"
@@ -437,33 +451,53 @@ class MergeManager:
 
 
 # ---------------------------------------------------------------------------
-# Plotting Individual (Legacy)
+# Plotting Individual
 # ---------------------------------------------------------------------------
 
-def compute_mean_loss(df: pd.DataFrame, split: str) -> Tuple[np.ndarray, np.ndarray]:
-    cols = [c for c in df.columns if split in c and "loss" in c]
-    if not cols: raise KeyError(f"No loss cols for {split}")
-    losses = df[cols].to_numpy(dtype=float)
-    return df.index.to_numpy(), losses.mean(axis=1)
+def plot_train_val_curve(
+        df: pd.DataFrame,
+        train_col: str,
+        val_col: str,
+        title: str,
+        ylabel: str,
+        out_path: Path,
+        smooth_factor: float = 0.6
+) -> None:
+    """
+    Genera un gráfico combinado de Train vs Val para una métrica específica.
+    """
+    if df.empty: return
 
+    # Buscar columnas exactas o que contengan el string
+    t_col = next((c for c in df.columns if train_col in c), None)
+    v_col = next((c for c in df.columns if val_col in c), None)
 
-def plot_loss_curves(cfg: MetricsConfig, hyp: Dict, ds: Dict, df: pd.DataFrame, out_dir: Path) -> None:
-    _ensure_dir(out_dir)
-    try:
-        epochs, loss_t = compute_mean_loss(df, "train")
-        plt.figure(figsize=(8, 5))
-        plt.plot(epochs, loss_t, label="Train")
-        try:
-            epochs_v, loss_v = compute_mean_loss(df, "val")
-            plt.plot(epochs_v, loss_v, label="Val")
-        except KeyError:
-            pass
-        plt.title(f"Loss Curves - {cfg.variant}")
-        plt.legend()
-        plt.savefig(out_dir / "loss_curves.png")
-        plt.close()
-    except KeyError:
-        pass
+    if not t_col and not v_col:
+        return
+
+    plt.figure(figsize=(10, 6))
+    epochs = df["epoch"] if "epoch" in df.columns else df.index
+
+    if t_col:
+        raw_train = df[t_col].values.astype(float)
+        smooth_train = smooth_signal(raw_train.tolist(), weight=smooth_factor)
+        plt.plot(epochs, raw_train, color=COLOR_TRAIN, alpha=0.2, linewidth=1)
+        plt.plot(epochs, smooth_train, label="Train", color=COLOR_TRAIN, alpha=1.0, linewidth=2.5)
+
+    if v_col:
+        raw_val = df[v_col].values.astype(float)
+        smooth_val = smooth_signal(raw_val.tolist(), weight=smooth_factor)
+        plt.plot(epochs, raw_val, color=COLOR_VAL, alpha=0.2, linewidth=1)
+        plt.plot(epochs, smooth_val, label="Validation", color=COLOR_VAL, alpha=1.0, linewidth=2.5)
+
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend(frameon=True, framealpha=0.9)
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close()
 
 
 def plot_map_curves(cfg: MetricsConfig, hyp: Dict, ds: Dict, df: pd.DataFrame, out_dir: Path) -> None:
@@ -518,7 +552,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             manager.run_comparison()
         return
 
-    # Lógica Individual (Legacy)
+    # Lógica Individual
     if not cfg.train_run:
         options = list_runs(METRICS_ROOT / cfg.task_model / cfg.variant / "train")
         if not options:
@@ -538,7 +572,23 @@ def main(argv: Optional[List[str]] = None) -> None:
     out_dir = cfg.final_metrics_dir
     _ensure_dir(out_dir)
 
-    plot_loss_curves(cfg, hyp, ds, df, out_dir / "losses")
+    losses_dir = out_dir / "losses"
+    _ensure_dir(losses_dir)
+
+    # Gráficos de Pérdidas (Train vs Val)
+    plot_train_val_curve(df, "train/total_loss", "val/total_loss", "Total Loss (Train vs Val)", "Loss",
+                         losses_dir / "loss_total_combined.png")
+    plot_train_val_curve(df, "train/box_loss", "val/box_loss", "Box Loss (Train vs Val)", "Loss",
+                         losses_dir / "loss_box_combined.png")
+    plot_train_val_curve(df, "train/obj_loss", "val/obj_loss", "Objectness Loss (Train vs Val)", "Loss",
+                         losses_dir / "loss_obj_combined.png")
+    plot_train_val_curve(df, "train/cls_loss", "val/cls_loss", "Classification Loss (Train vs Val)", "Loss",
+                         losses_dir / "loss_cls_combined.png")
+
+    # Gráfico "Resumen" en la raíz (Total Loss)
+    plot_train_val_curve(df, "train/total_loss", "val/total_loss", "Total Loss", "Loss", out_dir / "loss_combined.png")
+
+    # Gráfico de mAP
     plot_map_curves(cfg, hyp, ds, df, out_dir)
 
     summary = {"variant": cfg.variant, "train_run": cfg.train_run}
