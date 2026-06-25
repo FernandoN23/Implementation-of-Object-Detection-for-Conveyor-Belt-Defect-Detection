@@ -56,7 +56,7 @@
 \contentsline {section}{\numberline {2.7}Métricas}{31}{section.2.7}%
 \contentsline {subsection}{\numberline {2.7.1}Precisión, Exhaustividad y F-Score}{31}{subsection.2.7.1}%
 \contentsline {subsection}{\numberline {2.7.2}Intersección sobre la unión (IoU)}{32}{subsection.2.7.2}%
-\contentsline {subsection}{\numberline {2.7.3}Precisión promedio (Average Precision, AP) y precisión promedio media (mean Average Precision, mAP)}{33}{subsection.2.7.3}%
+\contentsline {subsection}{\numberline {2.7.3}Precisión promedio (Average Precision, AP) y precisión media promedio (mean Average Precision, mAP)}{33}{subsection.2.7.3}%
 \contentsline {subsection}{\numberline {2.7.4}Matriz de confusión (Confusion Matrix)}{34}{subsection.2.7.4}%
 \contentsline {chapter}{\numberline {3}Metodología}{35}{chapter.3}%
 \contentsline {section}{\numberline {3.1}Identificación de fallas}{35}{section.3.1}%
@@ -72,12 +72,37 @@
 \contentsline {chapter}{\numberline {4}Resultados y Discusión}{46}{chapter.4}%
 \contentsline {section}{\numberline {4.1}Base de datos implementada}{46}{section.4.1}%
 \contentsline {section}{\numberline {4.2}Tiempos y rendimiento del entrenamiento}{48}{section.4.2}%
-\contentsline {section}{\numberline {4.3}Métricas modelos de una sola etapa}{49}{section.4.3}%
+\contentsline {section}{\numberline {4.3}Métricas modelos de una sola etapa (\textit {One-Stage})}{49}{section.4.3}%
 \contentsline {subsection}{\numberline {4.3.1}YOLOv5 (\textit {You Only Look Once})}{49}{subsection.4.3.1}%
-\contentsline {subsection}{\numberline {4.3.2}SSD (\textit {Single Shot Multibox Detector})}{50}{subsection.4.3.2}%
-\contentsline {subsection}{\numberline {4.3.3}DETR (\textit {DEtection TRansformer})}{51}{subsection.4.3.3}%
-\contentsline {subsection}{\numberline {4.3.4}DINO (\textit {DETR with Improved DeNoising Anchor Boxes})}{52}{subsection.4.3.4}%
-\contentsline {chapter}{\numberline {5}Conclusiones}{53}{chapter.5}%
-\contentsline {chapter}{Bibliografía}{54}{chapter*.51}%
-\contentsline {chapter}{\numberline {6}Anexos}{56}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{57}{section.6.1}%
+\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{49}{section*.50}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{50}{section*.52}%
+\contentsline {paragraph}{F1-Score vs Época}{51}{section*.55}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{52}{section*.57}%
+\contentsline {subsection}{\numberline {4.3.2}SSD (\textit {Single Shot Multibox Detector})}{53}{subsection.4.3.2}%
+\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{53}{section*.59}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{54}{section*.61}%
+\contentsline {paragraph}{F1-Score vs Época}{55}{section*.64}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{56}{section*.66}%
+\contentsline {paragraph}{Resultados específicos mejor variante (\textit {SSD512})}{56}{section*.68}%
+\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{57}{section*.69}%
+\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{58}{section*.71}%
+\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{59}{section*.73}%
+\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{60}{section*.75}%
+\contentsline {subsection}{\numberline {4.3.3}DETR (\textit {DEtection TRansformer})}{61}{subsection.4.3.3}%
+\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{61}{section*.77}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{61}{section*.79}%
+\contentsline {paragraph}{F1-Score vs Época}{62}{section*.82}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{63}{section*.84}%
+\contentsline {paragraph}{Resultados específicos mejor variante (\textit {DETR\_R50})}{63}{section*.86}%
+\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{63}{section*.87}%
+\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{64}{section*.89}%
+\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{64}{section*.91}%
+\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{65}{section*.93}%
+\contentsline {subsection}{\numberline {4.3.4}DINO (\textit {DETR with Improved DeNoising Anchor Boxes})}{66}{subsection.4.3.4}%
+\contentsline {chapter}{\numberline {5}Conclusiones}{67}{chapter.5}%
+\contentsline {chapter}{Bibliografía}{68}{chapter*.95}%
+\contentsline {chapter}{\numberline {6}Anexos}{70}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{71}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Resultados Finales}{74}{section.6.2}%
+\contentsline {subsection}{\numberline {6.2.1}Resultados finales y mejores YOLOv5}{74}{subsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.2.2}Resultados finales y mejores SSD}{75}{subsection.6.2.2}%

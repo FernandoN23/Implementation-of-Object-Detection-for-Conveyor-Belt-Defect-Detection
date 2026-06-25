@@ -21,6 +21,28 @@
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {4.1.1}{\ignorespaces Distribución de frecuencia de las clases de fallas a través de las particiones del conjunto de datos.}}{47}{figure.caption.47}%
 \contentsline {figure}{\numberline {4.1.2}{\ignorespaces Composición detallada de las particiones del conjunto de datos, diferenciando entre imágenes con objetos y casos de fondo.}}{47}{figure.caption.48}%
-\contentsline {figure}{\numberline {4.3.1}{\ignorespaces Descripción de la figura}}{49}{figure.caption.50}%
+\contentsline {figure}{\numberline {4.3.1}{\ignorespaces Pérdida vs época total de la validación en cada variante del modelo YOLOv5.}}{49}{figure.caption.51}%
+\contentsline {figure}{\numberline {4.3.2}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo YOLOv5.}}{50}{figure.caption.53}%
+\contentsline {figure}{\numberline {4.3.3}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo YOLOv5.}}{50}{figure.caption.54}%
+\contentsline {figure}{\numberline {4.3.4}{\ignorespaces F1-Score vs época para todas las variantes del modelo YOLOv5.}}{51}{figure.caption.56}%
+\contentsline {figure}{\numberline {4.3.5}{\ignorespaces Trade-off de rendimiento entre todas las variantes del modelo YOLOv5. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante.}}{52}{figure.caption.58}%
+\contentsline {figure}{\numberline {4.3.6}{\ignorespaces Pérdida vs época total de la validación en cada variante del modelo SSD.}}{53}{figure.caption.60}%
+\contentsline {figure}{\numberline {4.3.7}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo SSD.}}{54}{figure.caption.62}%
+\contentsline {figure}{\numberline {4.3.8}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo SSD.}}{54}{figure.caption.63}%
+\contentsline {figure}{\numberline {4.3.9}{\ignorespaces F1-Score vs época para todas las variantes del modelo SSD.}}{55}{figure.caption.65}%
+\contentsline {figure}{\numberline {4.3.10}{\ignorespaces Tradeoff de rendimiento entre todas las variantes del modelo SSD. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante.}}{56}{figure.caption.67}%
+\contentsline {figure}{\numberline {4.3.11}{\ignorespaces Curvas de F1-Score en función de la confianza de detección de la variante SSD512.}}{57}{figure.caption.70}%
+\contentsline {figure}{\numberline {4.3.12}{\ignorespaces Curvas de Precision en función de la confianza de detección de la variante SSD512.}}{58}{figure.caption.72}%
+\contentsline {figure}{\numberline {4.3.13}{\ignorespaces Curvas de Exhaustividad en función de la confianza de detección de la variante SSD512.}}{59}{figure.caption.74}%
+\contentsline {figure}{\numberline {4.3.14}{\ignorespaces Matriz de confusión de la variante SSD512.}}{60}{figure.caption.76}%
+\contentsline {figure}{\numberline {4.3.15}{\ignorespaces Pérdida vs época total de la validación en cada variante del modelo DETR.}}{61}{figure.caption.78}%
+\contentsline {figure}{\numberline {4.3.16}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DETR.}}{61}{figure.caption.80}%
+\contentsline {figure}{\numberline {4.3.17}{\ignorespaces Precisión Media Promedio (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo DETR.}}{62}{figure.caption.81}%
+\contentsline {figure}{\numberline {4.3.18}{\ignorespaces F1-Score vs época para todas las variantes del modelo DETR.}}{62}{figure.caption.83}%
+\contentsline {figure}{\numberline {4.3.19}{\ignorespaces Tradeoff de rendimiento entre todas las variantes del modelo DETR. Muestra el rendimiento map0.5-0.05 en función de la cantidad de GFlops de cómputo utilizado por la variante.}}{63}{figure.caption.85}%
+\contentsline {figure}{\numberline {4.3.20}{\ignorespaces Curvas de F1-Score en función de la confianza de detección de la variante DETR-R50 (\textit {ResNet-50}).}}{63}{figure.caption.88}%
+\contentsline {figure}{\numberline {4.3.21}{\ignorespaces Curvas de Precision en función de la confianza de detección de la variante DETR-R50 (\textit {ResNet-50}).}}{64}{figure.caption.90}%
+\contentsline {figure}{\numberline {4.3.22}{\ignorespaces Curvas de Exhaustividad en función de la confianza de detección de la variante DETR-R50 (\textit {ResNet-50}).}}{64}{figure.caption.92}%
+\contentsline {figure}{\numberline {4.3.23}{\ignorespaces Matriz de confusión de la variante DETR-R50 (\textit {ResNet-50}).}}{65}{figure.caption.94}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }

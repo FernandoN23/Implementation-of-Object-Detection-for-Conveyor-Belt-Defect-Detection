@@ -201,3 +201,50 @@
     \end{tabular}
     \label{tab:6.1-hiperparametros-dino}
 \end{table}
+
+
+
+\section{Resultados Finales}
+
+\subsection{Resultados finales y mejores YOLOv5}
+\begin{table}[H]
+    \centering
+    \caption{Resumen detallado de métricas de rendimiento, complejidad paramétrica y costo computacional para las variantes evaluadas de YOLOv5.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{|l|c|c|c|c|c|}
+        \hline
+        \textbf{Variante} & \textbf{mAP@0.5} & \textbf{mAP@0.5:0.95} & \textbf{F1-Score} & \textbf{Parám. (M)} & \textbf{GFLOPs} \\
+        \hline
+        YOLOv5-n & 0.8735 & 0.5089 & 0.8744 & 1.9 & 4.2 \\
+        \hline
+        YOLOv5-s & 0.8978 & 0.5517 & 0.8897 & 7.2 & 15.8 \\
+        \hline
+        YOLOv5-m & 0.8984 & 0.5480 & 0.8937 & 21.2 & 48.0 \\
+        \hline
+        YOLOv5-l & 0.8958 & 0.5359 & 0.8937 & 46.5 & 108.3 \\
+        \hline
+        YOLOv5-x & 0.9012 & 0.5435 & 0.8910 & 86.7 & 204.7 \\
+        \hline
+    \end{tabular}%
+    }
+    \label{tab:6.2-summary-yolov5-exact}
+\end{table}
+
+\subsection{Resultados finales y mejores SSD}
+
+\begin{table}[H]
+    \centering
+    \caption{Resumen detallado de métricas de rendimiento, complejidad paramétrica y costo computacional para las variantes evaluadas de SSD.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{|l|c|c|c|c|c|}
+        \hline
+        \textbf{Variante} & \textbf{mAP@0.5} & \textbf{mAP@0.5:0.95} & \textbf{F1-Score} & \textbf{Parám. (M)} & \textbf{GFLOPs} \\
+        \hline
+        SSD300 & 0.6856 & 0.3995 & 0.6954 & 26.3 & 31.4 \\
+        \hline
+        SSD512 & 0.7394 & 0.4277 & 0.7424 & 27.1 & 90.8 \\
+        \hline
+    \end{tabular}%
+    }
+    \label{tab:6.2-summary-ssd-exact}
+\end{table}

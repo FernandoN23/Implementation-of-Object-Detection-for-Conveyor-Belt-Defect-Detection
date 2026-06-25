@@ -95,37 +95,171 @@ A partir de los resultados expuestos en la Tabla \ref{tab:4.2-tiempos-entrenamie
 
 
 \clearpage
-\section{Métricas modelos de una sola etapa}
+\section{Métricas modelos de una sola etapa (\textit{One-Stage})}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{YOLOv5 (\textit{You Only Look Once})}
 
+A continuación se muestran todos los resultados relevantes obtenidos para el modelo YOLOv5 y sus 5 variantes. Estos fueron obtenidos aplicando la metodología explicada en la Sección 3. Los mejores resultados se encuentran también adjuntos en Anexos 6.2, en la Tabla \ref{tab:6.2-summary-yolov5-exact}.
+
+\paragraph{Pérdida Total vs Época (\textit{Total Loss vs Epoch})}
+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png}
-    \caption{Descripción de la figura}
-    \label{fig:etiqueta}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/Final_comparison/losses/compare_val_total_loss.png}
+    \caption{Pérdida vs época total de la validación en cada variante del modelo YOLOv5.}
+    \label{fig:4.3-Perdida_YOLO}
 \end{figure}
 
+En la Figura \ref{fig:4.3-Perdida_YOLO}, la gráfica evidencia una convergencia estable para todas las variantes antes de la época 150. La variante \textit{nano} (n) converge hacia la mayor pérdida final de validación. Por el contrario, la variante \textit{small} (s) se destaca al alcanzar y sostener uno de los mínimos globales más competitivos frente a las variantes geométrica y paramétricamente más densas (\textit{m, l, x}), las cuales muestran ligeros indicios de estancamiento.
 
+\paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo YOLOv5.}
+    \label{fig:4.3-mAP0.5_YOLO}
+\end{figure}
 
+A partir de la Figura \ref{fig:4.3-mAP0.5_YOLO}, se observa un ascenso abrupto de la métrica durante las primeras 50 épocas. La variante \textit{nano} exhibe un rezago evidente, estabilizándose en un techo de $0.8735$. El resto de las arquitecturas se agrupan asintóticamente en el límite superior, donde las variantes \textit{small} ($0.8978$) y \textit{medium} ($0.8984$) logran igualar el desempeño de la variante más densa \textit{extra large}, la cual establece el máximo absoluto en $0.9012$, sin diferencias numéricas significativas que justifiquen, a priori, el uso de las versiones más pesadas bajo este criterio.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5_0.95.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo YOLOv5.}
+    \label{fig:4.3-mAP0.5_0.95_YOLO}
+\end{figure}
 
+Al analizar la Figura \ref{fig:4.3-mAP0.5_0.95_YOLO} bajo este umbral métrico más estricto, la separación arquitectónica es más pronunciada. Notablemente, la variante \textit{small} (s) escala de manera continua a lo largo del entrenamiento, logrando superar el rendimiento final de las variantes \textit{large} ($0.5359$) y \textit{extra-large} ($0.5435$) hacia la época 300, consolidando el máximo óptimo de la familia en $0.5517$.
 
+\paragraph{F1-Score vs Época}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_F1.png}
+    \caption{F1-Score vs época para todas las variantes del modelo YOLOv5.}
+    \label{fig:4.3-f1_score_general_YOLO}
+\end{figure}
 
+La curva de la Figura \ref{fig:4.3-f1_score_general_YOLO} muestra el comportamiento armónico entre precisión y exhaustividad, confirmando el límite de capacidad de la variante \textit{nano} ($0.8744$). Las variantes \textit{s, m, l} y \textit{x} operan con rendimientos ajustados dentro de un estrecho margen, alcanzando el cénit de la métrica en la variante \textit{medium} con un F1-Score de $0.8937$.
 
+\paragraph{Trade-off Performance vs Costo Computacional}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png}
+    \caption{Trade-off de rendimiento entre todas las variantes del modelo YOLOv5. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante.}
+    \label{fig:4.3-Tradeoff_Gflops_YOLO}
+\end{figure}
 
-
+La Figura \ref{fig:4.3-Tradeoff_Gflops_YOLO} determina gráficamente la viabilidad operativa de los modelos. En ella, la variante \textit{small} (s) destaca al maximizar la eficiencia con una métrica mAP@0.5:0.95 de $0.5517$ requiriendo un costo computacional marginal de solo $15.8$ GFLOPs y $7.2$M de parámetros. Escalar la red hacia la variante \textit{extra large} (x) implica multiplicar drásticamente la carga de procesamiento matricial a $204.7$ GFLOPs y $86.7$M de parámetros, resultando en una pérdida neta de rendimiento ($0.5435$ mAP), lo que evidencia un claro escenario de rendimientos decrecientes y saturación paramétrica.
 
 \clearpage
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{SSD (\textit{Single Shot Multibox Detector})}
 
+A continuación se muestran todos los resultados relevantes obtenidos para el modelo SSD y sus 2 variantes. Estos fueron obtenidos aplicando la metodología explicada en la Sección 3. Los mejores resultados se encuentran también adjuntos en Anexos 6.2, en la Tabla \ref{tab:6.2-summary-ssd-exact}.
 
+\paragraph{Pérdida Total vs Época (\textit{Total Loss vs Epoch})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/Final_comparison/losses/compare_val_loss_total.png}
+    \caption{Pérdida vs época total de la validación en cada variante del modelo SSD.}
+    \label{fig:4.3-Perdida_SSD}
+\end{figure}
+
+En la Figura \ref{fig:4.3-Perdida_SSD}, se observa una convergencia estable y acoplada para ambas arquitecturas. Se distingue un escalón descendente pronunciado cercano a la época 150, atribuible al decaimiento programado de la tasa de aprendizaje (\textit{learning rate step}). La variante de mayor resolución (SSD512) logra mantener una pérdida de validación marginalmente inferior durante todo el proceso.
+
+\paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo SSD.}
+    \label{fig:4.3-mAP0.5_SSD}
+\end{figure}
+
+A partir de la Figura \ref{fig:4.3-mAP0.5_SSD}, es evidente la superioridad extractiva de la resolución ampliada. Tras el reajuste del optimizador en la época 150, SSD512 se despega definitivamente, estableciendo un máximo de $0.7394$, mientras que SSD300 se estanca prematuramente en un techo de $0.6856$.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5_0.95.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo SSD.}
+    \label{fig:4.3-mAP0.5_0.95_SSD}
+\end{figure}
+
+Bajo el rigor del umbral IoU estricto presentado en la Figura \ref{fig:4.3-mAP0.5_0.95_SSD}, el patrón de dominancia se repite. La variante SSD512 alcanza un óptimo absoluto de $0.4277$, superando de forma constante el límite de $0.3995$ impuesto por las restricciones espaciales de la variante SSD300.
+
+\paragraph{F1-Score vs Época}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_F1.png}
+    \caption{F1-Score vs época para todas las variantes del modelo SSD.}
+    \label{fig:4.3-f1_score_general_SSD}
+\end{figure}
+
+La curva de la Figura \ref{fig:4.3-f1_score_general_SSD} confirma el equilibrio superior de la red trabajando a mayor resolución. SSD512 logra un balance armónico entre precisión y exhaustividad con un máximo de $0.7424$, manteniendo una brecha visible y constante respecto al $0.6954$ obtenido por SSD300.
+
+\paragraph{Trade-off Performance vs Costo Computacional}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/Final_comparison/tradeoff_performance_gflops.png}
+    \caption{Tradeoff de rendimiento entre todas las variantes del modelo SSD. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante.}
+    \label{fig:4.3-Tradeoff_Gflops_SSD}
+\end{figure}
+
+La Figura \ref{fig:4.3-Tradeoff_Gflops_SSD} ilustra el costo físico del incremento de rendimiento. Aunque la carga paramétrica es virtualmente idéntica ($26.3$M frente a $27.1$M), procesar tensores de $512\times512$ exige triplicar la carga convolucional, elevando el costo computacional de $31.4$ GFLOPs (SSD300) a $90.8$ GFLOPs (SSD512) para asegurar el salto en precisión.
+
+\paragraph{Resultados específicos mejor variante (\textit{SSD512})}
+
+\subparagraph{Curva de F1-Score vs Confianza}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/F1_curve.png}
+    \caption{Curvas de F1-Score en función de la confianza de detección de la variante SSD512.}
+    \label{fig:4.3-F1_curve_SSD}
+\end{figure}
+
+Como se observa en la Figura \ref{fig:4.3-F1_curve_SSD}, el modelo global alcanza su máximo (0.74) bajo un umbral de confianza ligeramente exigente (0.551). Existe una notoria disparidad por clase: las fallas prominentes dominan la eficiencia superior, mientras que la clase \textit{Puncture} arrastra la métrica global hacia abajo, exhibiendo un pico máximo deficiente cercano a 0.4.
+
+\subparagraph{Curva de Precisión vs Confianza (\textit{Precision Curve vs Confidence})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/P_curve.png}
+    \caption{Curvas de Precision en función de la confianza de detección de la variante SSD512.}
+    \label{fig:4.3-P_curve_SSD}
+\end{figure}
+
+De acuerdo a la Figura \ref{fig:4.3-P_curve_SSD}, la arquitectura experimenta severas dificultades para suprimir falsos positivos, requiriendo umbrales de confianza extremos ($>0.95$) para alcanzar el 100\% de asertividad global. La clase \textit{Puncture} exhibe una oscilación sumamente inestable a lo largo de toda la distribución.
+
+\subparagraph{Curva de Exhaustividad vs Confianza (\textit{Recall Curve vs Confidence})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/R_curve.png}
+    \caption{Curvas de Exhaustividad en función de la confianza de detección de la variante SSD512.}
+    \label{fig:4.3-R_curve_SSD}
+\end{figure}
+
+En la Figura \ref{fig:4.3-R_curve_SSD}, la degradación de la capacidad de recuperación es evidente. La red pierde tempranamente detecciones verdaderas al incrementar la exigencia, con la clase \textit{Puncture} desplomándose radicalmente a partir del umbral de confianza 0.4.
+
+\subparagraph{Matriz de confusión (\textit{Confusion Matrix})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/confusion_matrix.png}
+    \caption{Matriz de confusión de la variante SSD512.}
+    \label{fig:4.3-conf_matrix_SSD}
+\end{figure}
+
+La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tendencia: el modelo posee gran robustez para \textit{Wear} (0.98), \textit{Hole} (0.96), \textit{Impact Damage} (0.93) y \textit{Tear} (0.92). Sin embargo, falla drásticamente al segmentar características sutiles, con la clase \textit{Puncture} logrando apenas un 0.73, sufriendo un grave 25\% de error por falsos negativos absorbidos por la clase fondo (\textit{background}).
 
 
 
@@ -135,7 +269,92 @@ A partir de los resultados expuestos en la Tabla \ref{tab:4.2-tiempos-entrenamie
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{DETR (\textit{DEtection TRansformer})}
 
+\paragraph{Pérdida Total vs Época (\textit{Total Loss vs Epoch})}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/Final_comparison/losses/compare_val_loss.png}
+    \caption{Pérdida vs época total de la validación en cada variante del modelo DETR.}
+    \label{fig:4.3-Perdida_DETR}
+\end{figure}
+
+
+\paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DETR.}
+    \label{fig:4.3-mAP0.5_DETR}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5_0.95.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo DETR.}
+    \label{fig:4.3-mAP0.5_0.95_DETR}
+\end{figure}
+
+\paragraph{F1-Score vs Época}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_F1.png}
+    \caption{F1-Score vs época para todas las variantes del modelo DETR.}
+    \label{fig:4.3-f1_score_general_DETR}
+\end{figure}
+
+\paragraph{Trade-off Performance vs Costo Computacional}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/Final_comparison/tradeoff_performance_gflops.png}
+    \caption{Tradeoff de rendimiento entre todas las variantes del modelo DETR. Muestra el rendimiento map0.5-0.05 en función de la cantidad de GFlops de cómputo utilizado por la variante.}
+    \label{fig:4.3-Tradeoff_Gflops_DETR}
+\end{figure}
+
+\paragraph{Resultados específicos mejor variante (\textit{DETR\_R50})}
+
+
+\subparagraph{Curva de F1-Score vs Confianza}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/F1_curve.png}
+    \caption{Curvas de F1-Score en función de la confianza de detección de la variante DETR-R50 (\textit{ResNet-50}).}
+    \label{fig:4.3-F1_curve_DETR_R50}
+\end{figure}
+
+
+
+\subparagraph{Curva de Precisión vs Confianza (\textit{Precision Curve vs Confidence})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/P_curve.png}
+    \caption{Curvas de Precision en función de la confianza de detección de la variante DETR-R50 (\textit{ResNet-50}).}
+    \label{fig:4.3-P_curve_DETR_R50}
+\end{figure}
+
+\subparagraph{Curva de Exhaustividad vs Confianza (\textit{Recall Curve vs Confidence})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/R_curve.png}
+    \caption{Curvas de Exhaustividad en función de la confianza de detección de la variante DETR-R50 (\textit{ResNet-50}).}
+    \label{fig:4.3-R_curve_DETR_R50}
+\end{figure}
+
+
+\subparagraph{Matriz de confusión (\textit{Confusion Matrix})}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png}
+    \caption{Matriz de confusión de la variante DETR-R50 (\textit{ResNet-50}).}
+    \label{fig:4.3-conf_matrix_DETR_R50}
+\end{figure}
 
 
 
