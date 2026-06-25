@@ -45,16 +45,14 @@ METRICS_ROOT = DINO_ROOT / "metrics" / "detect"
 DINO_PARAMS_M = {
     "r50_4scale": 47.0,
     "r50_5scale": 47.0,
-    "swin_l_4scale": 218.0,
-    "swin_l_5scale": 218.0,
+    "swin_l": 218.0,
 }
 
 # GFLOPs extraídos de la literatura oficial de DINO y estimaciones técnicas
 DINO_GFLOPS = {
     "r50_4scale": 279.0,   # Dato oficial tabla DINO
     "r50_5scale": 860.0,   # Dato oficial tabla DINO
-    "swin_l_4scale": 1040.0, # Estimado (Swin-L base + 4-scale attention)
-    "swin_l_5scale": 1620.0, # Estimado (Swin-L base + 5-scale attention delta)
+    "swin_l": 1040.0, # Estimado (Swin-L base + 4-scale attention)
 }
 
 # Paleta estándar para asignar colores únicos por experimento (run)

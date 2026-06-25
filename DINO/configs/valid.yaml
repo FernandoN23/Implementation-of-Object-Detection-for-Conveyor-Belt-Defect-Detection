@@ -73,23 +73,15 @@ presets:
         weights: ""
         batch_size: 16
 
-  dino_swin_l_4scale_b2:
-    description: "Validación del modelo DINO Swin-L 4-Scale (batch 4) entrenado."
+  dino_swin_l_b2:
+    description: "Validación del modelo DINO Swin-L (batch 4) entrenado."
     overrides:
       validation:
-        variant: "swin_l_4scale"
-        run_name: "dino_swin_l_4s_belt"
+        variant: "swin_l"
+        run_name: "dino_swin_l_belt"
         weights: ""
         batch_size: 16
 
-  dino_swin_l_5scale_b2:
-    description: "Validación del modelo DINO Swin-L 5-Scale (batch 4) entrenado."
-    overrides:
-      validation:
-        variant: "swin_l_5scale"
-        run_name: "dino_swin_l_5s_belt"
-        weights: ""
-        batch_size: 16
   # ==========================================================
   # Presets de Validación de Pruebas (COCO)
   # ==========================================================

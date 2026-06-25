@@ -54,18 +54,10 @@ variants:
     return_interm_indices: [0, 1, 2, 3]
     <<: *shared_transformer
 
-  swin_l_4scale:
-    description: "DINO con backbone Swin-L y 4 escalas (State-of-the-Art)."
+  swin_l:
+    description: "DINO con backbone Swin-L (State-of-the-Art)."
     backbone: "swin_L_384_22k"
     dilation: false
     num_feature_levels: 4
     return_interm_indices: [1, 2, 3]
-    <<: *shared_transformer
-
-  swin_l_5scale:
-    description: "DINO con backbone Swin-L y 5 escalas (Máxima precisión y costo computacional)."
-    backbone: "swin_L_384_22k"
-    dilation: false
-    num_feature_levels: 5
-    return_interm_indices: [0, 1, 2, 3]
     <<: *shared_transformer

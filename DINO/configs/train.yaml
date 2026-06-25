@@ -108,26 +108,15 @@ presets:
         pretrain_weights: "DINO/weights/base/36epochs_R50_5scale.pth"
 
   dino_swin_l_4scale_b2:
-    description: "Entrenamiento DINO Swin-L 4-Scale (300 ep, batch 2)."
+    description: "Entrenamiento DINO Swin-L (300 ep, batch 2)."
     overrides:
       training:
-        variant: "swin_l_4scale"
-        run_name: "dino_swin_l_4s_belt"
+        variant: "swin_l"
+        run_name: "dino_swin_l_belt"
         epochs: 300
         batch_size: 2
         lr_drop: [150, 250]
-        pretrain_weights: "DINO/weights/base/36epochs_Swin_L_4scale.pth"
-
-  dino_swin_l_5scale_b2:
-    description: "Entrenamiento DINO Swin-L 5-Scale (300 ep, batch 2)."
-    overrides:
-      training:
-        variant: "swin_l_5scale"
-        run_name: "dino_swin_l_5s_belt"
-        epochs: 300
-        batch_size: 2
-        lr_drop: [ 150, 250 ]
-        pretrain_weights: "DINO/weights/base/36epochs_Swin_L_5scale.pth"
+        pretrain_weights: "DINO/weights/base/36epochs_Swin_L.pth"
 
   coco_r50_4scale_test:
     description: "Prueba rápida DINO R50 4-Scale en COCO (300 épocas)."
