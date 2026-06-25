@@ -71,24 +71,13 @@
 \contentsline {section}{\numberline {3.5}Implementación de modelos basados en Transformers (DETR y DINO)}{44}{section.3.5}%
 \contentsline {chapter}{\numberline {4}Resultados y Discusión}{46}{chapter.4}%
 \contentsline {section}{\numberline {4.1}Base de datos implementada}{46}{section.4.1}%
-\contentsline {section}{\numberline {4.2}Métricas modelos de una sola etapa}{48}{section.4.2}%
-\contentsline {subsection}{\numberline {4.2.1}YOLOv5}{48}{subsection.4.2.1}%
-\contentsline {subsubsection}{\numberline {4.2.1.1}Curva de pérdida vs época por componentes}{48}{subsubsection.4.2.1.1}%
-\contentsline {subsubsection}{\numberline {4.2.1.2}Curva de pérdida vs época promedio}{48}{subsubsection.4.2.1.2}%
-\contentsline {subsubsection}{\numberline {4.2.1.3}Precision y Recall}{48}{subsubsection.4.2.1.3}%
-\contentsline {subsubsection}{\numberline {4.2.1.4}F1-Score}{48}{subsubsection.4.2.1.4}%
-\contentsline {subsubsection}{\numberline {4.2.1.5}Precisión Promedio Media (mAP)}{48}{subsubsection.4.2.1.5}%
-\contentsline {subsubsection}{\numberline {4.2.1.6}Distribución de IoU}{48}{subsubsection.4.2.1.6}%
-\contentsline {subsubsection}{\numberline {4.2.1.7}Matriz de Confusión}{48}{subsubsection.4.2.1.7}%
-\contentsline {subsection}{\numberline {4.2.2}SSD}{49}{subsection.4.2.2}%
-\contentsline {subsubsection}{\numberline {4.2.2.1}Curva de pérdida vs época específicas}{49}{subsubsection.4.2.2.1}%
-\contentsline {subsubsection}{\numberline {4.2.2.2}Curva de pérdida vs época promedio}{49}{subsubsection.4.2.2.2}%
-\contentsline {subsubsection}{\numberline {4.2.2.3}Precision y Recall}{49}{subsubsection.4.2.2.3}%
-\contentsline {subsubsection}{\numberline {4.2.2.4}F1-Score}{49}{subsubsection.4.2.2.4}%
-\contentsline {subsubsection}{\numberline {4.2.2.5}Precisión Promedio Media (mAP)}{49}{subsubsection.4.2.2.5}%
-\contentsline {subsubsection}{\numberline {4.2.2.6}Distribución de IoU}{49}{subsubsection.4.2.2.6}%
-\contentsline {subsubsection}{\numberline {4.2.2.7}Matriz de Confusión}{49}{subsubsection.4.2.2.7}%
-\contentsline {chapter}{\numberline {5}Conclusiones}{50}{chapter.5}%
-\contentsline {chapter}{Bibliografía}{51}{chapter*.49}%
-\contentsline {chapter}{\numberline {6}Anexos}{53}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{54}{section.6.1}%
+\contentsline {section}{\numberline {4.2}Tiempos y rendimiento del entrenamiento}{48}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Métricas modelos de una sola etapa}{49}{section.4.3}%
+\contentsline {subsection}{\numberline {4.3.1}YOLOv5 (\textit {You Only Look Once})}{49}{subsection.4.3.1}%
+\contentsline {subsection}{\numberline {4.3.2}SSD (\textit {Single Shot Multibox Detector})}{50}{subsection.4.3.2}%
+\contentsline {subsection}{\numberline {4.3.3}DETR (\textit {DEtection TRansformer})}{51}{subsection.4.3.3}%
+\contentsline {subsection}{\numberline {4.3.4}DINO (\textit {DETR with Improved DeNoising Anchor Boxes})}{52}{subsection.4.3.4}%
+\contentsline {chapter}{\numberline {5}Conclusiones}{53}{chapter.5}%
+\contentsline {chapter}{Bibliografía}{54}{chapter*.51}%
+\contentsline {chapter}{\numberline {6}Anexos}{56}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{57}{section.6.1}%

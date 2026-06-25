@@ -46,79 +46,115 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\section{Tiempos y rendimiento del entrenamiento}
+
+A continuación, se presenta un consolidado analítico del rendimiento computacional extraído durante la fase de optimización. La Tabla \ref{tab:4.2-tiempos-entrenamiento} detalla la tasa de procesamiento por hora para cada variante arquitectónica y proyecta el tiempo total estimado para completar el régimen estandarizado de 300 épocas.\\
+
+\begin{table}[H]
+    \centering
+    \caption{Rendimiento computacional y estimación de tiempo total de entrenamiento (300 épocas) por variante.}
+    \begin{tabular}{|l|l|c|c|}
+        \hline
+        \textbf{Arquitectura} & \textbf{Variante} & \textbf{Rend. [épocas/h]} & \textbf{Tiempo Estimado [h]} \\
+        \hline
+        \multirow{5}{*}{YOLOv5} & Nano (n) & 80 & 3.75 \\
+        \cline{2-4}
+        & Small (s) & 65 & 4.62 \\
+        \cline{2-4}
+        & Medium (m) & 55 & 5.45 \\
+        \cline{2-4}
+        & Large (l) & 40 & 7.50 \\
+        \cline{2-4}
+        & Extra Large (x) & 25 & 12.00 \\
+        \hline
+        \multirow{2}{*}{SSD} & SSD300 & 36 & 8.33 \\
+        \cline{2-4}
+        & SSD512 & 15 & 20.00 \\
+        \hline
+        \multirow{4}{*}{DETR} & R50 & 22 & 13.64 \\
+        \cline{2-4}
+        & R50-DC5 & 18 & 16.67 \\
+        \cline{2-4}
+        & R101 & 12 & 25.00 \\
+        \cline{2-4}
+        & R101-DC5 & 7 & 42.86 \\
+        \hline
+        \multirow{3}{*}{DINO} & R50-4scale & 10 & 30.00 \\
+        \cline{2-4}
+        & R50-5scale & 1 & 300.00 \\
+        \cline{2-4}
+        & Swin\_L & 2 & 150.00 \\
+        \hline
+    \end{tabular}
+    \label{tab:4.2-tiempos-entrenamiento}
+\end{table}
+
+Cabe destacar que las estimaciones de tiempo total presentadas no obedecen a un comportamiento estrictamente lineal. Estos valores fueron extrapolados a partir de observaciones de rendimiento periódicas muestreadas durante ventanas de varias horas de ejecución. Esta escalada en los tiempos de procesamiento representa el comportamiento teóricamente esperado: la transición desde arquitecturas convolucionales livianas de una sola etapa (\textit{One-Stage}) hacia modelos basados en \textit{Transformers} demanda un incremento sustancial en el consumo secuencial de GFLOPs, inherente a la complejidad de los mecanismos de atención. \\
+
+A partir de los resultados expuestos en la Tabla \ref{tab:4.2-tiempos-entrenamiento}, se evidencia una degradación drástica en el rendimiento computacional al transitar desde las variantes de DETR hacia las de DINO. Esta caída se atribuye a la saturación de la memoria de video dedicada (VRAM), lo que forzó al hardware a recurrir a la memoria RAM compartida del sistema (mecanismo de paginación o \textit{swapping}). Este desbordamiento genera un cuello de botella crítico en el bus de transferencia (PCIe), ralentizando severamente la ejecución iterativa del entrenamiento en las arquitecturas paramétricamente más densas.
+
+
 \clearpage
 \section{Métricas modelos de una sola etapa}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{YOLOv5}
+\subsection{YOLOv5 (\textit{You Only Look Once})}
 
-\par En esta subsección, se exponen y discuten los resultados obtenidos tras el entrenamiento del modelo \textbf{YOLOv5} en su variante \textbf{s} (small), utilizando la configuración de hiperparámetros detallada previamente en la Tabla \ref{tab:3.3-hiperparametros-yolov5}.
-
-% Si alcanzamos, variante x (más pesada), para ver extremos entre velocidad-precision.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Curva de pérdida vs época por componentes}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Curva de pérdida vs época promedio}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Precision y Recall}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png}
+    \caption{Descripción de la figura}
+    \label{fig:etiqueta}
+\end{figure}
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{F1-Score}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Precisión Promedio Media (mAP)}
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Distribución de IoU}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Matriz de Confusión}
+
+
+
+
+
+
 
 
 
 \clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{SSD}
-
-\par A continuación, se presentan los resultados obtenidos para el modelo \textbf{SSD300}. Este modelo fue entrenado utilizando una resolución de entrada de $300\times300$ píxeles y la configuración de hiperparámetros detallada en la Tabla \ref{tab:3.4-hiperparametros-ssd}. El análisis se enfoca en evaluar la estabilidad del entrenamiento y la capacidad del detector para operar con mapas de características de menor resolución espacial en comparación con YOLOv5.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Curva de pérdida vs época específicas}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Curva de pérdida vs época promedio}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Precision y Recall}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{F1-Score}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Precisión Promedio Media (mAP)}
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Distribución de IoU}
+\subsection{SSD (\textit{Single Shot Multibox Detector})}
 
 
 
 
 
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Matriz de Confusión}
 
 \clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{DETR (\textit{DEtection TRansformer})}
+
+
+
+
+
+
+
+
+
+
+
+
+\clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{DINO (\textit{DETR with Improved DeNoising Anchor Boxes})}
+
+
+
+
+
+
+
+\clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
