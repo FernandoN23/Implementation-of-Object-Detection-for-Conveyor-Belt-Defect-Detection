@@ -12,6 +12,8 @@
 #              *Actualizado para soportar métricas CDN de DINO*
 #              *Actualizado con métricas estándar de Trade-off
 #               (GFLOPs/Params) alineadas con YOLO*
+#              *CORREGIDO: Curvas P y R ahora muestran clases
+#               individuales alineadas al estándar YOLO*
 # ==============================================================
 
 import os
@@ -50,16 +52,17 @@ DINO_PARAMS_M = {
 
 # GFLOPs extraídos de la literatura oficial de DINO y estimaciones técnicas
 DINO_GFLOPS = {
-    "r50_4scale": 279.0,   # Dato oficial tabla DINO
-    "r50_5scale": 860.0,   # Dato oficial tabla DINO
-    "swin_l": 1040.0, # Estimado (Swin-L base + 4-scale attention)
+    "r50_4scale": 279.0,  # Dato oficial tabla DINO
+    "r50_5scale": 860.0,  # Dato oficial tabla DINO
+    "swin_l": 1040.0,  # Estimado (Swin-L base + 4-scale attention)
 }
 
 # Paleta estándar para asignar colores únicos por experimento (run)
-STANDARD_PALETTE =[
+STANDARD_PALETTE = [
     "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
     "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
 ]
+
 
 # ---------------------------------------------------------------------------
 # Utilidades de Procesamiento
@@ -70,7 +73,7 @@ def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
     if series.isnull().all(): return scalars
     clean_scalars = series.tolist()
     last = clean_scalars[0]
-    smoothed =[]
+    smoothed = []
     for point in clean_scalars:
         smoothed_val = last * weight + (1 - weight) * point
         smoothed.append(smoothed_val)
@@ -81,7 +84,7 @@ def smooth_signal(scalars: List[float], weight: float = 0.6) -> List[float]:
 def load_results_csv(path: Path) -> pd.DataFrame:
     if not path.is_file(): return pd.DataFrame()
     df = pd.read_csv(path)
-    df.columns =[c.strip() for c in df.columns]
+    df.columns = [c.strip() for c in df.columns]
     return df
 
 
@@ -92,7 +95,7 @@ def load_results_csv(path: Path) -> pd.DataFrame:
 class MergeManager:
     def __init__(self):
         self.selected_runs: Dict[str, Tuple[str, pd.DataFrame]] = {}  # run_name -> (variant, df)
-        self.run_colors: Dict[str, str] = {} # run_name -> color hex
+        self.run_colors: Dict[str, str] = {}  # run_name -> color hex
         self.comparison_name = ""
         self.base_output_dir = METRICS_ROOT / "global_comparison"
 
@@ -329,8 +332,8 @@ def calculate_iou(box1, box2):
 def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5):
     nc = len(class_names)
     conf_levels = np.linspace(0, 1, 100)
-    curve_data = {c: {'p': [], 'r': [], 'f1':[]} for c in range(nc)}
-    all_ious =[]
+    curve_data = {c: {'p': [], 'r': [], 'f1': []} for c in range(nc)}
+    all_ious = []
     confusion_matrix = np.zeros((nc + 1, nc + 1))
 
     for p, g in zip(preds, gts):
@@ -360,7 +363,7 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
                 p_mask = (p['labels'] == c) & (p['scores'] >= conf)
                 g_mask = (g['labels'] == c)
                 curr_p_boxes, curr_g_boxes = p['boxes'][p_mask], g['boxes'][g_mask]
-                matched =[False] * len(curr_g_boxes)
+                matched = [False] * len(curr_g_boxes)
                 for pb in curr_p_boxes:
                     found = False
                     for idx, gb in enumerate(curr_g_boxes):
@@ -378,8 +381,10 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
             curve_data[c]['f1'].append(2 * prec * rec / (prec + rec + 1e-6))
 
     # --- Generación de Gráficos ---
+
+    # 1. F1-Confidence Curve
     plt.figure(figsize=(10, 7))
-    f1_all =[]
+    f1_all = []
     for c in range(nc):
         plt.plot(conf_levels, curve_data[c]['f1'], label=class_names[c], linewidth=1)
         f1_all.append(curve_data[c]['f1'])
@@ -393,9 +398,10 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left');
     plt.grid(True, linestyle='--', alpha=0.5);
     plt.tight_layout();
-    plt.savefig(save_dir / "F1_curve.png", dpi=200);
+    plt.savefig(save_dir / "F1_curve.png", dpi=200, bbox_inches='tight');
     plt.close()
 
+    # 2. Precision-Recall Curve
     plt.figure(figsize=(10, 7))
     for c in range(nc): plt.plot(curve_data[c]['r'], curve_data[c]['p'], label=class_names[c], linewidth=1)
     plt.title('Precision-Recall Curve');
@@ -404,31 +410,42 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left');
     plt.grid(True, linestyle='--', alpha=0.5);
     plt.tight_layout();
-    plt.savefig(save_dir / "PR_curve.png", dpi=200);
+    plt.savefig(save_dir / "PR_curve.png", dpi=200, bbox_inches='tight');
     plt.close()
 
+    # 3. Precision-Confidence Curve [CORREGIDO]
     plt.figure(figsize=(10, 7))
-    p_all = [curve_data[c]['p'] for c in range(nc)]
+    p_all = []
+    for c in range(nc):
+        plt.plot(conf_levels, curve_data[c]['p'], label=class_names[c], linewidth=1)
+        p_all.append(curve_data[c]['p'])
     plt.plot(conf_levels, np.mean(p_all, axis=0), color='blue', linewidth=3, label='all classes')
     plt.title('Precision-Confidence Curve');
     plt.xlabel('Confidence');
     plt.ylabel('Precision');
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left');
     plt.grid(True, linestyle='--', alpha=0.5);
     plt.tight_layout();
-    plt.savefig(save_dir / "P_curve.png", dpi=200);
+    plt.savefig(save_dir / "P_curve.png", dpi=200, bbox_inches='tight');
     plt.close()
 
+    # 4. Recall-Confidence Curve [CORREGIDO]
     plt.figure(figsize=(10, 7))
-    r_all = [curve_data[c]['r'] for c in range(nc)]
+    r_all = []
+    for c in range(nc):
+        plt.plot(conf_levels, curve_data[c]['r'], label=class_names[c], linewidth=1)
+        r_all.append(curve_data[c]['r'])
     plt.plot(conf_levels, np.mean(r_all, axis=0), color='blue', linewidth=3, label='all classes')
     plt.title('Recall-Confidence Curve');
     plt.xlabel('Confidence');
     plt.ylabel('Recall');
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left');
     plt.grid(True, linestyle='--', alpha=0.5);
     plt.tight_layout();
-    plt.savefig(save_dir / "R_curve.png", dpi=200);
+    plt.savefig(save_dir / "R_curve.png", dpi=200, bbox_inches='tight');
     plt.close()
 
+    # 5. Confusion Matrix
     plt.figure(figsize=(12, 9))
     sns.heatmap(confusion_matrix / (confusion_matrix.sum(axis=0) + 1e-6), annot=True, fmt='.2f', cmap='Blues',
                 xticklabels=class_names + ['background'], yticklabels=class_names + ['background'])
@@ -439,6 +456,7 @@ def plot_validation_report(preds, gts, class_names, save_dir, iou_threshold=0.5)
     plt.savefig(save_dir / "confusion_matrix.png", dpi=200);
     plt.close()
 
+    # 6. IoU Distribution
     plt.figure(figsize=(10, 6))
     plt.hist(all_ious, bins=20, color='cornflowerblue', edgecolor='black')
     plt.title('IoU Distribution');
