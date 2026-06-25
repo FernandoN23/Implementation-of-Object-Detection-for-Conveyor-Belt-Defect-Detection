@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-06-18 18:18:58",
+  "models": {
+    "dino_r50_4s_belt_mod (r50_4scale)": {
+      "variant": "r50_4scale",
+      "best_mAP_0.5": 0.8808815708690491,
+      "best_mAP_0.5_0.95": 0.5297699596819204,
+      "best_F1": 0.7550078769191048,
+      "params_M": 47.0,
+      "gflops": 279.0
+    },
+    "dino_swin_l_4s_belt (swin_l_4scale)": {
+      "variant": "swin_l_4scale",
+      "best_mAP_0.5": 0.8709795413466533,
+      "best_mAP_0.5_0.95": 0.5239560496700476,
+      "best_F1": 0.7554068254692986,
+      "params_M": 218.0,
+      "gflops": 1040.0
+    }
+  }
+}
