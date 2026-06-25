@@ -5,7 +5,7 @@
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}
-    \begin{tabular}{|c|c|c|}
+    \begin{tabular}{|c|c|l|}
         \hline
         \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre} \\
         \hline 
@@ -64,7 +64,7 @@
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de SSD300.}
-    \begin{tabular}{|c|c|c|}
+    \begin{tabular}{|c|c|l|}
         \hline
         \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre / Descripción} \\
         \hline
@@ -112,4 +112,92 @@
         \hline
     \end{tabular}
     \label{tab:6.1-hiperparametros-ssd}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros principales seleccionados para el entrenamiento de DETR.}
+    \begin{tabular}{|l|c|l|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre / Descripción} \\
+        \hline
+        $variant$ & \begin{tabular}{@{}c@{}} \textit{\{R50, R50-DC5,} \\ \textit{R101, R101-DC5\}} \end{tabular} & Variante del modelo \\
+        \hline
+        $epochs$ & 300 & Épocas totales de entrenamiento \\
+        \hline
+        $batch\_size$ & 4 & Tamaño de lote de entrenamiento \\
+        \hline
+        $lr$ & 0.0001 & Tasa de aprendizaje base \\
+        \hline
+        $lr\_backbone$ & 1.0e-05 & Tasa de aprendizaje del extractor \\
+        \hline
+        $lr\_drop\_epochs$ & $[150, 250]$ & Épocas para decaimiento por saltos \\
+        \hline
+        $weight\_decay$ & 0.0001 & Regularización $L_2$ global \\
+        \hline
+        $hidden\_dim$ & 256 & Dimensión del espacio latente \\
+        \hline
+        $nheads$ & 8 & Cantidad de cabezas de atención \\
+        \hline
+        \begin{tabular}{@{}l@{}} $enc\_layers$ / \\ $dec\_layers$ \end{tabular} & \begin{tabular}{@{}c@{}} 6 / \\ 6 \end{tabular} & \begin{tabular}{@{}l@{}} Capas operativas de \\ codificador y decodificador \end{tabular} \\
+        \hline
+        $num\_queries$ & 100 & Ranuras de predicción \\
+        \hline
+        $set\_cost\_class$ & 1.0 & Ponderador de clase en asignación \\
+        \hline
+        $set\_cost\_bbox$ & 5.0 & Ponderador distancia $L_1$ en asignación \\
+        \hline
+        $set\_cost\_giou$ & 2.0 & Ponderador GIoU en asignación \\
+        \hline
+        $bbox\_loss\_coef$ & 5.0 & Peso final para pérdida $L_1$ \\
+        \hline
+        $giou\_loss\_coef$ & 2.0 & Peso final para pérdida GIoU \\
+        \hline
+    \end{tabular}
+    \label{tab:6.1-hiperparametros-detr}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros principales seleccionados para el entrenamiento de DINO.}
+    \begin{tabular}{|l|c|l|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre / Descripción} \\
+        \hline
+        $variant$ & \begin{tabular}{@{}c@{}} \textit{\{R50-4scale, R50-5scale,} \\ \textit{Swin\_L\}} \end{tabular} & Variante del modelo \\
+        \hline
+        $epochs$ & 300 & Épocas totales de entrenamiento \\
+        \hline
+        $batch\_size$ & \begin{tabular}{@{}c@{}} 4 (R50-4scale) \\ 2 (R50-5scale, Swin\_L) \end{tabular} & Tamaño de lote de entrenamiento \\
+        \hline
+        $lr$ & 0.0001 & Tasa de aprendizaje base \\
+        \hline
+        $lr\_backbone$ & 1.0e-05 & Tasa de aprendizaje del extractor\\
+        \hline
+        $lr\_drop\_epochs$ & $[150, 250]$ & Épocas para decaimiento por saltos \\
+        \hline
+        $weight\_decay$ & 0.0001 & Regularización $L_2$ global \\
+        \hline
+        $hidden\_dim$ & 256 & Dimensión del espacio latente \\
+        \hline
+        \begin{tabular}{@{}l@{}} $enc\_layers$ / \\ $dec\_layers$ \end{tabular} & \begin{tabular}{@{}c@{}} 6 / \\ 6 \end{tabular} & \begin{tabular}{@{}l@{}} Capas operativas de \\ codificador y decodificador \end{tabular} \\
+        \hline
+        $num\_queries$ & 100 & Consultas posicionales \\
+        \hline
+        $num\_feature\_levels$ & $4$ ó $5$ & Niveles de características extraídas \\
+        \hline
+        $use\_dn$ & True & Entrenamiento contrastivo (CDN) \\
+        \hline
+        $dn\_number$ & 50 & Cantidad de consultas de ruido \\
+        \hline
+        $set\_cost\_class$ & 2.0 & Ponderador de clase en asignación \\
+        \hline
+        $bbox\_loss\_coef$ & 5.0 & Peso final para pérdida $L_1$ \\
+        \hline
+        $giou\_loss\_coef$ & 2.0 & Peso final para pérdida GIoU \\
+        \hline
+        $cls\_loss\_coef$ & 1.0 & Peso final para Focal Loss \\
+        \hline
+    \end{tabular}
+    \label{tab:6.1-hiperparametros-dino}
 \end{table}

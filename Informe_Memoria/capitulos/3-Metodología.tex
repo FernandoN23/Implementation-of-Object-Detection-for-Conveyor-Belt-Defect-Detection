@@ -366,3 +366,37 @@ Los hiperparámetros utilizados para cada una de las variantes del modelo de det
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Implementación de modelos basados en Transformers (DETR y DINO)}
 
+La implementación de los modelos DETR y DINO se rigen de acuerdo a la \textit{Estructura Maestra} definida en la Sección 3.3. Cabe destacar que cada modelo se trabaja en diferentes ramas del repositorio \cite{repo_fernando2024}, particularmente las ramas \textit{DETR} y \textit{DINO}. Los hiperparámetros comúnes utilizados para estandarizar entrenamiento y métricas entre los dos modelos mencionados se muestran en la Tabla \ref{tab:3.5-transformers_hyperparameters} .\\
+
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros base estandarizados compartidos por las arquitecturas Transformer (DETR y DINO).}
+    \begin{tabular}{|l|c|l|}
+        \hline
+        \textit{Hiperparámetro} & \textit{Valor} & \textit{Descripción} \\
+        \hline
+        Épocas ($epochs$) & 300 & \begin{tabular}{@{}l@{}} Ciclos totales de entrenamiento \\ sobre el dataset. \end{tabular} \\
+        \hline
+        Lote ($batch\_size$) & 4 ó 2 & \begin{tabular}{@{}l@{}} Muestras procesadas simultáneamente \\ por iteración. \end{tabular} \\
+        \hline
+        Optimizador & AdamW & Minimización con decaimiento adaptativo. \\
+        \hline
+        \begin{tabular}{@{}l@{}} Tasa de aprendizaje \\ ($lr$) \end{tabular} & 0.0001 & Tasa base del bloque Transformer. \\
+        \hline
+        \begin{tabular}{@{}l@{}} Tasa de aprendizaje del extractor \\ ($lr\_backbone$) \end{tabular} & 1.0e-05 & \begin{tabular}{@{}l@{}} Tasa reducida para el \\ extractor visual. \end{tabular} \\
+        \hline
+        \begin{tabular}{@{}l@{}} Decaimiento \\ ($lr\_drop\_epochs$) \end{tabular} & $[150, 250]$ & \begin{tabular}{@{}l@{}} Épocas de reducción \\ escalonada de tasa. \end{tabular} \\
+        \hline
+        \begin{tabular}{@{}l@{}} Dimensión oculta \\ ($hidden\_dim$) \end{tabular} & 256 & \begin{tabular}{@{}l@{}} Canales de representación \\ del espacio latente. \end{tabular} \\
+        \hline
+        \begin{tabular}{@{}l@{}} Capas Encoder-Decoder \\ ($enc\_layers$ / $dec\_layers$) \end{tabular} & \begin{tabular}{@{}c@{}} 6 / \\ 6 \end{tabular} & \begin{tabular}{@{}l@{}} Profundidad de codificador \\ y decodificador. \end{tabular} \\
+        \hline
+        Consultas ($num\_queries$) & 100 & \begin{tabular}{@{}l@{}} Ranuras de predicción \\ procesadas en paralelo. \end{tabular} \\
+        \hline
+    \end{tabular}
+    \label{tab:3.5-transformers_hyperparameters}
+\end{table}
+Los hiperparámetros utilizados para cada una de las variantes del modelo de detección de objetos DETR se encuentran en Anexos 6.1, en la Tabla \ref{tab:6.1-hiperparametros-detr}. El modelo cuenta con 4 variantes asociadas a la profundidad del extractor convolucional (\textit{backbone}) y la implementación de convoluciones dilatadas (DC5), de acuerdo a lo descrito en la Sección 2.6. De esta forma, para cambiar de variante, se ingresó como hiperparámetro: \textit{variant -r50} (ejemplo para el caso de la variante estándar con ResNet-50); de forma análoga se declaran el resto de variantes.\\
+
+Los hiperparámetros específicos para cada una de las variantes del modelo de detección de objetos DINO se detallan en Anexos 6.1, en la Tabla \ref{tab:6.1-hiperparametros-dino}. El modelo despliega 3 variantes asociadas a la cantidad de niveles de características (4 o 5 escalas) y a la topología del \textit{backbone} (ResNet o Swin Transformer). De esta forma, para cambiar de variante, se ingresó como hiperparámetro: \textit{variant -r50\_4scale} (ejemplo para la variante ResNet-50 de 4 escalas); de forma análoga se declaran las arquitecturas restantes.\\
