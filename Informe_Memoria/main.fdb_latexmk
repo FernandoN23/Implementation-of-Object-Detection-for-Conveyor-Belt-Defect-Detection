@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1782366371.1991 "main.aux" "main.bbl" "main" 1782366385.8001 0
+["bibtex main"] 1782366672.60338 "main.aux" "main.bbl" "main" 1782366687.33995 0
   "./library.bib" 1782365736 9965 9af40dc0002dcd9547aa5fa8dd6739b6 ""
   "./natnumurl.bst" 1782365736 21201 c3a97a2434b58cd70f7f9c9df607b80a ""
-  "main.aux" 1782366384 92151 f58763387911fd3432c8ab7aed34e2dc "pdflatex"
+  "main.aux" 1782366685 91903 87a91434e783b34f76a28f0499151905 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1782366371.49219 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1782366385.80101 0
+["pdflatex"] 1782366672.94683 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1782366687.34065 0
   "Abstracto.tex" 1782365735 2122 809df01603e59f7cbbb49df19e417453 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1760210407 81086 6fddea6b023469843de28035c851ec71 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1758130852 688 37338d6ab346c2f1466b29e195316aa4 ""
@@ -367,7 +367,7 @@
   "capitulos/4-Resultados_Discusión.tex" 1782366197 34277 59433d38a2260deebb62dcad99b97508 ""
   "capitulos/5-Conclusiones.tex" 1782365735 24 8dd28fdca787fa798488f50001886caf ""
   "capitulos/6-Anexos.tex" 1782366355 11451 dab1718e351a5e0542ea139314bc7fde ""
-  "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" 1782365736 3958 d68f925860f460fde53bb7e67e09f211 ""
+  "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" 1782366657 3968 0d5ef19513750552cd2941a3b1aa0d86 ""
   "img//departamentos/uchile2.pdf" 1782365736 18772 1d92f499584e10e4c8e0b3bf44be0bbf ""
   "img/2-Antecedentes/2-Object_Detection_example.png" 1782365735 751229 8088d2f3fe22b26b3b93790ff7951a61 ""
   "img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png" 1782365735 1362339 6d37a26bdda4f4c629ec3452f690f5ac ""
@@ -420,12 +420,12 @@
   "img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5.png" 1782365736 215949 86ffc7730de2bc1bc18c347b3407b4db ""
   "img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5_0.95.png" 1782365736 272571 4eaf53c74bdd1cd3dd717a7c28e96ca5 ""
   "img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png" 1782365736 107691 eef6d4db223e0b453d4a64cfefd18bf5 ""
-  "main.aux" 1782366384 92151 f58763387911fd3432c8ab7aed34e2dc "pdflatex"
-  "main.bbl" 1782366371 8175 db973ebf96385bef38bc6005b0fccce3 "bibtex main"
-  "main.lof" 1782366384 10076 5a178d69dc80b121e0f8ac343ce9c580 "pdflatex"
-  "main.lot" 1782366384 3159 f2ea008434f0eee28a6eb07541e9954d "pdflatex"
-  "main.tex" 1782365736 3958 d68f925860f460fde53bb7e67e09f211 ""
-  "main.toc" 1782366384 12235 40901c1fa6ac836a27a4d3e3b1fbe707 "pdflatex"
+  "main.aux" 1782366685 91903 87a91434e783b34f76a28f0499151905 "pdflatex"
+  "main.bbl" 1782366672 8175 db973ebf96385bef38bc6005b0fccce3 "bibtex main"
+  "main.lof" 1782366685 10073 c29401ceac9058085714806049bcd058 "pdflatex"
+  "main.lot" 1782366685 3159 0893b9874cbf65834e779cf061089f51 "pdflatex"
+  "main.tex" 1782366657 3968 0d5ef19513750552cd2941a3b1aa0d86 ""
+  "main.toc" 1782366685 12234 789d39ed6c931ddd9e49f99a570fa769 "pdflatex"
   "template.tex" 1782365736 290936 df2de9e1556f11a5d36036a27ac47b7a ""
   "template_config.tex" 1782365736 21966 e22124ed80d77f98d8f6e6a7c15e444f ""
   (generated)
