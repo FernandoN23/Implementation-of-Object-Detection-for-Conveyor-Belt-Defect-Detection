@@ -64,8 +64,8 @@ presets:
         weights: ""
         batch_size: 16
 
-  dino_r50_5scale_b4:
-    description: "Validación del modelo DINO R50 5-Scale (batch 4) entrenado."
+  dino_r50_5scale_b2:
+    description: "Validación del modelo DINO R50 5-Scale (batch 2) entrenado."
     overrides:
       validation:
         variant: "r50_5scale"
