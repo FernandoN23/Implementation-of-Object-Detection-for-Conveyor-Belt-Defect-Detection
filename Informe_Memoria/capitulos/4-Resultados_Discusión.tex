@@ -108,7 +108,7 @@ A continuación se muestran todos los resultados relevantes obtenidos para el mo
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/Final_comparison/losses/compare_val_total_loss.png}
-    \caption{Pérdida vs época total de la validación en cada variante del modelo YOLOv5.}
+    \caption{Pérdida total promedio vs época de la validación en cada variante del modelo YOLOv5.}
     \label{fig:4.3-Perdida_YOLO}
 \end{figure}
 
@@ -203,7 +203,7 @@ En la Figura \ref{fig:4.3-R_curve_Yolov5-s}, la exhaustividad (0.95 promedio) de
     \label{fig:4.3-conf_matrix_YOLOv5s}
 \end{figure}
 
-La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_YOLOv5s} ratifica analíticamente la tendencia: el modelo extrae con alta fiabilidad las clases: agujeto (\textit{Hole}) con un valor de 0.96; daño por impacto (\textit{Impact Damage}) con un valor de 0.93; desgarro (\textit{Tear}) con un valor de 0.92; abrasión (\textit{Wear}) con un valor de 0.94. Al segmentar características con la clase perforación (\textit{Puncture}) se logra apenas un 0.78 de aciertos y se pierde un 22\% de muestras que son confundidas y absorbidas por el fondo (\textit{background}).
+La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_YOLOv5s} ratifica analíticamente la tendencia: el modelo extrae con alta fiabilidad las clases: agujero (\textit{hole}) con un valor de $0.96$; daño por impacto (\textit{impact damage}) con un valor de $0.93$; desgarro (\textit{tear}) con un valor de $0.92$; abrasión (\textit{wear}) con un valor de $0.94$. Al segmentar características con la clase perforación (\textit{puncture}) se logra apenas un $0.78$ de aciertos de muestras, mientras que el resto ($0.22$) son confundidas y absorbidas por el fondo (\textit{background}).
 
 
 \clearpage
@@ -217,7 +217,7 @@ A continuación se muestran todos los resultados relevantes obtenidos para el mo
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/Final_comparison/losses/compare_val_loss_total.png}
-    \caption{Pérdida vs época total de la validación en cada variante del modelo SSD.}
+    \caption{Pérdida total promedio vs época de la validación en cada variante del modelo SSD.}
     \label{fig:4.3-Perdida_SSD}
 \end{figure}
 
@@ -310,7 +310,7 @@ En la Figura \ref{fig:4.3-R_curve_SSD}, los falsos positivos respecto a la clase
     \label{fig:4.3-conf_matrix_SSD}
 \end{figure}
 
-La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tendencia: el modelo posee buenos valores de predicción para las clases: agujeto (\textit{Hole}) con un valor de 0.96; daño por impacto (\textit{Impact Damage}) con un valor de 0.93; desgarro (\textit{Tear}) con un valor de 0.92; abrasión (\textit{Wear}) con un valor de 0.98. Sin embargo, falla drásticamente al segmentar características sutiles, con la clase perforación (\textit{Puncture}) logrando apenas un 0.73, sufriendo un grave 25\% de error por falsos positivos absorbidos por la clase fondo (\textit{background}).
+La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_SSD} ratifica la tendencia: el modelo posee buenos valores de predicción para las clases: agujero (\textit{hole}) con un valor de $0.96$; daño por impacto (\textit{impact damage}) con un valor de $0.93$; desgarro (\textit{tear}) con un valor de $0.92$; abrasión (\textit{wear}) con un valor de $0.98$. Sin embargo, falla drásticamente al segmentar características sutiles, con la clase perforación (\textit{puncture}) logrando apenas un valor de $0.73$, mientras que el resto ($0.27$) de muestras fueron absorbidas por la clase fondo (\textit{background}). Por ende, el modelo obtuvo una mayor cantidad de falsos positivos respecto a YOLOv5 y su variante \textit{small} (s).
 
 
 
@@ -325,11 +325,11 @@ A continuación se muestran todos los resultados relevantes obtenidos para el mo
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/Final_comparison/losses/compare_val_loss.png}
-    \caption{Pérdida vs época total de la validación en cada variante del modelo DETR.}
+    \caption{Pérdida total promedio vs época de la validación en cada variante del modelo DETR.}
     \label{fig:4.3-Perdida_DETR}
 \end{figure}
 
-En la Figura \ref{fig:4.3-Perdida_DETR}, se aprecia un descenso drástico inicial seguido de una convergencia progresiva. Se evidencia un escalón de optimización pronunciado en la época 150, correspondiente al decaimiento programado de la tasa de aprendizaje (\textit{lr drop}). La variante base \textit{ResNet-50} (R50) logra estabilizarse en el nivel de pérdida más bajo, mientras que las arquitecturas que implementan convoluciones dilatadas (DC5) exhiben una mayor resistencia a minimizar el error residual, sobre todo la variante \textit{ResNet-101-DC5}, que presenta un error bastante elevado al comienzo del entrenamiento.
+En la Figura \ref{fig:4.3-Perdida_DETR}, se aprecia un descenso drástico inicial seguido de una convergencia progresiva. Se evidencia un escalón de optimización pronunciado en la época 150, correspondiente al decaimiento programado de la tasa de aprendizaje (\textit{lr drop}). La variante base \textit{ResNet-50} (R50) logra estabilizarse en el nivel de pérdida más bajo en el entrenamiento temprano, aunque posteriormente todas las variantes se estabilizan con pérdidas bajas similares en torno a una magnitud de pérdida total menor a 5. Se puede observar también que la variante \textit{ResNet-101-DC5} (R101-DC5) comienza con una pérdida muy elevada respecto a las otras variantes, lo cuál es debido al uso de una mayor cantidad de parámetros (60.0M) y el uso de la modificación DC5, provocando una menor convergencia temprana de gradientes.
 
 \paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
 
@@ -340,7 +340,7 @@ En la Figura \ref{fig:4.3-Perdida_DETR}, se aprecia un descenso drástico inicia
     \label{fig:4.3-mAP0.5_DETR}
 \end{figure}
 
-A partir de la Figura \ref{fig:4.3-mAP0.5_DETR}, la escalada del rendimiento tras el ajuste del optimizador (época 150) es notoria. La variante estándar R50 domina la extracción de características alcanzando un pico de $0.8067$. Aumentar la profundidad del extractor a R101 no reporta beneficios ($0.7984$), y la inclusión de características de alta resolución (DC5) penaliza severamente el desempeño inicial e intermedio, a pesar de una convergencia pareja al final del entrenamiento.
+A partir de la Figura \ref{fig:4.3-mAP0.5_DETR}, se puede ver que la escalada del rendimiento tras el ajuste del optimizador (época 150) es notoria (la curva se suaviza y se estabiliza). La variante estándar \textit{ResNet-50} (R50) y la variante \textit{ResNet-101} (R101) dominan la métrica, alcanzando una magnitud pico de $0.8067$ y de $0.7984$ respectivamente. La inclusión de la modificación (DC5) a las variantes base mencionadas antes, muestran un mal desempeño inicial e intermedio, a pesar de una convergencia pareja al final del entrenamiento junto a las otras variantes. Todas las variantes presentan una tendencia de inestabilidad al comienzo del entrenamiento, la cuál se reduce drásticamente cuando llegan a la época 150, debido al decaimiento programado de la tasa de aprendizaje.
 
 \begin{figure}[H]
     \centering
@@ -349,7 +349,7 @@ A partir de la Figura \ref{fig:4.3-mAP0.5_DETR}, la escalada del rendimiento tra
     \label{fig:4.3-mAP0.5_0.95_DETR}
 \end{figure}
 
-Al analizar la Figura \ref{fig:4.3-mAP0.5_0.95_DETR} bajo un criterio de solapamiento estricto, la ventaja arquitectónica de la variante R50 se consolida, estableciendo el máximo global de la familia en $0.5033$. Las variaciones estructurales más complejas (R101 y DC5) fracasan en superar la barrera de $0.4920$, demostrando que la complejidad paramétrica en la etapa convolucional no se traduce directamente en una mejor asignación bipartita en el \textit{Transformer}.
+Al analizar la Figura \ref{fig:4.3-mAP0.5_0.95_DETR} bajo un criterio de IoU más estricto, la variante \textit{ResNet-50} (R50) obtiene el máximo global respecto a las otras variantes con un valor de $0.5033$. Las otras variantes y/o modificaciones fracasan en superar el valor de $0.5$. Al igual que el gráfico mostrado anteriormente, las variantes presentan una tendencia de inestabilidad al comienzo del entrenamiento, la cuál se reduce drásticamente cuando llegan a la época 150, debido al decaimiento programado de la tasa de aprendizaje.
 
 \paragraph{F1-Score vs Época}
 
@@ -360,7 +360,7 @@ Al analizar la Figura \ref{fig:4.3-mAP0.5_0.95_DETR} bajo un criterio de solapam
     \label{fig:4.3-f1_score_general_DETR}
 \end{figure}
 
-La curva de la Figura \ref{fig:4.3-f1_score_general_DETR} ratifica la tendencia global. El equilibrio óptimo entre precisión y exhaustividad se alcanza mediante la topología R50 con un F1-Score máximo de $0.6959$, manteniendo una ligera pero consistente superioridad sobre el resto de las configuraciones durante la fase asintótica del entrenamiento.
+La curva de la Figura \ref{fig:4.3-f1_score_general_DETR} confirma la tendencia global. El comportamiento entre precisión y exhaustividad alcanza un mayor valor con la variante \textit{ResNet-50} (R50), con un valor de F1-Score máximo de $0.6959$, manteniendo una ligera pero consistente superioridad sobre el resto de las variantes y/o modificaciones.
 
 \paragraph{Trade-off Performance vs Costo Computacional}
 
@@ -371,8 +371,9 @@ La curva de la Figura \ref{fig:4.3-f1_score_general_DETR} ratifica la tendencia 
     \label{fig:4.3-Tradeoff_Gflops_DETR}
 \end{figure}
 
-La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es categórica respecto a la ineficiencia del escalamiento horizontal en DETR. La variante R50 maximiza el rendimiento ($0.5033$ mAP) consumiendo únicamente $86.0$ GFLOPs. Por el contrario, la variante R101-DC5 dispara el costo a $253.0$ GFLOPs (un incremento de casi 300\%) resultando en una degradación empírica del rendimiento ($0.4878$ mAP).
+La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es claro destacar que la eficiencia de los modelos presenta un comportamiento muy diferente con el modelo DETR, respecto a los modelos de una etapa (\textit{one-stage}). La variante \textit{ResNet-50} (R50) maximiza el rendimiento ($0.5033$ mAP) consumiendo únicamente $86.0$ GFLOPs. Por el contrario, la variante \textit{ResNet-101-DC5} (R101-DC5) dispara el costo a $253.0$ GFLOPs (un incremento de casi 300\%) resultando en una reducción de la magnitud del rendimiento ($0.4878$ mAP). Para ambos casos, el rendimiento de las variantes que incluyen la modificación DC5, es menor respecto a las mismas variantes sin el uso de la modificación, obteniendo valores de métricas menores de $0.7784$ para la variante \textit{ResNet-50-DC5} (R50-DC5) y $0.7960$ para la variante \textit{ResNet-101-DC5} (R101-DC5). De acuerdo a esto, se considerará la variante \textit{ResNet-50} (R50) para analizar su desempeño frente a otros modelos.
 
+\newpage
 \paragraph{Resultados específicos mejor variante (\textit{DETR\_R50})}
 
 \subparagraph{Curva de F1-Score vs Confianza}
@@ -384,7 +385,7 @@ La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es categórica respecto a la inefic
     \label{fig:4.3-F1_curve_DETR_R50}
 \end{figure}
 
-Como se observa en la Figura \ref{fig:4.3-F1_curve_DETR_R50}, la métrica global del modelo alcanza su pico máximo bajo un umbral de confianza elevado. Las clases dominantes mantienen un desempeño aceptable, pero la dispersión en clases morfológicamente complejas arrastra la media asintótica de la red.
+Como se observa en la Figura \ref{fig:4.3-F1_curve_DETR_R50}, la métrica global del modelo alcanza su valor máximo bajo un umbral de confianza elevado con respecto a los modelos de una etapa (\textit{one-stage}). Las clases con mejores métricas, al igual que en los modelos anteriores, mantienen un desempeño aceptable, pero la clase de perforación (\textit{puncture}), mantiene valores bajo el promedio global, pero con una confianza mayor (cercana al umbral de $0.9$). 
 
 \subparagraph{Curva de Precisión vs Confianza (\textit{Precision Curve vs Confidence})}
 
@@ -395,7 +396,7 @@ Como se observa en la Figura \ref{fig:4.3-F1_curve_DETR_R50}, la métrica global
     \label{fig:4.3-P_curve_DETR_R50}
 \end{figure}
 
-De acuerdo a la Figura \ref{fig:4.3-P_curve_DETR_R50}, la arquitectura de atención global requiere umbrales de confianza cercanos a $1.0$ para purgar la totalidad de los falsos positivos. Se evidencia una varianza considerable en las predicciones marginales antes de alcanzar la convergencia de asertividad.
+De acuerdo a la Figura \ref{fig:4.3-P_curve_DETR_R50}, la variante \textit{ResNet-50} (R50) basada en transformers, presenta un mejor comportamiento de precisión al considerar umbrales de confianza más altos, mitigando de manera efectiva falsos positivos respecto a otros modelos. Esto puede explicarse debido a la arquitectura transformer y su mecanismo de atención y consultas.
 
 \subparagraph{Curva de Exhaustividad vs Confianza (\textit{Recall Curve vs Confidence})}
 
@@ -406,7 +407,7 @@ De acuerdo a la Figura \ref{fig:4.3-P_curve_DETR_R50}, la arquitectura de atenci
     \label{fig:4.3-R_curve_DETR_R50}
 \end{figure}
 
-En la Figura \ref{fig:4.3-R_curve_DETR_R50}, el modelo evidencia una retención sólida de verdaderos positivos en umbrales bajos e intermedios, sin embargo, la tasa de recuperación colapsa precipitadamente para ciertas clases al someter la predicción a filtros de alta exigencia probabilística.
+En la Figura \ref{fig:4.3-R_curve_DETR_R50}, el modelo evidencia una mejor detección y retención de verdaderos positivos, logrando altos valores de exhaustividad con un umbral de confianza elevado antes de colapsar la curva. Al igual que antes, el uso de consultas y atención, permite eliminar falsas predicciones (falsos positivos) de forma efectiva.
 
 \subparagraph{Matriz de confusión (\textit{Confusion Matrix})}
 
@@ -417,7 +418,7 @@ En la Figura \ref{fig:4.3-R_curve_DETR_R50}, el modelo evidencia una retención 
     \label{fig:4.3-conf_matrix_DETR_R50}
 \end{figure}
 
-La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la distribución del error en la fase de inferencia. La diagonal principal concentra el grueso de las clasificaciones correctas, no obstante, el vector de fondo (\textit{background}) capta una porción significativa de falsos negativos en defectos de menor escala, exponiendo las limitaciones de las consultas espaciales (\textit{object queries}) en áreas de baja resolución.
+La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} permite confirmar el comportamiento previamente discutido. El modelo posee buenos valores de predicción para las clases: agujero (hole) con un valor de $0.96$; daño por impacto (impact damage) con un valor de $0.93$; desgarro (tear) con un valor de $0.92$; abrasión (wear) con un valor de $0.98$. Sin embargo, la clase perforación (\textit{puncture}) presenta un valor similar a la variante SSD512 ($0.73$), además, el valor de clase predecida de perforación y que en realidad resultaba ser fondo es mayor respecto a los modelos de una etapa (\textit{one-stage}), con un valor más alto de $0.72$, lo que corresponde a una mayor cantidad de falsos positivos para los modelos basados en transformers.
 
 
 
@@ -427,8 +428,6 @@ La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} detalla la 
 
 \subsection{DINO (\textit{DETR with Improved DeNoising Anchor Boxes})}
 
-\textbf{[Nota: La ejecución y recolección de métricas para la variante DINO-R50-5scale se encuentra actualmente en fase de entrenamiento. Los gráficos y el análisis de esta sección se actualizarán una vez finalice dicho proceso para incluir la comparativa completa. Como adelanto, esta variante pendiente nunca logró la convergencia.]}
-
 A continuación se muestran los resultados preliminares obtenidos para el modelo DINO. Estos fueron obtenidos aplicando la metodología explicada en la Sección 3. Los mejores resultados se encuentran también adjuntos en Anexos 6.2, en la Tabla \ref{tab:6.2-summary-dino-exact}.
 
 \paragraph{Pérdida Total vs Época (\textit{Total Loss vs Epoch})}
@@ -436,7 +435,7 @@ A continuación se muestran los resultados preliminares obtenidos para el modelo
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/losses/compare_val_loss.png}
-    \caption{Pérdida vs época total de la validación en cada variante del modelo DINO. Falta por agregar la variante R50-5scale.}
+    \caption{Pérdida total promedio vs época de la validación en cada variante del modelo DINO. Falta por agregar la variante R50-5scale.}
     \label{fig:4.3-Perdida_DINO}
 \end{figure}
 
