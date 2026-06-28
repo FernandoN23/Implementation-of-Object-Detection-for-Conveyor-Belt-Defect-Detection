@@ -108,18 +108,18 @@
 \contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{74}{section*.104}%
 \contentsline {paragraph}{F1-Score vs Época}{75}{section*.107}%
 \contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{76}{section*.109}%
-\contentsline {paragraph}{Resultados específicos mejor variante preliminar (\textit {DINO\_R50\_4scale})}{76}{section*.111}%
+\contentsline {paragraph}{Resultados específicos mejor variante preliminar (\textit {DINO\_R50\_4scale})}{77}{section*.111}%
 \contentsline {subparagraph}{Curva de F1-Score vs Confianza}{77}{section*.112}%
 \contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{78}{section*.114}%
 \contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{79}{section*.116}%
 \contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{80}{section*.118}%
 \contentsline {section}{\numberline {4.4}Discusión general de resultados}{81}{section.4.4}%
-\contentsline {chapter}{\numberline {5}Conclusiones}{82}{chapter.5}%
-\contentsline {chapter}{Bibliografía}{83}{chapter*.120}%
-\contentsline {chapter}{\numberline {6}Anexos}{85}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{85}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Resultados Finales}{89}{section.6.2}%
-\contentsline {subsection}{\numberline {6.2.1}Resultados finales y mejores YOLOv5}{89}{subsection.6.2.1}%
-\contentsline {subsection}{\numberline {6.2.2}Resultados finales y mejores SSD}{89}{subsection.6.2.2}%
-\contentsline {subsection}{\numberline {6.2.3}Resultados finales y mejores DETR}{89}{subsection.6.2.3}%
-\contentsline {subsection}{\numberline {6.2.4}Resultados finales y mejores DINO}{89}{subsection.6.2.4}%
+\contentsline {chapter}{\numberline {5}Conclusiones}{83}{chapter.5}%
+\contentsline {chapter}{Bibliografía}{84}{chapter*.120}%
+\contentsline {chapter}{\numberline {6}Anexos}{86}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{86}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Resultados Finales}{90}{section.6.2}%
+\contentsline {paragraph}{Resultados finales y mejores YOLOv5}{90}{section*.125}%
+\contentsline {paragraph}{Resultados finales y mejores SSD}{90}{section*.127}%
+\contentsline {paragraph}{Resultados finales y mejores DETR}{90}{section*.129}%
+\contentsline {paragraph}{Resultados finales y mejores DINO}{90}{section*.131}%

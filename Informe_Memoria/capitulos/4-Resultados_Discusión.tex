@@ -154,7 +154,7 @@ La curva de la Figura \ref{fig:4.3-f1_score_general_YOLO} muestra el comportamie
     \label{fig:4.3-Tradeoff_Gflops_YOLO}
 \end{figure}
 
-La Figura \ref{fig:4.3-Tradeoff_Gflops_YOLO} determina gráficamente la viabilidad operativa de los modelos. En ella, la variante \textit{small} (s) destaca al maximizar la eficiencia con una métrica mAP@0.5:0.95 de $0.5517$ requiriendo un costo computacional marginal de solo $15.8$ GFLOPs y $7.2$M de parámetros. Escalar la red hacia la variante \textit{extra large} (x) implica multiplicar drásticamente la carga de procesamiento matricial a $204.7$ GFLOPs y $86.7$M de parámetros. Sí bien los resultados son similares, es posible discernir entre la variante más óptima considerando el cómputo y la cantidad de millones de parámetros, dónde claramente se ve que la variante \textit{small} (s) es más eficiente. Por lo tanto, esta variante será considerada como representante para ser evaluada con otros modelos.
+La Figura \ref{fig:4.3-Tradeoff_Gflops_YOLO} determina gráficamente la viabilidad operativa de los modelos. En ella, la variante \textit{small} (s) destaca al maximizar la eficiencia con una métrica mAP@0.5:0.95 de $0.5517$ requiriendo un costo computacional marginal de solo $15.8$ GFLOPs y $7.2$M de parámetros. Escalar la red hacia la variante \textit{extra large} (x) implica multiplicar drásticamente la carga de procesamiento matricial a $204.7$ GFLOPs y $86.7$M de parámetros. Sí bien los resultados son similares, es posible discernir entre la variante más óptima considerando el cómputo y la cantidad de millones de parámetros, dónde claramente se ve que la variante \textit{small} (s), del modelo YOLOv5, es más eficiente. Por lo tanto, esta variante será considerada como representante para ser evaluada con otros modelos.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newpage
@@ -165,7 +165,7 @@ La Figura \ref{fig:4.3-Tradeoff_Gflops_YOLO} determina gráficamente la viabilid
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/F1_curve.png}
-    \caption{Curvas de F1-Score en función de la confianza de detección de la variante \textit{small} (s) de YOLOv5.}
+    \caption{Curvas de F1-Score en función de la confianza (\textit{confidence}) de detección de la variante \textit{small} (s) de YOLOv5.}
     \label{fig:4.3-F1_curve_Yolov5-s}
 \end{figure}
 
@@ -177,7 +177,7 @@ Como se observa en la Figura \ref{fig:4.3-F1_curve_Yolov5-s}, el modelo global a
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/P_curve.png}
-    \caption{Curvas de Precisión en función de la confianza de detección de la variante \textit{small} (s) de YOLOv5.}
+    \caption{Curvas de Precisión en función de la confianza (\textit{confidence}) de detección de la variante \textit{small} (s) de YOLOv5.}
     \label{fig:4.3-P_curve_Yolov5-s}
 \end{figure}
 
@@ -188,7 +188,7 @@ De acuerdo a la Figura \ref{fig:4.3-P_curve_Yolov5-s}, la precisión global de l
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/R_curve.png}
-    \caption{Curvas de Exhaustividad en función de la confianza de detección de la variante \textit{small} (s) de YOLOv5.}
+    \caption{Curvas de Exhaustividad en función de la confianza (\textit{confidence}) de detección de la variante \textit{small} (s) de YOLOv5.}
     \label{fig:4.3-R_curve_Yolov5-s}
 \end{figure}
 
@@ -273,7 +273,7 @@ La Figura \ref{fig:4.3-Tradeoff_Gflops_SSD} ilustra el costo físico del increme
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/F1_curve.png}
-    \caption{Curvas de F1-Score en función de la confianza de detección de la variante SSD512.}
+    \caption{Curvas de F1-Score en función de la confianza (\textit{confidence}) de detección de la variante SSD512.}
     \label{fig:4.3-F1_curve_SSD}
 \end{figure}
 
@@ -284,7 +284,7 @@ Como se observa en la Figura \ref{fig:4.3-F1_curve_SSD}, el modelo global alcanz
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/P_curve.png}
-    \caption{Curvas de Precision en función de la confianza de detección de la variante SSD512.}
+    \caption{Curvas de Precision en función de la confianza (\textit{confidence}) de detección de la variante SSD512.}
     \label{fig:4.3-P_curve_SSD}
 \end{figure}
 
@@ -295,7 +295,7 @@ De acuerdo a la Figura \ref{fig:4.3-P_curve_SSD}, la arquitectura experimenta se
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/R_curve.png}
-    \caption{Curvas de Exhaustividad en función de la confianza de detección de la variante SSD512.}
+    \caption{Curvas de Exhaustividad en función de la confianza (\textit{confidence}) de detección de la variante SSD512.}
     \label{fig:4.3-R_curve_SSD}
 \end{figure}
 
@@ -371,7 +371,7 @@ La curva de la Figura \ref{fig:4.3-f1_score_general_DETR} confirma la tendencia 
     \label{fig:4.3-Tradeoff_Gflops_DETR}
 \end{figure}
 
-La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es claro destacar que la eficiencia de los modelos presenta un comportamiento muy diferente con el modelo DETR, respecto a los modelos de una etapa (\textit{one-stage}). La variante \textit{ResNet-50} (R50) maximiza el rendimiento ($0.5033$ mAP) consumiendo únicamente $86.0$ GFLOPs. Por el contrario, la variante \textit{ResNet-101-DC5} (R101-DC5) dispara el costo a $253.0$ GFLOPs (un incremento de casi 300\%) resultando en una reducción de la magnitud del rendimiento ($0.4878$ mAP). Para ambos casos, el rendimiento de las variantes que incluyen la modificación DC5, es menor respecto a las mismas variantes sin el uso de la modificación, obteniendo valores de métricas menores de $0.7784$ para la variante \textit{ResNet-50-DC5} (R50-DC5) y $0.7960$ para la variante \textit{ResNet-101-DC5} (R101-DC5). De acuerdo a esto, se considerará la variante \textit{ResNet-50} (R50) para analizar su desempeño frente a otros modelos.
+La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es claro destacar que la eficiencia de los modelos presenta un comportamiento muy diferente con el modelo DETR, respecto a los modelos de una etapa (\textit{one-stage}). La variante \textit{ResNet-50} (R50) maximiza el rendimiento ($0.5033$ mAP) consumiendo únicamente $86.0$ GFLOPs. Por el contrario, la variante \textit{ResNet-101-DC5} (R101-DC5) dispara el costo a $253.0$ GFLOPs (un incremento de casi 300\%) resultando en una reducción de la magnitud del rendimiento ($0.4878$ mAP). Para ambos casos, el rendimiento de las variantes que incluyen la modificación DC5, es menor respecto a las mismas variantes sin el uso de la modificación, obteniendo valores de métricas menores de $0.7784$ para la variante \textit{ResNet-50-DC5} (R50-DC5) y $0.7960$ para la variante \textit{ResNet-101-DC5} (R101-DC5). De acuerdo a esto, se considerará la variante \textit{ResNet-50} (R50), del modelo DETR, para analizar su desempeño frente a otros modelos.
 
 \newpage
 \paragraph{Resultados específicos mejor variante (\textit{DETR\_R50})}
@@ -381,7 +381,7 @@ La Figura \ref{fig:4.3-Tradeoff_Gflops_DETR} es claro destacar que la eficiencia
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/F1_curve.png}
-    \caption{Curvas de F1-Score en función de la confianza de detección de la variante DETR-R50 (\textit{ResNet-50}).}
+    \caption{Curvas de F1-Score en función de la confianza (\textit{confidence}) de detección de la variante DETR-R50 (\textit{ResNet-50}).}
     \label{fig:4.3-F1_curve_DETR_R50}
 \end{figure}
 
@@ -392,7 +392,7 @@ Como se observa en la Figura \ref{fig:4.3-F1_curve_DETR_R50}, la métrica global
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/P_curve.png}
-    \caption{Curvas de Precision en función de la confianza de detección de la variante DETR-R50 (\textit{ResNet-50}).}
+    \caption{Curvas de Precision en función de la confianza (\textit{confidence}) de detección de la variante DETR-R50 (\textit{ResNet-50}).}
     \label{fig:4.3-P_curve_DETR_R50}
 \end{figure}
 
@@ -403,7 +403,7 @@ De acuerdo a la Figura \ref{fig:4.3-P_curve_DETR_R50}, la variante \textit{ResNe
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/R_curve.png}
-    \caption{Curvas de Exhaustividad en función de la confianza de detección de la variante DETR-R50 (\textit{ResNet-50}).}
+    \caption{Curvas de Exhaustividad en función de la confianza (\textit{confidence}) de detección de la variante DETR-R50 (\textit{ResNet-50}).}
     \label{fig:4.3-R_curve_DETR_R50}
 \end{figure}
 
@@ -418,7 +418,7 @@ En la Figura \ref{fig:4.3-R_curve_DETR_R50}, el modelo evidencia una mejor detec
     \label{fig:4.3-conf_matrix_DETR_R50}
 \end{figure}
 
-La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} permite confirmar el comportamiento previamente discutido. El modelo posee buenos valores de predicción para las clases: agujero (hole) con un valor de $0.96$; daño por impacto (impact damage) con un valor de $0.93$; desgarro (tear) con un valor de $0.92$; abrasión (wear) con un valor de $0.98$. Sin embargo, la clase perforación (\textit{puncture}) presenta un valor similar a la variante SSD512 ($0.73$), además, el valor de clase predecida de perforación y que en realidad resultaba ser fondo es mayor respecto a los modelos de una etapa (\textit{one-stage}), con un valor más alto de $0.72$, lo que corresponde a una mayor cantidad de falsos positivos para los modelos basados en transformers.
+La matriz presentada en la Figura \ref{fig:4.3-conf_matrix_DETR_R50} permite confirmar el comportamiento previamente discutido. El modelo posee buenos valores de predicción para las clases: agujero (hole) con un valor de $0.98$; daño por impacto (impact damage) con un valor de $0.93$; desgarro (tear) con un valor de $0.92$; abrasión (wear) con un valor de $0.95$. Sin embargo, la clase perforación (\textit{puncture}) presenta un valor similar a la variante SSD512 ($0.73$), además, el valor de clase predecida de perforación y que en realidad resultaba ser fondo es mayor respecto a los modelos de una etapa (\textit{one-stage}), con un valor más alto de $0.72$, lo que corresponde a una mayor cantidad de falsos positivos para los modelos basados en transformers.
 
 
 
@@ -434,55 +434,57 @@ A continuación se muestran los resultados preliminares obtenidos para el modelo
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/losses/compare_val_loss.png}
-    \caption{Pérdida total promedio vs época de la validación en cada variante del modelo DINO. Falta por agregar la variante R50-5scale.}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison/losses/compare_val_loss.png}
+    \caption{Pérdida total promedio vs época de la validación en cada variante del modelo DINO.}
     \label{fig:4.3-Perdida_DINO}
 \end{figure}
 
-En la Figura \ref{fig:4.3-Perdida_DINO}, se observa que ambas variantes logran una convergencia rápida y estable. La variante con \textit{backbone} Swin-L exhibe un descenso inicial más abrupto, pero finalmente la variante R50-4scale logra estabilizarse en un nivel de pérdida residual marginalmente inferior hacia el final del entrenamiento.
+En la Figura \ref{fig:4.3-Perdida_DINO}, se observa que las variantes \textit{ResNet-50-4scale} (R50-4s) y \textit{Swin-L} (Swin-L)  logran una convergencia rápida y estable en torno a una pérdida cercana al rango entre $2.0$ y $3.0$. La variante con \textit{backbone} Swin-L exhibe un descenso inicial más pronunciado, pero finalmente la variante \textit{ResNet-50-4scale} (R50-4s) logra estabilizarse en un nivel de pérdida ligeramente inferior hacia el final del entrenamiento. Por otro lado, la variante \textit{ResNet-50-5scale} (R50-5s), sí bien logra una convergencia estable cercana al valor de pérdida $20.0$, la pérdida es alrededor de 10 veces mayor respecto a las otras variantes previamente analizadas.
 
 \paragraph{Precisión Media Promedio vs Época (\textit{Mean Average Precision vs Epoch})}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/metrics/compare_mAP_0.5.png}
-    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU 0,5 para todas las variantes del modelo DINO.}
     \label{fig:4.3-mAP0.5_DINO}
 \end{figure}
 
-A partir de la Figura \ref{fig:4.3-mAP0.5_DINO}, el modelo DINO-R50-4scale demuestra una superioridad temprana y sostenida, alcanzando un pico de $0.8809$. La arquitectura Swin-L, a pesar de su mayor densidad paramétrica, se satura de forma prematura estableciendo un techo ligeramente inferior de $0.8710$.
+A partir de la Figura \ref{fig:4.3-mAP0.5_DINO}, la variante \textit{Swin-L} (Swin-L) demuestra una superioridad temprana y mejor convergencia, alcanzando un pico de $0.8710$. La arquitectura \textit{ResNet-50-4scale} (R50-4s), a pesar de mostrar una menor velocidad de convergencia temprana, alcanza un mayor valor pico de  $0.8809$, logrando superar a la variante \textit{Swin-L} (Swin-L) en el entrenamiento tardío. Véase que, la variante \textit{ResNet-50-5scale} (R50-5s) no logra superar en ningún momento el umbral del valor de precisión media promedio de $0.01$ y obtener un valor de métrica aceptable para este caso, lo cuál se relaciona con la alta pérdida mostrada en el gráfico anterior.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/metrics/compare_mAP_0.5_0.95.png}
-    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5_0.95.png}
+    \caption{Precisión Media Promedio  (mAP) vs época con umbral IoU desde 0,5 hasta 0,95 para todas las variantes del modelo DINO.}
     \label{fig:4.3-mAP0.5_0.95_DINO}
 \end{figure}
 
-Al evaluar bajo el umbral IoU estricto en la Figura \ref{fig:4.3-mAP0.5_0.95_DINO}, se confirma la ventaja de la variante R50-4scale. Esta configuración establece el máximo en $0.5298$, manteniendo una brecha consistente sobre la variante Swin-L ($0.5240$) durante el último tercio del régimen de optimización.
+Al evaluar bajo el umbral IoU estricto en la Figura \ref{fig:4.3-mAP0.5_0.95_DINO}, se confirma la ventaja de la variante \textit{ResNet-50-4scale} (R50-4s). Esta configuración establece el máximo en $0.5298$, manteniendo una diferencia consistente sobre la variante \textit{Swin-L} (Swin-L) que obtuvo un valor máximo de $0.5240$. Al igual que el gráfico anterior, la variante \textit{ResNet-50-5scale} (R50-5s), no logra obtener una métrica aceptable, debido a su ineficiente convergencia.
 
 \paragraph{F1-Score vs Época}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/metrics/compare_F1.png}
-    \caption{F1-Score vs época para todas las variantes del modelo DINO. Falta por agregar la variante R50-5scale.}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_F1.png}
+    \caption{F1-Score vs época para todas las variantes del modelo DINO.}
     \label{fig:4.3-f1_score_general_DINO}
 \end{figure}
 
-La curva de la Figura \ref{fig:4.3-f1_score_general_DINO} ilustra un empate técnico en la capacidad armónica de clasificación. Ambas variantes saturan la métrica en torno a 0.755, demostrando que el incremento masivo de complejidad en Swin-L no aporta mejoras tangibles en el balance de precisión y exhaustividad.
+La curva de la Figura \ref{fig:4.3-f1_score_general_DINO} ilustra un similar comportamiento de convergencia entre las variantes \textit{ResNet-50-4scale} (R50-4s) y \textit{Swin-L} (Swin-L), las cuáles obtienen valores máximos de $0.7550$ y $0.7554$ respectivamente, en donde la última variante mencionada domina ligeramente en magnitud máxima y comportamiento temprano de convergencia. Al igual que los casos anteriores, la variante \textit{ResNet-50-5scale} (R50-5s) no logra converger adecuadamente y obtener valores aceptables.
 
 \paragraph{Trade-off Performance vs Costo Computacional}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison_without_R50-DC5/tradeoff_performance_gflops.png}
-    \caption{Tradeoff de rendimiento entre todas las variantes del modelo DINO. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante. Falta por agregar la variante R50-5scale.}
+    \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/Final_comparison/tradeoff_performance_gflops.png}
+    \caption{Tradeoff de rendimiento entre todas las variantes del modelo DINO. Muestra el rendimiento mAP@0.5:0.95 en función de la cantidad de GFlops de cómputo utilizado por la variante.}
     \label{fig:4.3-Tradeoff_Gflops_DINO}
 \end{figure}
 
-La Figura \ref{fig:4.3-Tradeoff_Gflops_DINO} revela un escenario de ineficiencia severa para arquitecturas pesadas. La variante R50-4scale maximiza el rendimiento ($0.5298$ mAP) con un costo de $279.0$ GFLOPs. Implementar el \textit{backbone} Swin-L dispara el costo computacional a $1040.0$ GFLOPs (un aumento de $\sim 272\%$) e incrementa los parámetros a $218.0$M, resultando irónicamente en un rendimiento métrico marginalmente inferior.
+La Figura \ref{fig:4.3-Tradeoff_Gflops_DINO} revela un escenario de ineficiencia severa para arquitecturas pesadas. La variante R50-4scale maximiza el rendimiento ($0.5298$ mAP) con un costo de $279.0$ GFLOPs. Implementar el \textit{backbone} Swin-L dispara el costo computacional a $1040.0$ GFLOPs (un aumento de $\sim 272\%$) e incrementa los parámetros a $218.0$M, resultando irónicamente en un rendimiento métrico marginalmente inferior. De manera similar, la variante \textit{ResNet-50-5scale} (R50-5s) resultó tener métricas inaceptables considerando además su alto costo computacional de $860.0$ GFLOPs. De acuerdo a esto, se selecciona la variante \textit{ResNet-50-4scale} (R50-4s) como representante del modelo DINO para comparar con otros modelos.
 
+
+\newpage
 \paragraph{Resultados específicos mejor variante preliminar (\textit{DINO\_R50\_4scale})}
 
 \subparagraph{Curva de F1-Score vs Confianza}
@@ -490,33 +492,33 @@ La Figura \ref{fig:4.3-Tradeoff_Gflops_DINO} revela un escenario de ineficiencia
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/F1_curve.png}
-    \caption{Curvas de F1-Score en función de la confianza de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
+    \caption{Curvas de F1-Score en función de la confianza (\textit{confidence}) de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
     \label{fig:4.3-F1_curve_DINO_R50_4scale}
 \end{figure}
 
-En la Figura \ref{fig:4.3-F1_curve_DINO_R50_4scale}, el pico óptimo global se establece en 0.88 bajo un umbral de confianza de 0.444. Si bien las clases principales muestran curvas robustas que superan 0.90, la clase \textit{Puncture} se mantiene rezagada con un F1 máximo que apenas supera 0.60, limitando la media del sistema.
+En la Figura \ref{fig:4.3-F1_curve_DINO_R50_4scale}, el pico óptimo global se establece en $0.88$ bajo un umbral de confianza de $0.444$. Si bien las clases principales muestran curvas robustas que superan un F1-score de $0.90$, la clase perforación (\textit{Puncture}) se mantiene rezagada con un F1-score máximo que apenas supera 0.65, limitando el promedio global.
 
 \subparagraph{Curva de Precisión vs Confianza (\textit{Precision Curve vs Confidence})}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/P_curve.png}
-    \caption{Curvas de Precision en función de la confianza de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
+    \caption{Curvas de Precision en función de la confianza (\textit{confidence}) de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
     \label{fig:4.3-P_curve_DINO_R50_4scale}
 \end{figure}
 
-La Figura \ref{fig:4.3-P_curve_DINO_R50_4scale} muestra una convergencia hacia alta precisión con umbrales moderados para la mayoría de los defectos. Sin embargo, la clase \textit{Puncture} requiere someter la predicción a confianzas cercanas a 0.85 para depurar los falsos positivos.
+La Figura \ref{fig:4.3-P_curve_DINO_R50_4scale} muestra una convergencia de alta precisión con umbrales moderados para la mayoría de los defectos. Sin embargo, la clase perforación (\textit{Puncture}) somete la precisión máxima a confianzas cercanas a 0.85, tras lo cuál sufre un desprendimiento repentino en sus valores al acercase a umbrales cercanos a $0.9$, comprometiendo el promedio global y provocando un comportamiento anómalo con respecto a otros modelos.
 
 \subparagraph{Curva de Exhaustividad vs Confianza (\textit{Recall Curve vs Confidence})}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png}
-    \caption{Curvas de Exhaustividad en función de la confianza de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
+    \caption{Curvas de Exhaustividad en función de la confianza (\textit{confidence}) de detección de la variante DINO-R50-4scale (\textit{ResNet-50}).}
     \label{fig:4.3-R_curve_DINO_R50_4scale}
 \end{figure}
 
-De acuerdo a la Figura \ref{fig:4.3-R_curve_DINO_R50_4scale}, la variante demuestra una excelente retención de características reales para casi todo el espectro, pero la tasa de recuperación de la clase \textit{Puncture} decrece de forma lineal y pronunciada conforme aumenta el rigor probabilístico.
+De acuerdo a la Figura \ref{fig:4.3-R_curve_DINO_R50_4scale}, la variante demuestra unos excelentes valores de exhaustividad para la mayor parte del umbral de confianza, pero la clase perforación (\textit{Puncture}) decrece de forma acelerada y pronunciada conforme aumenta el umbral con respecto a las otras clases. Esto puede atribuirse a la mayor cantidad obtenida de falsos positivos, empeorando la métrica.
 
 \subparagraph{Matriz de confusión (\textit{Confusion Matrix})}
 
@@ -527,12 +529,20 @@ De acuerdo a la Figura \ref{fig:4.3-R_curve_DINO_R50_4scale}, la variante demues
     \label{fig:4.3-conf_matrix_DINO_R50_4scale}
 \end{figure}
 
-La matriz de la Figura \ref{fig:4.3-conf_matrix_DINO_R50_4scale} evidencia una alta capacidad de aislamiento para defectos evidentes (\textit{Impact Damage} 0.95, \textit{Hole} 0.92, \textit{Wear} 0.92, \textit{Tear} 0.91). El principal vector de error recae en las detecciones omitidas para características difusas, donde un 19\% de las muestras reales de la clase \textit{Puncture} son erróneamente clasificadas como fondo (\textit{background}).
+La matriz de la Figura \ref{fig:4.3-conf_matrix_DINO_R50_4scale} muestra excelentes valores de predicción para las clases: agujero (hole) con un valor de $0.92$; daño por impacto (impact damage) con un valor de $0.95$; desgarro (tear) con un valor de $0.91$; abrasión (wear) con un valor de $0.92$ . La clase perforación (\textit{puncture}), aunque posee mejor métrica respecto a las mejores variantes de otros modelos ($0.81$), también comete predicciones erróneas que son clasificadas como fondo (\textit{background}).
 
 \clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-
 \section{Discusión general de resultados}
 
+Tras la evaluación individual de las arquitecturas de detección de objetos implementadas, resulta fundamental establecer una comparativa transversal entre las mejores variantes de cada familia: YOLOv5-s, SSD512, DETR-R50 y DINO-R50-4scale. Esta discusión permite contrastar empíricamente los enfoques de una sola etapa (\textit{One-Stage}) basados en redes neuronales convolucionales (CNN) frente a los paradigmas emergentes fundamentados en mecanismos de atención global (\textit{Transformers}).\\
+
+Al analizar la convergencia a través de la pérdida de validación y métricas globales como el mAP@0.5 y mAP@0.5:0.95, se evidencia una clara dicotomía en el comportamiento del entrenamiento. Los modelos convolucionales (YOLOv5 y SSD) presentan una convergencia inicial rápida y geométricamente estable, lo cual se espera de acuerdo a su capacidad intrínseca para explotar la localidad espacial y el compartimiento de parámetros en los filtros convolucionales. Tal como se anticipaba en la revisión del estado del arte, la cual posicionaba a las versiones recientes de YOLO con precisiones superiores a SSD sobre conjuntos de datos estándar, YOLOv5-s demostró una superioridad empírica evidente. La variante YOLOv5-s logró consolidar un F1-Score máximo de 0.8897 y un mAP@0.5:0.95 de 0.5517, superando ampliamente a SSD512. En contraparte, los modelos Transformers (DETR y DINO) exhiben mayor inestabilidad temprana en sus métricas, requiriendo programas estrictos de modulación de tasa de aprendizaje para estabilizar los gradientes durante la optimización. A pesar de esta dificultad en las etapas tempranas, la variante DINO-R50-4scale logra un rendimiento competitivo con un mAP@0.5 de 0.8809, demostrando que las innovaciones arquitectónicas incorporadas sobre DETR aceleran efectivamente la eficiencia de convergencia.\\
+
+El análisis de las curvas de F1-Score, Precisión y Exhaustividad en función del umbral de confianza revela un desafío transversal y crítico para todos los algoritmos: la identificación y segmentación precisa de la clase perforación (\textit{Puncture}). En las variantes YOLOv5-s y SSD512, esta clase restringe severamente el promedio global debido a una alta tasa de falsos positivos y falsos negativos. No obstante, es en este dominio morfológico donde los modelos basados en Transformers demuestran su ventaja teórica. Gracias a los mecanismos de autoatención que capturan dependencias de largo alcance y el contexto global de la imagen sin limitarse al campo receptivo convolucional, DINO-R50-4scale logra mitigar parcialmente este déficit. La técnica de eliminación de ruido contrastivo (\textit{Contrastive DeNoising}) implementada en DINO, la cual expone explícitamente al modelo ante muestras negativas difíciles, prueba ser sumamente eficaz para depurar predicciones erróneas en defectos sutiles.\\
+
+Es fundamental destacar que este análisis comparativo se estructuró bajo un régimen de evaluación estrictamente estandarizado. No se ejecutaron optimizaciones exhaustivas de hiperparámetros para favorecer a ninguna arquitectura en particular. Las configuraciones base se mantuvieron intactas, aplicando ajustes únicamente cuando fue imperativo para asegurar que el proceso de entrenamiento se cumpliera con éxito. Un ejemplo directo de esto fue la reducción del tamaño de lote (\textit{batch size}) a 4 o 2 en las arquitecturas Transformer, en contraste con el lote de 16 empleado orgánicamente en los modelos \textit{One-Stage}. Bajo este esquema riguroso y evaluando la viabilidad operativa a través del balance entre rendimiento y costo computacional (\textit{Trade-off}), la variante \textit{small} (s) de YOLOv5 se erige indiscutiblemente como el modelo más eficiente del estudio. Al requerir únicamente 15.8 GFLOPs de cómputo y 7.2M de parámetros, YOLOv5-s obtiene métricas que igualan o superan a arquitecturas más densas. Esto exige una fracción ínfima del hardware necesario en comparación a DINO-R50-4scale, el cual consume 279.0 GFLOPs y 47.0M de parámetros. Esta eficiencia paramétrica confirma que, para aplicaciones industriales de monitoreo continuo donde la velocidad es un requisito estricto, las arquitecturas \textit{One-Stage} continúan dominando la viabilidad práctica.\\
+
+Finalmente, es imperativo señalar que el desempeño de las arquitecturas Transformer en este estudio se encuentra intrínsecamente limitado por la cantidad de datos disponibles. A diferencia de las CNN, los Transformers carecen de reglas predefinidas de procesamiento, como la invariancia a la traslación, por lo que deben aprender la estructura semántica del espacio visual desde cero. Esto explica por qué las CNN como YOLOv5 logran generalizar con rapidez en muestras limitadas, mientras que el éxito de DETR y DINO dependió de una calibración algorítmica específica, requiriendo configuraciones de optimización adaptativa con decaimiento de peso explícito para asegurar la convergencia de los mecanismos de atención. Es previsible que, al expandir el tamaño del conjunto de datos en implementaciones futuras, los modelos Transformer logren desplegar todo su potencial superando definitivamente a los detectores convolucionales estándar.\\
