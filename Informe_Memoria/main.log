@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  28 JUN 2026 19:48
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  29 JUN 2026 19:37
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -2532,7 +2532,7 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 (Font)              <4.00003> on input line 52.
  [2]) (capitulos/2-Antecedentes.tex [3{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]
 Capítulo 2.
-<img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png, id=474, 681.54625pt x 352.31625pt>
+<img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png, id=473, 681.54625pt x 352.31625pt>
 File: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png  used on input line 10.
@@ -2540,33 +2540,33 @@ Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png  used o
 [4
 
  <./img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png (PNG copy)>]
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png, id=488, 657.95813pt x 492.33937pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png, id=487, 657.95813pt x 492.33937pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda.png  used on input line 30.
 (pdftex.def)             Requested size: 108.56516pt x 81.23248pt.
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png, id=490, 654.94687pt x 492.33937pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png, id=489, 654.94687pt x 492.33937pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Desgaste_abrasivo_banda_bordes.png  used on input line 34.
 (pdftex.def)             Requested size: 108.56516pt x 81.60811pt.
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png, id=491, 634.62094pt x 481.8pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png, id=490, 634.62094pt x 481.8pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Perforacion_banda.png  used on input line 38.
 (pdftex.def)             Requested size: 108.56516pt x 82.41953pt.
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png, id=492, 643.6547pt x 475.02469pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png, id=491, 643.6547pt x 475.02469pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas/Rotura_banda.png  used on input line 42.
 (pdftex.def)             Requested size: 108.56516pt x 80.12251pt.
-<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png, id=493, 1073.51062pt x 427.5975pt>
+<img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png, id=492, 1073.51062pt x 427.5975pt>
 File: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png Graphic file (type png)
 <use img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png>
 Package pdftex.def Info: img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png  used on input line 46.
 (pdftex.def)             Requested size: 188.8096pt x 75.20258pt.
  [5]
-<img/2-Antecedentes/2-Object_Detection_example.png, id=503, 1449.415pt x 348.30125pt>
+<img/2-Antecedentes/2-Object_Detection_example.png, id=502, 1449.415pt x 348.30125pt>
 File: img/2-Antecedentes/2-Object_Detection_example.png Graphic file (type png)
 <use img/2-Antecedentes/2-Object_Detection_example.png>
 Package pdftex.def Info: img/2-Antecedentes/2-Object_Detection_example.png  used on input line 58.
@@ -2576,7 +2576,7 @@ LaTeX Font Info:    Trying to load font information for T1+lmss on input line 16
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmss.fd
 File: t1lmss.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) [8] [9{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}{C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}] [10]
-<img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png, id=573, 727.96968pt x 382.42876pt>
+<img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png, id=572, 727.96968pt x 382.42876pt>
 File: img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png Graphic file (type png)
 <use img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png>
 Package pdftex.def Info: img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png  used on input line 248.
@@ -2584,13 +2584,13 @@ Package pdftex.def Info: img/2-Antecedentes/2.4-Transformers/Attention_Simple_Mu
  [11
 
 {C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathex.enc}] [12 <./img/2-Antecedentes/2.4-Transformers/Attention_Simple_Multi.png>]
-<img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png, id=595, 436.63126pt x 581.17125pt>
+<img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png, id=594, 436.63126pt x 581.17125pt>
 File: img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png>
 Package pdftex.def Info: img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png  used on input line 267.
 (pdftex.def)             Requested size: 377.62642pt x 502.63527pt.
  [13 <./img/2-Antecedentes/2.4-Transformers/Transformer_Architecture.png>]
-<img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png, id=606, 592.46344pt x 322.20375pt>
+<img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png, id=605, 592.46344pt x 322.20375pt>
 File: img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png Graphic file (type png)
 <use img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png>
 Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png  used on input line 284.
@@ -2598,19 +2598,19 @@ Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png  used 
  [14
 
  <./img/2-Antecedentes/2.5-One-Stage/YOLO_SSD_DL.png>]
-<img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png, id=619, 739.26187pt x 364.36125pt>
+<img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png, id=618, 739.26187pt x 364.36125pt>
 File: img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png Graphic file (type png)
 <use img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png>
 Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png  used on input line 301.
 (pdftex.def)             Requested size: 448.42822pt x 221.02022pt.
  [15 <./img/2-Antecedentes/2.5-One-Stage/Review_OS_Models.png>] [16]
-<img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png, id=641, 660.21657pt x 475.02469pt>
+<img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png, id=640, 660.21657pt x 475.02469pt>
 File: img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png Graphic file (type png)
 <use img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png>
 Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png  used on input line 326.
 (pdftex.def)             Requested size: 424.82523pt x 305.66736pt.
  [17 <./img/2-Antecedentes/2.5-One-Stage/YOLO_v5_Architecture_l.png>] [18] [19] [20]
-<img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png, id=679, 574.39594pt x 171.64125pt>
+<img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png, id=678, 574.39594pt x 171.64125pt>
 File: img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png>
 Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png  used on input line 400.
@@ -2618,7 +2618,7 @@ Package pdftex.def Info: img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png  
  [21 <./img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png>] [22] [23] [24
 
 ]
-<img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png, id=721, 935.74594pt x 247.67531pt>
+<img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png, id=720, 935.74594pt x 247.67531pt>
 File: img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png>
 Package pdftex.def Info: img/2-Antecedentes/2.6-Detection_Transformers/DETR_Architecture.png  used on input line 481.
@@ -2628,13 +2628,13 @@ LaTeX Font Info:    Trying to load font information for U+euf on input line 504.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\ueuf.fd
 File: ueuf.fd 2013/01/14 v3.01 Euler Fraktur
 ) [27]
-<img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png, id=756, 796.47563pt x 315.42844pt>
+<img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png, id=755, 796.47563pt x 315.42844pt>
 File: img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png Graphic file (type png)
 <use img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png>
 Package pdftex.def Info: img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png  used on input line 543.
 (pdftex.def)             Requested size: 377.62642pt x 149.5509pt.
  [28 <./img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png>] [29] [30] [31]
-<img/2-Antecedentes/2.7-Metricas/IoU_metric.png, id=799, 356.83313pt x 363.60844pt>
+<img/2-Antecedentes/2.7-Metricas/IoU_metric.png, id=798, 356.83313pt x 363.60844pt>
 File: img/2-Antecedentes/2.7-Metricas/IoU_metric.png Graphic file (type png)
 <use img/2-Antecedentes/2.7-Metricas/IoU_metric.png>
 Package pdftex.def Info: img/2-Antecedentes/2.7-Metricas/IoU_metric.png  used on input line 709.
@@ -2644,7 +2644,7 @@ Capítulo 3.
 [35
 
 ] [36] [37]
-<img/3-Metodologia/3.2-Formato_etiquetas.png, id=878, 438.63875pt x 309.155pt>
+<img/3-Metodologia/3.2-Formato_etiquetas.png, id=877, 438.63875pt x 309.155pt>
 File: img/3-Metodologia/3.2-Formato_etiquetas.png Graphic file (type png)
 <use img/3-Metodologia/3.2-Formato_etiquetas.png>
 Package pdftex.def Info: img/3-Metodologia/3.2-Formato_etiquetas.png  used on input line 109.
@@ -2668,7 +2668,7 @@ Overfull \hbox (18.6706pt too wide) in paragraph at lines 375--399
 
 ]) (capitulos/4-Resultados_Discusión.tex [45]
 Capítulo 4.
-<img/4-Resultados_Discusion/Dataset/class_distribution.png, id=956, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/Dataset/class_distribution.png, id=955, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/Dataset/class_distribution.png Graphic file (type png)
 <use img/4-Resultados_Discusion/Dataset/class_distribution.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/Dataset/class_distribution.png  used on input line 32.
@@ -2676,18 +2676,18 @@ Package pdftex.def Info: img/4-Resultados_Discusion/Dataset/class_distribution.p
 [46
 
 ]
-<img/4-Resultados_Discusion/Dataset/split_composition.png, id=963, 578.16pt x 433.62pt>
+<img/4-Resultados_Discusion/Dataset/split_composition.png, id=962, 578.16pt x 433.62pt>
 File: img/4-Resultados_Discusion/Dataset/split_composition.png Graphic file (type png)
 <use img/4-Resultados_Discusion/Dataset/split_composition.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/Dataset/split_composition.png  used on input line 39.
 (pdftex.def)             Requested size: 377.62642pt x 283.21927pt.
  [47 <./img/4-Resultados_Discusion/Dataset/class_distribution.png> <./img/4-Resultados_Discusion/Dataset/split_composition.png>] [48]
-<img/4-Resultados_Discusion/YOLOv5/Final_comparison/losses/compare_val_total_loss.png, id=979, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/YOLOv5/Final_comparison/losses/compare_val_total_loss.png, id=978, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/YOLOv5/Final_comparison/losses/compare_val_total_loss.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/Final_comparison/losses/compare_val_total_loss.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/Final_comparison/losses/compare_val_total_loss.png  used on input line 110.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
-<img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5.png, id=981, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5.png, id=980, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5.png  used on input line 121.
@@ -2695,53 +2695,53 @@ Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/Final_comparison/metr
  [49
 
  <./img/4-Resultados_Discusion/YOLOv5/Final_comparison/losses/compare_val_total_loss.png>]
-<img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5_0.95.png, id=990, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5_0.95.png, id=989, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5_0.95.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5_0.95.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5_0.95.png  used on input line 130.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [50 <./img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5.png>]
-<img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_F1.png, id=999, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_F1.png, id=998, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_F1.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_F1.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_F1.png  used on input line 141.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [51 <./img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_mAP_0.5_0.95.png> <./img/4-Resultados_Discusion/YOLOv5/Final_comparison/metrics/compare_F1.png>]
-<img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png, id=1009, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png, id=1008, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png  used on input line 152.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [52 <./img/4-Resultados_Discusion/YOLOv5/Final_comparison/tradeoff_performance_gflops.png>]
-<img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/F1_curve.png, id=1019, 650.43pt x 433.62pt>
+<img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/F1_curve.png, id=1018, 650.43pt x 433.62pt>
 File: img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/F1_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/F1_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/F1_curve.png  used on input line 167.
 (pdftex.def)             Requested size: 377.62642pt x 251.75781pt.
-<img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/P_curve.png, id=1023, 650.43pt x 433.62pt>
+<img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/P_curve.png, id=1022, 650.43pt x 433.62pt>
 File: img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/P_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/P_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/P_curve.png  used on input line 179.
 (pdftex.def)             Requested size: 377.62642pt x 251.75781pt.
  [53 <./img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/F1_curve.png>]
-<img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/R_curve.png, id=1033, 650.43pt x 433.62pt>
+<img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/R_curve.png, id=1032, 650.43pt x 433.62pt>
 File: img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/R_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/R_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/R_curve.png  used on input line 190.
 (pdftex.def)             Requested size: 377.62642pt x 251.75781pt.
  [54 <./img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/P_curve.png>]
-<img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/confusion_matrix.png, id=1042, 867.24pt x 650.43pt>
+<img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/confusion_matrix.png, id=1041, 867.24pt x 650.43pt>
 File: img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/confusion_matrix.png Graphic file (type png)
 <use img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/confusion_matrix.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/confusion_matrix.png  used on input line 201.
 (pdftex.def)             Requested size: 377.62642pt x 283.22258pt.
  [55 <./img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/R_curve.png>] [56 <./img/4-Resultados_Discusion/YOLOv5/s/val/val_yolov5_s/confusion_matrix.png>]
-<img/4-Resultados_Discusion/SSD/Final_comparison/losses/compare_val_loss_total.png, id=1060, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/SSD/Final_comparison/losses/compare_val_loss_total.png, id=1059, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/SSD/Final_comparison/losses/compare_val_loss_total.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/Final_comparison/losses/compare_val_loss_total.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/Final_comparison/losses/compare_val_loss_total.png  used on input line 219.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
-<img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5.png, id=1062, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5.png, id=1061, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5.png  used on input line 230.
@@ -2749,52 +2749,52 @@ Package pdftex.def Info: img/4-Resultados_Discusion/SSD/Final_comparison/metrics
  [57
 
  <./img/4-Resultados_Discusion/SSD/Final_comparison/losses/compare_val_loss_total.png>]
-<img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5_0.95.png, id=1071, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5_0.95.png, id=1070, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5_0.95.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5_0.95.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5_0.95.png  used on input line 239.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [58 <./img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5.png> <./img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_mAP_0.5_0.95.png>]
-<img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_F1.png, id=1083, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_F1.png, id=1082, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_F1.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_F1.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_F1.png  used on input line 250.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
-<img/4-Resultados_Discusion/SSD/Final_comparison/tradeoff_performance_gflops.png, id=1085, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/SSD/Final_comparison/tradeoff_performance_gflops.png, id=1084, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/SSD/Final_comparison/tradeoff_performance_gflops.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/Final_comparison/tradeoff_performance_gflops.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/Final_comparison/tradeoff_performance_gflops.png  used on input line 261.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [59 <./img/4-Resultados_Discusion/SSD/Final_comparison/metrics/compare_val_F1.png>] [60 <./img/4-Resultados_Discusion/SSD/Final_comparison/tradeoff_performance_gflops.png>]
-<img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/F1_curve.png, id=1102, 707.5233pt x 494.3268pt>
+<img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/F1_curve.png, id=1101, 707.5233pt x 494.3268pt>
 File: img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/F1_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/F1_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/F1_curve.png  used on input line 275.
 (pdftex.def)             Requested size: 377.62642pt x 263.83994pt.
-<img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/P_curve.png, id=1104, 707.5233pt x 494.3268pt>
+<img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/P_curve.png, id=1103, 707.5233pt x 494.3268pt>
 File: img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/P_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/P_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/P_curve.png  used on input line 286.
 (pdftex.def)             Requested size: 377.62642pt x 263.83994pt.
  [61 <./img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/F1_curve.png>]
-<img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/R_curve.png, id=1114, 707.5233pt x 494.3268pt>
+<img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/R_curve.png, id=1113, 707.5233pt x 494.3268pt>
 File: img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/R_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/R_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/R_curve.png  used on input line 297.
 (pdftex.def)             Requested size: 377.62642pt x 263.83994pt.
  [62 <./img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/P_curve.png>]
-<img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/confusion_matrix.png, id=1123, 867.24pt x 650.43pt>
+<img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/confusion_matrix.png, id=1122, 867.24pt x 650.43pt>
 File: img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/confusion_matrix.png Graphic file (type png)
 <use img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/confusion_matrix.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/confusion_matrix.png  used on input line 308.
 (pdftex.def)             Requested size: 377.62642pt x 283.22258pt.
  [63 <./img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/R_curve.png>] [64 <./img/4-Resultados_Discusion/SSD/ssd512/valid/ssd512/confusion_matrix.png>]
-<img/4-Resultados_Discusion/DETR/Final_comparison/losses/compare_val_loss.png, id=1141, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DETR/Final_comparison/losses/compare_val_loss.png, id=1140, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DETR/Final_comparison/losses/compare_val_loss.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/Final_comparison/losses/compare_val_loss.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/Final_comparison/losses/compare_val_loss.png  used on input line 327.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
-<img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5.png, id=1143, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5.png, id=1142, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5.png  used on input line 338.
@@ -2802,53 +2802,53 @@ Package pdftex.def Info: img/4-Resultados_Discusion/DETR/Final_comparison/metric
  [65
 
  <./img/4-Resultados_Discusion/DETR/Final_comparison/losses/compare_val_loss.png>]
-<img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5_0.95.png, id=1152, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5_0.95.png, id=1151, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5_0.95.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5_0.95.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5_0.95.png  used on input line 347.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [66 <./img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5.png>]
-<img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_F1.png, id=1161, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_F1.png, id=1160, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_F1.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_F1.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_F1.png  used on input line 358.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [67 <./img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_mAP_0.5_0.95.png> <./img/4-Resultados_Discusion/DETR/Final_comparison/metrics/compare_F1.png>]
-<img/4-Resultados_Discusion/DETR/Final_comparison/tradeoff_performance_gflops.png, id=1171, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DETR/Final_comparison/tradeoff_performance_gflops.png, id=1170, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DETR/Final_comparison/tradeoff_performance_gflops.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/Final_comparison/tradeoff_performance_gflops.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/Final_comparison/tradeoff_performance_gflops.png  used on input line 369.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [68 <./img/4-Resultados_Discusion/DETR/Final_comparison/tradeoff_performance_gflops.png>]
-<img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/F1_curve.png, id=1181, 712.5822pt x 498.30165pt>
+<img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/F1_curve.png, id=1180, 712.5822pt x 498.30165pt>
 File: img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/F1_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/F1_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/F1_curve.png  used on input line 383.
 (pdftex.def)             Requested size: 377.62642pt x 264.0758pt.
-<img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/P_curve.png, id=1183, 714.38895pt x 498.30165pt>
+<img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/P_curve.png, id=1182, 714.38895pt x 498.30165pt>
 File: img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/P_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/P_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/P_curve.png  used on input line 394.
 (pdftex.def)             Requested size: 377.62642pt x 263.4067pt.
  [69 <./img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/F1_curve.png>]
-<img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/R_curve.png, id=1193, 714.38895pt x 498.30165pt>
+<img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/R_curve.png, id=1192, 714.38895pt x 498.30165pt>
 File: img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/R_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/R_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/R_curve.png  used on input line 405.
 (pdftex.def)             Requested size: 377.62642pt x 263.4067pt.
  [70 <./img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/P_curve.png>]
-<img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png, id=1203, 867.24pt x 650.43pt>
+<img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png, id=1202, 867.24pt x 650.43pt>
 File: img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png  used on input line 416.
 (pdftex.def)             Requested size: 377.62642pt x 283.22258pt.
  [71 <./img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/R_curve.png>] [72 <./img/4-Resultados_Discusion/DETR/detr_r50_belt_batch_4/confusion_matrix.png>]
-<img/4-Resultados_Discusion/DINO/Final_comparison/losses/compare_val_loss.png, id=1220, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DINO/Final_comparison/losses/compare_val_loss.png, id=1219, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DINO/Final_comparison/losses/compare_val_loss.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/Final_comparison/losses/compare_val_loss.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/Final_comparison/losses/compare_val_loss.png  used on input line 437.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
-<img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5.png, id=1222, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5.png, id=1221, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5.png  used on input line 448.
@@ -2856,71 +2856,79 @@ Package pdftex.def Info: img/4-Resultados_Discusion/DINO/Final_comparison/metric
  [73
 
  <./img/4-Resultados_Discusion/DINO/Final_comparison/losses/compare_val_loss.png>]
-<img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5_0.95.png, id=1231, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5_0.95.png, id=1230, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5_0.95.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5_0.95.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5_0.95.png  used on input line 457.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [74 <./img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5.png>]
-<img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_F1.png, id=1240, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_F1.png, id=1239, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_F1.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_F1.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_F1.png  used on input line 468.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [75 <./img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_mAP_0.5_0.95.png> <./img/4-Resultados_Discusion/DINO/Final_comparison/metrics/compare_F1.png>]
-<img/4-Resultados_Discusion/DINO/Final_comparison/tradeoff_performance_gflops.png, id=1250, 722.7pt x 433.62pt>
+<img/4-Resultados_Discusion/DINO/Final_comparison/tradeoff_performance_gflops.png, id=1249, 722.7pt x 433.62pt>
 File: img/4-Resultados_Discusion/DINO/Final_comparison/tradeoff_performance_gflops.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/Final_comparison/tradeoff_performance_gflops.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/Final_comparison/tradeoff_performance_gflops.png  used on input line 479.
 (pdftex.def)             Requested size: 377.62642pt x 226.57542pt.
  [76 <./img/4-Resultados_Discusion/DINO/Final_comparison/tradeoff_performance_gflops.png>]
-<img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/F1_curve.png, id=1260, 712.5822pt x 498.30165pt>
+<img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/F1_curve.png, id=1259, 712.5822pt x 498.30165pt>
 File: img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/F1_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/F1_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/F1_curve.png  used on input line 494.
 (pdftex.def)             Requested size: 377.62642pt x 264.0758pt.
-<img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/P_curve.png, id=1262, 714.38895pt x 498.30165pt>
+<img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/P_curve.png, id=1261, 714.38895pt x 498.30165pt>
 File: img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/P_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/P_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/P_curve.png  used on input line 505.
 (pdftex.def)             Requested size: 377.62642pt x 263.4067pt.
  [77 <./img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/F1_curve.png>]
-<img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png, id=1272, 714.38895pt x 498.30165pt>
+<img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png, id=1271, 714.38895pt x 498.30165pt>
 File: img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png  used on input line 516.
 (pdftex.def)             Requested size: 377.62642pt x 263.4067pt.
  [78 <./img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/P_curve.png>]
-<img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/confusion_matrix.png, id=1281, 867.24pt x 650.43pt>
+<img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/confusion_matrix.png, id=1280, 867.24pt x 650.43pt>
 File: img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/confusion_matrix.png Graphic file (type png)
 <use img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/confusion_matrix.png>
 Package pdftex.def Info: img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/confusion_matrix.png  used on input line 527.
 (pdftex.def)             Requested size: 377.62642pt x 283.22258pt.
- [79 <./img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png>] [80 <./img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/confusion_matrix.png>] [81
+ [79 <./img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/R_curve.png>] [80 <./img/4-Resultados_Discusion/DINO/dino_r50_4s_belt_mod/confusion_matrix.png>]
+LaTeX Font Info:    Calculating math sizes for size <10.00012> on input line 543.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <10.00012> on input line 543.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <7.00005> on input line 543.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <5.00006> on input line 543.
+ [81
 
-]) (capitulos/5-Conclusiones.tex [82]
+] [82]) (capitulos/5-Conclusiones.tex [83]
 Capítulo 5.
-) (main.bbl [83
+) (main.bbl [84
 
-] [84
+] [85
 
-]) (capitulos/6-Anexos.tex [85]
+]) (capitulos/6-Anexos.tex [86]
 Capítulo 6.
 
 Overfull \hbox (16.72961pt too wide) in paragraph at lines 63--111
  [][] 
  []
 
-[86
+[87
 
-] [87]
+] [88]
 Overfull \hbox (4.19086pt too wide) in paragraph at lines 159--199
  [][] 
  []
 
-[88] [89]) (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
+[89] [90]) (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
 File: se-utf8.def 2019/11/29 v1.12 stringenc: UTF-8
-) [90
+) [91
 
 ] (main.aux
 LaTeX Info: Redefining \. on input line 16.
@@ -2932,18 +2940,18 @@ L3 programming layer <2024-01-04>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 46813 strings out of 474486
- 880062 string characters out of 5743755
+ 46867 strings out of 474486
+ 880906 string characters out of 5743755
  2087542 words of memory out of 5000000
- 67803 multiletter control sequences out of 15000+600000
- 702417 words of font info for 158 fonts, out of 8000000 for 9000
+ 67846 multiletter control sequences out of 15000+600000
+ 725277 words of font info for 190 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  113i,20n,110p,2976b,2629s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/euler/eufm10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmex10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi6.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmss8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbo10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbx10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsso8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmvtt10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on main.pdf (99 pages, 13006124 bytes).
+<C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/euler/eufm10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmex10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi6.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr7.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmss8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbo10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbx10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsso8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmvtt10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
+Output written on main.pdf (100 pages, 13032113 bytes).
 PDF statistics:
- 1794 PDF objects out of 2073 (max. 8388607)
- 1505 compressed objects within 16 object streams
- 388 named destinations out of 1000 (max. 500000)
+ 1819 PDF objects out of 2073 (max. 8388607)
+ 1527 compressed objects within 16 object streams
+ 391 named destinations out of 1000 (max. 500000)
  903 words of extra memory for PDF output out of 10000 (max. 10000000)
 
