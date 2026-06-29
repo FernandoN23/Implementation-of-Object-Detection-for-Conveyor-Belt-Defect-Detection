@@ -72,7 +72,7 @@
 \contentsline {chapter}{\numberline {4}Resultados y Discusión}{46}{chapter.4}%
 \contentsline {section}{\numberline {4.1}Base de datos implementada}{46}{section.4.1}%
 \contentsline {section}{\numberline {4.2}Tiempos y rendimiento del entrenamiento}{48}{section.4.2}%
-\contentsline {section}{\numberline {4.3}Métricas modelos de una sola etapa (\textit {One-Stage})}{49}{section.4.3}%
+\contentsline {section}{\numberline {4.3}Métricas y resultados de los modelos implementados}{49}{section.4.3}%
 \contentsline {subsection}{\numberline {4.3.1}YOLOv5 (\textit {You Only Look Once})}{49}{subsection.4.3.1}%
 \contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{49}{section*.48}%
 \contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{50}{section*.50}%
