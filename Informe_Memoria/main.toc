@@ -21,31 +21,31 @@
 \contentsline {subsection}{\numberline {2.5.3}YOLO (You Only Look Once)}{16}{subsection.2.5.3}%
 \contentsline {subsubsection}{\numberline {2.5.3.1}Arquitectura del modelo YOLOv5}{17}{subsubsection.2.5.3.1}%
 \contentsline {subsubsection}{\numberline {2.5.3.2}Bloques convolucionales: backbone, neck y head}{18}{subsubsection.2.5.3.2}%
-\contentsline {paragraph}{Columna Vertebral (\textit {backbone})}{18}{section*.19}%
-\contentsline {paragraph}{Cuello de agregación (\textit {neck})}{18}{section*.20}%
-\contentsline {paragraph}{Cabeza de detección (\textit {detection head})}{18}{section*.21}%
+\contentsline {paragraph}{Columna Vertebral (\textit {backbone})}{18}{section*.21}%
+\contentsline {paragraph}{Cuello de agregación (\textit {neck})}{18}{section*.22}%
+\contentsline {paragraph}{Cabeza de detección (\textit {detection head})}{18}{section*.23}%
 \contentsline {subsubsection}{\numberline {2.5.3.3}Funciones de activación y funciones de salida en YOLOv5}{19}{subsubsection.2.5.3.3}%
-\contentsline {paragraph}{Funciones de activación internas}{19}{section*.22}%
-\contentsline {paragraph}{Funciones de salida para detección y clasificación}{19}{section*.23}%
+\contentsline {paragraph}{Funciones de activación internas}{19}{section*.24}%
+\contentsline {paragraph}{Funciones de salida para detección y clasificación}{19}{section*.25}%
 \contentsline {subsubsection}{\numberline {2.5.3.4}Diferencias clave de YOLOv5 respecto a versiones anteriores}{20}{subsubsection.2.5.3.4}%
 \contentsline {subsection}{\numberline {2.5.4}SSD (Single Shot Multibox Detector)}{20}{subsection.2.5.4}%
 \contentsline {subsubsection}{\numberline {2.5.4.1}Arquitectura del modelo SSD}{21}{subsubsection.2.5.4.1}%
 \contentsline {subsubsection}{\numberline {2.5.4.2}Bloques convolucionales: backbone, capas adicionales y cabezas de predicción}{21}{subsubsection.2.5.4.2}%
-\contentsline {paragraph}{Columna Vertebral (\textit {backbone})}{22}{section*.25}%
-\contentsline {paragraph}{Capas de características adicionales (\textit {extra feature layers})}{22}{section*.26}%
-\contentsline {paragraph}{Cabezas de predicción (\textit {prediction heads})}{22}{section*.27}%
+\contentsline {paragraph}{Columna Vertebral (\textit {backbone})}{22}{section*.27}%
+\contentsline {paragraph}{Capas de características adicionales (\textit {extra feature layers})}{22}{section*.28}%
+\contentsline {paragraph}{Cabezas de predicción (\textit {prediction heads})}{22}{section*.29}%
 \contentsline {subsubsection}{\numberline {2.5.4.3}Funciones de activación y funciones de salida en SSD}{23}{subsubsection.2.5.4.3}%
-\contentsline {paragraph}{Funciones de activación internas}{23}{section*.28}%
-\contentsline {paragraph}{Funciones de salida para detección y clasificación}{23}{section*.29}%
+\contentsline {paragraph}{Funciones de activación internas}{23}{section*.30}%
+\contentsline {paragraph}{Funciones de salida para detección y clasificación}{23}{section*.31}%
 \contentsline {section}{\numberline {2.6}Modelos de detección de objetos basados en Transformers}{24}{section.2.6}%
 \contentsline {subsection}{\numberline {2.6.1}Contextualización}{24}{subsection.2.6.1}%
 \contentsline {subsection}{\numberline {2.6.2}Arquitectura general}{24}{subsection.2.6.2}%
 \contentsline {subsection}{\numberline {2.6.3}DETR (DEtection TRansformer)}{25}{subsection.2.6.3}%
 \contentsline {subsubsection}{\numberline {2.6.3.1}Arquitectura general de DETR}{25}{subsubsection.2.6.3.1}%
 \contentsline {subsubsection}{\numberline {2.6.3.2}Bloques fundamentales: Backbone, Encoder, Decoder y FFN}{26}{subsubsection.2.6.3.2}%
-\contentsline {paragraph}{Columna vertebral (\textit {Backbone})}{26}{section*.31}%
-\contentsline {paragraph}{Codificador (\textit {Encoder})}{26}{section*.32}%
-\contentsline {paragraph}{Decodificador (\textit {Decoder}) y Cabezas de Predicción (\textit {FFN})}{26}{section*.33}%
+\contentsline {paragraph}{Columna vertebral (\textit {Backbone})}{26}{section*.33}%
+\contentsline {paragraph}{Codificador (\textit {Encoder})}{26}{section*.34}%
+\contentsline {paragraph}{Decodificador (\textit {Decoder}) y Cabezas de Predicción (\textit {FFN})}{26}{section*.35}%
 \contentsline {subsubsection}{\numberline {2.6.3.3}Pérdida de emparejamiento bipartito y el Algoritmo Húngaro}{26}{subsubsection.2.6.3.3}%
 \contentsline {subsection}{\numberline {2.6.4}DINO (DETR with Improved DeNoising Anchor Boxes)}{27}{subsection.2.6.4}%
 \contentsline {subsubsection}{\numberline {2.6.4.1}Evolución y arquitectura general de DINO}{27}{subsubsection.2.6.4.1}%
@@ -76,47 +76,47 @@
 \contentsline {section}{\numberline {4.3}Métricas y resultados de los modelos implementados}{49}{section.4.3}%
 \contentsline {subsection}{\numberline {4.3.1}Resumen de resultados}{49}{subsection.4.3.1}%
 \contentsline {subsection}{\numberline {4.3.2}YOLOv5 (\textit {You Only Look Once})}{50}{subsection.4.3.2}%
-\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{50}{section*.50}%
-\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{51}{section*.52}%
-\contentsline {paragraph}{F1-Score vs Época}{52}{section*.55}%
-\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{53}{section*.57}%
-\contentsline {paragraph}{Resultados específicos mejor variante (\textit {YOLOv5-s})}{54}{section*.59}%
-\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{54}{section*.60}%
-\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{55}{section*.62}%
-\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{56}{section*.64}%
-\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{57}{section*.66}%
+\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{50}{section*.52}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{51}{section*.54}%
+\contentsline {paragraph}{F1-Score vs Época}{52}{section*.57}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{53}{section*.59}%
+\contentsline {paragraph}{Resultados específicos mejor variante (\textit {YOLOv5-s})}{54}{section*.61}%
+\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{54}{section*.62}%
+\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{55}{section*.64}%
+\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{56}{section*.66}%
+\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{57}{section*.68}%
 \contentsline {subsection}{\numberline {4.3.3}SSD (\textit {Single Shot Multibox Detector})}{58}{subsection.4.3.3}%
-\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{58}{section*.68}%
-\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{59}{section*.70}%
-\contentsline {paragraph}{F1-Score vs Época}{60}{section*.73}%
-\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{61}{section*.75}%
-\contentsline {paragraph}{Resultados específicos mejor variante (\textit {SSD512})}{62}{section*.77}%
-\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{62}{section*.78}%
-\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{63}{section*.80}%
-\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{64}{section*.82}%
-\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{65}{section*.84}%
+\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{58}{section*.70}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{59}{section*.72}%
+\contentsline {paragraph}{F1-Score vs Época}{60}{section*.75}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{61}{section*.77}%
+\contentsline {paragraph}{Resultados específicos mejor variante (\textit {SSD512})}{62}{section*.79}%
+\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{62}{section*.80}%
+\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{63}{section*.82}%
+\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{64}{section*.84}%
+\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{65}{section*.86}%
 \contentsline {subsection}{\numberline {4.3.4}DETR (\textit {DEtection TRansformer})}{66}{subsection.4.3.4}%
-\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{66}{section*.86}%
-\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{67}{section*.88}%
-\contentsline {paragraph}{F1-Score vs Época}{68}{section*.91}%
-\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{69}{section*.93}%
-\contentsline {paragraph}{Resultados específicos mejor variante (\textit {DETR\_R50})}{70}{section*.95}%
-\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{70}{section*.96}%
-\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{71}{section*.98}%
-\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{72}{section*.100}%
-\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{73}{section*.102}%
+\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{66}{section*.88}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{67}{section*.90}%
+\contentsline {paragraph}{F1-Score vs Época}{68}{section*.93}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{69}{section*.95}%
+\contentsline {paragraph}{Resultados específicos mejor variante (\textit {DETR\_R50})}{70}{section*.97}%
+\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{70}{section*.98}%
+\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{71}{section*.100}%
+\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{72}{section*.102}%
+\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{73}{section*.104}%
 \contentsline {subsection}{\numberline {4.3.5}DINO (\textit {DETR with Improved DeNoising Anchor Boxes})}{74}{subsection.4.3.5}%
-\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{74}{section*.104}%
-\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{75}{section*.106}%
-\contentsline {paragraph}{F1-Score vs Época}{76}{section*.109}%
-\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{77}{section*.111}%
-\contentsline {paragraph}{Resultados específicos mejor variante preliminar (\textit {DINO\_R50\_4scale})}{78}{section*.113}%
-\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{78}{section*.114}%
-\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{79}{section*.116}%
-\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{80}{section*.118}%
-\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{81}{section*.120}%
+\contentsline {paragraph}{Pérdida Total vs Época (\textit {Total Loss vs Epoch})}{74}{section*.106}%
+\contentsline {paragraph}{Precisión Media Promedio vs Época (\textit {Mean Average Precision vs Epoch})}{75}{section*.108}%
+\contentsline {paragraph}{F1-Score vs Época}{76}{section*.111}%
+\contentsline {paragraph}{Trade-off Performance vs Costo Computacional}{77}{section*.113}%
+\contentsline {paragraph}{Resultados específicos mejor variante preliminar (\textit {DINO\_R50\_4scale})}{78}{section*.115}%
+\contentsline {subparagraph}{Curva de F1-Score vs Confianza}{78}{section*.116}%
+\contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{79}{section*.118}%
+\contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{80}{section*.120}%
+\contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{81}{section*.122}%
 \contentsline {section}{\numberline {4.4}Discusión general de resultados}{82}{section.4.4}%
 \contentsline {chapter}{\numberline {5}Conclusiones}{85}{chapter.5}%
-\contentsline {chapter}{Bibliografía}{86}{chapter*.122}%
+\contentsline {chapter}{Bibliografía}{86}{chapter*.124}%
 \contentsline {chapter}{\numberline {6}Anexos}{88}{chapter.6}%
 \contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{88}{section.6.1}%
