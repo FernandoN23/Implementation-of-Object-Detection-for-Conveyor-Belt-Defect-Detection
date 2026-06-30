@@ -2,20 +2,6 @@
 
 \section{Estado del arte en la identificación de fallas en correas transportadoras}
 
-El aprendizaje profundo (\textit{Deep Learning}) surge como una evolución de los enfoques clásicos de aprendizaje automático (\textit{Machine Learning}), al introducir redes neuronales profundas capaces de aprender de forma automática representaciones jerárquicas directamente desde los datos. En los métodos tradicionales de \textit{Machine Learning}, la etapa de ingeniería de características recae en el especialista, quien define manualmente descriptores (por ejemplo, basados en bordes, texturas o histogramas) y luego entrena un clasificador independiente sobre dichas representaciones. En contraste, en \textit{Deep Learning} la misma red realiza de manera integrada la extracción de características y la decisión final, aprendiendo dichas representaciones de alto nivel a partir de grandes volúmenes de datos. Esto ha permitido superar de forma sistemática a los métodos convencionales en tareas de clasificación, segmentación y detección de objetos. En la Figura \ref{fig:2.1-ML_vs_DL} se ilustra gráficamente la diferencia conceptual. \\
-
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png}
-    \caption{Machine Learning vs Deep Learning \cite{gupta2022deep}}
-    \label{fig:2.1-ML_vs_DL}
-\end{figure}
-Adicionalmente, el aprendizaje por transferencia (\textit{transfer learning}) ha cobrado relevancia en escenarios con escasez de datos etiquetados, al reutilizar modelos profundos preentrenados en bases de datos extensas y ajustarlos a nuevas tareas de visión por computador, mejorando el rendimiento y reduciendo el costo computacional del entrenamiento en los nuevos modelos \cite{gupta2022deep}. \\
-
-
-En trabajos recientes, una memoria de título desarrollada en la Universidad de Chile \cite{angulo2024deteccion} implementa visión computacional y técnicas de aprendizaje profundo para la detección temprana de fallas en correas transportadoras, utilizando una de las versiones del modelo YOLO. El estudio describe detalladamente la implementación y calibración del modelo, además de proporcionar información técnica sobre redes neuronales convolucionales, métricas de evaluación, pruebas experimentales y resultados ilustrativos.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Fallas en correas transportadoras}
 
@@ -44,10 +30,27 @@ Entre las fallas más comunes en correas transportadoras se identifican el \text
     \subfloat[Corte longitudinal ó Desgarro]{
         \includegraphics[width=0.4\textwidth]{img/2-Antecedentes/2.1-Estado_arte/2.1.1-Fotos_Fallas//Corte_longitudinal.png}
     }
-    \caption{Tipos de falla comunes en correas transportadoras, imágenes adaptadas de \cite{khanna2022types}.}
+    \caption{Tipos de falla comunes en correas transportadoras, imágenes extraídas y adaptadas de \cite{khanna2022types}.}
     \label{fig:2.1-falla_correas}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Aprendizaje profundo (\textit{Deep Learning})}
+
+El aprendizaje profundo (\textit{Deep Learning}) surge como una evolución de los enfoques clásicos de aprendizaje automático (\textit{Machine Learning}), al introducir redes neuronales profundas capaces de aprender de forma automática representaciones jerárquicas directamente desde los datos. En los métodos tradicionales de \textit{Machine Learning}, la etapa de ingeniería de características recae en el especialista, quien define manualmente descriptores (por ejemplo, basados en bordes, texturas o histogramas) y luego entrena un clasificador independiente sobre dichas representaciones. En contraste, en \textit{Deep Learning} la misma red realiza de manera integrada la extracción de características y la decisión final, aprendiendo dichas representaciones de alto nivel a partir de grandes volúmenes de datos. Esto ha permitido superar de forma sistemática a los métodos convencionales en tareas de clasificación, segmentación y detección de objetos. En la Figura \ref{fig:2.1-ML_vs_DL} se ilustra gráficamente la diferencia conceptual. \\
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.65\textwidth]{img/2-Antecedentes/2.1-Estado_arte/ML_vs_DL.png}
+    \caption{Machine Learning vs Deep Learning \cite{gupta2022deep}}
+    \label{fig:2.1-ML_vs_DL}
+\end{figure}
+Adicionalmente, el aprendizaje por transferencia (\textit{transfer learning}) ha cobrado relevancia en escenarios con escasez de datos etiquetados, al reutilizar modelos profundos preentrenados en bases de datos extensas y ajustarlos a nuevas tareas de visión por computador, mejorando el rendimiento y reduciendo el costo computacional del entrenamiento en los nuevos modelos \cite{gupta2022deep}. \\
+
+
+En trabajos recientes, una memoria de título desarrollada en la Universidad de Chile \cite{angulo2024deteccion} implementa visión computacional y técnicas de aprendizaje profundo para la detección temprana de fallas en correas transportadoras, utilizando una de las versiones del modelo YOLO. El estudio describe detalladamente la implementación y calibración del modelo, además de proporcionar información técnica sobre redes neuronales convolucionales, métricas de evaluación, pruebas experimentales y resultados ilustrativos.
+
 
 \section{Detección de objetos en visión por computadora}
 
@@ -56,13 +59,21 @@ La \textit{detección de objetos} consiste en identificar automáticamente insta
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2-Object_Detection_example.png}
-    \caption{Ejemplos de detección de objetos simples y múltiples. Imagen adaptada de \cite{kaur2022tools}.}
+    \caption{Ejemplos de detección de objetos simples y múltiples. Imagen extraída de \cite{kaur2022tools}.}
     \label{fig:2.2-object_detection_example}
 \end{figure}
 
 La detección de objetos ha sido uno de los problemas centrales en visión por computadora, tradicionalmente abordado mediante arquitecturas basadas en redes neuronales convolucionales (CNN). Estos modelos dominaron el campo durante más de una década, impulsando desarrollos significativos en precisión y eficiencia. Sin embargo, alcanzar un balance óptimo entre velocidad y exactitud ha requerido explorar estructuras más allá del marco convencional de las CNN. Los modelos basados en transformers, originalmente desarrollados para procesamiento de lenguaje natural (Natural Language Processing), han demostrado ser altamente efectivos al capturar relaciones espaciales globales en imágenes, lo que los convierte en una propuesta a considerar para la implementación de nuevos modelos de detección de objetos \cite{arkin2023survey}. \\
 
-Aplicado al sector industrial, la detección de fallas en correas transportadoras se aborda fundamentalmente como un problema de detección de objetos mediante aprendizaje supervisado. Existen dos enfoques principales actualmente usados: los modelos de dos etapas, como la familia R-CNN (red neuronal convolucional basada en regiones), que emplean redes de propuestas regionales seguidas de refinamiento, y los modelos de una etapa, como YOLO y SSD, que realizan predicciones por regresión directa, optimizados para aplicaciones en tiempo real \cite{zhang2021deep}.
+Aplicado al sector industrial, la detección de fallas en correas transportadoras se aborda fundamentalmente como un problema de detección de objetos mediante aprendizaje supervisado. Existen dos enfoques principales actualmente usados: los modelos de dos etapas, como la familia R-CNN (red neuronal convolucional basada en regiones), que emplean redes de propuestas regionales seguidas de refinamiento, y los modelos de una etapa, como YOLO y SSD, que realizan predicciones por regresión directa, optimizados para aplicaciones en tiempo real. Un ejemplo de aplicación elaborado por Mengchao et al.\cite{zhang2021deep}, se muestra en la Figura \ref{fig:2.2-caso_aplicado}.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.2-CNN/OD_applied_case.png}
+    \caption{Ejemplo de detección de fallas utilizando detección de objetos en un caso industrial. Imagen extraída de \cite{zhang2021deep}.}
+    \label{fig:2.2-caso_aplicado}
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Redes Neuronales Convolucionales (CNN)}
@@ -215,7 +226,6 @@ Para mitigar el riesgo de sobreajuste, la regularización $L_2$ se modula a trav
 
 
 
-\clearpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Mecanismo de atención y arquitectura Encoder-Decoder}
@@ -397,7 +407,7 @@ De este modo, SSD modela la detección como un problema de regresión y clasific
   
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png}
+    \includegraphics[width=1.0\textwidth]{img/2-Antecedentes/2.5-One-Stage/SSD_Architecture.png}
     \caption{Arquitectura general de SSD. Imagen extraída y procesada de \cite{liu2016ssd}.}
     \label{fig:2.5-SSD_architecture}
 \end{figure}
@@ -536,11 +546,11 @@ Para contrarrestar el desbalance de clases provocado por la alta cantidad de ran
 
 A pesar de las ventajas conceptuales de DETR, las implementaciones iniciales presentaban dos limitaciones de carácter crítico en entornos operativos: una velocidad de convergencia extremadamente lenta durante la optimización ---atribuible a la inestabilidad inherente de las asignaciones dinámicas del emparejamiento bipartito--- y deficiencias notorias en el rendimiento de detección sobre objetos con dimensiones espaciales reducidas. El modelo DINO \cite{zhang2022dino} surge para mitigar de forma conjunta estas ineficiencias, consolidándose como un detector Transformer de extremo a extremo capaz de alcanzar el estado del arte competitivo mediante innovaciones metodológicas explícitas.\\
 
-DINO preserva la topología jerárquica elemental \textit{backbone--encoder--decoder}, pero reconfigura el flujo incorporando el mecanismo de atención deformable multiescala heredado de Deformable DETR \cite{zhang2022dino}. Esta operación concentra el cómputo de atención restringiendo el escaneo a un conjunto pequeño y acotado de puntos de muestreo distribuidos clave de referencia espacial, optimizando la complejidad computacional. Asimismo, DINO modifica sustancialmente la naturaleza matemática de las \textit{object queries} decodificadoras, formulándolas como cajas de anclaje dinámicas cuatridimensionales (4D) de la forma $(x, y, w, h)$, las cuales son refinadas secuencialmente de manera iterativa a lo largo de cada una de las capas constitutivas del decodificador. Ver Figura \ref{fig:2.6-DINO_architecture}.\\
+DINO preserva la topología jerárquica elemental \textit{backbone--encoder--decoder}, pero reconfigura el flujo incorporando el mecanismo de atención deformable multiescala heredado de Deformable DETR \cite{zhang2022dino}. Esta operación concentra el cómputo de atención restringiendo el escaneo a un conjunto pequeño y acotado de puntos de muestreo distribuidos clave de referencia espacial, optimizando la complejidad computacional. Asimismo, DINO modifica sustancialmente la naturaleza matemática de las \textit{object queries} decodificadoras, formulándolas como cajas de anclaje dinámicas cuatridimensionales (4D) de la forma $(x, y, w, h)$, las cuales son refinadas secuencialmente de manera iterativa a lo largo de cada una de las capas constitutivas del decodificador. Esto se ilustra en la Figura \ref{fig:2.6-DINO_architecture}.\\
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png}
+    \includegraphics[width=0.95\textwidth]{img/2-Antecedentes/2.6-Detection_Transformers/DINO_Architecture.png}
     \caption{Arquitectura DINO. Imagen extraída de \cite{zhang2022dino}.}
     \label{fig:2.6-DINO_architecture}
 \end{figure}
@@ -626,19 +636,19 @@ La adopción de arquitecturas basadas en atención para la detección de fallas 
         \hline
         \textbf{Modelo} & \textbf{Backbone} & \textbf{Épocas} & \textbf{AP (mAP global)} & \textbf{AP$_{50}$} & \textbf{GFLOPs} & \textbf{FPS Máx.} & \textbf{Parámetros} \\ 
         \hline
-        DETR & ResNet-50 & 500 & 42.0 & 62.4 & 86 & 28 & 41M \\ 
+        DETR & \textit{ResNet-50} & 500 & 42.0 & 62.4 & 86 & 28 & 41M \\ 
         \hline
-        DETR-DC5 & ResNet-50 & 500 & 43.3 & 63.1 & 187 & 12 & 41M \\ 
+        DETR-DC5 & \textit{ResNet-50} & 500 & 43.3 & 63.1 & 187 & 12 & 41M \\ 
         \hline
-        DETR-R101 & ResNet-101 & 500 & 43.5 & 63.8 & 152 & 20 & 60M \\ 
+        DETR-R101 & \textit{ResNet-101} & 500 & 43.5 & 63.8 & 152 & 20 & 60M \\ 
         \hline
-        DETR-DC5-R101 & ResNet-101 & 500 & 44.9 & 64.7 & 253 & 10 & 60M \\ 
+        DETR-DC5-R101 & \textit{ResNet-101} & 500 & 44.9 & 64.7 & 253 & 10 & 60M \\ 
         \hline
-        \textit{DINO (4-scale)} & \textit{ResNet-50} & 36 & \textit{50.9} & \textit{69.0} & \textit{279} & 24 & \textit{47M} \\ 
+        DINO (4-scale) & \textit{ResNet-50} & 36 & 50.9 & 69.0 & 279 & 24 & 47M \\ 
         \hline
-        \textit{DINO (5-scale)} & \textit{ResNet-50} & 36 & \textit{51.2} & \textit{69.0} & \textit{860} & 10 & \textit{47M} \\ 
+        DINO (5-scale) & \textit{ResNet-50} & 36 & 51.2 & 69.0 & 860 & 10 & 47M \\ 
         \hline
-        \textit{DINO (Ours)} & \textit{Swin-L} & 36 & \textit{63.2} & \textit{-} & \textit{-} & - & \textit{218M} \\ 
+        DINO (Ours) & \textit{Swin-L} & 36 & 63.2 & \textit{-} & \textit{-} & - & 218M \\ 
         \hline
     \end{tabular}%
     }

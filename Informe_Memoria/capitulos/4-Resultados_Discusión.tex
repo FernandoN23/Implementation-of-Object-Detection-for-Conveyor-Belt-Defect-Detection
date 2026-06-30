@@ -97,6 +97,51 @@ A partir de los resultados expuestos en la Tabla \ref{tab:4.2-tiempos-entrenamie
 \clearpage
 \section{Métricas y resultados de los modelos implementados}
 
+\subsection{Resumen de resultados}
+
+A continuación, se muestra un resumen de resultados en la Tabla \ref{tab:4.3-summary-all-models-exact} de todos los modelos implementados, los cuáles serán posteriormente discutidos y complementados con otras métricas.
+
+\begin{table}[H]
+    \centering
+    \caption{Resumen de métricas de rendimiento, complejidad paramétrica y costo computacional para los modelos YOLOv5, SSD, DETR y DINO.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{lccccc}
+        \toprule
+        \textbf{Variante} & \textbf{mAP@0.5} & \textbf{mAP@0.5:0.95} & \textbf{F1-Score} & \textbf{Parám. (M)} & \textbf{GFLOPs} \\
+        \midrule
+        \multicolumn{6}{c}{\textbf{YOLOv5}} \\
+        \midrule
+        YOLOv5-n & 0.8735 & 0.5089 & 0.8744 & 1.9 & 4.2 \\
+        YOLOv5-s & 0.8978 & 0.5517 & 0.8897 & 7.2 & 15.8 \\
+        YOLOv5-m & 0.8984 & 0.5480 & 0.8937 & 21.2 & 48.0 \\
+        YOLOv5-l & 0.8958 & 0.5359 & 0.8937 & 46.5 & 108.3 \\
+        YOLOv5-x & 0.9012 & 0.5435 & 0.8910 & 86.7 & 204.7 \\
+        \midrule
+        \multicolumn{6}{c}{\textbf{SSD}} \\
+        \midrule
+        SSD300 & 0.6856 & 0.3995 & 0.6954 & 26.3 & 31.4 \\
+        SSD512 & 0.7394 & 0.4277 & 0.7424 & 27.1 & 90.8 \\
+        \midrule
+        \multicolumn{6}{c}{\textbf{DETR}} \\
+        \midrule
+        DETR-R50 & 0.8067 & 0.5033 & 0.6959 & 41.0 & 86.0 \\
+        DETR-R50-DC5 & 0.7784 & 0.4713 & 0.6845 & 41.0 & 187.0 \\
+        DETR-R101 & 0.7984 & 0.4914 & 0.6887 & 60.0 & 152.0 \\
+        DETR-R101-DC5 & 0.7960 & 0.4878 & 0.6922 & 60.0 & 253.0 \\
+        \midrule
+        \multicolumn{6}{c}{\textbf{DINO}} \\
+        \midrule
+        DINO-R50-4scale & 0.8809 & 0.5298 & 0.7550 & 47.0 & 279.0 \\
+        DINO-R50-5scale & 0.0123 & 0.0064 & 0.0225 & 47.0 & 860.0 \\
+        DINO-Swin-L & 0.8710 & 0.5240 & 0.7554 & 218.0 & 1040.0 \\
+        \bottomrule
+    \end{tabular}%
+    }
+    \label{tab:4.3-summary-all-models-exact}
+\end{table}
+
+
+\clearpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{YOLOv5 (\textit{You Only Look Once})}
@@ -232,7 +277,7 @@ En la Figura \ref{fig:4.3-Perdida_SSD}, se observa una convergencia estable y ac
     \label{fig:4.3-mAP0.5_SSD}
 \end{figure}
 
-A partir de la Figura \ref{fig:4.3-mAP0.5_SSD}, es evidente la superioridad extractiva de la resolución ampliada de la variante SSD512. Al momento de superar la época 50 y después del reajuste del optimizador en la época 150, la curva de pérdida de la variante SSD512 supera a la curva de pérdida de la variante SSD300 en todo el entrenamiento , estableciendo un máximo de $0.7394$, mientras que SSD300 se estanca prematuramente en un máximo de $0.6856$.
+A partir de la Figura \ref{fig:4.3-mAP0.5_SSD}, es evidente la superioridad extractiva de la resolución ampliada de la variante SSD512. Al momento de superar la época 50 y después del reajuste del optimizador en la época 150, la curva de pérdida de la variante SSD512 supera a la curva de pérdida de la variante SSD300 en todo el entrenamiento, estableciendo un máximo de $0.7394$, mientras que SSD300 se estanca prematuramente en un máximo de $0.6856$.
 
 \begin{figure}[H]
     \centering
