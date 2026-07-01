@@ -10,6 +10,7 @@
 #              sobre modelos YOLOv5 entrenados (detección en imágenes
 #              de la partición Dataset/test con comparación
 #              predicción vs. etiqueta real).
+#              *Actualizado con MuteStderr para ocultar warnings MIOpen*
 #==============================================================
 
 """Punto de entrada CLI para testear modelos YOLOv5 ya entrenados.
@@ -58,10 +59,11 @@ import yaml
 
 # Mitigación opcional MIOpen y sistema de warnings del proyecto
 try:  # pragma: no cover - entorno mínimo sin estos módulos
-    from engine.bootstrap_miopen import MIOpenConfig, bootstrap  # type: ignore
+    from engine.bootstrap_miopen import MIOpenConfig, bootstrap, MuteStderr  # type: ignore
 except Exception:  # pragma: no cover
     MIOpenConfig = None  # type: ignore
     bootstrap = None  # type: ignore
+    MuteStderr = None  # type: ignore
 
 # ---------------------------------------------------------------------------
 # Rutas base de proyecto
@@ -343,9 +345,13 @@ def infer_image(
     if im.ndim == 3:
         im = im.unsqueeze(0)
 
-    # 4) Forward
+    # 4) Forward (con MuteStderr para ocultar warnings de MIOpen)
     with torch.no_grad():
-        pred = ctx.model(im)[0]
+        if MuteStderr is not None:
+            with MuteStderr():
+                pred = ctx.model(im)[0]
+        else:
+            pred = ctx.model(im)[0]
 
     # 5) NMS
     preds = non_max_suppression(
