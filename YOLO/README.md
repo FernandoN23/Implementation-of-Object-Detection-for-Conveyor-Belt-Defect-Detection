@@ -118,7 +118,7 @@ python YOLO/valid.py --weights YOLO/weights/detect/s/train/s_yolov5_s_best.pt --
 
 ```bash
 # Abrir visor interactivo (Ajustar ruta según variante entrenada)
-python YOLO/test.py --weights YOLO/runs/train/belt_defects_yolov5_s/weights/best.pt --conf-thres 0.4
+python YOLO/test.py --weights YOLO/weights/detect/s/train/s_yolov5_s_best.pt --conf-thres 0.5  
 ```
 
 **Controles del Visor:**
