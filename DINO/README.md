@@ -53,6 +53,9 @@ DINO/
 ├── runs/                     # Salida de experimentos (Logs, Gráficos, Checkpoints intermedios)
 │
 ├── utility/                  # Scripts de Mantenimiento y Procesamiento
+│   ├── clean_metrics.py      ← Limpieza de reportes generados
+│   ├── clean_runs.py         ← Limpieza de experimentos (logs/checkpoints)
+│   ├── clean_weights.py      ← Gestión de espacio (eliminación de pesos redundantes)
 │   ├── data_loader.py        ← Adaptador Dataset YOLOv11 a DINO y auto-descarga COCO128
 │   └── metrics.py            ← Motor gráfico para reportes y CLI interactiva (Modo Merge)
 │
