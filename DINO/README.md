@@ -103,6 +103,23 @@ El sistema utiliza *presets* en los archivos YAML para reproducir experimentos c
 
 ---
 
+## 📥 Carga de Pesos (Checkpoints)
+
+---
+
+Debido a las restricciones de tamaño de GitHub (límites de LFS para archivos mayores a 2GB), **los pesos base, los pesos finales entrenados y los checkpoints completos no están incluidos directamente en este repositorio (a excepción de algunas variantes)**. 
+
+Se solicita al usuario descargar los archivos `.pt` necesarios desde el siguiente enlace y colocarlos manualmente en sus respectivas carpetas:
+
+🔗 **[Descargar Pesos y Checkpoints (Google Drive)](https://drive.google.com/drive/folders/1Fqc22K-zZ0VYC4McjaS9K6EIi-6SCbor?usp=sharing)**
+
+El Drive está estructurado en tres categorías principales para cada variante:
+1. **Pesos Base (`weights/base/`)**: Contiene los pesos pre-entrenados oficiales (ej. `36epochs_R50_4scale.pth`, `36epochs_Swin_L.pth`) necesarios para iniciar un entrenamiento desde cero aprovechando el Transfer Learning. Deben ubicarse en `DINO/weights/base/`.
+2. **Pesos Finales (`weights/`)**: Contiene los modelos consolidados (versiones ligeras) ideales para ejecutar `valid.py` y `test.py`. Deben ubicarse en `DINO/weights/{variante}/`.
+3. **Checkpoints de Entrenamiento (`runs/`)**: Contiene los estados completos del modelo (incluyendo el optimizador AdamW y el modelo EMA). Estos archivos son pesados (hasta 3.5 GB) y son necesarios si deseas **reanudar el entrenamiento** o aplicar optimizaciones adicionales a partir de las 300 épocas ya entrenadas. Deben ubicarse en `DINO/runs/{variante}/train/{run_name}/weights/`.
+
+---
+
 ## 🚀 Guía de Uso
 
 --- 
@@ -125,7 +142,7 @@ python DINO/train.py --preset dino_swin_l_b2
 ### 2. Validación
 
 ```bash
-# Validar usando el preset del proyecto (requiere haber ejecutado el entrenamiento respectivo)
+# Validar usando el preset del proyecto (requiere haber descargado/entrenado los pesos)
 python DINO/valid.py --preset dino_r50_4scale_b4
 
 # Validación manual especificando pesos
@@ -164,3 +181,4 @@ Debido a la complejidad cuadrática de la *Multi-Scale Deformable Attention* y l
 2.  **Cirugía Dinámica de Pesos (Size Mismatch Mitigation)**: Permite cargar pesos oficiales masivos (900 queries) en arquitecturas "Lite" (100 queries) recortando los tensores al vuelo durante el Transfer Learning.
 3.  **Bootstrap MIOpen**: Inicialización forzada antes de PyTorch para evitar bloqueos del driver HIP.
 4.  **Gestión de Memoria**: Uso de `expandable_segments` y Automatic Mixed Precision (AMP).
+```
