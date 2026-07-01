@@ -4,6 +4,8 @@
 
 ## 🔧 Detección de objetos — DETR
 
+---
+
 ### Descripción General
 Este módulo implementa una capa de orquestación y personalización sobre la arquitectura **DETR**, diseñada específicamente para el trabajo de memoria de título: *"Implementación de algoritmos de reconocimiento de objetos para la identificación de fallas en correas transportadoras"* (Departamento de Ingeniería Mecánica, Universidad de Chile).
 
@@ -46,6 +48,9 @@ DETR/
 ├── runs/                     # Salida de experimentos (Logs, Gráficos, Checkpoints intermedios)
 │
 ├── utility/                  # Scripts de Mantenimiento y Procesamiento
+│   ├── clean_metrics.py      ← Limpieza de reportes generados
+│   ├── clean_runs.py         ← Limpieza de experimentos (logs/checkpoints)
+│   ├── clean_weights.py      ← Gestión de espacio (eliminación de pesos redundantes)
 │   ├── data_loader.py        ← Adaptador Dataset YOLOv11 a DETR y auto-descarga COCO128
 │   └── metrics.py            ← Motor gráfico para reportes y CLI interactiva (Modo Merge)
 │
