@@ -1,0 +1,402 @@
+\chapter{Metodología}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Identificación de fallas}
+
+De acuerdo al Capítulo 2, sección 2.1, las fallas en correas transportadoras se encuentran enmarcadas de acuerdo a \cite{khanna2022types} y para la implementación de modelos de reconocimiento de objetos que identifiquen estas fallas, se consideraron las siguientes categorías:
+
+\begin{itemize}
+    \item \textit{Agujero (Hole):} pérdida completa de material a través del espesor de la banda, de tamaño apreciable, originada por eventos de daño severo (impactos altos, atrapamiento de material o elementos extraños).
+    \item \textit{Daño por impacto (Impact Damage):} deformaciones, cortes o abrasiones localizadas en la zona de carga, producidas por el impacto repetitivo o puntual del material transportado.
+    \item \textit{Perforación (Puncture):} daño puntual en el que un elemento punzante atraviesa la banda generando una abertura de menor extensión superficial que un agujero, usualmente de carácter incipiente.
+    \item \textit{Desgarro (Tear):} separación longitudinal o transversal de la banda, asociada a sobrecargas, material atascado o concentraciones de tensión, y que puede propagarse a lo largo de la correa.
+    \item \textit{Abrasión (Wear):} desgaste progresivo de la superficie de la correa debido a fricción, que se manifiesta como adelgazamiento del recubrimiento y patrones característicos de pérdida de material.
+\end{itemize}
+
+De esta forma, las fallas antes mencionadas se convierten en \textit{clases} para los modelos de detección de objetos. Los casos dónde no se presenten fallas, se consideran clases de fondo (\textit{background}), las cuáles corresponderán a casos sin falla. \\
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Base de datos}
+
+\subsection{Base de datos elaborada}
+
+El entrenamiento de modelos basados en redes neuronales (convolucionales o Transformers) requiere disponer de un conjunto de datos suficientemente representativo, anotado y particionado en subconjuntos mutuamente excluyentes:
+
+\begin{itemize}
+    \item \textit{Entrenamiento (train):} conjunto utilizado para ajustar los parámetros del modelo mediante el proceso de optimización. Se utilizó un 70\% del total de muestras disponibles.
+    \item \textit{Validación (valid):} conjunto empleado durante el entrenamiento para calcular métricas intermedias, seleccionar hiperparámetros y monitorizar el sobreajuste. Sus ejemplos no se usan para actualizar los pesos del modelo y, por lo general, representan una fracción menor que el conjunto de entrenamiento. Se utilizó un 20\% del total de muestras disponibles.
+    \item \textit{Prueba (test):} conjunto reservado para la evaluación final e independiente del modelo, una vez completado el ajuste y la selección de hiperparámetros. Permite estimar el desempeño esperado en condiciones de uso real. Se utilizó el 10\% del total de muestras disponibles.
+\end{itemize}
+
+\subsection{Recopilación y limpieza}
+
+Mediante el sitio web \textit{Roboflow} y repositorios académicos, se recopilaron diversas bases de datos relacionadas con fallas en correas transportadoras. Cada conjunto original presentaba su propia organización de clases, resolución y formato de anotación, exigiendo una homologación estricta.\\
+
+El proceso de depuración operó en tres fases secuenciales. En primer lugar, se purgaron imágenes irrelevantes (ausencia de fallas) o con ruido severo (desenfoque, baja resolución). En segundo lugar, se normalizaron las anotaciones corrigiendo etiquetas inconsistentes y reajustando cajas delimitadoras geométrica o posicionalmente defectuosas. Finalmente, se homogeneizó la nomenclatura de clases según lo descrito en la Sección 3.1. Este protocolo iterativo permitió consolidar un corpus definitivo de 2312 imágenes útiles, escaladas a una resolución matricial uniforme de $640\times640$ píxeles.\\
+
+\subsection{Estructura topológica y formato de anotación}
+
+Para facilitar la evaluación y separar los regímenes de entrenamiento, validación y prueba, la base de datos se dividió físicamente. La organización de los datos, gestionada mediante un archivo de configuración maestro (\textit{data.yaml}) que mapea rutas y clases, sigue el estándar jerárquico expuesto en el Código \ref{lst:estructura-dataset}.\\
+
+\begin{lstlisting}[
+    float,
+    floatplacement=H,                               
+    caption={Estructura topológica del conjunto de datos estandarizado. Formato extraído de \cite{ultralyticsDataset}},
+    label={lst:estructura-dataset},
+    basicstyle=\ttfamily\scriptsize,
+    numbers=none,
+    columns=fullflexible,
+    frame=single,
+    xleftmargin=2.5cm,
+    framexleftmargin=0.5cm,
+    framexrightmargin=0.5cm,
+    breaklines=true,
+    breakatwhitespace=true
+]
+dataset/
+|
+|-- train/
+|   |-- images/
+|       |-- 0001.jpg
+|       |-- 0002.jpg
+|       `-- ...
+|   `-- labels/
+|       |-- 0001.txt
+|       |-- 0002.txt
+|       `-- ...
+|-- valid/
+|   |-- images/
+|       |-- 1622.jpg
+|       |-- 1623.jpg
+|       `-- ...
+|   `-- labels/
+|       |-- 1622.txt
+|       |-- 1623.txt
+|       `-- ...
+|-- test/
+|   |-- images/
+|       |-- 2083.jpg
+|       |-- 2084.jpg
+|       `-- ...
+|   `-- labels/
+|       |-- 2083.txt
+|       |-- 2084.txt
+|       `-- ...
+`-- data.yaml
+\end{lstlisting}
+
+Dentro de la estructuración mencionada, la parametrización de las etiquetas espaciales se estandarizó universalmente bajo el formato YOLO. Cada imagen posee un archivo de texto (\textit{label.txt}) homónimo, donde cada línea representa una instancia detectada mediante el vector acoplado a su clase. De esta forma, el nombre de cada una de las imágenes en la carpeta \textit{images/}, en la base de datos (\textit{dataset/}), comparte el mismo nombre de su archivo de etiqueta en la carpeta \textit{labels/}, con el fin de facilitar el procesamiento y localización. El vector presente en cada etiqueta se muestra en la Ecuación \ref{eq:yolo_vector}.
+
+\begin{equation}
+    v = [c, x, y, w, h]
+    \label{eq:yolo_vector}
+\end{equation}
+
+Donde $c \in \{0, 1, 2, 3, 4\}$ es el identificador de clase de cada falla y se corresponde con el siguiente vector: $\{Hole, Impact Damage, Puncture, Tear, Wear\}$. Para garantizar la invariancia frente a futuras transformaciones de resolución matricial, las coordenadas del centroide $(x, y)$ y las dimensiones de la caja $(w, h)$ se normalizan en el intervalo continuo $[0, 1]$ respecto a la anchura ($W$) y altura ($H$) absoluta de la imagen original, rigiéndose por el sistema de Ecuaciones \ref{eq:yolo_normalization}:
+
+\begin{equation}
+    \begin{aligned}
+        x &= \frac{x_{\min} + x_{\max}}{2W}, \quad &y &= \frac{y_{\min} + y_{\max}}{2H} \\
+        w &= \frac{x_{\max} - x_{\min}}{W}, \quad &h &= \frac{y_{\max} - y_{\min}}{H}
+    \end{aligned}
+    \label{eq:yolo_normalization}
+\end{equation}
+
+En la Figura \ref{fig:3.2-etiquetas} se muestra una representación de las coordenadas en el vector de etiquetado.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{img/3-Metodologia/3.2-Formato_etiquetas.png}
+    \caption{Representación visual de las coordenadas espaciales del vector de formato de etiquetas. Elaboración Propia.}
+    \label{fig:3.2-etiquetas}
+\end{figure}
+
+
+\subsection{Adaptación de etiquetas}
+
+Si bien la normalización escalar de YOLO es altamente eficiente para el almacenamiento en disco, las arquitecturas convolucionales como SSD exigen tensores con coordenadas absolutas (formato Pascal VOC), mientras que los detectores basados en atención (DETR, DINO) requieren anotaciones jerárquicas bajo el estándar MS-COCO (\textit{JSON}).\\
+
+Para resolver esta discrepancia geométrica sin la ineficiencia de duplicar físicamente los archivos, se implementó el módulo auxiliar \textit{data\_loader.py}. Operando como un intérprete dinámico en la implementación de utilidades, este algoritmo lee los tensores normalizados de YOLO durante la fase de carga en memoria de los datos y aplica las transformaciones algebraicas inversas necesarias. De este modo, adapta las coordenadas, las mallas espaciales y la resolución a las restricciones topológicas exactas del modelo requerido.\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Entorno virtual y arquitectura de la implementación}
+
+Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio oficial. Todas las librerías requeridas se gestionan mediante un archivo de requerimientos (\textit{requirements.txt}), que agrupa las dependencias y paquetes de ROCm (debido al uso de Arquitectura AMD para esta memoria), librerías de Pytorch compatibles, scripts de análisis de datos y librerias específicas para cada modelo. Para garantizar la estandarización, la gestión del código fuente se estructuró mediante un sistema topológico de ramas (\textit{branches}) a través del controlador de versiones GIT. 
+
+El núcleo de procesamiento (\textit{engine}), las configuraciones globales y los algoritmos utilitarios operan como una capa base transversal (\textit{wrapper}). En este ecosistema, cada arquitectura de detección se aísla de forma modular en una rama independiente del repositorio. Debido a restricciones físicas de memoria en el hardware (VRAM), el motor de cada rama opera con un diseño de inserción única (\textit{single-socket}): solo una arquitectura puede acoplarse y entrenarse a la vez. Los códigos (\textit{scripts}) principales actúan como orquestadores que encienden el flujo: entrenamiento (\textit{train}), validación (\textit{valid}) y prueba (\textit{test}). Éstos orquestadores cargan bases de datos y configuraciones en memoria, entrenando y validando el modelo, para finalmente exportar los resultados estandarizados, tal como se esquematiza en la Figura \ref{fig:3.1-ModularLayer}.
+
+\begin{figure}[H]
+    \centering
+    \resizebox{0.95\textwidth}{!}{%
+    \begin{tikzpicture}[>=Stealth, font=\sffamily\scriptsize]
+
+    % --- CONFIGURACIONES (Arriba / Cima Lógica) ---
+    \node[draw=black!70, thick, fill=gray!10, minimum width=3.5cm, minimum height=0.8cm, align=center] (configs) at (2.5, 7.5) {Configuraciones \\ (\textit{configs/})};
+
+    % --- BACKGROUND ORQUESTADORES ---
+    \draw[thick, draw=black!60, fill=gray!5, rounded corners=4pt] (0.1, 4.6) rectangle (4.9, 6.6);
+    \node[anchor=north west, font=\sffamily\tiny\bfseries, text=black!70] at (0.2, 6.6) {ORQUESTADORES};
+
+    % --- ORQUESTADORES GLOBALES ---
+    \node[draw=black!70, thick, fill=gray!30, minimum width=1.4cm, minimum height=0.6cm, align=center, rounded corners=2pt] (train) at (1.0, 5.2) {\textit{train.py}};
+    \node[draw=black!70, thick, fill=gray!30, minimum width=1.4cm, minimum height=0.6cm, align=center, rounded corners=2pt] (valid) at (2.5, 5.2) {\textit{valid.py}};
+    \node[draw=black!70, thick, fill=gray!30, minimum width=1.4cm, minimum height=0.6cm, align=center, rounded corners=2pt] (test) at (4.0, 5.2) {\textit{test.py}};
+
+    % Bus de distribución Configs -> Orquestadores
+    \draw[thick, black!70] (configs.south) -- (2.5, 6.1) node[pos=0.3, right, font=\sffamily\tiny] {Interpretación};
+    \draw[thick, black!70] (1.0, 6.1) -- (4.0, 6.1);
+    \draw[->, thick, black!70] (1.0, 6.1) -- (train.north);
+    \draw[->, thick, black!70] (2.5, 6.1) -- (valid.north);
+    \draw[->, thick, black!70] (4.0, 6.1) -- (test.north);
+
+    % --- ENTRADAS DE DATOS (Izquierda) ---
+    \node[draw=black!70, thick, fill=gray!10, minimum width=2.5cm, minimum height=1cm, align=center] (dataset) at (-3.25, 2) {Bases de Datos \\ (\textit{dataset/})};
+    \draw[->, thick, black!70] (dataset.east) -- (0, 2) node[midway, above, font=\sffamily\tiny] {Carga en memoria};
+
+    % --- ESTRUCTURA MAESTRA (Centro) ---
+    \draw[thick, draw=black!80, fill=gray!20]
+      (0, 0) -- (5, 0) -- (5, 1) -- (3.5, 1) -- (3.5, 3) -- (5, 3) -- (5, 4) -- (0, 4) -- cycle;
+      
+    \node[align=center, font=\sffamily\small\bfseries] at (1.75, 2) {Estructura Maestra \\ (\textit{Engine})};
+
+    % Inyección Orquestadores -> Motor
+    \draw[->, thick, black!80] (train.south) -- (1.0, 4);
+    \draw[->, thick, black!80] (valid.south) -- (2.5, 4);
+    \draw[->, thick, black!80] (test.south) -- (4.0, 4);
+
+    % --- MODELOS DE DETECCIÓN (Derecha) ---
+    % Modelo Acoplado (YOLOv5)
+    \draw[thick, draw=black!80, fill=cyan!5] (3.6, 1.1) rectangle (6.2, 2.9);
+    \node[align=center] at (4.9, 2) {YOLOv5 \\ (\textit{YOLO})};
+
+    % Modelos en Espera (Desacoplados)
+    \node[draw=black!50, dashed, thick, fill=gray!5, minimum width=2.4cm, minimum height=0.8cm, align=center, text=black!60] (ssd) at (8.5, 3.2) {SSD \\ (\textit{SSD})};
+    \node[draw=black!50, dashed, thick, fill=gray!5, minimum width=2.4cm, minimum height=0.8cm, align=center, text=black!60] (detr) at (8.5, 2) {DETR \\ (\textit{DETR})};
+    \node[draw=black!50, dashed, thick, fill=gray!5, minimum width=2.4cm, minimum height=0.8cm, align=center, text=black!60] (dino) at (8.5, 0.8) {DINO \\ (\textit{DINO})};
+
+    % Flechas de inserción magnética
+    \draw[->, dashed, thick, black!40] (ssd.west) .. controls (7.2,3.2) and (7,2.5) .. (6.4, 2.5);
+    \draw[->, dashed, thick, black!40] (detr.west) -- (6.4, 2);
+    \draw[->, dashed, thick, black!40] (dino.west) .. controls (7.2,0.8) and (7,1.5) .. (6.4, 1.5);
+    
+    \node[align=center, font=\sffamily\tiny\bfseries, text=black!70] at (8.5, 4) {MODELOS DE DETECCIÓN \\ (Exclusión Mutua)};
+
+    % --- SALIDAS (Abajo) ---
+    \node[draw=black!70, thick, fill=gray!10, minimum width=1.8cm, minimum height=0.8cm, align=center] (runs) at (0.8, -1.2) {Ejecuciones \\ (\textit{runs/})};
+    \node[draw=black!70, thick, fill=gray!10, minimum width=1.8cm, minimum height=0.8cm, align=center] (metrics) at (2.5, -1.2) {Métricas \\ (\textit{metrics/})};
+    \node[draw=black!70, thick, fill=gray!10, minimum width=1.8cm, minimum height=0.8cm, align=center] (weights) at (4.2, -1.2) {Pesos \\ (\textit{weights/})};
+
+    \draw[->, thick, black!70] (0.8, 0) -- (runs.north);
+    \draw[->, thick, black!70] (2.5, 0) -- (metrics.north);
+    \draw[->, thick, black!70] (4.2, 0) -- (weights.north);
+
+    \node[align=center, font=\sffamily\tiny\bfseries, text=black!70] at (2.5, -2.3) {EXPORTACIÓN DE RESULTADOS};
+
+    \end{tikzpicture}
+    }
+    \caption{Topología modular \textit{single-socket} implementada. Los orquestadores interpretan las configuraciones y dictan las directrices operativas a la estructura maestra, cargando las Bases de Datos y entregando los resultados requeridos tras pasar por las etapas internas de entrenamiento y validación. Sólo una arquitectura (o rama) se acopla a la vez.}
+    \label{fig:3.1-ModularLayer}
+\end{figure}
+
+
+\subsection{Anatomía de la Estructura Maestra}
+
+La Estructura Maestra o Motor (\textit{engine}) se compone de diversas partes internas que permiten la vinculación entre el modelo de detección de objetos que se entrenará y utilizará, con las configuraciones y base de datos de fallas en correas transportadoras. Esta arquitectura se implementa en todos los modelos de detección de objetos que resuelven el problema a abordar para el presente trabajo de memoria: \textit{detección de fallas en correas transportadoras}. En la Figura \ref{fig:3.2-EngineZoom} se muestra el esquema detallado y los diversos bloques y componentes esenciales para la implementación de los modelos de detección de objetos.
+
+
+\begin{figure}[H]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[>=Stealth, font=\sffamily\scriptsize]
+
+    % --- DATASET (Externo/Entrada) ---
+    \node[draw=black!80, thick, fill=gray!35, minimum width=2.4cm, minimum height=1cm, align=center, rounded corners=2pt] (dataset) at (-10.5, 1.5) {Base de Datos \\ (\textit{dataset/})};
+
+    % --- BACKGROUND UTILIDADES ---
+    \draw[thick, draw=black!60, fill=yellow!5, rounded corners=4pt] (-8.25, -3.0) rectangle (-3.75, 3.5);
+    \node[align=center, font=\sffamily\small\bfseries, text=black!70] at (-6.0, 2.5) {Utilidades (\textit{utility})};
+
+    % --- BACKGROUND ESTRUCTURA MAESTRA ---
+    \draw[thick, draw=black!80, fill=gray!15, rounded corners=4pt] (-1.8, -4.0) rectangle (2.0, 3.5);
+    \node[align=center, font=\sffamily\small\bfseries, text=black!80] at (0.1, 3.0) {Motor (\textit{Engine})};
+
+    % --- BACKGROUND MODELO ---
+    \draw[thick, draw=black!80, fill=cyan!5, rounded corners=4pt] (3.8, -4.0) rectangle (7.8, 3.5);
+    \node[align=center, font=\sffamily\small\bfseries, text=black!80] at (5.8, 3.0) {Modelo de Detección};
+
+    % --- NODOS UTILIDADES ---
+    \node[draw=black!70, thick, fill=yellow!15, minimum width=3.2cm, minimum height=1cm, align=center] (dataloader) at (-6.0, 1.5) {Carga de datos/adaptación \\ (\textit{data\_loader.py})};
+    \node[draw=black!70, thick, fill=yellow!15, minimum width=3.2cm, minimum height=1cm, align=center] (metrics) at (-6.0, -1.2) {Generación de métricas \\ (\textit{metrics.py})};
+
+    % --- NODOS ESTRUCTURA MAESTRA ---
+    \node[draw=black!70, thick, fill=green!15, minimum width=2.6cm, minimum height=1cm, align=center] (trainer) at (0.1, 1.5) {Entrenador \\ (\textit{Trainer.py})};
+    \node[draw=black!70, thick, fill=green!15, minimum width=2.6cm, minimum height=1cm, align=center] (validator) at (0.1, -1.2) {Validador \\ (\textit{Validator.py})};
+    \node[draw=black!50, dashed, thick, fill=gray!5, minimum width=2.8cm, minimum height=1.2cm, align=center, text=black!70] (amd) at (0.1, -3.0) {Parche ROCm \\ \textit{bn2gn\_patch.py} \\ \textit{bootstrap\_miopen.py} \\ \textit{warnings.py}};
+
+    % --- NODOS MODELO ---
+    \node[draw=black!70, thick, fill=cyan!15, minimum width=3.4cm, minimum height=1cm, align=center] (model_scripts) at (5.8, 0.8) {Scripts del modelo \\ (\textit{train, valid, main})};
+    \node[draw=black, thick, fill=black!85, text=white, minimum width=3.4cm, minimum height=1.5cm, align=center, rounded corners=2pt] (network) at (5.8, -2.0) {Arquitectura Neuronal \\ (\textit{Caja Negra})};
+
+    % --- ORQUESTADORES ---
+    \node[align=center, font=\sffamily\scriptsize\bfseries, text=black!60] at (-10.5, 7.75) {ORQUESTADORES \\ (Scripts Principales)};
+    
+    \node[draw=black!50, dashed, thick, fill=gray!5, minimum width=2.0cm, minimum height=0.6cm, align=center, text=black!70] (train_orch) at (-10.5, 6.5) {\textit{train.py}};
+    \node[draw=black!50, dashed, thick, fill=gray!5, minimum width=2.0cm, minimum height=0.6cm, align=center, text=black!70] (valid_orch) at (-10.5, 5.5) {\textit{valid.py}};
+    \node[draw=black!50, dashed, thick, fill=gray!5, minimum width=2.0cm, minimum height=0.6cm, align=center, text=black!70] (test_orch) at (-10.5, 4.5) {\textit{test.py}};
+
+    % --- SALIDAS ---
+    \node[draw=black!70, thick, fill=gray!10, minimum width=2.0cm, minimum height=0.8cm, align=center] (metrics_out) at (-6.0, -5.2) {Métricas \\ (\textit{metrics/})};
+    \node[draw=black!70, thick, fill=gray!10, minimum width=2.0cm, minimum height=0.8cm, align=center] (runs_out) at (-0.8, -5.2) {Ejecuciones \\ (\textit{runs/})};
+    \node[draw=black!70, thick, fill=gray!10, minimum width=2.0cm, minimum height=0.8cm, align=center] (weights_out) at (1.4, -5.2) {Pesos \\ (\textit{weights/})};
+
+    % --- CONEXIONES EXTERNAS ---
+    \draw[->, thick, black!80] (dataset.east) -- (dataloader.west) node[pos=0.4, above, font=\sffamily\tiny] {Lectura};
+
+    % --- CONEXIONES INTERNAS ENGINE & UTILS ---
+    \draw[->, thick, black!70] (dataloader.east) -- (trainer.west) node[pos=0.35, rotate=0, below, font=\sffamily\tiny] {Tensores};
+    \draw[<-, thick, black!70] (metrics.east) -- (validator.west) node[pos=0.50, below, font=\sffamily\tiny] {Datos inf.};
+
+    % --- CONEXIONES ENGINE <-> MODELO (Orto-perpendiculares) ---
+    \draw[->, thick, blue!60!black, rounded corners=2pt] (trainer.east) -- ++(1.0, 0) |- ([yshift=8pt]model_scripts.west) node[pos=0.65, below, font=\sffamily\tiny] {Hiperparámetros};
+    \draw[<-, thick, blue!60!black, rounded corners=2pt] (validator.east) -- ++(1.0, 0) |- ([yshift=-8pt]model_scripts.west) node[pos=0.7, below, font=\sffamily\tiny] {Predicciones};
+
+    % --- CONEXIONES INTERNAS DEL MODELO ---
+    \draw[<->, thick, blue!60!black] (model_scripts.south) -- (network.north) node[midway, right, font=\sffamily\tiny] {Flujo aislado};
+
+    % --- CURVAS ORTOGONALES DE LOS ORQUESTADORES ---
+    % train.py
+    \draw[->, dashed, thick, black!60, rounded corners=8pt] (train_orch.east) -| (-2.3, 2.0) -- (trainer.160);
+    \draw[->, dashed, thick, black!60, rounded corners=8pt] (train_orch.east) -| (-2.5, 3.0) |- ([yshift=8pt]validator.west);
+    
+    % valid.py
+    \draw[->, dashed, thick, black!60, rounded corners=8pt] (valid_orch.east) -| (-2.05, -1.0) |- ([yshift=-8pt]validator.west);
+    
+    % test.py 
+    \draw[->, dashed, thick, black!60, rounded corners=8pt] (test_orch.east) -| (5.8, 4.0) -- (model_scripts.north) node[pos=0.8, right, font=\sffamily\tiny] {Pesos e inferencia};
+
+    % --- CONEXIONES DE SALIDA ---
+    \draw[->, thick, black!60] (metrics.south) -- (metrics_out.north);
+    
+    % Flujos desde Trainer hacia runs/ y weights/
+    \draw[->, dashed, thick, black!60, rounded corners=4pt] (trainer.190) -- (-1.4, 1.3) -- (-1.4, -4.5) -| (runs_out.north);
+    \draw[->, dashed, thick, black!60, rounded corners=4pt] (trainer.350) -- (1.6, 1.3) -- (1.6, -4.5) -| (weights_out.north);
+
+    \end{tikzpicture}
+    }
+    \caption{Vista detallada (\textit{zoom}) de la interacción interna. La arquitectura neuronal opera como una caja negra intocable (no se modifica). Los 3 módulos principales se conectan mediante los dos ejecutadores principales: Entrenador (\textit{Trainer}) y Validador (\textit{Validator})}
+    \label{fig:3.2-EngineZoom}
+\end{figure}
+
+A continuación, se expone el flujo resumido desde el accionamiento de la rutina (entrenamiento, validación o prueba), la interacción entre las diversas partes del esquema y la obtención de métricas y resultados:
+
+\begin{enumerate}
+    \item Primero, se acciona el Orquestador Principal, según el tipo de rutina a ejecutar (entrenamiento, validación o pruebas).
+
+    \item En el caso de entrenar por primera vez:
+
+    \begin{enumerate}
+        \item El orquestador de entrenamiento (\textit{train.py}) carga las configuraciones (\textit{configs/}), las cuáles contienen las variantes del modelo, los hiperparámetros asociados, rutas de descarga de resultados y las rutas principales hacia los códigos del modelo (todo esto guardado en el archivo de configuración \textit{train.yaml}).
+
+        \item El motor (\textit{engine}), en particular la componente Entrenador (\textit{Trainer.py}), mediante la utilidad de Carga de datos y/o adaptación (\textit{data\_loader.py}), carga en memoria la Base de datos de fallas en correas transportadoras con las etiquetas y formato solicitados por el modelo específico (\textit{dataset.yaml}). Se utiliza la partición de entrenamiento y validación de la Base de Datos.
+        \item Tras cargar los datos e hiperparámetros necesarios, invoca las clases y funciones de entrenamiento del código principal del modelo original (\textit{train,main,etc}) y coloca en memoria los datos introducidos. Según el tamaño de los lotes definidos (\textit{batch\_size}), este traspaso de imágenes a la arquitectura neuronal será secuencial y con una fracción de imágenes (con el fin de evitar colapso en la memoria).
+        \item Dado que el modelo no ha sido modificado como tal, la arquitectura neuronal asociada al modelo de detección de objetos está intacta y solamente es modificada externamente mediante los hiperparámetros introducidos, definiendo así la variante del modelo. Estos datos de ejecución al iniciar el modelo se guardarán en la carpeta de ejecuciones (\textit{runs}), mediante un archivo de hiperparámetros (\textit{hyp.yaml}), el cuál contiene un resumen de todas las configuraciones usadas en el entrenamiento actual del modelo.
+        \item El modelo comienza a entrenar y cada época lograda, las predicciones del modelo son derivadas a la componente Validador (\textit{Validator.py}), el cuál valida mediante el uso de la partición de validación de la Base de Datos, dónde se obtienen solamente métricas preliminares de seguimiento para obtener las pérdidas de entrenamiento y validación. Esto permite un análisis de convergencia y evaluar sí existe sobreajuste (\textit{overfitting}) ó bajoajuste (\textit{underfitting}), lo cuál permite establecer sí el modelo está aprendiendo/memorizando o no.
+        \item Tras entrenar todas las épocas definidas en los hiperparámetros, se entregarán las métricas finales de entrenamiento en la carpeta de métricas (\textit{metrics/}). Así mismo, guardará en la carpeta de pesos \textit{weights/}, los parámetros de entrenamiento asociados a los pesos y sesgos del modelo de aprendizaje.
+    \end{enumerate}
+
+    \item En el caso de validar un modelo entrenado:
+    \begin{enumerate}
+        \item El orquestador de validación (\textit{valid.py}) carga las configuraciones (\textit{configs/}), similarmente a el entrenamiento, pero usando un archivo diferente de configuración (\textit{valid.yaml}).
+        \item El motor (\textit{engine}), en particular la componente Validador (\textit{Validator.py}), mediante la utilidad de Carga de datos y/o adaptación (\textit{data\_loader.py}), carga en memoria la Base de datos de fallas en correas transportadoras con las etiquetas y formato solicitados por el modelo específico (\textit{dataset.yaml}). Se utiliza exclusivametne la partición de validación de la Base de Datos.
+
+        \item Tras cargar los datos e hiperparámetros necesarios, invoca las clases y funciones de entrenamiento del código principal del modelo original (\textit{valid, main, etc}) y coloca en memoria los datos introducidos. Se utiliza el mismo tamaño de lotes que en entrenamiento.
+        \item El modelo comienza a validarse durante una sola época. 
+        \item Tras validarse, guarda solamente en la carpeta de métricas (\textit{metrics/}) las métricas de validación finales asociadas a la confianza y diversos resultados estandarizados para comparar posteriormente con otras variantes u modelos. Además, toma 50 imágenes de muestra de la partición de validación y aplica inferencia en el modelo (dibuja las cajas delimitadoras reales y predichas), entregando muestras de predicción para análisis manual.
+    \end{enumerate}
+
+    \item En caso de querer probar el modelo, mediante una interfaz personalizada, ya sea en vivo ó como simulación:
+    \begin{enumerate}
+        \item El orquestador de pruebas (\textit{test.py}) carga las configuraciones (\textit{configs/}), usando el archivo de configuración (\textit{valid.yaml}). 
+        \item En este caso, no se requiere obtener métricas, solo usar los pesos del modelo entrenado y validado que se encuentran en la carpeta de pesos (\textit{weights/}) para realizar solo inferencia en imágenes que se pasen al modelo de detección de objetos directamente. Además, este orquestador posee una interfaz personalizada para visualizar clases detectadas, cambiar imágen de forma interactiva y ocultar/mostrar inferencias en tiempo real. 
+    \end{enumerate}
+
+    \item Como función adicional, la utilidad de métricas (\textit{metrics.py}) permite evaluar las métricas de múltiples variantes del modelo actual y fusionarlas (\textit{merge}) para tener resultados comparativos directos y más completos, incluyendo además métricas de cómputo matemático, numero de millones de parámetros de cada modelo y valores máximos de métricas obtenidas.
+\end{enumerate}
+
+Por último, cabe destacar que cada una de las ramas independientes de trabajo asociadas a cada modelo: \textit{YOLO, SSD, DETR, DINO}, poseen la última versión de trabajo en la rama principal \textit{main}. 
+
+\clearpage
+
+
+\section{Implementación de modelos One-Stage (YOLOv5 y SSD)}
+
+La implementación de los modelos YOlOv5 y SSD se rigen de acuerdo a la \textit{Estructura Maestra} definida en la Sección 3.3. Cabe destacar que cada modelo se trabaja en diferentes ramas del repositorio \cite{repo_fernando2024}, particularmente las ramas \textit{YOLO} y \textit{SSD}. Los hiperparámetros comúnes utilizados para estandarizar entrenamiento y métricas entre los dos modelos mencionados se muestran en la Tabla \ref{tab:3.4-one_stage_hyperparameters} .\\
+
+%Epoch = 300
+%batch_size=16
+%optimizer = SGD
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros base estandarizados para el entrenamiento comparativo de los modelos YOLOv5 y SSD. Ambos incorporan el optimizador de Descenso de Gradiente Estocástico (\textit{Stochastic Gradient Descent}).}
+    \begin{tabular}{|l|c|l|}
+        \hline
+        \textit{Hiperparámetro} & \textit{Valor} & \textit{Descripción} \\
+        \hline
+        Épocas (\textit{epochs}) & 300 & Ciclos totales de entrenamiento sobre el dataset. \\
+        \hline
+        Lote (\textit{batch\_size}) & 16 & Muestras procesadas simultáneamente por iteración. \\
+        \hline
+        Optimizador (\textit{optimizer})& SGD & Algoritmo de minimización de pérdida. \\
+        \hline
+    \end{tabular}
+    \label{tab:3.4-one_stage_hyperparameters}
+\end{table}
+
+
+Los hiperparámetros utilizados para cada una de las variantes del modelo de detección de objetos YOLOv5, se encuentran en Anexos 6.1, en la Tabla \ref{tab:6.1-hiperparametros-yolov5}. El modelo cuenta con 5 variantes asociadas al tamaño del modelo de acuerdo a lo descrito en la Sección 2.5.3. De esta forma, para cambiar de variante, se ingresó como hiperparámetro: \textit{variant -n} (ejemplo para el caso de la variante nano); de forma análoga se declaran el resto de variantes. \\
+
+Los hiperparámetros utilizados para cada una de las variantes del modelo de detección de objetos SSD, se encuentran en Anexos 6.1, en la Tabla \ref{tab:6.1-hiperparametros-ssd}. El modelo cuenta con 2 variantes asociadas al tamaño de imagen de entrada de acuerdo a lo descrito en la Sección 2.5.4. De esta forma, para cambiar de variante, se ingresó como hiperparámetro: \textit{variant -ssd300} (ejemplo para el caso de la variante SSD300); de forma análoga se declaran el resto de variantes.  \\
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Implementación de modelos basados en Transformers (DETR y DINO)}
+
+La implementación de los modelos DETR y DINO se rigen de acuerdo a la \textit{Estructura Maestra} definida en la Sección 3.3. Cabe destacar que cada modelo se trabaja en diferentes ramas del repositorio \cite{repo_fernando2024}, particularmente las ramas \textit{DETR} y \textit{DINO}. Los hiperparámetros comúnes utilizados para estandarizar entrenamiento y métricas entre los dos modelos mencionados se muestran en la Tabla \ref{tab:3.5-transformers_hyperparameters} .\\
+
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros base estandarizados compartidos por las arquitecturas Transformer (DETR y DINO).}
+    \begin{tabular}{|l|c|l|}
+        \hline
+        \textit{Hiperparámetro} & \textit{Valor} & \textit{Descripción} \\
+        \hline
+        Épocas ($epochs$) & 300 & \begin{tabular}{@{}l@{}} Ciclos totales de entrenamiento \\ sobre el dataset. \end{tabular} \\
+        \hline
+        Lote ($batch\_size$) & 4 ó 2 & \begin{tabular}{@{}l@{}} Muestras procesadas simultáneamente \\ por iteración. \end{tabular} \\
+        \hline
+        Optimizador & AdamW & Minimización con decaimiento adaptativo. \\
+        \hline
+        \begin{tabular}{@{}l@{}} Tasa de aprendizaje \\ ($lr$) \end{tabular} & 0.0001 & Tasa base del bloque Transformer. \\
+        \hline
+        \begin{tabular}{@{}l@{}} Tasa de aprendizaje del extractor \\ ($lr\_backbone$) \end{tabular} & 1.0e-05 & \begin{tabular}{@{}l@{}} Tasa reducida para el \\ extractor visual. \end{tabular} \\
+        \hline
+        \begin{tabular}{@{}l@{}} Decaimiento \\ ($lr\_drop\_epochs$) \end{tabular} & $[150, 250]$ & \begin{tabular}{@{}l@{}} Épocas de reducción \\ escalonada de tasa. \end{tabular} \\
+        \hline
+        \begin{tabular}{@{}l@{}} Dimensión oculta \\ ($hidden\_dim$) \end{tabular} & 256 & \begin{tabular}{@{}l@{}} Canales de representación \\ del espacio latente. \end{tabular} \\
+        \hline
+        \begin{tabular}{@{}l@{}} Capas Encoder-Decoder \\ ($enc\_layers$ / $dec\_layers$) \end{tabular} & \begin{tabular}{@{}c@{}} 6 / \\ 6 \end{tabular} & \begin{tabular}{@{}l@{}} Profundidad de codificador \\ y decodificador. \end{tabular} \\
+        \hline
+        Consultas ($num\_queries$) & 100 & \begin{tabular}{@{}l@{}} Ranuras de predicción \\ procesadas en paralelo. \end{tabular} \\
+        \hline
+    \end{tabular}
+    \label{tab:3.5-transformers_hyperparameters}
+\end{table}
+Los hiperparámetros utilizados para cada una de las variantes del modelo de detección de objetos DETR se encuentran en Anexos 6.1, en la Tabla \ref{tab:6.1-hiperparametros-detr}. El modelo cuenta con 4 variantes asociadas a la profundidad del extractor convolucional (\textit{backbone}) y la implementación de convoluciones dilatadas (DC5), de acuerdo a lo descrito en la Sección 2.6. De esta forma, para cambiar de variante, se ingresó como hiperparámetro: \textit{variant -r50} (ejemplo para el caso de la variante estándar con ResNet-50); de forma análoga se declaran el resto de variantes.\\
+
+Los hiperparámetros específicos para cada una de las variantes del modelo de detección de objetos DINO se detallan en Anexos 6.1, en la Tabla \ref{tab:6.1-hiperparametros-dino}. El modelo despliega 3 variantes asociadas a la cantidad de niveles de características (4 o 5 escalas) y a la topología del \textit{backbone} (ResNet o Swin Transformer). De esta forma, para cambiar de variante, se ingresó como hiperparámetro: \textit{variant -r50\_4scale} (ejemplo para la variante ResNet-50 de 4 escalas); de forma análoga se declaran las arquitecturas restantes.\\

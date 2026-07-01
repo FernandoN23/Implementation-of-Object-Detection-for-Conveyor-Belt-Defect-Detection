@@ -1,0 +1,201 @@
+\chapter{Anexos}
+
+\section{Tablas de Hiperparámetros}
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}
+    \begin{tabular}{|c|c|l|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre} \\
+        \hline 
+        $variant$ & $\{n,s,m,l,x \}$ & Variante del modelo \\
+        \hline
+        $img\_size$ & 640 & Tamaño imagen de entrada \\
+        \hline
+        $epochs$ & 300 & Épocas de entrenamiento \\
+        \hline
+        $optimizer$ & SGD & Optimizador de entrenamiento \\
+        \hline
+        $lr0$ & 0.01 & Tasa de aprendizaje inicial \\
+        \hline
+        $lrf$ & 0.01 & Factor de tasa final \\
+        \hline
+        $momentum$ & 0.937 & Momento del optimizador \\
+        \hline
+        $weight\_decay$ & 0.0005 & Regularización $L_2$ \\
+        \hline
+        $batch\_size$ & 8 & Tamaño de lote de entrenamiento \\
+        \hline
+        $warmup\_bias\_lr$ & 0.1 & Tasa de aprendizaje sesgos calentamiento \\
+        \hline
+        $box$ & 0.05 & Peso pérdida de cajas \\
+        \hline
+        $cls$ & 0.5 & Peso pérdida de clasificación \\
+        \hline
+        $obj$ & 1.0 & Peso pérdida de objeto \\
+        \hline
+        $iou\_t$ & 0.2 & Umbral IoU para anclas \\
+        \hline
+        $anchor\_t$ & 4.0 & Umbral de ajuste de anclas \\
+        \hline
+        $hsv\_h$ & 0.015 & Aumentación en tono HSV \\
+        \hline
+        $hsv\_s$ & 0.7 & Aumentación en saturación HSV \\
+        \hline
+        $hsv\_v$ & 0.4 & Aumentación en valor HSV \\
+        \hline
+        $translate$ & 0.1 & Traslación geométrica \\
+        \hline
+        $scale$ & 0.5 & Escalamiento aleatorio \\
+        \hline
+        $fliplr$ & 0.5 & Volteo horizontal \\
+        \hline
+        $mosaic$ & 1.0 & Aumentación tipo mosaico \\
+        \hline
+    \end{tabular}
+    \label{tab:6.1-hiperparametros-yolov5}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros principales seleccionados para el entrenamiento de SSD.}
+    \begin{tabular}{|c|c|l|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre / Descripción} \\
+        \hline
+        $variant$ & $\{ssd300/ssd512\}$ & Variante del modelo \\
+        \hline
+        $img\_dim$ & 300/512 & Tamaño imagen ($300\times300$ / $512\times512$) \\
+        \hline
+        $epochs$ & 300 & Épocas de entrenamiento \\
+        \hline
+        $opt$ & SGD & Optimizador \\
+        \hline
+        $lr$ & 0.001 & Tasa de aprendizaje inicial \\
+        \hline
+        $momentum$ & 0.9 & Momento del optimizador \\
+        \hline
+        $weight\_decay$ & 0.001 & Regularización $L_2$ \\
+        \hline
+        $gamma$ & 0.1 & Factor de decaimiento de $lr$ \\
+        \hline
+        $lr\_steps$ & $[14000, 17000]$ & Iteraciones de ajuste de $lr$ \\
+        \hline
+        $batch\_size$ & 16 & Tamaño de lote de entrenamiento \\
+        \hline
+        $max\_iter$ & 20000 & Iteraciones máximas de entrenamiento \\
+        \hline
+        $overlap\_thresh$ & 0.5 & Umbral IoU para \textit{matching} positivo \\
+        \hline
+        $neg\_pos\_ratio$ & 3 & Relación negativos:positivos \\
+        \hline
+        $conf\_thresh$ & 0.01 & Umbral mínimo de confianza \\
+        \hline
+        $nms\_thresh$ & 0.45 & Umbral IoU para NMS \\
+        \hline
+        $top\_k$ & 200 & Máximo de detecciones consideradas \\
+        \hline
+        $hue\_delta$ & 18 & Variación máxima de tono (HSV) \\
+        \hline
+        $saturation\_range$ & $[0.5, 1.5]$ & Rango de saturación (HSV) \\
+        \hline
+        $brightness\_delta$ & 32 & Variación de brillo \\
+        \hline
+        $contrast\_range$ & $[0.5, 1.5]$ & Rango de contraste \\
+        \hline
+        $random\_mirror\_prob$ & 0.5 & Probabilidad de volteo horizontal \\
+        \hline
+    \end{tabular}
+    \label{tab:6.1-hiperparametros-ssd}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros principales seleccionados para el entrenamiento de DETR.}
+    \begin{tabular}{|l|c|l|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre / Descripción} \\
+        \hline
+        $variant$ & \begin{tabular}{@{}c@{}} \textit{\{R50, R50-DC5,} \\ \textit{R101, R101-DC5\}} \end{tabular} & Variante del modelo \\
+        \hline
+        $epochs$ & 300 & Épocas totales de entrenamiento \\
+        \hline
+        $batch\_size$ & 4 & Tamaño de lote de entrenamiento \\
+        \hline
+        $lr$ & 0.0001 & Tasa de aprendizaje base \\
+        \hline
+        $lr\_backbone$ & 1.0e-05 & Tasa de aprendizaje del extractor \\
+        \hline
+        $lr\_drop\_epochs$ & $[150, 250]$ & Épocas para decaimiento por saltos \\
+        \hline
+        $weight\_decay$ & 0.0001 & Regularización $L_2$ global \\
+        \hline
+        $hidden\_dim$ & 256 & Dimensión del espacio latente \\
+        \hline
+        $nheads$ & 8 & Cantidad de cabezas de atención \\
+        \hline
+        \begin{tabular}{@{}l@{}} $enc\_layers$ / \\ $dec\_layers$ \end{tabular} & \begin{tabular}{@{}c@{}} 6 / \\ 6 \end{tabular} & \begin{tabular}{@{}l@{}} Capas operativas de \\ codificador y decodificador \end{tabular} \\
+        \hline
+        $num\_queries$ & 100 & Ranuras de predicción \\
+        \hline
+        $set\_cost\_class$ & 1.0 & Ponderador de clase en asignación \\
+        \hline
+        $set\_cost\_bbox$ & 5.0 & Ponderador distancia $L_1$ en asignación \\
+        \hline
+        $set\_cost\_giou$ & 2.0 & Ponderador GIoU en asignación \\
+        \hline
+        $bbox\_loss\_coef$ & 5.0 & Peso final para pérdida $L_1$ \\
+        \hline
+        $giou\_loss\_coef$ & 2.0 & Peso final para pérdida GIoU \\
+        \hline
+    \end{tabular}
+    \label{tab:6.1-hiperparametros-detr}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Hiperparámetros principales seleccionados para el entrenamiento de DINO.}
+    \begin{tabular}{|l|c|l|}
+        \hline
+        \textbf{Hiperparámetro} & \textbf{Valor seleccionado} & \textbf{Nombre / Descripción} \\
+        \hline
+        $variant$ & \begin{tabular}{@{}c@{}} \textit{\{R50-4scale, R50-5scale,} \\ \textit{Swin\_L\}} \end{tabular} & Variante del modelo \\
+        \hline
+        $epochs$ & 300 & Épocas totales de entrenamiento \\
+        \hline
+        $batch\_size$ & \begin{tabular}{@{}c@{}} 4 (R50-4scale) \\ 2 (R50-5scale, Swin\_L) \end{tabular} & Tamaño de lote de entrenamiento \\
+        \hline
+        $lr$ & 0.0001 & Tasa de aprendizaje base \\
+        \hline
+        $lr\_backbone$ & 1.0e-05 & Tasa de aprendizaje del extractor\\
+        \hline
+        $lr\_drop\_epochs$ & $[150, 250]$ & Épocas para decaimiento por saltos \\
+        \hline
+        $weight\_decay$ & 0.0001 & Regularización $L_2$ global \\
+        \hline
+        $hidden\_dim$ & 256 & Dimensión del espacio latente \\
+        \hline
+        \begin{tabular}{@{}l@{}} $enc\_layers$ / \\ $dec\_layers$ \end{tabular} & \begin{tabular}{@{}c@{}} 6 / \\ 6 \end{tabular} & \begin{tabular}{@{}l@{}} Capas operativas de \\ codificador y decodificador \end{tabular} \\
+        \hline
+        $num\_queries$ & 100 & Consultas posicionales \\
+        \hline
+        $num\_feature\_levels$ & $4$ ó $5$ & Niveles de características extraídas \\
+        \hline
+        $use\_dn$ & True & Entrenamiento contrastivo (CDN) \\
+        \hline
+        $dn\_number$ & 50 & Cantidad de consultas de ruido \\
+        \hline
+        $set\_cost\_class$ & 2.0 & Ponderador de clase en asignación \\
+        \hline
+        $bbox\_loss\_coef$ & 5.0 & Peso final para pérdida $L_1$ \\
+        \hline
+        $giou\_loss\_coef$ & 2.0 & Peso final para pérdida GIoU \\
+        \hline
+        $cls\_loss\_coef$ & 1.0 & Peso final para Focal Loss \\
+        \hline
+    \end{tabular}
+    \label{tab:6.1-hiperparametros-dino}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
