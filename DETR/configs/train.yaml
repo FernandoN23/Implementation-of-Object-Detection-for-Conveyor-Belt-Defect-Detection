@@ -1,0 +1,155 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: DETR/configs/train.yaml
+# Descripción: Configuración maestra de entrenamiento.
+# ==============================================================
+
+# --------------------------------------------------------------
+# Rutas base del proyecto
+# --------------------------------------------------------------
+paths:
+  project_root: "."
+  dataset_cfg: "DETR/configs/dataset.yaml"
+  variants_cfg: "DETR/configs/model_variants.yaml"
+  weights_dir: "DETR/weights"
+  runs_dir: "DETR/runs"
+  metrics_dir: "DETR/metrics"
+
+# --------------------------------------------------------------
+# Parámetros generales de entrenamiento
+# --------------------------------------------------------------
+training:
+  variant: "r50"
+  run_name: "detr_baseline"
+  phase: "train"
+  device: "cuda"
+  epochs: 300
+  batch_size: 2
+  workers: 4
+  lr: 0.0001
+  lr_backbone: 0.00001
+  weight_decay: 0.0001
+  lr_drop: [150, 250]
+  lr_gamma: 0.1
+  clip_max_norm: 0.1
+  bbox_loss_coef: 5.0
+  giou_loss_coef: 2.0
+  eos_coef: 0.1
+  aux_loss: true
+  pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
+  resume: false
+  exist_ok: false
+  seed: 42
+  use_coco128: false
+
+# --------------------------------------------------------------
+# Gestión de Hardware y Memoria (Optimización ROCm)
+# --------------------------------------------------------------
+hardware:
+  # Evita fragmentación de VRAM permitiendo segmentos expandibles
+  expandable_segments: true
+  # Frecuencia (en épocas) para liberar la caché de la GPU (0 para desactivar)
+  empty_cache_freq: 1
+  # Automatic Mixed Precision (FP16) para reducir VRAM y acelerar entrenamiento
+  use_amp: true
+
+miopen:
+  find_mode: "FAST"
+  user_db_path: "C:/Users/memorista/.miopen_db"
+  disable_cache: true
+  log_level: 0
+  strict_before_torch: true
+  verbose: 1
+
+bn2gn:
+  policy: "on"
+  max_groups: 32
+  min_channels_per_group: 1
+  verbose: 1
+
+# --------------------------------------------------------------
+# Presets de Entrenamiento Final y Pruebas
+# --------------------------------------------------------------
+presets:
+  detr_r50:
+    description: "Entrenamiento DETR ResNet-50 (300 ep, batch 16)."
+    overrides:
+      training:
+        variant: "r50"
+        run_name: "detr_r50_belt"
+        epochs: 300
+        batch_size: 16
+        lr_drop: [150, 250]
+        pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
+
+  detr_r50_b4:
+    description: "Entrenamiento DETR ResNet-50 (300 ep, batch 4)."
+    overrides:
+      training:
+        variant: "r50"
+        run_name: "detr_r50_belt_batch_4"
+        epochs: 300
+        batch_size: 4
+        lr_drop: [ 150, 250 ]
+        pretrain_weights: "DETR/weights/base/detr-r50-e632da11.pth"
+
+  detr_r50_dc5:
+    description: "Entrenamiento DETR ResNet-50 Dilated C5 (300 ep, batch 4)."
+    overrides:
+      training:
+        variant: "r50_dc5"
+        run_name: "detr_r50_dc5_belt"
+        epochs: 300
+        batch_size: 4
+        lr_drop: [150, 250]
+        pretrain_weights: "DETR/weights/base/detr-r50-dc5-f0fb7ef5.pth"
+
+  detr_r101:
+    description: "Entrenamiento DETR ResNet-101 (300 ep, batch 16)."
+    overrides:
+      training:
+        variant: "r101"
+        run_name: "detr_r101_belt"
+        epochs: 300
+        batch_size: 4
+        lr_drop: [150, 250]
+        pretrain_weights: "DETR/weights/base/detr-r101-2c7b67e5.pth"
+
+  detr_r101_dc5:
+    description: "Entrenamiento DETR ResNet-101 Dilated C5 (300 ep, batch 4)."
+    overrides:
+      training:
+        variant: "r101_dc5"
+        run_name: "detr_r101_dc5_belt"
+        epochs: 300
+        batch_size: 4
+        lr_drop: [150, 250]
+        pretrain_weights: "DETR/weights/base/detr-r101-dc5-a2e86def.pth"
+
+  coco_r50_test:
+    description: "Prueba rápida DETR R50 en COCO (200 épocas)."
+    overrides:
+      training:
+        variant: "r50"
+        run_name: "coco_r50_test"
+        epochs: 200
+        batch_size: 4
+        lr_drop: [100]
+        use_coco128: true
+
+  coco_r50_dc5_test:
+    description: "Prueba rápida DETR R50 DC5 en COCO (200 épocas)."
+    overrides:
+      training:
+        variant: "r50_dc5"
+        run_name: "coco_r50_dc5_test"
+        epochs: 200
+        batch_size: 2
+        lr_drop: [100]
+        pretrain_weights: "DETR/weights/base/detr-r50-dc5-f0fb7ef5.pth"
+        use_coco128: true

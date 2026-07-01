@@ -1,0 +1,8 @@
+
+.idea/
+.venv/
+.idea/
+__pycache__/
+.iml
+*.py[cod]
+*$py.class

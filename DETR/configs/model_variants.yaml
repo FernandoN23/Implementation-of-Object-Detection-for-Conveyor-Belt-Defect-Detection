@@ -1,0 +1,46 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: DETR/configs/model_variants.yaml
+# Descripción: Definición técnica de las variantes de DETR.
+# ==============================================================
+
+shared_transformer_params: &shared_transformer
+  hidden_dim: 256
+  nheads: 8
+  enc_layers: 6
+  dec_layers: 6
+  dim_feedforward: 2048
+  dropout: 0.1
+  num_queries: 100
+  position_embedding: "sine"
+  pre_norm: false
+
+variants:
+  r50:
+    description: "DETR base con backbone ResNet-50."
+    backbone: "resnet50"
+    dilation: false
+    <<: *shared_transformer
+
+  r50_dc5:
+    description: "DETR con ResNet-50 y convoluciones dilatadas."
+    backbone: "resnet50"
+    dilation: true
+    <<: *shared_transformer
+
+  r101:
+    description: "DETR con backbone profundo ResNet-101."
+    backbone: "resnet101"
+    dilation: false
+    <<: *shared_transformer
+
+  r101_dc5:
+    description: "DETR con ResNet-101 y convoluciones dilatadas."
+    backbone: "resnet101"
+    dilation: true
+    <<: *shared_transformer

@@ -1,0 +1,97 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: DINO/configs/valid.yaml
+# Descripción: Configuración maestra para validación y pruebas
+#              (inferencia) del modelo DINO.
+# ==============================================================
+
+paths:
+  dataset_cfg: "DINO/configs/dataset.yaml"
+  variants_cfg: "DINO/configs/model_variants.yaml"
+
+validation:
+  phase: "valid"
+  variant: "r50_4scale"
+  run_name: "val_default"
+  weights: ""
+  batch_size: 4
+  workers: 4
+  device: "cuda"
+  conf_thres: 0.5
+
+  # Configuración de Reportes Visuales
+  plots: true
+  plot_ratio: 0.20
+  max_images: 50
+
+  use_coco128: false
+
+miopen:
+  find_mode: "FAST"
+  user_db_path: "C:/Users/memorista/.miopen_db"
+  disable_cache: true
+  verbose: 1
+
+bn2gn:
+  policy: "on"
+  verbose: 1
+
+presets:
+  # ==========================================================
+  # Presets de Validación Final
+  # ==========================================================
+
+  dino_r50_4scale_b4:
+    description: "Validación del modelo DINO R50 4-Scale (batch 4) entrenado."
+    overrides:
+      validation:
+        variant: "r50_4scale"
+        run_name: "dino_r50_4s_belt"
+        weights: ""
+        batch_size: 16
+
+  dino_r50_4scale_b4_mod:
+    description: "Validación del modelo DINO R50 4-Scale (batch 4) entrenado modificado."
+    overrides:
+      validation:
+        variant: "r50_4scale"
+        run_name: "dino_r50_4s_belt_mod"
+        weights: ""
+        batch_size: 16
+
+  dino_r50_5scale_b2:
+    description: "Validación del modelo DINO R50 5-Scale (batch 2) entrenado."
+    overrides:
+      validation:
+        variant: "r50_5scale"
+        run_name: "dino_r50_5s_belt"
+        weights: ""
+        batch_size: 16
+
+  dino_swin_l_b2:
+    description: "Validación del modelo DINO Swin-L (batch 4) entrenado."
+    overrides:
+      validation:
+        variant: "swin_l"
+        run_name: "dino_swin_l_belt"
+        weights: ""
+        batch_size: 16
+
+  # ==========================================================
+  # Presets de Validación de Pruebas (COCO)
+  # ==========================================================
+
+  coco_r50_4scale_test:
+    description: "Validación de la prueba DINO R50 4-Scale en COCO."
+    overrides:
+      validation:
+        variant: "r50_4scale"
+        run_name: "coco_dino_r50_4s_test"
+        weights: ""
+        batch_size: 4
+        use_coco128: true

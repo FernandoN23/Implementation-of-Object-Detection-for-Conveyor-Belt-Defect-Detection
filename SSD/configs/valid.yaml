@@ -1,0 +1,103 @@
+# ==============================================================
+# Departamento de Ingeniería Mecánica - Universidad de Chile
+# Trabajo de Memoria de Título:
+# "Implementación de algoritmos de reconocimiento de objetos
+#  para la identificación de fallas en correas transportadoras"
+# Autor: Fernando N.
+# --------------------------------------------------------------
+# Archivo: SSD/configs/valid.yaml
+# Descripción: Configuración de hiperparámetros para validación
+#              y pruebas (inferencia) del modelo SSD.
+# ==============================================================
+
+experiment:
+  task: "detect"
+  variant: "ssd300" # Default (se sobrescribe por preset)
+  run_name: "ssd300" # Default (se sobrescribe por preset)
+  phase: "valid"  # Carpeta de salida: SSD/metrics/detect/{variant}/valid/{run_name}
+
+paths:
+  dataset_config: "SSD/configs/dataset.yaml"
+  weights_root: "SSD/weights"
+  runs_root: "SSD/runs"
+  metrics_root: "SSD/metrics"
+
+presets:
+  # ---------------------------------------------------------------
+  # Preset principal para validación SSD300
+  # ---------------------------------------------------------------
+  ssd300:
+    # Identidad Específica
+    variant: "ssd300"
+    run_name: "ssd300"
+
+    # Backend de dataset (debe coincidir con el usado en train)
+    dataset_backend: "yolo"
+
+    # Configuración de carga de datos
+    img_dim: 300
+    batch_size: 32        # Puede ser mayor que en train (no hay backprop)
+    num_workers: 4        # Ajustar según CPU
+    device: ""            # "" -> auto (CUDA/HIP/CPU)
+
+    # Semilla para reproducibilidad (selección de imágenes para overlays)
+    seed: 0
+
+    # Parámetros de Inferencia (NMS & Post-procesado)
+    inference:
+      # Umbral de confianza MUY bajo para permitir que pasen muchas cajas
+      # y así poder construir las curvas PR/F1 completas.
+      # Para producción se usa ~0.25, pero para métricas ~0.001.
+      conf_thresh: 0.001
+
+      # Umbral de IoU para Non-Maximum Suppression (eliminar duplicados)
+      nms_thresh: 0.45
+
+      # Máximo número de detecciones a conservar por imagen
+      top_k: 200
+
+      # Umbral de IoU para considerar una detección como True Positive (TP)
+      # Usado para el cálculo de mAP@50 y Matriz de Confusión.
+      iou_thres: 0.5
+
+    # Configuración de Augmentación (Necesaria para des-normalizar imágenes en visualización)
+    augmentation:
+      mean: [104, 117, 123]
+
+    # Configuración de Logging
+    logging:
+      ndjson_console: false
+      ndjson_file: false
+      verbose: true       # Imprimir progreso detallado
+
+  # ---------------------------------------------------------------
+  # Preset principal para validación SSD512
+  # ---------------------------------------------------------------
+  ssd512:
+    # Identidad Específica
+    variant: "ssd512"
+    run_name: "ssd512"
+
+    dataset_backend: "yolo"
+
+    # Dimensión ajustada para alta resolución
+    img_dim: 512
+    batch_size: 32        # Ajustar si hay problemas de VRAM (aunque en validación consume menos)
+    num_workers: 4
+    device: ""
+
+    seed: 0
+
+    inference:
+      conf_thresh: 0.001
+      nms_thresh: 0.45
+      top_k: 200
+      iou_thres: 0.5
+
+    augmentation:
+      mean: [104, 117, 123]
+
+    logging:
+      ndjson_console: false
+      ndjson_file: false
+      verbose: true
