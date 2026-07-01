@@ -9,6 +9,16 @@
 # Descripción: Punto de entrada principal para pruebas de inferencia
 #              sobre modelos DINO entrenados.
 #              *CORREGIDO: lr_backbone > 0 para evitar crash en build_backbone*
+#              *CORREGIDO: Dict2Obj unificado con soporte 'in'*
+#              *CORREGIDO: Lógica de Resize (800x1333) inyectada
+#               para igualar el preprocesamiento de entrenamiento.*
+#              *CORREGIDO: Sincronización de MIOpen DB.*
+#              *CORREGIDO: Uso de make_coco_transforms oficial para
+#               garantizar preprocesamiento idéntico a valid.py.*
+#              *CORREGIDO: Importación diferida estricta para evitar
+#               inicialización prematura de PyTorch (MIOpen).*
+#              *NUEVO: Auto-detección de arquitectura desde el checkpoint
+#               para evitar recortes destructivos en pesos fine-tuned.*
 # ==============================================================
 
 from __future__ import annotations
@@ -21,6 +31,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
+from PIL import Image
 
 FILE = Path(__file__).resolve()
 DINO_ROOT = FILE.parent
@@ -96,35 +107,41 @@ class Dict2Obj:
                 setattr(self, key, value)
 
     def __getattr__(self, name):
+        if name.startswith('__') and name.endswith('__'):
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         return None
+
+    def __contains__(self, key):
+        return key in self.__dict__
 
 
 @dataclass
 class Box:
-    cls_id: int;
-    x1: float;
-    y1: float;
-    x2: float;
-    y2: float;
+    cls_id: int
+    x1: float
+    y1: float
+    x2: float
+    y2: float
     conf: float = 1.0
 
 
 @dataclass
 class ClassStats:
-    n_gt: int = 0;
-    n_pred: int = 0;
-    tp: int = 0;
-    fp: int = 0;
-    fn: int = 0;
-    iou_sum: float = 0.0;
+    n_gt: int = 0
+    n_pred: int = 0
+    tp: int = 0
+    fp: int = 0
+    fn: int = 0
+    iou_sum: float = 0.0
     matches: int = 0
 
 
 @dataclass
 class ModelContext:
-    model: Any;
-    postprocessors: Any;
+    model: Any
+    postprocessors: Any
     device: Any
+    transform: Any
 
 
 def _resolve_path(path: str | Path, base: Path) -> Path:
@@ -165,9 +182,9 @@ def load_gt_boxes(label_file: Path, img_shape: Tuple[int, int, int]) -> List[Box
             parts = line.strip().split()
             if len(parts) < 5: continue
             cls_id, x_c, y_c, bw, bh = map(float, parts[:5])
-            x_c *= w;
-            y_c *= h;
-            bw *= w;
+            x_c *= w
+            y_c *= h
+            bw *= w
             bh *= h
             boxes.append(
                 Box(cls_id=int(cls_id), x1=x_c - bw / 2.0, y1=y_c - bh / 2.0, x2=x_c + bw / 2.0, y2=y_c + bh / 2.0,
@@ -179,15 +196,19 @@ def load_model(weights: Path, variant: str, device_str: str, num_classes: int) -
     import torch
     from models import build_model
     from engine.bn2gn_patch import replace_bn_with_gn, BN2GNConfig
+    from datasets.coco import make_coco_transforms
 
     device = torch.device(device_str if device_str else "cuda" if torch.cuda.is_available() else "cpu")
     variants_cfg = load_yaml(CONFIGS_ROOT / "model_variants.yaml")
+
+    if variant not in variants_cfg['variants']:
+        raise ValueError(f"[test.py] Variante '{variant}' no encontrada en model_variants.yaml")
+
     v_params = variants_cfg['variants'][variant]
 
     base_args = DINO_DEFAULTS.copy()
     base_args.update(v_params)
 
-    # [MODIFICADO]: lr_backbone se establece en 1e-5 en lugar de 0 para evitar el ValueError de DINO
     base_args.update({
         'lr_backbone': 1e-5, 'masks': False, 'frozen_weights': None, 'aux_loss': False, 'set_cost_class': 1.0,
         'set_cost_bbox': 5.0, 'set_cost_giou': 2.0, 'bbox_loss_coef': 5.0, 'giou_loss_coef': 2.0,
@@ -195,41 +216,83 @@ def load_model(weights: Path, variant: str, device_str: str, num_classes: int) -
         'device': str(device), 'num_classes': num_classes,
         'dn_labelbook_size': num_classes
     })
+
+    print(f"[test.py] Cargando pesos desde {weights}...")
+    checkpoint = torch.load(weights, map_location='cpu', weights_only=False)
+
+    if 'ema_model' in checkpoint:
+        print("[test.py] Usando pesos suavizados (EMA)...")
+        state_dict = checkpoint['ema_model']
+    else:
+        state_dict = checkpoint['model']
+
+    # --- AUTO-DETECCIÓN DE ARQUITECTURA DESDE EL CHECKPOINT ---
+    if 'transformer.tgt_embed.weight' in state_dict:
+        num_queries = state_dict['transformer.tgt_embed.weight'].shape[0]
+        base_args['num_queries'] = num_queries
+
+    enc_offset_key = 'transformer.encoder.layers.0.self_attn.sampling_offsets.weight'
+    if enc_offset_key in state_dict:
+        shape_0 = state_dict[enc_offset_key].shape[0]
+        n_heads = base_args.get('nheads', 8)
+        num_feature_levels = base_args.get('num_feature_levels', 4)
+        enc_n_points = shape_0 // (n_heads * num_feature_levels * 2)
+        base_args['enc_n_points'] = enc_n_points
+
+    dec_offset_key = 'transformer.decoder.layers.0.cross_attn.sampling_offsets.weight'
+    if dec_offset_key in state_dict:
+        shape_0 = state_dict[dec_offset_key].shape[0]
+        n_heads = base_args.get('nheads', 8)
+        num_feature_levels = base_args.get('num_feature_levels', 4)
+        dec_n_points = shape_0 // (n_heads * num_feature_levels * 2)
+        base_args['dec_n_points'] = dec_n_points
+
     model_args = Dict2Obj(base_args)
 
     print(f"[test.py] Construyendo arquitectura DINO ({variant})...")
     model, criterion, postprocessors = build_model(model_args)
     replace_bn_with_gn(model, BN2GNConfig(policy='on', verbose=0))
 
-    print(f"[test.py] Cargando pesos desde {weights}...")
-    checkpoint = torch.load(weights, map_location='cpu', weights_only=False)
-    if 'ema_model' in checkpoint:
-        print("[test.py] Cargando pesos suavizados (EMA)...")
-        model.load_state_dict(checkpoint['ema_model'], strict=False)
-    else:
-        model.load_state_dict(checkpoint['model'], strict=False)
+    model.load_state_dict(state_dict, strict=True)
 
     model.to(device)
     model.eval()
-    return ModelContext(model=model, postprocessors=postprocessors, device=device)
+
+    transform = make_coco_transforms("val")
+
+    return ModelContext(model=model, postprocessors=postprocessors, device=device, transform=transform)
 
 
 def infer_image(ctx: ModelContext, img_bgr: np.ndarray, conf_thres: float) -> List[Box]:
     import torch
-    import torchvision.transforms.functional as F
+    from util.misc import nested_tensor_from_tensor_list
+
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-    h, w = img_rgb.shape[:2]
-    tensor = F.to_tensor(img_rgb)
-    tensor = F.normalize(tensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]).unsqueeze(0).to(ctx.device)
+    orig_h, orig_w = img_rgb.shape[:2]
+    img_pil = Image.fromarray(img_rgb)
+
+    target = {
+        "image_id": torch.tensor([0]),
+        "annotations": [],
+        "orig_size": torch.as_tensor([int(orig_h), int(orig_w)]),
+        "size": torch.as_tensor([int(orig_h), int(orig_w)])
+    }
+
+    img_tensor, _ = ctx.transform(img_pil, target)
+    img_tensor = img_tensor.to(ctx.device)
+
+    nested_tensor = nested_tensor_from_tensor_list([img_tensor])
 
     with torch.no_grad():
         with MuteStderr():
-            outputs = ctx.model(tensor)
+            outputs = ctx.model(nested_tensor)
 
-    orig_target_sizes = torch.tensor([[h, w]], device=ctx.device)
+    orig_target_sizes = torch.tensor([[orig_h, orig_w]], device=ctx.device)
     results = ctx.postprocessors['bbox'](outputs, orig_target_sizes)[0]
-    scores, labels, boxes = results['scores'].cpu().numpy(), results['labels'].cpu().numpy(), results[
-        'boxes'].cpu().numpy()
+
+    scores = results['scores'].cpu().numpy()
+    labels = results['labels'].cpu().numpy()
+    boxes = results['boxes'].cpu().numpy()
 
     boxes_out: List[Box] = []
     for score, label, box in zip(scores, labels, boxes):
@@ -237,6 +300,7 @@ def infer_image(ctx: ModelContext, img_bgr: np.ndarray, conf_thres: float) -> Li
             boxes_out.append(
                 Box(cls_id=int(label), x1=float(box[0]), y1=float(box[1]), x2=float(box[2]), y2=float(box[3]),
                     conf=float(score)))
+
     return boxes_out
 
 
@@ -270,8 +334,8 @@ def evaluate_image(gt_boxes: List[Box], pred_boxes: List[Box], num_classes: int,
                 if iou > best_iou: best_iou, best_idx = iou, i
             if best_iou >= iou_match and best_idx >= 0:
                 used_gt[best_idx] = True
-                stats[cls].tp += 1;
-                stats[cls].matches += 1;
+                stats[cls].tp += 1
+                stats[cls].matches += 1
                 stats[cls].iou_sum += best_iou
             else:
                 stats[cls].fp += 1
@@ -286,8 +350,8 @@ def evaluate_image(gt_boxes: List[Box], pred_boxes: List[Box], num_classes: int,
         s.recall = float(s.tp / denom_r) if denom_r > 0 else 0.0
         s.iou_mean = float(s.iou_sum / s.matches) if s.matches > 0 else 0.0
         if s.n_gt > 0 or s.n_pred > 0:
-            p_list.append(s.precision);
-            r_list.append(s.recall);
+            p_list.append(s.precision)
+            r_list.append(s.recall)
             iou_list.append(s.iou_mean)
 
     if p_list: global_metrics["P_macro"] = float(np.mean(p_list))
@@ -323,34 +387,34 @@ def draw_legend(split: str, idx: int, num_images: int, model_name: str, class_na
     font, fs, t, y, lh = cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1, 30, 22
 
     def put(line: str, color: Tuple[int, int, int] = (255, 255, 255)):
-        nonlocal y;
-        cv2.putText(canvas, line, (10, y), font, fs, color, t, cv2.LINE_AA);
+        nonlocal y
+        cv2.putText(canvas, line, (10, y), font, fs, color, t, cv2.LINE_AA)
         y += lh
 
-    put(f"Split: {split}", (255, 255, 0));
-    put(f"Imagen: {idx + 1}/{num_images}", (255, 255, 0));
-    put(f"Modelo: {os.path.basename(model_name)}", (200, 255, 255));
+    put(f"Split: {split}", (255, 255, 0))
+    put(f"Imagen: {idx + 1}/{num_images}", (255, 255, 0))
+    put(f"Modelo: {os.path.basename(model_name)}", (200, 255, 255))
     put("")
-    put("Metricas por imagen (macro):", (0, 255, 255));
-    put(f"P:   {global_metrics.get('P_macro', 0.0):.3f}");
-    put(f"R:   {global_metrics.get('R_macro', 0.0):.3f}");
-    put(f"IoU: {global_metrics.get('IoU_macro', 0.0):.3f}");
+    put("Metricas por imagen (macro):", (0, 255, 255))
+    put(f"P:   {global_metrics.get('P_macro', 0.0):.3f}")
+    put(f"R:   {global_metrics.get('R_macro', 0.0):.3f}")
+    put(f"IoU: {global_metrics.get('IoU_macro', 0.0):.3f}")
     put("")
     put("Leyenda bboxes:", (0, 255, 255))
-    cv2.rectangle(canvas, (10, y - 12), (30, y + 2), colors_gt[0] if colors_gt else (0, 255, 0), -1);
-    cv2.putText(canvas, "GT (etiqueta real)", (40, y), font, fs, (255, 255, 255), t, cv2.LINE_AA);
+    cv2.rectangle(canvas, (10, y - 12), (30, y + 2), colors_gt[0] if colors_gt else (0, 255, 0), -1)
+    cv2.putText(canvas, "GT (etiqueta real)", (40, y), font, fs, (255, 255, 255), t, cv2.LINE_AA)
     y += lh
-    cv2.rectangle(canvas, (10, y - 12), (30, y + 2), colors_pred[0] if colors_pred else (0, 165, 255), -1);
-    cv2.putText(canvas, "Prediccion modelo", (40, y), font, fs, (255, 255, 255), t, cv2.LINE_AA);
+    cv2.rectangle(canvas, (10, y - 12), (30, y + 2), colors_pred[0] if colors_pred else (0, 165, 255), -1)
+    cv2.putText(canvas, "Prediccion modelo", (40, y), font, fs, (255, 255, 255), t, cv2.LINE_AA)
     y += lh
-    put("");
-    put("Comandos:", (0, 255, 255));
-    put("<- / 'a': imagen anterior");
-    put("-> / 'd': imagen siguiente");
-    put("'h': mostrar/ocultar pred.");
-    put("ESC: salir");
-    put("");
-    put(f"Predicciones visibles: {'Si' if show_pred else 'No'}");
+    put("")
+    put("Comandos:", (0, 255, 255))
+    put("<- / 'a': imagen anterior")
+    put("-> / 'd': imagen siguiente")
+    put("'h': mostrar/ocultar pred.")
+    put("ESC: salir")
+    put("")
+    put(f"Predicciones visibles: {'Si' if show_pred else 'No'}")
     put("")
     put("Metricas por clase:", (0, 255, 255))
 
@@ -358,11 +422,11 @@ def draw_legend(split: str, idx: int, num_images: int, model_name: str, class_na
         if s.n_gt == 0 and s.n_pred == 0: continue
         if y + 36 > canvas.shape[0] - 10: put("...", (200, 200, 200)); break
         name = class_names[cls_id] if 0 <= cls_id < len(class_names) else str(cls_id)
-        cv2.putText(canvas, f"[{cls_id}] {name}", (10, y), font, 0.45, (255, 255, 0), t, cv2.LINE_AA);
+        cv2.putText(canvas, f"[{cls_id}] {name}", (10, y), font, 0.45, (255, 255, 0), t, cv2.LINE_AA)
         y += 18
         cv2.putText(canvas,
                     f"GT:{s.n_gt} Pred:{s.n_pred} TP:{s.tp} FP:{s.fp} FN:{s.fn} P:{getattr(s, 'precision', 0.0):.2f} R:{getattr(s, 'recall', 0.0):.2f} IoU:{getattr(s, 'iou_mean', 0.0):.2f}",
-                    (10, y), font, 0.45, (220, 220, 220), t, cv2.LINE_AA);
+                    (10, y), font, 0.45, (220, 220, 220), t, cv2.LINE_AA)
         y += 18
     return canvas
 
@@ -407,8 +471,85 @@ def run_viewer(args: argparse.Namespace) -> None:
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="DINO.test")
-    parser.add_argument("--weights", type=str, required=True)
-    parser.add_argument("--variant", type=str, default="r50_4scale")
-    parser.add_argument("--device", type=str, default="")
-    parse
+    parser = argparse.ArgumentParser(
+        prog="DINO.test",
+        description=(
+            "Visor interactivo para testear un modelo DINO entrenado sobre la "
+            "partición Dataset/test, mostrando boxes reales vs. predichos y "
+            "métricas locales por imagen."
+        ),
+    )
+
+    parser.add_argument(
+        "--weights",
+        type=str,
+        required=True,
+        help="Ruta al archivo de pesos .pt del modelo DINO a testear.",
+    )
+
+    parser.add_argument(
+        "--variant",
+        type=str,
+        default="r50_4scale",
+        choices=["r50_4scale", "r50_5scale", "swin_l"],
+        help="Variante de la arquitectura DINO (ej. r50_4scale, swin_l).",
+    )
+
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="",
+        help="Dispositivo para inferencia: 'cuda' o 'cpu'.",
+    )
+
+    parser.add_argument(
+        "--conf-thres",
+        type=float,
+        default=0.25,
+        help="Umbral de confianza mínimo para visualizar predicciones.",
+    )
+
+    parser.add_argument(
+        "--iou-match",
+        type=float,
+        default=0.5,
+        help="IoU mínimo para considerar una predicción como TP frente a un GT.",
+    )
+
+    return parser.parse_args(argv)
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    print(f"[test.py] Iniciando visor interactivo DINO...")
+    args = parse_args(argv)
+
+    # Bootstrap MIOpen sincronizado con valid.yaml
+    valid_cfg_path = CONFIGS_ROOT / "valid.yaml"
+    if valid_cfg_path.exists():
+        valid_cfg = load_yaml(valid_cfg_path)
+        mi_cfg = valid_cfg.get('miopen', {})
+        user_db_path = mi_cfg.get('user_db_path', None)
+    else:
+        user_db_path = None
+
+    cfg = MIOpenConfig(
+        find_mode="FAST",
+        user_db_path=user_db_path,
+        disable_cache=True,
+        expandable_segments=True,
+        verbose=1,
+    )
+    bootstrap(cfg)
+
+    # Filtros de warnings
+    try:
+        from engine.warnings import install_global_warning_filters
+        install_global_warning_filters()
+    except Exception:
+        pass
+
+    run_viewer(args)
+
+
+if __name__ == "__main__":
+    main()
