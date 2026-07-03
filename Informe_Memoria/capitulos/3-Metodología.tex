@@ -13,7 +13,7 @@ De acuerdo al Capítulo 2, sección 2.1, las fallas en correas transportadoras s
     \item \textit{Abrasión (Wear):} desgaste progresivo de la superficie de la correa debido a fricción, que se manifiesta como adelgazamiento del recubrimiento y patrones característicos de pérdida de material.
 \end{itemize}
 
-De esta forma, las fallas antes mencionadas se convierten en \textit{clases} para los modelos de detección de objetos. Los casos dónde no se presenten fallas, se consideran clases de fondo (\textit{background}), las cuáles corresponderán a casos sin falla. \\
+De esta forma, las fallas antes mencionadas se convierten en \textit{clases} para los modelos de detección de objetos. Los casos donde no se presenten fallas, se consideran clases de fondo (\textit{background}), las cuales corresponderán a casos sin falla. \\
 \newpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Base de datos}
@@ -127,7 +127,7 @@ Para resolver esta discrepancia geométrica sin la ineficiencia de duplicar fís
 
 Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio oficial. Todas las librerías requeridas se gestionan mediante un archivo de requerimientos (\textit{requirements.txt}), que agrupa las dependencias y paquetes de ROCm (debido al uso de Arquitectura AMD para esta memoria), librerías de Pytorch compatibles, scripts de análisis de datos y librerias específicas para cada modelo. Para garantizar la estandarización, la gestión del código fuente se estructuró mediante un sistema topológico de ramas (\textit{branches}) a través del controlador de versiones GIT. 
 
-El núcleo de procesamiento (\textit{engine}), las configuraciones globales y los algoritmos utilitarios operan como una capa base transversal (\textit{wrapper}). En este ecosistema, cada arquitectura de detección se aísla de forma modular en una rama independiente del repositorio. Debido a restricciones físicas de memoria en el hardware (VRAM), el motor de cada rama opera con un diseño de inserción única (\textit{single-socket}): solo una arquitectura puede acoplarse y entrenarse a la vez. Los códigos (\textit{scripts}) principales actúan como orquestadores que encienden el flujo: entrenamiento (\textit{train}), validación (\textit{valid}) y prueba (\textit{test}). Éstos orquestadores cargan bases de datos y configuraciones en memoria, entrenando y validando el modelo, para finalmente exportar los resultados estandarizados, tal como se esquematiza en la Figura \ref{fig:3.1-ModularLayer}.
+El núcleo de procesamiento (\textit{engine}), las configuraciones globales y los algoritmos utilitarios operan como una capa base transversal (\textit{wrapper}). En este ecosistema, cada arquitectura de detección se aísla de forma modular en una rama independiente del repositorio. Debido a restricciones físicas de memoria en el hardware (VRAM), el motor de cada rama opera con un diseño de inserción única (\textit{single-socket}): solo una arquitectura puede acoplarse y entrenarse a la vez. Los códigos (\textit{scripts}) principales actúan como orquestadores que encienden el flujo: entrenamiento (\textit{train}), validación (\textit{valid}) y prueba (\textit{test}). Estos orquestadores cargan bases de datos y configuraciones en memoria, entrenando y validando el modelo, para finalmente exportar los resultados estandarizados, tal como se esquematiza en la Figura \ref{fig:3.1-ModularLayer}.
 
 \begin{figure}[H]
     \centering
@@ -299,19 +299,19 @@ A continuación, se expone el flujo resumido desde el accionamiento de la rutina
     \item En el caso de entrenar por primera vez:
 
     \begin{enumerate}
-        \item El orquestador de entrenamiento (\textit{train.py}) carga las configuraciones (\textit{configs/}), las cuáles contienen las variantes del modelo, los hiperparámetros asociados, rutas de descarga de resultados y las rutas principales hacia los códigos del modelo (todo esto guardado en el archivo de configuración \textit{train.yaml}).
+        \item El orquestador de entrenamiento (\textit{train.py}) carga las configuraciones (\textit{configs/}), las cuales contienen las variantes del modelo, los hiperparámetros asociados, rutas de descarga de resultados y las rutas principales hacia los códigos del modelo (todo esto guardado en el archivo de configuración \textit{train.yaml}).
 
         \item El motor (\textit{engine}), en particular la componente Entrenador (\textit{Trainer.py}), mediante la utilidad de Carga de datos y/o adaptación (\textit{data\_loader.py}), carga en memoria la Base de datos de fallas en correas transportadoras con las etiquetas y formato solicitados por el modelo específico (\textit{dataset.yaml}). Se utiliza la partición de entrenamiento y validación de la Base de Datos.
         \item Tras cargar los datos e hiperparámetros necesarios, invoca las clases y funciones de entrenamiento del código principal del modelo original (\textit{train,main,etc}) y coloca en memoria los datos introducidos. Según el tamaño de los lotes definidos (\textit{batch\_size}), este traspaso de imágenes a la arquitectura neuronal será secuencial y con una fracción de imágenes (con el fin de evitar colapso en la memoria).
-        \item Dado que el modelo no ha sido modificado como tal, la arquitectura neuronal asociada al modelo de detección de objetos está intacta y solamente es modificada externamente mediante los hiperparámetros introducidos, definiendo así la variante del modelo. Estos datos de ejecución al iniciar el modelo se guardarán en la carpeta de ejecuciones (\textit{runs}), mediante un archivo de hiperparámetros (\textit{hyp.yaml}), el cuál contiene un resumen de todas las configuraciones usadas en el entrenamiento actual del modelo.
-        \item El modelo comienza a entrenar y cada época lograda, las predicciones del modelo son derivadas a la componente Validador (\textit{Validator.py}), el cuál valida mediante el uso de la partición de validación de la Base de Datos, dónde se obtienen solamente métricas preliminares de seguimiento para obtener las pérdidas de entrenamiento y validación. Esto permite un análisis de convergencia y evaluar sí existe sobreajuste (\textit{overfitting}) ó bajoajuste (\textit{underfitting}), lo cuál permite establecer sí el modelo está aprendiendo/memorizando o no.
+        \item Dado que el modelo no ha sido modificado como tal, la arquitectura neuronal asociada al modelo de detección de objetos está intacta y solamente es modificada externamente mediante los hiperparámetros introducidos, definiendo así la variante del modelo. Estos datos de ejecución al iniciar el modelo se guardarán en la carpeta de ejecuciones (\textit{runs}), mediante un archivo de hiperparámetros (\textit{hyp.yaml}), el cual contiene un resumen de todas las configuraciones usadas en el entrenamiento actual del modelo.
+        \item El modelo comienza a entrenar y cada época lograda, las predicciones del modelo son derivadas a la componente Validador (\textit{Validator.py}), quien valida mediante el uso de la partición de validación de la Base de Datos, donde se obtienen solamente métricas preliminares de seguimiento para obtener las pérdidas de entrenamiento y validación. Esto permite un análisis de convergencia y evaluar si existe sobreajuste (\textit{overfitting}) ó bajoajuste (\textit{underfitting}), lo cual permite establecer si el modelo está aprendiendo/memorizando o no.
         \item Tras entrenar todas las épocas definidas en los hiperparámetros, se entregarán las métricas finales de entrenamiento en la carpeta de métricas (\textit{metrics/}). Así mismo, guardará en la carpeta de pesos \textit{weights/}, los parámetros de entrenamiento asociados a los pesos y sesgos del modelo de aprendizaje.
     \end{enumerate}
 
     \item En el caso de validar un modelo entrenado:
     \begin{enumerate}
         \item El orquestador de validación (\textit{valid.py}) carga las configuraciones (\textit{configs/}), similarmente a el entrenamiento, pero usando un archivo diferente de configuración (\textit{valid.yaml}).
-        \item El motor (\textit{engine}), en particular la componente Validador (\textit{Validator.py}), mediante la utilidad de Carga de datos y/o adaptación (\textit{data\_loader.py}), carga en memoria la Base de datos de fallas en correas transportadoras con las etiquetas y formato solicitados por el modelo específico (\textit{dataset.yaml}). Se utiliza exclusivametne la partición de validación de la Base de Datos.
+        \item El motor (\textit{engine}), en particular la componente Validador (\textit{Validator.py}), mediante la utilidad de Carga de datos y/o adaptación (\textit{data\_loader.py}), carga en memoria la Base de datos de fallas en correas transportadoras con las etiquetas y formato solicitados por el modelo específico (\textit{dataset.yaml}). Se utiliza exclusivamente la partición de validación de la Base de Datos.
 
         \item Tras cargar los datos e hiperparámetros necesarios, invoca las clases y funciones de entrenamiento del código principal del modelo original (\textit{valid, main, etc}) y coloca en memoria los datos introducidos. Se utiliza el mismo tamaño de lotes que en entrenamiento.
         \item El modelo comienza a validarse durante una sola época. 
@@ -321,7 +321,7 @@ A continuación, se expone el flujo resumido desde el accionamiento de la rutina
     \item En caso de querer probar el modelo, mediante una interfaz personalizada, ya sea en vivo ó como simulación:
     \begin{enumerate}
         \item El orquestador de pruebas (\textit{test.py}) carga las configuraciones (\textit{configs/}), usando el archivo de configuración (\textit{valid.yaml}). 
-        \item En este caso, no se requiere obtener métricas, solo usar los pesos del modelo entrenado y validado que se encuentran en la carpeta de pesos (\textit{weights/}) para realizar solo inferencia en imágenes que se pasen al modelo de detección de objetos directamente. Además, este orquestador posee una interfaz personalizada para visualizar clases detectadas, cambiar imágen de forma interactiva y ocultar/mostrar inferencias en tiempo real. 
+        \item En este caso, no se requiere obtener métricas, solo usar los pesos del modelo entrenado y validado que se encuentran en la carpeta de pesos (\textit{weights/}) para realizar solo inferencia en imágenes que se pasen al modelo de detección de objetos directamente. Además, este orquestador posee una interfaz personalizada para visualizar clases detectadas, cambiar imagen de forma interactiva y ocultar/mostrar inferencias en tiempo real. 
     \end{enumerate}
 
     \item Como función adicional, la utilidad de métricas (\textit{metrics.py}) permite evaluar las métricas de múltiples variantes del modelo actual y fusionarlas (\textit{merge}) para tener resultados comparativos directos y más completos, incluyendo además métricas de cómputo matemático, numero de millones de parámetros de cada modelo y valores máximos de métricas obtenidas.
@@ -334,7 +334,7 @@ Por último, cabe destacar que cada una de las ramas independientes de trabajo a
 
 \section{Implementación de modelos One-Stage (YOLOv5 y SSD)}
 
-La implementación de los modelos YOlOv5 y SSD se rigen de acuerdo a la \textit{Estructura Maestra} definida en la Sección 3.3. Cabe destacar que cada modelo se trabaja en diferentes ramas del repositorio \cite{repo_fernando2024}, particularmente las ramas \textit{YOLO} y \textit{SSD}. Los hiperparámetros comúnes utilizados para estandarizar entrenamiento y métricas entre los dos modelos mencionados se muestran en la Tabla \ref{tab:3.4-one_stage_hyperparameters} .\\
+La implementación de los modelos YOLOv5 y SSD se rigen de acuerdo a la \textit{Estructura Maestra} definida en la Sección 3.3. Cabe destacar que cada modelo se trabaja en diferentes ramas del repositorio \cite{repo_fernando2024}, particularmente las ramas \textit{YOLO} y \textit{SSD}. Los hiperparámetros comunes utilizados para estandarizar entrenamiento y métricas entre los dos modelos mencionados se muestran en la Tabla \ref{tab:3.4-one_stage_hyperparameters} .\\
 
 %Epoch = 300
 %batch_size=16
@@ -366,7 +366,7 @@ Los hiperparámetros utilizados para cada una de las variantes del modelo de det
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Implementación de modelos basados en Transformers (DETR y DINO)}
 
-La implementación de los modelos DETR y DINO se rigen de acuerdo a la \textit{Estructura Maestra} definida en la Sección 3.3. Cabe destacar que cada modelo se trabaja en diferentes ramas del repositorio \cite{repo_fernando2024}, particularmente las ramas \textit{DETR} y \textit{DINO}. Los hiperparámetros comúnes utilizados para estandarizar entrenamiento y métricas entre los dos modelos mencionados se muestran en la Tabla \ref{tab:3.5-transformers_hyperparameters} .\\
+La implementación de los modelos DETR y DINO se rigen de acuerdo a la \textit{Estructura Maestra} definida en la Sección 3.3. Cabe destacar que cada modelo se trabaja en diferentes ramas del repositorio \cite{repo_fernando2024}, particularmente las ramas \textit{DETR} y \textit{DINO}. Los hiperparámetros comunes utilizados para estandarizar entrenamiento y métricas entre los dos modelos mencionados se muestran en la Tabla \ref{tab:3.5-transformers_hyperparameters} .\\
 
 
 \begin{table}[H]

@@ -115,8 +115,9 @@
 \contentsline {subparagraph}{Curva de Precisión vs Confianza (\textit {Precision Curve vs Confidence})}{81}{section*.119}%
 \contentsline {subparagraph}{Curva de Exhaustividad vs Confianza (\textit {Recall Curve vs Confidence})}{82}{section*.121}%
 \contentsline {subparagraph}{Matriz de confusión (\textit {Confusion Matrix})}{83}{section*.123}%
-\contentsline {section}{\numberline {4.4}Discusión general de resultados}{84}{section.4.4}%
-\contentsline {chapter}{\numberline {5}Conclusiones}{88}{chapter.5}%
-\contentsline {chapter}{Bibliografía}{89}{chapter*.125}%
-\contentsline {chapter}{\numberline {6}Anexos}{91}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{91}{section.6.1}%
+\contentsline {section}{\numberline {4.4}Inferencia comparativa entre modelos}{84}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Discusión general de resultados}{91}{section.4.5}%
+\contentsline {chapter}{\numberline {5}Conclusiones}{94}{chapter.5}%
+\contentsline {chapter}{Bibliografía}{95}{chapter*.132}%
+\contentsline {chapter}{\numberline {6}Anexos}{97}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{97}{section.6.1}%
