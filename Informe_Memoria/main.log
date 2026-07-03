@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  2 JUL 2026 20:08
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.9.17)  2 JUL 2026 20:23
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -2254,24 +2254,24 @@ LaTeX Info: Redefining \% on input line 16.
 )
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 80.
-LaTeX Font Info:    ... okay on input line 80.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/context/base/mkii\supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
 \scratchcounter=\count454
@@ -2291,8 +2291,8 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 48
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/00miktex\epstopdf-sys.cfg
 File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
 ))
-LaTeX Info: Redefining \. on input line 80.
-LaTeX Info: Redefining \% on input line 80.
+LaTeX Info: Redefining \. on input line 81.
+LaTeX Info: Redefining \% on input line 81.
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: float package is loaded.
 Package caption Info: floatrow package is loaded.
@@ -2316,16 +2316,16 @@ Package: fr-longtable 2007/11/28 v0.1b (beta) floatrow: additions for longtable
 )
 \symgns@font=\mathgroup9
 LaTeX Font Info:    Overwriting symbol font `gns@font' in version `bold'
-(Font)                  TS1/lmr/m/n --> TS1/lmr/b/n on input line 80.
-Package gensymb Info: Math companion symbols declared on input line 80.
-LaTeX Info: Redefining \degree on input line 80.
-LaTeX Info: Redefining \celsius on input line 80.
-Package gensymb Info: Using text companion symbols for \degree, \celsius and \perthousand on input line 80.
-LaTeX Info: Redefining \ohm on input line 80.
-Package gensymb Info: Using \textohm for \ohm on input line 80.
-Package gensymb Info: Using \textmu for \micro on input line 80.
+(Font)                  TS1/lmr/m/n --> TS1/lmr/b/n on input line 81.
+Package gensymb Info: Math companion symbols declared on input line 81.
+LaTeX Info: Redefining \degree on input line 81.
+LaTeX Info: Redefining \celsius on input line 81.
+Package gensymb Info: Using text companion symbols for \degree, \celsius and \perthousand on input line 81.
+LaTeX Info: Redefining \ohm on input line 81.
+Package gensymb Info: Using \textohm for \ohm on input line 81.
+Package gensymb Info: Using \textmu for \micro on input line 81.
 \c@lstlisting=\count461
-Package hyperref Info: Link coloring ON on input line 80.
+Package hyperref Info: Link coloring ON on input line 81.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -2396,49 +2396,49 @@ Package hyperref Info: Link coloring ON on input line 80.
 <./img//departamentos/uchile2.pdf, id=7, 166.6225pt x 282.05376pt>
 File: ./img//departamentos/uchile2.pdf Graphic file (type pdf)
 <use ./img//departamentos/uchile2.pdf>
-Package pdftex.def Info: ./img//departamentos/uchile2.pdf  used on input line 82.
+Package pdftex.def Info: ./img//departamentos/uchile2.pdf  used on input line 83.
 (pdftex.def)             Requested size: 50.42442pt x 85.35826pt.
-LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 82.
+LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 83.
 (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-LaTeX Font Info:    Trying to load font information for OML+lmm on input line 82.
+LaTeX Font Info:    Trying to load font information for OML+lmm on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 82.
+LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 82.
+LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 82.
+(Font)              <12> on input line 83.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 82.
+(Font)              <8> on input line 83.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 82.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 82.
+(Font)              <6> on input line 83.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 82.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-LaTeX Font Info:    Trying to load font information for U+rsfs on input line 82.
+LaTeX Font Info:    Trying to load font information for U+rsfs on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/jknappen\ursfs.fd
 File: ursfs.fd 1998/03/24 rsfs font definition file (jk)
 )
-LaTeX Font Info:    Trying to load font information for U+wasy on input line 82.
+LaTeX Font Info:    Trying to load font information for U+wasy on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/wasysym\uwasy.fd
 File: uwasy.fd 2020/01/19 v2.4 Wasy-2 symbol font definitions
 )
-LaTeX Font Info:    Trying to load font information for U+stmry on input line 82.
+LaTeX Font Info:    Trying to load font information for U+stmry on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/stmaryrd\ustmry.fd)
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 82.
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 83.
  (C:\Users\seika\AppData\Local\Programs\MiKTeX\tex/latex/lm\ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) [1
@@ -2478,13 +2478,13 @@ File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-LaTeX Font Info:    Calculating math sizes for size <10.95007> on input line 88.
+LaTeX Font Info:    Calculating math sizes for size <10.95007> on input line 89.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95007> on input line 88.
+(Font)              <10.95007> on input line 89.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7.66501> on input line 88.
+(Font)              <7.66501> on input line 89.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5.47504> on input line 88.
+(Font)              <5.47504> on input line 89.
  (Abstracto.tex) [1
 
 
@@ -3022,7 +3022,7 @@ Here is how much of TeX's memory you used:
  1141 hyphenation exceptions out of 8191
  113i,20n,110p,2976b,2629s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/euler/eufm10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmex10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi6.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr7.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmss10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmss8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbo10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmssbx10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsso8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmvtt10.pfb><C:/Users/seika/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on main.pdf (111 pages, 18832499 bytes).
+Output written on main.pdf (111 pages, 18832501 bytes).
 PDF statistics:
  1967 PDF objects out of 2073 (max. 8388607)
  1647 compressed objects within 17 object streams
