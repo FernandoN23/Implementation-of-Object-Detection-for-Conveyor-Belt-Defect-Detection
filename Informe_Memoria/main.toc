@@ -12,7 +12,7 @@
 \contentsline {subsection}{\numberline {2.3.1}Contextualización}{8}{subsection.2.3.1}%
 \contentsline {subsection}{\numberline {2.3.2}Arquitectura}{9}{subsection.2.3.2}%
 \contentsline {subsection}{\numberline {2.3.3}Hiperparámetros en modelos de detección basados en CNN}{10}{subsection.2.3.3}%
-\contentsline {section}{\numberline {2.4}Mecanismo de atención y arquitectura Encoder-Decoder}{11}{section.2.4}%
+\contentsline {section}{\numberline {2.4}Mecanismo de atención y arquitectura Encoder-Decoder}{12}{section.2.4}%
 \contentsline {subsection}{\numberline {2.4.1}Mecanismo de atención en Transformers}{12}{subsection.2.4.1}%
 \contentsline {subsection}{\numberline {2.4.2}Arquitectura Encoder-Decoder}{13}{subsection.2.4.2}%
 \contentsline {section}{\numberline {2.5}Modelos de detección de objetos de una sola etapa}{15}{section.2.5}%

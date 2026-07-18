@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 1783038523.90773 "main.aux" "main.bbl" "main" 1783038538.04902 0
+["bibtex main"] 1784413325.06978 "main.aux" "main.bbl" "main" 1784413338.84185 0
   "./library.bib" 1782948337 9965 9af40dc0002dcd9547aa5fa8dd6739b6 ""
   "./natnumurl.bst" 1782948337 21201 c3a97a2434b58cd70f7f9c9df607b80a ""
-  "main.aux" 1783038536 98896 e166dc0b181ec8860c206ce2ea42c11a "pdflatex"
+  "main.aux" 1784413337 98925 981872667e57cbdd7b58d25c06076290 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1783038524.21084 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1783038538.04976 0
-  "Abstracto.tex" 1783038137 2621 41c2fd97c472b78d9bb07ea8a7819618 ""
+["pdflatex"] 1784413325.35915 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1784413338.84259 0
+  "Abstracto.tex" 1784412616 2624 f94a6c4294f756c53b1289cd1777b6be ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1760210407 81086 6fddea6b023469843de28035c851ec71 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1758130852 688 37338d6ab346c2f1466b29e195316aa4 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs5.tfm" 1758130853 684 3a51bd4fd9600428d5264cf25f04bb9a ""
@@ -372,9 +372,9 @@
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/xurl/xurl.sty" 1641733940 4675 e4b8c405820368c2dfb03526e16d725a ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-abspage.sty" 1750428951 2269 2de6c7a5fd634dfef00a960544463a38 ""
   "C:/Users/seika/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-base.sty" 1750428951 20785 198a9cb2e04238d92c320d0d9edbd76a ""
-  "capitulos/1-Introducción.tex" 1782948336 6036 5b59a02a427538e3ab44e527f2e21b42 ""
-  "capitulos/2-Antecedentes.tex" 1783038508 87291 18922ce0f95622099b2f659db5e713b6 ""
-  "capitulos/3-Metodología.tex" 1783036652 34554 27feae2f96c5bec802e1f1b957d7fac3 ""
+  "capitulos/1-Introducción.tex" 1784412657 5990 9159996d1b755f9be801c6025c149985 ""
+  "capitulos/2-Antecedentes.tex" 1784413047 87280 21e68cd37c55914d948784f02de5ff5a ""
+  "capitulos/3-Metodología.tex" 1784413310 34579 c435d8c3524ca7a71da99c8576afff85 ""
   "capitulos/4-Resultados_Discusión.tex" 1783036233 70604 f19518e3ead3b788963580a0430277d8 ""
   "capitulos/5-Conclusiones.tex" 1783036090 2298 1cbefd1d29c4e2d5cbe10f51bdabdd73 ""
   "capitulos/6-Anexos.tex" 1782948336 8144 30ff6ad3dbfa2cfc9287288882c9b1d0 ""
@@ -448,12 +448,12 @@
   "img/4-Resultados_Discusion/samples/0451_sample.jpg" 1782948249 79449 229cedabd312a27d7cd0d10c84cedabb ""
   "img/4-Resultados_Discusion/samples/0517_sample.jpg" 1782948249 145958 650ade77f634d3c3909431464f0a8d7f ""
   "img/4-Resultados_Discusion/samples/0864_sample.jpg" 1782948249 99299 b7e338fa7e0dc7ccfbfd1a4b467bec85 ""
-  "main.aux" 1783038536 98896 e166dc0b181ec8860c206ce2ea42c11a "pdflatex"
-  "main.bbl" 1783038524 8175 db973ebf96385bef38bc6005b0fccce3 "bibtex main"
-  "main.lof" 1783038536 14006 23beaf5205b3a7fdc2604a03863c53de "pdflatex"
-  "main.lot" 1783038536 2498 bb89a84e6101210daee526c70fc74f32 "pdflatex"
+  "main.aux" 1784413337 98925 981872667e57cbdd7b58d25c06076290 "pdflatex"
+  "main.bbl" 1784413325 8175 db973ebf96385bef38bc6005b0fccce3 "bibtex main"
+  "main.lof" 1784413337 14006 23beaf5205b3a7fdc2604a03863c53de "pdflatex"
+  "main.lot" 1784413337 2498 bb89a84e6101210daee526c70fc74f32 "pdflatex"
   "main.tex" 1783038186 4399 b441c1598d99e0b01c017e25b150aa7e ""
-  "main.toc" 1783038536 12572 de1c985f93e4ff26a4991be4984f9c9d "pdflatex"
+  "main.toc" 1784413337 12572 7bcddffa0d22e7f5673e5e91a1b4690a "pdflatex"
   "template.tex" 1782948337 290936 df2de9e1556f11a5d36036a27ac47b7a ""
   "template_config.tex" 1782948337 21966 e22124ed80d77f98d8f6e6a7c15e444f ""
   (generated)
