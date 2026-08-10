@@ -13,7 +13,8 @@ De acuerdo al Capítulo 2, sección 2.1, las fallas en correas transportadoras s
     \item \textit{Abrasión (Wear):} desgaste progresivo de la superficie de la correa debido a fricción, que se manifiesta como adelgazamiento del recubrimiento y patrones característicos de pérdida de material.
 \end{itemize}
 
-De esta forma, las fallas antes mencionadas se convierten en \textit{clases} para los modelos de detección de objetos. Los casos donde no se presenten fallas, se consideran clases de fondo (\textit{background}), las cuales corresponderán a casos sin falla. \\
+De esta forma, las fallas antes mencionadas se convierten en \textit{clases} para los modelos de detección de objetos. Los casos donde no se presenten fallas, se consideran clases de fondo (\textit{background}), las cuales se asumen como \textit{casos saludables.} \\
+
 \newpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Base de datos}
@@ -116,7 +117,7 @@ En la Figura \ref{fig:3.2-etiquetas} se muestra una representación de las coord
 
 Si bien la normalización escalar de YOLO es altamente eficiente para el almacenamiento en disco, las arquitecturas convolucionales como SSD exigen tensores con coordenadas absolutas (formato Pascal VOC), mientras que los detectores basados en atención (DETR, DINO) requieren anotaciones jerárquicas bajo el estándar MS-COCO (\textit{JSON}).\\
 
-Para resolver esta discrepancia geométrica sin la ineficiencia de duplicar físicamente los archivos, se implementó el módulo auxiliar \textit{data\_loader.py}. Operando como un intérprete dinámico en la implementación de utilidades, este algoritmo lee los tensores normalizados de YOLO durante la fase de carga en memoria de los datos y aplica las transformaciones algebraicas inversas necesarias. De este modo, adapta las coordenadas, las mallas espaciales y la resolución a las restricciones topológicas exactas del modelo requerido.\\
+Para resolver esta discrepancia geométrica sin la ineficiencia de duplicar físicamente los archivos, se implementó el módulo auxiliar (\textit{data\_loader.py}). Operando como un intérprete dinámico en la implementación de utilidades, este algoritmo lee los tensores normalizados de YOLO durante la fase de carga en memoria de los datos y aplica las transformaciones algebraicas inversas necesarias. De este modo, adapta las coordenadas, las mallas espaciales y la resolución a las restricciones topológicas exactas del modelo requerido para entrenar o validar.\\
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -125,7 +126,7 @@ Para resolver esta discrepancia geométrica sin la ineficiencia de duplicar fís
 
 \section{Entorno virtual y arquitectura de la implementación}
 
-Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio oficial \cite{repo_fernando2024}. Todas las librerías requeridas se gestionan mediante un archivo de requerimientos (\textit{requirements.txt}), que agrupa las dependencias y paquetes de ROCm (debido al uso de Arquitectura AMD para esta memoria), librerías de Pytorch compatibles, scripts de análisis de datos y librerias específicas para cada modelo. Para garantizar la estandarización, la gestión del código fuente se estructuró mediante un sistema topológico de ramas (\textit{branches}) a través del controlador de versiones GIT. 
+Con el fin de asegurar la reproducibilidad de los experimentos y aislar las dependencias del proyecto, se implementó un entorno virtual basado en \textit{Python} en la raíz del repositorio oficial \cite{repo_fernando2024}. Todas las librerías requeridas se gestionan mediante un archivo de requerimientos (\textit{requirements.txt}), que agrupa las dependencias y paquetes de ROCm (debido al uso de Arquitectura AMD para esta memoria), librerías de Pytorch compatibles, scripts de análisis de datos y librerias específicas para cada modelo. Para garantizar la estandarización, la gestión del código fuente se estructuró mediante un sistema topológico de ramas (\textit{branches}) a través del controlador de versiones GIT. \\
 
 El núcleo de procesamiento (\textit{engine}), las configuraciones globales y los algoritmos utilitarios operan como una capa base transversal (\textit{wrapper}). En este ecosistema, cada arquitectura de detección se aísla de forma modular en una rama independiente del repositorio. Debido a restricciones físicas de memoria en el hardware (VRAM), el motor de cada rama opera con un diseño de inserción única (\textit{single-socket}): solo una arquitectura puede acoplarse y entrenarse a la vez. Los códigos (\textit{scripts}) principales actúan como orquestadores que encienden el flujo: entrenamiento (\textit{train}), validación (\textit{valid}) y prueba (\textit{test}). Estos orquestadores cargan bases de datos y configuraciones en memoria, entrenando y validando el modelo, para finalmente exportar los resultados estandarizados, tal como se esquematiza en la Figura \ref{fig:3.1-ModularLayer}.
 
