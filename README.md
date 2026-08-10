@@ -20,6 +20,35 @@ Para facilitar la reproducción y comprensión del proyecto, se han dispuesto ar
 
 ---
 
+## 🖥️ Evaluación Comparativa Global (`master.py`)
+
+El repositorio incluye el script **`master.py`**, una herramienta de inferencia y visualización simultánea diseñada para evaluar y comparar en tiempo real las cuatro arquitecturas implementadas (**YOLOv5-s**, **SSD512**, **DETR-R50** y **DINO-R50-4scale**).
+
+### Características Principales
+* **Aislamiento Dinámico de Entornos (`ModelEnv`):** Implementa un gestor de contexto avanzado que previene conflictos de dependencias y *namespaces* (como `models` o `util`) entre las librerías base de YOLO, PyTorch-SSD y las basadas en Detectron2/Transformers.
+* **Malla Comparativa 2x2:** Genera una cuadrícula unificada que despliega las predicciones de los 4 modelos sobre las mismas imágenes del conjunto de prueba (*Test*).
+* **Superposición Dinámica (*Overlays*):** Despliega títulos, etiquetas de la verdad de terreno (*Ground Truth*) y latencias de inferencia individuales en milisegundos ($ms$) mediante paneles semitransparentes que evitan solaparse con las cajas delimitadoras (*Bounding Boxes*).
+
+### Modo de Uso
+
+Para ejecutar la evaluación comparativa interactiva con los mejores pesos predefinidos:
+
+```bash
+python master.py --evaluate-best --conf-thres 0.7
+```
+
+#### Controles del Visor Interactivo:
+
+* **`[D]` / `[A]`:** Avanzar / Retroceder entre las imágenes del conjunto de prueba.
+* **`[H]`:** Alternar visibilidad de las predicciones de los modelos (`ON`/`OFF`).
+* **`[G]`:** Alternar visibilidad del *Ground Truth* (`ON`/`OFF`).
+* **`[S]`:** Guardar una captura de la cuadrícula 2x2 actual con su leyenda explicativa dentro de `samples/master_grid/`.
+* **`[ESC]`:** Salir del evaluador.
+
+---
+
+
+
 ## Objetivo General
 
 Implementar y evaluar algoritmos de detección de objetos, basados en inteligencia artificial, para la identificación automática de fallas en correas transportadoras.
@@ -132,3 +161,4 @@ El desempeño general de las arquitecturas *Transformers* se vio penalizado por 
 * Optimización exhaustiva de hiperparámetros para cada modelo específico.
 * Ejecución de entrenamientos en servidores o clústeres dedicados para mitigar las restricciones de tamaño de lote experimentadas en equipos portátiles.
 * Implementación de arquitecturas híbridas (como RT-DETR), orientadas a fusionar la eficiencia de extracción local de las CNN con el mecanismo de atención global de los *Transformers*.
+
