@@ -1,7 +1,16 @@
-\chapter{Anexos}
+\clearpage
 
-\section{Tablas de Hiperparámetros}
+\chapteranum{Anexos}
 
+% Configuración del contador para formatear las tablas como Tabla A.X
+\setcounter{table}{0}
+\renewcommand{\thetable}{A.\arabic{table}}
+
+\section*{Anexo A: Tablas de Hiperparámetros}
+\addcontentsline{toc}{section}{Anexo A: Tablas de Hiperparámetros}
+
+\subsection*{Anexo A.1: Tabla de hiperparámetros de YOLOv5}
+\addcontentsline{toc}{subsection}{Anexo A.1: Tabla de hiperparámetros de YOLOv5}
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de YOLOv5.}
@@ -57,6 +66,9 @@
     \label{tab:6.1-hiperparametros-yolov5}
 \end{table}
 
+\subsection*{Anexo A.2: Tabla de hiperparámetros de SSD}
+\addcontentsline{toc}{subsection}{Anexo A.2: Tabla de hiperparámetros de SSD}
+
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de SSD.}
@@ -110,6 +122,9 @@
     \label{tab:6.1-hiperparametros-ssd}
 \end{table}
 
+\subsection*{Anexo A.3: Tabla de hiperparámetros de DETR}
+\addcontentsline{toc}{subsection}{Anexo A.3: Tabla de hiperparámetros de DETR}
+
 \begin{table}[H]
     \centering
     \caption{Hiperparámetros principales seleccionados para el entrenamiento de DETR.}
@@ -152,6 +167,9 @@
     \end{tabular}
     \label{tab:6.1-hiperparametros-detr}
 \end{table}
+
+\subsection*{Anexo A.4: Tabla de hiperparámetros de DINO}
+\addcontentsline{toc}{subsection}{Anexo A.4: Tabla de hiperparámetros de DINO}
 
 \begin{table}[H]
     \centering
@@ -197,5 +215,3 @@
     \end{tabular}
     \label{tab:6.1-hiperparametros-dino}
 \end{table}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

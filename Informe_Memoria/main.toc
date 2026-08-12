@@ -119,5 +119,9 @@
 \contentsline {section}{\numberline {4.5}Discusión general de resultados}{91}{section.4.5}%
 \contentsline {chapter}{\numberline {5}Conclusiones}{94}{chapter.5}%
 \contentsline {chapter}{Bibliografía}{95}{chapter*.132}%
-\contentsline {chapter}{\numberline {6}Anexos}{97}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Tablas de Hiperparámetros}{97}{section.6.1}%
+\contentsline {chapter}{Anexos}{97}{chapter*.134}%
+\contentsline {section}{Anexo A: Tablas de Hiperparámetros}{97}{chapter*.134}%
+\contentsline {subsection}{Anexo A.1: Tabla de hiperparámetros de YOLOv5}{97}{chapter*.134}%
+\contentsline {subsection}{Anexo A.2: Tabla de hiperparámetros de SSD}{98}{table.caption.135}%
+\contentsline {subsection}{Anexo A.3: Tabla de hiperparámetros de DETR}{99}{table.caption.136}%
+\contentsline {subsection}{Anexo A.4: Tabla de hiperparámetros de DINO}{100}{table.caption.137}%

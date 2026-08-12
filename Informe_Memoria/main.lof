@@ -67,4 +67,3 @@
 \contentsline {figure}{\numberline {4.4.6}{\ignorespaces Inferencia comparativa entre las mejores variantes de cada modelo (\textit {YOLOv5-s}, SSD512, DETR-R50 y DINO-R50-4scale). Se incluye el tiempo de latencia de procesamiento por variante y se muestra la leyenda para distinguir las cajas delimitadoras de fondo (reales) y las predichas.}}{89}{figure.caption.130}%
 \contentsline {figure}{\numberline {4.4.7}{\ignorespaces Inferencia comparativa entre las mejores variantes de cada modelo (\textit {YOLOv5-s}, SSD512, DETR-R50 y DINO-R50-4scale). Se incluye el tiempo de latencia de procesamiento por variante y se muestra la leyenda para distinguir las cajas delimitadoras de fondo (reales) y las predichas.}}{90}{figure.caption.131}%
 \addvspace {10\p@ }
-\addvspace {10\p@ }
