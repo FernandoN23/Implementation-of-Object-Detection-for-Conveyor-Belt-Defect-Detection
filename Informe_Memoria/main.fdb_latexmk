@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1786552591.33742 "main.aux" "main.bbl" "main" 1786552605.17988 0
+["bibtex main"] 1786552994.10535 "main.aux" "main.bbl" "main" 1786553008.21781 0
   "./library.bib" 1782948337 9965 9af40dc0002dcd9547aa5fa8dd6739b6 ""
   "./natnumurl.bst" 1782948337 21201 c3a97a2434b58cd70f7f9c9df607b80a ""
-  "main.aux" 1786552604 101656 81b64195063c79e1ef0976e0aa66d420 "pdflatex"
+  "main.aux" 1786553006 101611 9bb88a77a0765e6f59aaed88627f994a "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1786552591.61697 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1786552605.18065 0
+["pdflatex"] 1786552994.39183 "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" "main.pdf" "main" 1786553008.2186 0
   "Abstracto.tex" 1786551061 2154 811a229ef8f6b10ecf59df85e394a82b ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1760210407 81086 6fddea6b023469843de28035c851ec71 ""
   "C:/Users/seika/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1758130852 688 37338d6ab346c2f1466b29e195316aa4 ""
@@ -377,7 +377,7 @@
   "capitulos/3-Metodología.tex" 1786552506 34612 73bec9e2ae027930bc9dcbeea9482c61 ""
   "capitulos/4-Resultados_Discusión.tex" 1783036233 70604 f19518e3ead3b788963580a0430277d8 ""
   "capitulos/5-Conclusiones.tex" 1783036090 2298 1cbefd1d29c4e2d5cbe10f51bdabdd73 ""
-  "capitulos/6-Anexos.tex" 1786552576 8906 c0e6afd1c959077e6fdb5781970b54c1 ""
+  "capitulos/6-Anexos.tex" 1786552979 8991 74e95abe97ce227285155280c405b49f ""
   "d:/Repos/Implementation-of-Object-Detection-for-Conveyor-Belt-Defect-Detection/Informe_Memoria/main.tex" 1786551582 4881 3ef02ddbbfc1a7fba4dcd62ed6f9ab08 ""
   "img//departamentos/uchile2.pdf" 1782948337 18772 1d92f499584e10e4c8e0b3bf44be0bbf ""
   "img/2-Antecedentes/2-Object_Detection_example.png" 1782948336 751229 8088d2f3fe22b26b3b93790ff7951a61 ""
@@ -448,12 +448,12 @@
   "img/4-Resultados_Discusion/samples/0451_sample.jpg" 1782948249 79449 229cedabd312a27d7cd0d10c84cedabb ""
   "img/4-Resultados_Discusion/samples/0517_sample.jpg" 1782948249 145958 650ade77f634d3c3909431464f0a8d7f ""
   "img/4-Resultados_Discusion/samples/0864_sample.jpg" 1782948249 99299 b7e338fa7e0dc7ccfbfd1a4b467bec85 ""
-  "main.aux" 1786552604 101656 81b64195063c79e1ef0976e0aa66d420 "pdflatex"
-  "main.bbl" 1786552591 8175 db973ebf96385bef38bc6005b0fccce3 "bibtex main"
-  "main.lof" 1786552604 13986 b3051b283e2e9fdfb570debc29410724 "pdflatex"
-  "main.lot" 1786552604 2470 6205648ea1f97ea76ede516d1fa0c573 "pdflatex"
+  "main.aux" 1786553006 101611 9bb88a77a0765e6f59aaed88627f994a "pdflatex"
+  "main.bbl" 1786552994 8175 db973ebf96385bef38bc6005b0fccce3 "bibtex main"
+  "main.lof" 1786553007 13986 b3051b283e2e9fdfb570debc29410724 "pdflatex"
+  "main.lot" 1786553007 2470 bcf268c6ca8c7402abc14b6a1ada3530 "pdflatex"
   "main.tex" 1786551582 4881 3ef02ddbbfc1a7fba4dcd62ed6f9ab08 ""
-  "main.toc" 1786552604 12938 e60b3bb02fc953fa53bd1c08dccf6c82 "pdflatex"
+  "main.toc" 1786553007 12923 fec71ad644486f25e282d51ba1dd0616 "pdflatex"
   "template.tex" 1782948337 290936 df2de9e1556f11a5d36036a27ac47b7a ""
   "template_config.tex" 1782948337 21966 e22124ed80d77f98d8f6e6a7c15e444f ""
   (generated)
