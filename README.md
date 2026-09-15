@@ -1,6 +1,6 @@
 # Implementación de Detección de Objetos para la Identificación de Fallas en Correas Transportadoras
 
-> **📄 Nota Importante:** El documento completo con el detalle exhaustivo de esta investigación, marco teórico, metodología y análisis profundo de resultados se encuentra disponible en el archivo **[`Informe_Final_Memoria_FN.pdf`](Informe_Final_Memoria_FN.pdf)**.
+> **📄 Nota Importante:** El documento completo con el detalle exhaustivo de esta investigación, marco teórico, metodología y análisis profundo de resultados se encuentra disponible en el archivo **[`Informe Final Memoria`](Informe_Memoria/Informe_Final_Memoria_de_T_tulo_FN.pdf)**.
 
 Este repositorio contiene el desarrollo y los resultados de la investigación enfocada en desarrollar un sistema de detección de fallas mediante técnicas de visión computacional y aprendizaje profundo. El proyecto aborda la problemática de la inspección visual tradicional, proponiendo soluciones automatizadas y escalables basadas en Redes Neuronales Convolucionales (CNN) y arquitecturas Transformer.
 
