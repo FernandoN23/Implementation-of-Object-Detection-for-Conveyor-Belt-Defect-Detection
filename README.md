@@ -1,4 +1,4 @@
-# Implementación de Detección de Objetos para la Identificación de Fallas en Correas Transportadoras
+# Implementación de Algoritmos de Detección de Objetos para la Identificación de Fallas en Correas Transportadoras
 
 > **📄 Nota Importante:** El documento completo con el detalle exhaustivo de esta investigación, marco teórico, metodología y análisis profundo de resultados se encuentra disponible en el archivo **[`Informe Final Memoria`](Informe_Memoria/Informe_Final_Memoria_de_T_tulo_FN.pdf)**.
 > 
